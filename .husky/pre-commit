@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linting (fast check only)
+pnpm lint --max-warnings=0
+
+# Run type checking
+pnpm type-check
+
+# Run unit tests (fast, no coverage)
+pnpm --filter './packages/*' test --run
