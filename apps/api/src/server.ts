@@ -1,0 +1,34 @@
+/**
+ * Express API Server
+ * 
+ * Main server setup with middleware and routes.
+ */
+
+import express, { type Express } from 'express';
+import pinoHttp from 'pino-http';
+
+import { logger } from './lib/logger';
+import { errorHandler } from './middleware/errorHandler';
+import { createHealthRouter } from './routes/health';
+
+const app: Express = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(express.json());
+app.use(pinoHttp({ logger }));
+
+// Routes
+app.use('/api', createHealthRouter());
+
+// Error handling (must be last)
+app.use(errorHandler);
+
+// Start server
+if (require.main === module) {
+  app.listen(PORT, () => {
+    logger.info({ port: PORT }, 'API server started');
+  });
+}
+
+export default app;

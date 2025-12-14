@@ -4,14 +4,14 @@ import { join } from 'path';
 
 describe('OpenAPI Contract Tests', () => {
   it('OpenAPI spec file exists', () => {
-    const specPath = join(__dirname, '../../../openapi/api.yaml');
+    const specPath = join(__dirname, '../../../../openapi/api.yaml');
     const spec = readFileSync(specPath, 'utf-8');
     expect(spec).toBeTruthy();
     expect(spec).toContain('openapi: 3.1.0');
   });
 
   it('OpenAPI spec has required schemas', () => {
-    const schemasPath = join(__dirname, '../../../openapi/components/schemas.yaml');
+    const schemasPath = join(__dirname, '../../../../openapi/components/schemas.yaml');
     const schemas = readFileSync(schemasPath, 'utf-8');
     
     // Check for required schemas
@@ -23,7 +23,7 @@ describe('OpenAPI Contract Tests', () => {
   });
 
   it('CheckoutCreateRequest requires viewerEmail', () => {
-    const schemasPath = join(__dirname, '../../../openapi/components/schemas.yaml');
+    const schemasPath = join(__dirname, '../../../../openapi/components/schemas.yaml');
     const schemas = readFileSync(schemasPath, 'utf-8');
     
     // Verify viewerEmail is required
