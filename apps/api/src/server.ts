@@ -11,6 +11,7 @@ import { logger } from './lib/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { createHealthRouter } from './routes/health';
 import { createOwnersRouter } from './routes/owners';
+import { createOwnersAnalyticsRouter } from './routes/owners.analytics';
 import { createOwnersGamesRouter } from './routes/owners.games';
 import { createOwnersMeRouter } from './routes/owners.me';
 import { createOwnersSquareRouter } from './routes/owners.square';
@@ -30,6 +31,7 @@ app.use(pinoHttp({ logger }));
 // Routes
 app.use('/api', createHealthRouter());
 app.use('/api/owners', createOwnersRouter());
+app.use('/api/owners', createOwnersAnalyticsRouter());
 app.use('/api/owners', createOwnersGamesRouter());
 app.use('/api/owners', createOwnersMeRouter());
 app.use('/api/owners', createOwnersSquareRouter());
