@@ -16,24 +16,26 @@ import type {
 export class PurchaseRepository implements IPurchaseReader, IPurchaseWriter {
   constructor(private prisma: PrismaClient) {}
 
-  async getById(id: string): Promise<Purchase | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async getById(id: string): Promise<(Purchase & { game: any; viewer: any }) | null> {
     return this.prisma.purchase.findUnique({
       where: { id },
       include: {
         game: true,
         viewer: true,
       },
-    });
+    }) as Promise<(Purchase & { game: any; viewer: any }) | null>;
   }
 
-  async getByPaymentProviderId(paymentProviderPaymentId: string): Promise<Purchase | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async getByPaymentProviderId(paymentProviderPaymentId: string): Promise<(Purchase & { game: any; viewer: any }) | null> {
     return this.prisma.purchase.findFirst({
       where: { paymentProviderPaymentId },
       include: {
         game: true,
         viewer: true,
       },
-    });
+    }) as Promise<(Purchase & { game: any; viewer: any }) | null>;
   }
 
   async listByGameId(gameId: string): Promise<Purchase[]> {

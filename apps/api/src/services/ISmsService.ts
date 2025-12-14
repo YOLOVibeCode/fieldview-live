@@ -22,6 +22,7 @@ export interface ISmsReader {
  */
 export interface ISmsWriter {
   sendPaymentLink(gameId: string, phoneE164: string, paymentLink: string): Promise<void>;
+  sendNotification(phoneE164: string, message: string): Promise<void>;
   handleStop(phoneE164: string): Promise<void>;
   handleHelp(phoneE164: string): Promise<void>;
   logSmsMessage(data: {

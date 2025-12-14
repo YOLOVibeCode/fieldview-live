@@ -53,6 +53,29 @@ export class SmsService implements ISmsReader, ISmsWriter {
     });
   }
 
+  async sendNotification(phoneE164: string, message: string): Promise<void> {
+    // Check if viewer has opted out
+    const viewer = await this.viewerIdentityReader.getByPhone(phoneE164);
+    if (viewer?.smsOptOut) {
+      return; // Silently skip if opted out
+    }
+
+    // Send SMS via Twilio
+    await twilioClient.messages.create({
+      body: message,
+      from: twilioPhoneNumber,
+      to: phoneE164,
+    });
+
+    // Log outbound SMS
+    await this.logSmsMessage({
+      direction: 'outbound',
+      phoneE164,
+      messageBody: message,
+      status: 'sent',
+    });
+  }
+
   async handleStop(phoneE164: string): Promise<void> {
     // Find or create viewer identity
     let viewer = await this.viewerIdentityReader.getByPhone(phoneE164);
