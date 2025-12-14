@@ -9,6 +9,7 @@ import { NotFoundError, UnauthorizedError } from '../lib/errors';
 import type { IGameReader } from '../repositories/IGameRepository';
 import type { IPurchaseReader } from '../repositories/IPurchaseRepository';
 import type { IStreamSourceReader } from '../repositories/IStreamSourceRepository';
+
 import type { IEntitlementReader } from './IEntitlementService';
 import type { IWatchBootstrapReader, WatchBootstrapResponse } from './IWatchBootstrapService';
 
