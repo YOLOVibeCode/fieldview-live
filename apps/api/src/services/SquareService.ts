@@ -12,7 +12,6 @@ import crypto from 'crypto';
 import { BadRequestError } from '../lib/errors';
 import { redisClient } from '../lib/redis';
 import type { IOwnerAccountWriter } from '../repositories/IOwnerAccountRepository';
-
 import type { ISquareReader, ISquareWriter, SquareConnectUrlData } from './ISquareService';
 
 const SQUARE_APP_ID = process.env.SQUARE_APPLICATION_ID || '';
@@ -26,17 +25,13 @@ const SQUARE_API_BASE = SQUARE_ENV === 'production'
 export class SquareService implements ISquareReader, ISquareWriter {
   constructor(private ownerAccountWriter: IOwnerAccountWriter) {}
 
-  async getAccountInfo(merchantId: string): Promise<{ merchantId: string; status: string } | null> {
-    try {
-      // TODO: Use Square API to get merchant account info
-      // For now, return basic structure
-      return {
-        merchantId,
-        status: 'active',
-      };
-    } catch {
-      return null;
-    }
+  getAccountInfo(merchantId: string): Promise<{ merchantId: string; status: string } | null> {
+    // TODO: Use Square API to get merchant account info
+    // For now, return basic structure
+    return Promise.resolve({
+      merchantId,
+      status: 'active',
+    });
   }
 
   async generateConnectUrl(ownerAccountId: string, _returnUrl: string): Promise<SquareConnectUrlData> {
