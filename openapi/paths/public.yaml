@@ -1,0 +1,67 @@
+paths:
+  /public/games/{gameId}:
+    get:
+      tags:
+        - Public
+      summary: Get game public view
+      description: Returns game information for payment page (no auth required)
+      operationId: getGamePublicView
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Game information
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/Game'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /public/games/{gameId}/checkout:
+    post:
+      tags:
+        - Public
+      summary: Create checkout
+      description: Creates checkout/payment intent. **viewerEmail is required** for viewer identity and monitoring.
+      operationId: createCheckout
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/GameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/CheckoutCreateRequest'
+      responses:
+        '200':
+          description: Checkout created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/CheckoutCreateResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /public/watch/{token}:
+    get:
+      tags:
+        - Public
+      summary: Get watch bootstrap
+      description: Validates entitlement token and returns watch page bootstrap (stream URL, player config)
+      operationId: getWatchBootstrap
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/EntitlementToken'
+      responses:
+        '200':
+          description: Watch bootstrap
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchBootstrapResponse'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'

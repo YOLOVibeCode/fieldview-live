@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: FieldView.Live API
+  version: 0.1.0
+  description: |
+    FieldView.Live - Monetization platform for youth sports live streaming.
+    
+    ## Authentication
+    - **Owner endpoints**: JWT Bearer token
+    - **Admin endpoints**: Session cookie + MFA (TOTP)
+    - **Public endpoints**: No authentication required
+    
+    ## Viewer Identity
+    - Email is **required** for all viewer operations (checkout, monitoring)
+    - Phone number is optional (E.164 format)
+    
+    ## Stream Protection
+    - All watch endpoints require valid entitlement token
+    - Tokens are signed, expiring, and validated on every request
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+  - url: https://api.fieldview.live/api
+    description: Production
+
+tags:
+  - name: Public
+    description: Public endpoints (no auth required)
+  - name: Owners
+    description: Owner account endpoints (JWT auth)
+  - name: Admin
+    description: Admin console endpoints (Session + MFA)
+  - name: Webhooks
+    description: External service webhooks
+
+paths:
+  /public/games/{gameId}:
+    $ref: './paths/public.yaml#/paths/~1public~1games~1{gameId}'
+  /public/games/{gameId}/checkout:
+    $ref: './paths/public.yaml#/paths/~1public~1games~1{gameId}~1checkout'
+  /public/watch/{token}:
+    $ref: './paths/public.yaml#/paths/~1public~1watch~1{token}'
+  /owners/me:
+    $ref: './paths/owners.yaml#/paths/~1owners~1me'
+  /owners/me/games:
+    $ref: './paths/owners.yaml#/paths/~1owners~1me~1games'
+  /owners/me/games/{gameId}/audience:
+    $ref: './paths/owners.yaml#/paths/~1owners~1me~1games~1{gameId}~1audience'
+  /admin/search:
+    $ref: './paths/admin.yaml#/paths/~1admin~1search'
+  /webhooks/twilio:
+    $ref: './paths/webhooks.yaml#/paths/~1webhooks~1twilio'
+  /webhooks/square:
+    $ref: './paths/webhooks.yaml#/paths/~1webhooks~1square'
+
+components:
+  schemas:
+    $ref: './components/schemas.yaml#/components/schemas'
+  parameters:
+    $ref: './components/parameters.yaml#/components/parameters'
+  responses:
+    $ref: './components/responses.yaml#/components/responses'
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: session

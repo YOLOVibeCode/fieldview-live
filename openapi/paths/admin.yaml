@@ -1,0 +1,57 @@
+paths:
+  /admin/search:
+    get:
+      tags:
+        - Admin
+      summary: Global search
+      description: Search by email, phone, or keyword. **SuperAdmin sees full emails**, SupportAdmin sees masked emails.
+      operationId: adminSearch
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query (email, phone E.164, or keyword)
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  viewers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        email:
+                          type: string
+                          format: email
+                          description: Full email for SuperAdmin, masked for SupportAdmin
+                        phoneE164:
+                          type: string
+                        purchaseCount:
+                          type: integer
+                  games:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        title:
+                          type: string
+                        keywordCode:
+                          type: string
+                        ownerAccountName:
+                          type: string
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'

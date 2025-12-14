@@ -1,3 +1,8 @@
-// Utility functions will be exported here
-export {};
+/**
+ * Utility Functions
+ * 
+ * Pure utility functions for data model operations.
+ */
 
+export * from './masking';
+export * from './feeCalculator';

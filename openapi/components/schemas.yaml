@@ -1,0 +1,293 @@
+components:
+  schemas:
+    # Viewer Identity (Email Required)
+    ViewerIdentity:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          description: Required for viewer identity and monitoring
+        phoneE164:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          description: Optional, E.164 format
+        smsOptOut:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+
+    # Stream Source (New - supports any media stream)
+    StreamSource:
+      type: object
+      required:
+        - type
+        - gameId
+        - protectionLevel
+      properties:
+        id:
+          type: string
+          format: uuid
+        gameId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - mux_managed
+            - byo_hls
+            - byo_rtmp
+            - external_embed
+        protectionLevel:
+          type: string
+          enum:
+            - strong
+            - moderate
+            - best_effort
+          description: Protection guarantee level
+        muxAssetId:
+          type: string
+          description: For mux_managed type
+        muxPlaybackId:
+          type: string
+          description: For mux_managed type
+        hlsManifestUrl:
+          type: string
+          format: uri
+          description: For byo_hls type
+        rtmpPublishUrl:
+          type: string
+          format: uri
+          description: For byo_rtmp type
+        externalEmbedUrl:
+          type: string
+          format: uri
+          description: For external_embed type (YouTube/Twitch/Vimeo)
+        externalProvider:
+          type: string
+          enum:
+            - youtube
+            - twitch
+            - vimeo
+            - other
+          description: For external_embed type
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Game
+    Game:
+      type: object
+      required:
+        - id
+        - ownerAccountId
+        - title
+        - homeTeam
+        - awayTeam
+        - startsAt
+        - priceCents
+        - currency
+        - state
+        - keywordCode
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerAccountId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum:
+            - draft
+            - active
+            - live
+            - ended
+            - cancelled
+        priceCents:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          default: USD
+        keywordCode:
+          type: string
+        qrUrl:
+          type: string
+          format: uri
+        streamSourceId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Purchase
+    Purchase:
+      type: object
+      required:
+        - id
+        - gameId
+        - viewerId
+        - amountCents
+        - currency
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        gameId:
+          type: string
+          format: uuid
+        viewerId:
+          type: string
+          format: uuid
+        amountCents:
+          type: integer
+        currency:
+          type: string
+        platformFeeCents:
+          type: integer
+        processorFeeCents:
+          type: integer
+        ownerNetCents:
+          type: integer
+        status:
+          type: string
+          enum:
+            - created
+            - paid
+            - failed
+            - refunded
+            - partially_refunded
+        paymentProviderPaymentId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+
+    # Checkout Request (Email Required)
+    CheckoutCreateRequest:
+      type: object
+      required:
+        - viewerEmail
+      properties:
+        viewerEmail:
+          type: string
+          format: email
+          description: Required for viewer identity and monitoring
+        viewerPhone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          description: Optional, E.164 format
+        returnUrl:
+          type: string
+          format: uri
+
+    # Checkout Response
+    CheckoutCreateResponse:
+      type: object
+      required:
+        - purchaseId
+        - checkoutUrl
+      properties:
+        purchaseId:
+          type: string
+          format: uuid
+        checkoutUrl:
+          type: string
+          format: uri
+          description: Square checkout URL
+
+    # Watch Bootstrap Response
+    WatchBootstrapResponse:
+      type: object
+      required:
+        - streamUrl
+        - playerType
+        - state
+        - validTo
+        - gameInfo
+      properties:
+        streamUrl:
+          type: string
+          format: uri
+        playerType:
+          type: string
+          enum:
+            - hls
+            - embed
+        state:
+          type: string
+          enum:
+            - not_started
+            - live
+            - ended
+            - unavailable
+        validTo:
+          type: string
+          format: date-time
+        gameInfo:
+          type: object
+          properties:
+            title:
+              type: string
+            startsAt:
+              type: string
+              format: date-time
+        protectionLevel:
+          type: string
+          enum:
+            - strong
+            - moderate
+            - best_effort
+
+    # Error Response
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object

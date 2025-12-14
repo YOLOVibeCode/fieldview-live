@@ -1,0 +1,15 @@
+schemas:
+  $ref: './schemas.yaml'
+parameters:
+  $ref: './parameters.yaml'
+responses:
+  $ref: './responses.yaml'
+securitySchemes:
+  BearerAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT
+  SessionAuth:
+    type: apiKey
+    in: cookie
+    name: session

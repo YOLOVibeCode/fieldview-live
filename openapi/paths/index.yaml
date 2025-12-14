@@ -1,0 +1,30 @@
+# Public endpoints
+/public/games/{gameId}:
+  $ref: './public.yaml#/paths/~1public~1games~1{gameId}'
+
+/public/games/{gameId}/checkout:
+  $ref: './public.yaml#/paths/~1public~1games~1{gameId}~1checkout'
+
+/public/watch/{token}:
+  $ref: './public.yaml#/paths/~1public~1watch~1{token}'
+
+# Owner endpoints
+/owners/me:
+  $ref: './owners.yaml#/paths/~1owners~1me'
+
+/owners/me/games:
+  $ref: './owners.yaml#/paths/~1owners~1me~1games'
+
+/owners/me/games/{gameId}/audience:
+  $ref: './owners.yaml#/paths/~1owners~1me~1games~1{gameId}~1audience'
+
+# Admin endpoints
+/admin/search:
+  $ref: './admin.yaml#/paths~1admin~1search'
+
+# Webhook endpoints
+/webhooks/twilio:
+  $ref: './webhooks.yaml#/paths~1webhooks~1twilio'
+
+/webhooks/square:
+  $ref: './webhooks.yaml#/paths~1webhooks~1square'

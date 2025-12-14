@@ -1,0 +1,114 @@
+paths:
+  /owners/me:
+    get:
+      tags:
+        - Owners
+      summary: Get current owner account
+      description: Returns authenticated owner account information
+      operationId: getOwnerAccount
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Owner account
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /owners/me/games:
+    get:
+      tags:
+        - Owners
+      summary: List owner games
+      description: Returns list of games for authenticated owner
+      operationId: listOwnerGames
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/Page'
+        - $ref: '../../components/parameters.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '../../components/schemas.yaml#/components/schemas/Game'
+                  pagination:
+                    type: object
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /owners/me/games/{gameId}/audience:
+    get:
+      tags:
+        - Owners
+      summary: Get game audience
+      description: Returns purchasers and watchers for a game. **Emails are masked** for privacy (e.g., j***@example.com)
+      operationId: getGameAudience
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Game audience
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  gameId:
+                    type: string
+                    format: uuid
+                  purchasers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        purchaseId:
+                          type: string
+                          format: uuid
+                        emailMasked:
+                          type: string
+                          description: Masked email (e.g., j***@example.com)
+                        purchasedAt:
+                          type: string
+                          format: date-time
+                        amountCents:
+                          type: integer
+                        watched:
+                          type: boolean
+                  watchers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        purchaseId:
+                          type: string
+                          format: uuid
+                        emailMasked:
+                          type: string
+                        sessionCount:
+                          type: integer
+                        lastWatchedAt:
+                          type: string
+                          format: date-time
+                  purchaseToWatchConversionRate:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../../components/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'

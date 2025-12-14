@@ -1,0 +1,73 @@
+paths:
+  /webhooks/twilio:
+    post:
+      tags:
+        - Webhooks
+      summary: Twilio SMS webhook
+      description: Receives inbound SMS from Twilio. Handles keyword routing, STOP/HELP compliance.
+      operationId: handleTwilioWebhook
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                From:
+                  type: string
+                  description: Phone number (E.164)
+                Body:
+                  type: string
+                  description: Message body (keyword)
+      responses:
+        '200':
+          description: TwiML response
+          content:
+            application/xml:
+              schema:
+                type: string
+        '401':
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/ErrorResponse'
+
+  /webhooks/square:
+    post:
+      tags:
+        - Webhooks
+      summary: Square payment webhook
+      description: Receives payment events from Square. Handles payment.created, payment.updated, refund.created.
+      operationId: handleSquareWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - payment.created
+                    - payment.updated
+                    - refund.created
+                data:
+                  type: object
+      responses:
+        '200':
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+        '401':
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/ErrorResponse'
