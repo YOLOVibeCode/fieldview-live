@@ -1,14 +1,12 @@
 /**
  * Rate Limiting Middleware
  * 
- * Rate limiting using express-rate-limit with Redis store.
+ * Rate limiting using express-rate-limit.
+ * TODO: Switch to Redis store when Redis is available in production.
  */
 
 import type { Request } from 'express';
 import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-
-import { redisClient } from '../lib/redis';
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -19,9 +17,7 @@ export interface RateLimitOptions {
 
 export function createRateLimiter(options: RateLimitOptions) {
   return rateLimit({
-    store: new RedisStore({
-      sendCommand: (...args: string[]) => redisClient.call(...args),
-    }),
+    // Using memory store for now; switch to RedisStore when Redis is available
     windowMs: options.windowMs,
     max: options.max,
     message: options.message || 'Too many requests, please try again later.',
