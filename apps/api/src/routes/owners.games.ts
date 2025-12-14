@@ -12,10 +12,10 @@ import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { GameRepository } from '../repositories/implementations/GameRepository';
+import type { CreateGameRequest, UpdateGameRequest } from '../services/IGameService';
 import { GameService } from '../services/GameService';
 import { KeywordService } from '../services/KeywordService';
 import { QRCodeService } from '../services/QRCodeService';
-import type { CreateGameRequest, UpdateGameRequest } from '../services/IGameService';
 
 const router = express.Router();
 
