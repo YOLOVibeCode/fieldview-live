@@ -1,74 +1,72 @@
 /**
  * Rate Limiting Middleware
  * 
- * Rate limiting using express-rate-limit.
- * TODO: Switch to Redis store when Redis is available in production.
+ * Configures rate limits for different API endpoints.
  */
 
 import type { Request } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
 
-export interface RateLimitOptions {
-  windowMs: number;
-  max: number;
-  message?: string;
-  keyGenerator?: (req: Request) => string;
-}
-
-export function createRateLimiter(options: RateLimitOptions) {
+/**
+ * Create a rate limiter with specified options.
+ */
+function createRateLimiter(options: Partial<Options>): ReturnType<typeof rateLimit> {
   return rateLimit({
-    // Using memory store for now; switch to RedisStore when Redis is available
-    windowMs: options.windowMs,
-    max: options.max,
-    message: options.message || 'Too many requests, please try again later.',
-    keyGenerator: options.keyGenerator || ((req: Request) => req.ip || 'unknown'),
-    standardHeaders: true,
-    legacyHeaders: false,
+    ...options,
+    // TODO: Switch to RedisStore when Redis is properly configured
+    // For now, using in-memory store for local development
   });
 }
 
 /**
- * SMS Rate Limit: 10 requests per phone number per minute
+ * SMS Rate Limit: 10 requests per phone per minute
+ * Uses phone number from request body (From field) for key generation
  */
 export const smsRateLimit = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   max: 10,
-  keyGenerator: (req) => {
+  message: 'Too many SMS requests, please try again later.',
+  keyGenerator: (req: Request) => {
     // Use phone number from request body for SMS endpoints
-    const phone = (req.body as { From?: string })?.From || req.ip || 'unknown';
+    const phone = (req.body as { From?: string })?.From || 'unknown';
     return `sms:${phone}`;
   },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /**
- * Checkout Rate Limit: 5 attempts per IP per 15 minutes
+ * Checkout Rate Limit: 5 requests per IP per minute
  */
 export const checkoutRateLimit = createRateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 60 * 1000, // 1 minute
   max: 5,
-  message: 'Too many checkout attempts, please try again later.',
+  message: 'Too many checkout requests, please try again later.',
+  keyGenerator: ipKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /**
- * Watch Page Rate Limit: 100 requests per token per hour
+ * Watch Rate Limit: 20 requests per IP per minute
  */
 export const watchRateLimit = createRateLimiter({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 100,
-  keyGenerator: (req) => {
-    const token = req.params.token || 'unknown';
-    return `watch:${token}`;
-  },
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,
+  message: 'Too many watch requests, please try again later.',
+  keyGenerator: ipKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /**
- * Admin Rate Limit: 50 actions per admin per minute
+ * Admin Rate Limit: 100 requests per IP per minute
  */
 export const adminRateLimit = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 50,
-  keyGenerator: (req) => {
-    // TODO: Use admin user ID when auth is implemented
-    return `admin:${req.ip || 'unknown'}`;
-  },
+  max: 100,
+  message: 'Too many admin requests, please try again later.',
+  keyGenerator: ipKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
 });

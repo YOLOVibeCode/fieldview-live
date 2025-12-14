@@ -14,6 +14,7 @@ import { createOwnersRouter } from './routes/owners';
 import { createOwnersGamesRouter } from './routes/owners.games';
 import { createOwnersMeRouter } from './routes/owners.me';
 import { createOwnersSquareRouter } from './routes/owners.square';
+import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -25,9 +26,10 @@ app.use(pinoHttp({ logger }));
 // Routes
 app.use('/api', createHealthRouter());
 app.use('/api/owners', createOwnersRouter());
+app.use('/api/owners', createOwnersGamesRouter());
 app.use('/api/owners', createOwnersMeRouter());
 app.use('/api/owners', createOwnersSquareRouter());
-app.use('/api/owners', createOwnersGamesRouter());
+app.use('/api/webhooks', createTwilioWebhookRouter());
 
 // Error handling (must be last)
 app.use(errorHandler);

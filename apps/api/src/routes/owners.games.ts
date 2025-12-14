@@ -13,10 +13,10 @@ import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { GameService } from '../services/GameService';
+import type { CreateGameRequest, UpdateGameRequest } from '../services/IGameService';
 import { KeywordService } from '../services/KeywordService';
 import { QRCodeService } from '../services/QRCodeService';
 
-import type { CreateGameRequest, UpdateGameRequest } from '../services/IGameService';
 
 const router = express.Router();
 
