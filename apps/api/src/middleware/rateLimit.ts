@@ -42,7 +42,7 @@ export const checkoutRateLimit = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   max: 5,
   message: 'Too many checkout requests, please try again later.',
-  keyGenerator: ipKeyGenerator,
+  keyGenerator: (req: Request) => ipKeyGenerator(req.ip || 'unknown'),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -54,7 +54,7 @@ export const watchRateLimit = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   max: 20,
   message: 'Too many watch requests, please try again later.',
-  keyGenerator: ipKeyGenerator,
+  keyGenerator: (req: Request) => ipKeyGenerator(req.ip || 'unknown'),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -66,7 +66,7 @@ export const adminRateLimit = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   max: 100,
   message: 'Too many admin requests, please try again later.',
-  keyGenerator: ipKeyGenerator,
+  keyGenerator: (req: Request) => ipKeyGenerator(req.ip || 'unknown'),
   standardHeaders: true,
   legacyHeaders: false,
 });
