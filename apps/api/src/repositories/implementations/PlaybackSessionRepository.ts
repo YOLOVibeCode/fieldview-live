@@ -54,8 +54,13 @@ export class PlaybackSessionRepository implements IPlaybackSessionReader, IPlayb
     return this.prisma.playbackSession.update({
       where: { id },
       data: {
-        ...data,
         endedAt: data.endedAt === null ? null : data.endedAt,
+        state: data.state,
+        totalWatchMs: data.totalWatchMs,
+        totalBufferMs: data.totalBufferMs,
+        bufferEvents: data.bufferEvents,
+        fatalErrors: data.fatalErrors,
+        startupLatencyMs: data.startupLatencyMs === null ? null : data.startupLatencyMs,
       },
     });
   }

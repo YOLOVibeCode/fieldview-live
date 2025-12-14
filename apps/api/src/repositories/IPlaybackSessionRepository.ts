@@ -13,6 +13,12 @@ export interface CreatePlaybackSessionData {
 
 export interface UpdatePlaybackSessionData {
   endedAt?: Date | null;
+  state?: string;
+  totalWatchMs?: number;
+  totalBufferMs?: number;
+  bufferEvents?: number;
+  fatalErrors?: number;
+  startupLatencyMs?: number | null;
 }
 
 /**
