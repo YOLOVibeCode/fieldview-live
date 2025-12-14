@@ -10,6 +10,8 @@ import pinoHttp from 'pino-http';
 import { logger } from './lib/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { createHealthRouter } from './routes/health';
+import { createOwnersRouter } from './routes/owners';
+import { createOwnersMeRouter } from './routes/owners.me';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +22,8 @@ app.use(pinoHttp({ logger }));
 
 // Routes
 app.use('/api', createHealthRouter());
+app.use('/api/owners', createOwnersRouter());
+app.use('/api/owners', createOwnersMeRouter());
 
 // Error handling (must be last)
 app.use(errorHandler);

@@ -1,5 +1,5 @@
 /**
- * Authentication Middleware Scaffolding
+ * Authentication Middleware
  * 
  * JWT authentication for owner endpoints.
  * Session authentication for admin endpoints (to be implemented).
@@ -8,6 +8,7 @@
 import type { Request, Response, NextFunction } from 'express';
 
 import { UnauthorizedError } from '../lib/errors';
+import { verifyToken } from '../lib/jwt';
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -20,23 +21,28 @@ export interface AuthRequest extends Request {
  * Owner JWT Authentication Middleware
  * 
  * Validates JWT token and extracts owner account ID.
- * TODO: Implement JWT verification
  */
 export function requireOwnerAuth(
   req: AuthRequest,
   _res: Response,
   next: NextFunction
 ): void {
-  // TODO: Extract and verify JWT token
-  // For now, scaffold returns 401
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return next(new UnauthorizedError('Bearer token required'));
   }
 
-  // TODO: Verify JWT and extract ownerAccountId
-  // req.ownerAccountId = decoded.ownerAccountId;
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+  // Verify token using JWT library directly (simpler for middleware)
+  const payload = verifyToken(token);
+  if (!payload) {
+    return next(new UnauthorizedError('Invalid or expired token'));
+  }
+
+  // Attach owner account ID to request
+  req.ownerAccountId = payload.ownerAccountId;
 
   next();
 }

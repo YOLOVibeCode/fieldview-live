@@ -29,6 +29,7 @@ model OwnerUser {
   id            String       @id @default(uuid())
   ownerAccountId String      @db.Uuid
   email         String
+  passwordHash  String       // bcrypt hashed password
   role          String       // 'owner_admin' | 'association_admin' | 'association_operator'
   mfaEnabled    Boolean      @default(false)
   mfaSecret     String?      // Encrypted TOTP secret
@@ -40,6 +41,7 @@ model OwnerUser {
   
   @@index([ownerAccountId])
   @@index([email])
+  @@unique([email])
 }
 
 model Game {
