@@ -9,12 +9,12 @@ import express, { type Router } from 'express';
 import { z } from 'zod';
 
 import { prisma } from '../lib/prisma';
-import { validateRequest } from '../middleware/validation';
 import { checkoutRateLimit } from '../middleware/rateLimit';
-import { GameRepository } from '../repositories/implementations/GameRepository';
-import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
-import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { validateRequest } from '../middleware/validation';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
+import { GameRepository } from '../repositories/implementations/GameRepository';
+import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { PaymentService } from '../services/PaymentService';
 
 const router = express.Router();

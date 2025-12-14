@@ -14,9 +14,9 @@ import { createOwnersRouter } from './routes/owners';
 import { createOwnersGamesRouter } from './routes/owners.games';
 import { createOwnersMeRouter } from './routes/owners.me';
 import { createOwnersSquareRouter } from './routes/owners.square';
-import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
-import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createPublicRouter } from './routes/public.checkout';
+import { createSquareWebhookRouter } from './routes/webhooks.square';
+import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;

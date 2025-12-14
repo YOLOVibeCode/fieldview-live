@@ -14,6 +14,7 @@ import { ViewerIdentityRepository } from '../repositories/implementations/Viewer
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PaymentService } from '../services/PaymentService';
+import type { SquareWebhookEvent } from '../services/IPaymentService';
 
 const router = express.Router();
 
@@ -65,13 +66,13 @@ router.post(
           return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid signature' } });
         }
 
-        const event = req.body as { type?: string; data?: any };
+        const event = req.body as { type?: string; data?: unknown };
         if (!event.type) {
           return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing event type' } });
         }
 
         const paymentService = getPaymentService();
-        await paymentService.processSquareWebhook(event as any);
+        await paymentService.processSquareWebhook(event as SquareWebhookEvent);
 
         res.json({ received: true });
       } catch (error) {

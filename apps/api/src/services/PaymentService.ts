@@ -9,14 +9,16 @@
 
 import crypto from 'crypto';
 
+import type { Purchase } from '@prisma/client';
+
 import { NotFoundError } from '../lib/errors';
-import type { IGameReader } from '../repositories/IGameRepository';
 import type { IEntitlementReader, IEntitlementWriter } from '../repositories/IEntitlementRepository';
+import type { IGameReader } from '../repositories/IGameRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
 import type { IViewerIdentityReader, IViewerIdentityWriter } from '../repositories/IViewerIdentityRepository';
-import type { IPaymentReader, IPaymentWriter, CheckoutResponse, SquareWebhookEvent } from './IPaymentService';
-import type { Purchase } from '@prisma/client';
 import { calculateMarketplaceSplit } from '../utils/feeCalculator';
+
+import type { IPaymentReader, IPaymentWriter, CheckoutResponse, SquareWebhookEvent } from './IPaymentService';
 
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');

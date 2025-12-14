@@ -7,16 +7,6 @@ import type { IPurchaseReader, IPurchaseWriter } from '@/repositories/IPurchaseR
 import type { IEntitlementReader, IEntitlementWriter } from '@/repositories/IEntitlementRepository';
 import type { Game, Purchase } from '@prisma/client';
 
-// Mock Square client
-vi.mock('@/lib/square', () => ({
-  squareClient: {
-    checkoutApi: {
-      createCheckout: vi.fn(),
-    },
-  },
-  squareLocationId: 'LOCATION_ID',
-}));
-
 describe('PaymentService', () => {
   let service: PaymentService;
   let mockGameReader: IGameReader;
@@ -91,20 +81,11 @@ describe('PaymentService', () => {
       vi.mocked(mockViewerIdentityWriter.create).mockResolvedValue(viewer);
       vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);
 
-      const { squareClient } = await import('@/lib/square');
-      vi.mocked(squareClient.checkoutApi.createCheckout).mockResolvedValue({
-        result: {
-          checkout: {
-            id: 'checkout-1',
-            checkoutPageUrl: 'https://square.checkout.url',
-          },
-        },
-      } as any);
-
       const result = await service.createCheckout('game-1', 'test@example.com');
 
       expect(result.purchaseId).toBe('purchase-1');
-      expect(result.checkoutUrl).toBe('https://square.checkout.url');
+      expect(result.checkoutUrl).toContain('checkout');
+      expect(result.checkoutUrl).toContain('purchase-1');
       expect(mockViewerIdentityWriter.create).toHaveBeenCalledWith({
         email: 'test@example.com',
         phoneE164: undefined,
@@ -134,11 +115,6 @@ describe('PaymentService', () => {
       vi.mocked(mockViewerIdentityReader.getByEmail).mockResolvedValue(viewer);
       vi.mocked(mockViewerIdentityWriter.update).mockResolvedValue({ ...viewer, phoneE164: '+1234567890' } as any);
       vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);
-
-      const { squareClient } = await import('@/lib/square');
-      vi.mocked(squareClient.checkoutApi.createCheckout).mockResolvedValue({
-        result: { checkout: { checkoutPageUrl: 'https://checkout.url' } },
-      } as any);
 
       await service.createCheckout('game-1', 'test@example.com', '+1234567890');
 

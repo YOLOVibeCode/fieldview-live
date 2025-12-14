@@ -12,12 +12,13 @@ const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT === 'production' ? Squ
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID || '';
 
 // Square SDK v43+ uses bearerAuthCredentials
+// Type assertion needed due to SDK type definitions
 export const squareClient = new SquareClient({
   bearerAuthCredentials: {
     accessToken: SQUARE_ACCESS_TOKEN,
   },
   environment: SQUARE_ENVIRONMENT,
-} as any); // Type assertion for now - SDK types may need update
+} as never);
 
 export const squareLocationId = SQUARE_LOCATION_ID;
 
