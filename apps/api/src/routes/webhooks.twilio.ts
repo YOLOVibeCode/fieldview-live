@@ -10,10 +10,10 @@ import express, { type Router } from 'express';
 import { BadRequestError, UnauthorizedError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { validateTwilioRequest } from '../lib/twilio';
+import { smsRateLimit } from '../middleware/rateLimit';
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { SmsService } from '../services/SmsService';
-import { smsRateLimit } from '../middleware/rateLimit';
 
 const router = express.Router();
 
