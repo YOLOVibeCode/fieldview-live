@@ -13,17 +13,8 @@ vi.mock('@/lib/redis', () => ({
   },
 }));
 
-vi.mock('square', () => ({
-  Client: vi.fn().mockImplementation(() => ({
-    oAuthApi: {
-      obtainToken: vi.fn(),
-    },
-  })),
-  Environment: {
-    Production: 'production',
-    Sandbox: 'sandbox',
-  },
-}));
+// Mock fetch
+global.fetch = vi.fn();
 
 describe('SquareService', () => {
   let service: SquareService;
@@ -35,6 +26,7 @@ describe('SquareService', () => {
       update: vi.fn(),
     };
     service = new SquareService(mockWriter);
+    vi.clearAllMocks();
   });
 
   describe('generateConnectUrl', () => {
@@ -43,7 +35,7 @@ describe('SquareService', () => {
 
       const result = await service.generateConnectUrl('account-1', 'http://localhost:3000/dashboard');
 
-      expect(result.connectUrl).toContain('connect.squareup.com');
+      expect(result.connectUrl).toContain('connect.squareup');
       expect(result.connectUrl).toContain('client_id');
       expect(result.state).toBeDefined();
       expect(redisClient.setex).toHaveBeenCalledWith(
@@ -56,23 +48,16 @@ describe('SquareService', () => {
 
   describe('handleConnectCallback', () => {
     it('exchanges code for token and stores merchant ID', async () => {
-      const mockOAuthApi = {
-        obtainToken: vi.fn().mockResolvedValue({
-          result: {
-            accessToken: 'access-token-123',
-            merchantId: 'LSWR97SDRBXWK',
-          },
-        }),
-      };
-
-      // Mock the client instance
-      (service as any).squareClient = {
-        oAuthApi: mockOAuthApi,
-      };
-
       vi.mocked(redisClient.get).mockResolvedValue('account-1');
       vi.mocked(redisClient.del).mockResolvedValue(1);
       vi.mocked(mockWriter.update).mockResolvedValue({} as any);
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          access_token: 'access-token-123',
+          merchant_id: 'LSWR97SDRBXWK',
+        }),
+      } as Response);
 
       const result = await service.handleConnectCallback('auth-code', 'csrf-state');
 
@@ -88,6 +73,18 @@ describe('SquareService', () => {
 
       await expect(
         service.handleConnectCallback('auth-code', 'invalid-state')
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('throws BadRequestError if token exchange fails', async () => {
+      vi.mocked(redisClient.get).mockResolvedValue('account-1');
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 400,
+      } as Response);
+
+      await expect(
+        service.handleConnectCallback('auth-code', 'csrf-state')
       ).rejects.toThrow(BadRequestError);
     });
   });

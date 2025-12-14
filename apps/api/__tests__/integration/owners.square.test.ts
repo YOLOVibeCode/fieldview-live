@@ -26,12 +26,12 @@ vi.mock('@/lib/redis', () => ({
 
 // Mock Square SDK
 vi.mock('square', () => ({
-  Client: vi.fn().mockImplementation(() => ({
+  SquareClient: vi.fn().mockImplementation(() => ({
     oAuthApi: {
       obtainToken: vi.fn(),
     },
   })),
-  Environment: {
+  SquareEnvironment: {
     Production: 'production',
     Sandbox: 'sandbox',
   },

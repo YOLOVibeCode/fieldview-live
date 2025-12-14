@@ -9,8 +9,8 @@ import express, { type Router } from 'express';
 import { z } from 'zod';
 
 import { prisma } from '../lib/prisma';
-import { validateRequest } from '../middleware/validation';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
+import { validateRequest } from '../middleware/validation';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { SquareService } from '../services/SquareService';
 
@@ -72,22 +72,24 @@ router.post(
  */
 router.get(
   '/square/callback',
-  async (req, res, next) => {
-    try {
-      const { code, state } = req.query;
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const { code, state } = req.query;
 
-      if (!code || !state || typeof code !== 'string' || typeof state !== 'string') {
-        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing code or state' } });
+        if (!code || !state || typeof code !== 'string' || typeof state !== 'string') {
+          return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing code or state' } });
+        }
+
+        const squareService = getSquareService();
+        const result = await squareService.handleConnectCallback(code, state);
+
+        // Redirect to success page
+        res.redirect(`http://localhost:3000/dashboard?square_connected=true&merchant_id=${result.merchantId}`);
+      } catch (error) {
+        next(error);
       }
-
-      const squareService = getSquareService();
-      const result = await squareService.handleConnectCallback(code, state);
-
-      // Redirect to success page
-      res.redirect(`http://localhost:3000/dashboard?square_connected=true&merchant_id=${result.merchantId}`);
-    } catch (error) {
-      next(error);
-    }
+    })();
   }
 );
 

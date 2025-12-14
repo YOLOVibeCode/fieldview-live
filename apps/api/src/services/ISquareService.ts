@@ -4,8 +4,6 @@
  * Segregated interfaces for Square Connect onboarding and payments.
  */
 
-import type { OwnerAccount } from '@prisma/client';
-
 export interface SquareConnectUrlData {
   connectUrl: string;
   state: string; // CSRF token for callback verification
