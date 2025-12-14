@@ -8,13 +8,13 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
+import { UnauthorizedError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
-import { validateRequest } from '../middleware/validation';
 import { watchRateLimit } from '../middleware/rateLimit';
+import { validateRequest } from '../middleware/validation';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PlaybackSessionRepository } from '../repositories/implementations/PlaybackSessionRepository';
 import { EntitlementService } from '../services/EntitlementService';
-import { UnauthorizedError } from '../lib/errors';
 
 const router = express.Router();
 
