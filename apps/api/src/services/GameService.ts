@@ -5,12 +5,14 @@
  * Handles game CRUD operations with keyword and QR code generation.
  */
 
+import type { Game } from '@prisma/client';
+
 import { ForbiddenError, NotFoundError } from '../lib/errors';
 import type { IGameReader as IGameRepoReader, IGameWriter as IGameRepoWriter } from '../repositories/IGameRepository';
+
+import type { IGameReader, IGameWriter, CreateGameRequest, UpdateGameRequest } from './IGameService';
 import type { IKeywordGenerator } from './IKeywordService';
 import type { IQRCodeGenerator } from './IQRCodeService';
-import type { IGameReader, IGameWriter, CreateGameRequest, UpdateGameRequest } from './IGameService';
-import type { Game } from '@prisma/client';
 
 export class GameService implements IGameReader, IGameWriter {
   constructor(

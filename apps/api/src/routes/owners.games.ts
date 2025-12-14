@@ -12,9 +12,10 @@ import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { GameRepository } from '../repositories/implementations/GameRepository';
+import { GameService } from '../services/GameService';
 import { KeywordService } from '../services/KeywordService';
 import { QRCodeService } from '../services/QRCodeService';
-import { GameService } from '../services/GameService';
+import type { CreateGameRequest, UpdateGameRequest } from '../services/IGameService';
 
 const router = express.Router();
 
@@ -81,7 +82,8 @@ router.post(
         }
 
         const gameService = getGameService();
-        const game = await gameService.createGame(req.ownerAccountId, req.body);
+        // Zod has validated the body, so it's safe to cast
+        const game = await gameService.createGame(req.ownerAccountId, req.body as CreateGameRequest);
 
         res.status(201).json(game);
       } catch (error) {
@@ -188,7 +190,8 @@ router.patch(
         }
 
         const gameService = getGameService();
-        const game = await gameService.updateGame(gameId, req.ownerAccountId, req.body);
+        // Zod has validated the body, so it's safe to cast
+        const game = await gameService.updateGame(gameId, req.ownerAccountId, req.body as UpdateGameRequest);
 
         res.json(game);
       } catch (error) {

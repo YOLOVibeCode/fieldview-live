@@ -8,6 +8,7 @@
 import crypto from 'crypto';
 
 import type { IGameReader } from '../repositories/IGameRepository';
+
 import type { IKeywordGenerator } from './IKeywordService';
 
 const KEYWORD_LENGTH = 6;
