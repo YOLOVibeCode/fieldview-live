@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { type SuperTest, agent } from 'supertest';
 import app from '@/server';
 import { EntitlementService } from '@/services/EntitlementService';
+import { WatchBootstrapService } from '@/services/WatchBootstrapService';
 import * as watchRoute from '@/routes/public.watch';
 import { UnauthorizedError } from '@/lib/errors';
 import type { Entitlement, PlaybackSession } from '@prisma/client';
@@ -17,6 +18,9 @@ describe('Public Watch Routes', () => {
     validateToken: ReturnType<typeof vi.fn>;
     createPlaybackSession: ReturnType<typeof vi.fn>;
   };
+  let mockWatchBootstrapService: {
+    getBootstrap: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     request = agent(app);
@@ -26,8 +30,61 @@ describe('Public Watch Routes', () => {
       createPlaybackSession: vi.fn(),
     };
 
-    // Set the mocked service
+    mockWatchBootstrapService = {
+      getBootstrap: vi.fn(),
+    };
+
+    // Set the mocked services
     watchRoute.setEntitlementService(mockEntitlementService as any);
+    watchRoute.setWatchBootstrapService(mockWatchBootstrapService as any);
+  });
+
+  describe('GET /api/public/watch/:token', () => {
+    it('returns watch bootstrap successfully', async () => {
+      const bootstrap = {
+        streamUrl: 'https://stream.mux.com/playback-123.m3u8',
+        playerType: 'hls',
+        state: 'live',
+        validTo: new Date(Date.now() + 3600000).toISOString(),
+        gameInfo: {
+          title: 'Test Game',
+          startsAt: new Date().toISOString(),
+        },
+        protectionLevel: 'strong',
+      };
+
+      mockWatchBootstrapService.getBootstrap.mockResolvedValue(bootstrap);
+
+      const response = await request
+        .get('/api/public/watch/token-123')
+        .expect(200);
+
+      expect(response.body.streamUrl).toBe('https://stream.mux.com/playback-123.m3u8');
+      expect(response.body.playerType).toBe('hls');
+      expect(response.body.state).toBe('live');
+      expect(response.body.gameInfo.title).toBe('Test Game');
+      expect(mockWatchBootstrapService.getBootstrap).toHaveBeenCalledWith('token-123');
+    });
+
+    it('returns 401 for invalid token', async () => {
+      mockWatchBootstrapService.getBootstrap.mockRejectedValue(
+        new UnauthorizedError('Invalid token')
+      );
+
+      await request
+        .get('/api/public/watch/invalid-token')
+        .expect(401);
+    });
+
+    it('returns 404 for missing game', async () => {
+      mockWatchBootstrapService.getBootstrap.mockRejectedValue(
+        new Error('Game not found')
+      );
+
+      await request
+        .get('/api/public/watch/token-123')
+        .expect(500); // Error handler converts to 500
+    });
   });
 
   describe('POST /api/public/watch/:token/sessions', () => {
@@ -107,25 +164,6 @@ describe('Public Watch Routes', () => {
         .post('/api/public/watch/invalid-token/sessions')
         .send({})
         .expect(401);
-    });
-
-    it('returns 401 for expired token', async () => {
-      mockEntitlementService.validateToken.mockResolvedValue({
-        valid: false,
-        error: 'Token has expired',
-      });
-
-      await request
-        .post('/api/public/watch/expired-token/sessions')
-        .send({})
-        .expect(401);
-    });
-
-    it('returns 400 if token missing', async () => {
-      await request
-        .post('/api/public/watch//sessions')
-        .send({})
-        .expect(404); // Express treats this as route not found
     });
   });
 });

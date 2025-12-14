@@ -10,6 +10,7 @@ import type { PlaybackSession } from '@prisma/client';
 import { ForbiddenError, NotFoundError, UnauthorizedError } from '../lib/errors';
 import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
 import type { IPlaybackSessionWriter } from '../repositories/IPlaybackSessionRepository';
+
 import type { IEntitlementReader, IEntitlementWriter, EntitlementValidationResult } from './IEntitlementService';
 
 export class EntitlementService implements IEntitlementReader, IEntitlementWriter {
