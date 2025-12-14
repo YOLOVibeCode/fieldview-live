@@ -250,15 +250,35 @@ model SMSMessage {
   @@index([keywordCode])
 }
 
+model AdminAccount {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  passwordHash  String       // bcrypt hashed password
+  role          String       // 'support_admin' | 'super_admin'
+  mfaEnabled    Boolean      @default(false)
+  mfaSecret     String?      // Encrypted TOTP secret
+  status        String       @default("active") // 'active' | 'suspended'
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  lastLoginAt   DateTime?
+  
+  auditLogs     AdminAuditLog[]
+  
+  @@index([email])
+  @@index([status])
+}
+
 model AdminAuditLog {
   id              String     @id @default(uuid())
-  adminUserId     String
+  adminUserId     String     @db.Uuid
   actionType      String     // 'refund_create' | 'resend_sms' | 'keyword_disable' | 'view_audience' | etc.
   targetType      String     // 'purchase' | 'game' | 'owner' | 'config' | 'viewer'
   targetId        String?
   reason          String?
   requestMetadata Json       // JSON snapshot (redacted)
   createdAt       DateTime   @default(now())
+  
+  adminAccount    AdminAccount @relation(fields: [adminUserId], references: [id])
   
   @@index([adminUserId])
   @@index([targetType, targetId])
