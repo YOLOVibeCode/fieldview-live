@@ -13,6 +13,17 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {},
 }));
 
+// Mock Mux client
+vi.mock('@/lib/mux', () => ({
+  muxClient: {
+    video: {
+      liveStreams: {
+        create: vi.fn(),
+      },
+    },
+  },
+}));
+
 describe('Public Telemetry Routes', () => {
   let request: SuperTest<typeof app>;
   let mockEntitlementService: {
@@ -94,9 +105,13 @@ describe('Public Telemetry Routes', () => {
         error: 'Invalid token',
       });
 
+      const events: TelemetryEvent[] = [
+        { type: 'play', timestamp: Date.now() },
+      ];
+
       await request
         .post('/api/public/watch/invalid-token/telemetry?sessionId=session-1')
-        .send({ events: [] })
+        .send({ events })
         .expect(401);
     });
 

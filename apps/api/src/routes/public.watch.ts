@@ -18,9 +18,9 @@ import { PlaybackSessionRepository } from '../repositories/implementations/Playb
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { StreamSourceRepository } from '../repositories/implementations/StreamSourceRepository';
 import { EntitlementService } from '../services/EntitlementService';
+import type { TelemetryEvent, TelemetrySummary } from '../services/ITelemetryService';
 import { TelemetryService } from '../services/TelemetryService';
 import { WatchBootstrapService } from '../services/WatchBootstrapService';
-import type { TelemetryEvent, TelemetrySummary } from '../services/ITelemetryService';
 
 const router = express.Router();
 

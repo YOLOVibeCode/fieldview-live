@@ -7,6 +7,7 @@
 
 import { NotFoundError } from '../lib/errors';
 import type { IPlaybackSessionReader, IPlaybackSessionWriter } from '../repositories/IPlaybackSessionRepository';
+
 import type { ITelemetryWriter, TelemetryEvent, TelemetrySummary } from './ITelemetryService';
 
 export class TelemetryService implements ITelemetryWriter {
