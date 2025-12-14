@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import { BadRequestError } from '../lib/errors';
 import { redisClient } from '../lib/redis';
 import type { IOwnerAccountWriter } from '../repositories/IOwnerAccountRepository';
+
 import type { ISquareReader, ISquareWriter, SquareConnectUrlData } from './ISquareService';
 
 const SQUARE_APP_ID = process.env.SQUARE_APPLICATION_ID || '';

@@ -13,6 +13,7 @@ import { createHealthRouter } from './routes/health';
 import { createOwnersRouter } from './routes/owners';
 import { createOwnersMeRouter } from './routes/owners.me';
 import { createOwnersSquareRouter } from './routes/owners.square';
+import { createOwnersGamesRouter } from './routes/owners.games';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -26,6 +27,7 @@ app.use('/api', createHealthRouter());
 app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersMeRouter());
 app.use('/api/owners', createOwnersSquareRouter());
+app.use('/api/owners', createOwnersGamesRouter());
 
 // Error handling (must be last)
 app.use(errorHandler);
