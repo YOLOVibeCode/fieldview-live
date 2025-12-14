@@ -29,6 +29,7 @@
     "pino-http": "^10.0.0",
     "qrcode": "^1.5.4",
     "rate-limit-redis": "^4.3.1",
+    "square": "^43.2.1",
     "twilio": "^5.10.7",
     "zod": "^3.22.4"
   },
