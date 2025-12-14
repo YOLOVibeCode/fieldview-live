@@ -9,12 +9,12 @@ import express, { type Router } from 'express';
 
 import { prisma } from '../lib/prisma';
 import { validateSquareWebhook } from '../lib/square';
-import { GameRepository } from '../repositories/implementations/GameRepository';
-import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
-import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
-import { PaymentService } from '../services/PaymentService';
+import { GameRepository } from '../repositories/implementations/GameRepository';
+import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import type { SquareWebhookEvent } from '../services/IPaymentService';
+import { PaymentService } from '../services/PaymentService';
 
 const router = express.Router();
 
