@@ -12,6 +12,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { createHealthRouter } from './routes/health';
 import { createOwnersRouter } from './routes/owners';
 import { createOwnersMeRouter } from './routes/owners.me';
+import { createOwnersSquareRouter } from './routes/owners.square';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -24,6 +25,7 @@ app.use(pinoHttp({ logger }));
 app.use('/api', createHealthRouter());
 app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersMeRouter());
+app.use('/api/owners', createOwnersSquareRouter());
 
 // Error handling (must be last)
 app.use(errorHandler);
