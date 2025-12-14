@@ -11,12 +11,12 @@ import type { OwnerAccount, OwnerUser } from '@prisma/client';
 import { BadRequestError, UnauthorizedError } from '../lib/errors';
 import { generateToken, verifyToken } from '../lib/jwt';
 import { hashPassword, verifyPassword } from '../lib/password';
-
 import type {
   IOwnerAccountWriter,
   IOwnerUserReader,
   IOwnerUserWriter,
 } from '../repositories/IOwnerAccountRepository';
+
 import type {
   IOwnerAuthReader,
   IOwnerAuthWriter,

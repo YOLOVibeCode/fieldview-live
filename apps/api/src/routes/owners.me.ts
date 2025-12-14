@@ -35,7 +35,7 @@ export function setOwnerAccountRepo(repo: OwnerAccountRepository): void {
  * Get current authenticated owner account.
  */
 router.get('/me', requireOwnerAuth, (req: AuthRequest, res, next) => {
-  (async () => {
+  void (async () => {
     try {
       if (!req.ownerAccountId) {
         return next(new NotFoundError('Owner account not found'));

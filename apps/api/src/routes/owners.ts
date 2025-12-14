@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { validateRequest } from '../middleware/validation';
 import { OwnerAccountRepository, OwnerUserRepository } from '../repositories/implementations/OwnerAccountRepository';
+import type { OwnerLoginData, OwnerRegistrationData } from '../services/IOwnerAuthService';
 import { OwnerAuthService } from '../services/OwnerAuthService';
 
 const router = express.Router();
@@ -55,14 +56,16 @@ const LoginRequestSchema = z.object({
 router.post(
   '/register',
   validateRequest({ body: RegisterRequestSchema }),
-  async (req, res, next) => {
-    try {
-      const authService = getAuthService();
-      const result = await authService.register(req.body as Parameters<typeof authService.register>[0]);
-      res.status(201).json(result);
-    } catch (error) {
-      next(error);
-    }
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const authService = getAuthService();
+        const result = await authService.register(req.body as OwnerRegistrationData);
+        res.status(201).json(result);
+      } catch (error) {
+        next(error);
+      }
+    })();
   }
 );
 
@@ -74,14 +77,16 @@ router.post(
 router.post(
   '/login',
   validateRequest({ body: LoginRequestSchema }),
-  async (req, res, next) => {
-    try {
-      const authService = getAuthService();
-      const result = await authService.login(req.body as Parameters<typeof authService.login>[0]);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const authService = getAuthService();
+        const result = await authService.login(req.body as OwnerLoginData);
+        res.status(200).json(result);
+      } catch (error) {
+        next(error);
+      }
+    })();
   }
 );
 
