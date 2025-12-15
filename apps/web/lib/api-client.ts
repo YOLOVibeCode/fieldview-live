@@ -45,7 +45,53 @@ export async function apiRequest<T>(
   return response.json();
 }
 
-// API client methods will be added here as we implement features
+// Game types
+export interface Game {
+  id: string;
+  ownerAccountId: string;
+  keyword: string;
+  homeTeam: string;
+  awayTeam: string;
+  startsAt: string;
+  endsAt: string;
+  priceCents: number;
+  currency: string;
+  state: 'draft' | 'active' | 'live' | 'ended' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Checkout types
+export interface CheckoutRequest {
+  viewerEmail: string;
+  viewerPhone?: string;
+  returnUrl?: string;
+}
+
+export interface CheckoutResponse {
+  purchaseId: string;
+  checkoutUrl: string;
+}
+
+// API client methods
 export const apiClient = {
-  // Placeholder - will be populated with typed methods
+  /**
+   * Get game by ID
+   */
+  async getGame(gameId: string): Promise<Game> {
+    return apiRequest<Game>(`/api/public/games/${gameId}`);
+  },
+
+  /**
+   * Create checkout
+   */
+  async createCheckout(
+    gameId: string,
+    data: CheckoutRequest
+  ): Promise<CheckoutResponse> {
+    return apiRequest<CheckoutResponse>(`/api/public/games/${gameId}/checkout`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };

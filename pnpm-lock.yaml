@@ -154,7 +154,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/data-model
       '@hookform/resolvers':
-        specifier: ^3.3.4
+        specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.68.0)
       '@radix-ui/react-dialog':
         specifier: ^1.0.5
@@ -163,13 +163,13 @@ importers:
         specifier: ^2.0.6
         version: 2.1.16(@types/react-dom@18.3.7)(@types/react@18.3.27)(react-dom@18.3.1)(react@18.3.1)
       '@radix-ui/react-label':
-        specifier: ^2.0.2
+        specifier: ^2.1.8
         version: 2.1.8(@types/react-dom@18.3.7)(@types/react@18.3.27)(react-dom@18.3.1)(react@18.3.1)
       '@radix-ui/react-select':
         specifier: ^2.0.2
         version: 2.2.6(@types/react-dom@18.3.7)(@types/react@18.3.27)(react-dom@18.3.1)(react@18.3.1)
       '@radix-ui/react-slot':
-        specifier: ^1.0.2
+        specifier: ^1.2.4
         version: 1.2.4(@types/react@18.3.27)(react@18.3.1)
       '@radix-ui/react-tabs':
         specifier: ^1.0.3
@@ -193,7 +193,7 @@ importers:
         specifier: ^0.309.0
         version: 0.309.0(react@18.3.1)
       next:
-        specifier: ^14.1.0
+        specifier: ^14.2.35
         version: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@18.3.1)(react@18.3.1)
       react:
         specifier: ^18.2.0
@@ -202,7 +202,7 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
       react-hook-form:
-        specifier: ^7.49.3
+        specifier: ^7.68.0
         version: 7.68.0(react@18.3.1)
       tailwind-merge:
         specifier: ^2.2.0
@@ -214,7 +214,7 @@ importers:
         specifier: ^8.6.1
         version: 8.23.4
       zod:
-        specifier: ^3.22.4
+        specifier: ^3.25.76
         version: 3.25.76
       zustand:
         specifier: ^4.4.7
