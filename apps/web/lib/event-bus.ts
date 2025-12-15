@@ -8,7 +8,8 @@
 type EventCallback<T = unknown> = (data: T) => void;
 
 class DataEventBus {
-  private listeners: Map<string, Set<EventCallback>> = new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private listeners: Map<string, Set<EventCallback<any>>> = new Map();
 
   /**
    * Emit an event
@@ -33,8 +34,9 @@ class DataEventBus {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.listeners.get(event)!.add(callback as any);
+    // Type assertion needed due to generic type variance
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
+    this.listeners.get(event)!.add(callback);
 
     // Return unsubscribe function
     return () => {
