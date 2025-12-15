@@ -9,6 +9,7 @@ import pinoHttp from 'pino-http';
 
 import { logger } from './lib/logger';
 import { errorHandler } from './middleware/errorHandler';
+import { createAdminRouter } from './routes/admin';
 import { createHealthRouter } from './routes/health';
 import { createOwnersRouter } from './routes/owners';
 import { createOwnersAnalyticsRouter } from './routes/owners.analytics';
@@ -30,6 +31,7 @@ app.use(pinoHttp({ logger }));
 
 // Routes
 app.use('/api', createHealthRouter());
+app.use('/api/admin', createAdminRouter());
 app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersAnalyticsRouter());
 app.use('/api/owners', createOwnersGamesRouter());
