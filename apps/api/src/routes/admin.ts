@@ -212,7 +212,6 @@ router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'v
  */
 router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog({ actionType: 'view_audience', targetType: 'game' }), (req: AuthRequest, res, next) => {
   void (async () => {
-  void (async () => {
     try {
       const ownerId = req.params.ownerId;
       const gameId = req.params.gameId;
