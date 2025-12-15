@@ -163,7 +163,6 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
  */
 router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetType: 'search' }), (req: AuthRequest, res, next) => {
   void (async () => {
-  void (async () => {
     try {
       const query = req.query.q as string;
       const adminRole = req.role || 'support_admin';
