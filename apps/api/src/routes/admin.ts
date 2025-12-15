@@ -134,6 +134,7 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
   void (async () => {
     try {
       const adminAccountId = req.adminUserId;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { token } = req.body;
 
       if (!adminAccountId) {
@@ -141,9 +142,8 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
       }
 
       const adminAuthService = getAdminAuthService();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
-      const { token: mfaToken } = req.body;
-      const verified = await adminAuthService.verifyMfa(adminAccountId, mfaToken);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      const verified = await adminAuthService.verifyMfa(adminAccountId, token);
 
       if (!verified) {
         return res.status(401).json({ error: 'Invalid MFA token' });
@@ -186,7 +186,6 @@ router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetT
  * Get purchase timeline with all events.
  */
 router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next) => {
-  void (async () => {
   void (async () => {
     try {
       const purchaseId = req.params.purchaseId;
