@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { apiClient, ApiError } from '@/lib/api-client';
+import { dataEventBus, DataEvents } from '@/lib/event-bus';
 
 declare global {
   interface Window {
@@ -48,7 +50,6 @@ export default function PaymentPage() {
       await cardInstanceRef.current.attach(cardRef.current);
       setLoading(false);
     } catch (err) {
-      console.error('Failed to initialize Square:', err);
       setError('Failed to load payment form. Please refresh the page.');
       setLoading(false);
     }
@@ -64,21 +65,14 @@ export default function PaymentPage() {
       const tokenResult = await cardInstanceRef.current.tokenize();
       
       if (tokenResult.status === 'OK') {
-        // Process payment with backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/public/purchases/${purchaseId}/process`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId: tokenResult.token }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Payment processing failed');
-        }
-
-        const data = await response.json();
+        const data = await apiClient.processPurchasePayment(purchaseId, { sourceId: tokenResult.token });
         
         // Redirect to watch page or success page
         if (data.entitlementToken) {
+          dataEventBus.emit(DataEvents.PURCHASE_COMPLETED, {
+            purchaseId,
+            entitlementToken: data.entitlementToken,
+          });
           router.push(`/watch/${data.entitlementToken}`);
         } else {
           router.push(`/checkout/${purchaseId}/success`);
@@ -87,7 +81,12 @@ export default function PaymentPage() {
         setError(tokenResult.errors?.[0]?.message || 'Payment failed');
       }
     } catch (err) {
-      setError('Payment processing failed. Please try again.');
+      dataEventBus.emit(DataEvents.PURCHASE_FAILED, { purchaseId });
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Payment processing failed. Please try again.');
+      }
     }
   }
 

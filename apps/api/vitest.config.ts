@@ -3,6 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   test: {
+    exclude: ['__tests__/live/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

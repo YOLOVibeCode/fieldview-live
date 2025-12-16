@@ -65,3 +65,130 @@ paths:
           $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
         '404':
           $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /public/watch/{token}/sessions:
+    post:
+      tags:
+        - Public
+      summary: Create playback session
+      description: Validates entitlement token and creates a playback session.
+      operationId: createWatchSession
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/EntitlementToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/WatchCreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchCreateSessionResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /public/watch/{token}/telemetry:
+    post:
+      tags:
+        - Public
+      summary: Submit telemetry events
+      description: Submits telemetry events for an existing playback session.
+      operationId: submitWatchTelemetry
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/EntitlementToken'
+        - $ref: '../../components/parameters.yaml#/components/parameters/SessionIdQuery'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/WatchSubmitTelemetryRequest'
+      responses:
+        '204':
+          description: Telemetry accepted
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /public/watch/{token}/sessions/{sessionId}/end:
+    post:
+      tags:
+        - Public
+      summary: End playback session
+      description: Ends a playback session and stores the telemetry summary used for refunds.
+      operationId: endWatchSession
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/EntitlementToken'
+        - $ref: '../../components/parameters.yaml#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/WatchEndSessionRequest'
+      responses:
+        '200':
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchEndSessionResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /public/purchases/{purchaseId}/process:
+    post:
+      tags:
+        - Public
+      summary: Process a purchase payment
+      description: |
+        Processes a purchase payment using a Square Web Payments SDK `sourceId`.
+        On success, returns an `entitlementToken` for watch access.
+      operationId: processPurchasePayment
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/PurchaseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/PurchaseProcessRequest'
+      responses:
+        '200':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/PurchaseProcessResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /public/purchases/{purchaseId}/status:
+    get:
+      tags:
+        - Public
+      summary: Get purchase status
+      description: Returns current purchase status and entitlement token (if available).
+      operationId: getPurchaseStatus
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/PurchaseId'
+      responses:
+        '200':
+          description: Purchase status
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/PurchaseStatusResponse'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'

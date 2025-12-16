@@ -230,6 +230,270 @@ components:
           format: uri
           description: Square checkout URL
 
+    # Purchase Payment Processing
+    PurchaseProcessRequest:
+      type: object
+      required:
+        - sourceId
+      properties:
+        sourceId:
+          type: string
+          description: Square Web Payments SDK source ID (nonce/token)
+
+    PurchaseProcessResponse:
+      type: object
+      required:
+        - purchaseId
+        - status
+      properties:
+        purchaseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - created
+            - paid
+            - failed
+            - refunded
+            - partially_refunded
+        entitlementToken:
+          type: string
+          description: Present when status is paid; used to access watch bootstrap.
+
+    PurchaseStatusResponse:
+      type: object
+      required:
+        - purchaseId
+        - status
+      properties:
+        purchaseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - created
+            - paid
+            - failed
+            - refunded
+            - partially_refunded
+        entitlementToken:
+          type: string
+          description: Present when a valid entitlement exists for this purchase.
+
+    # Admin Auth
+    AdminLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+        mfaToken:
+          type: string
+          description: Optional 6-digit TOTP token (required when MFA enabled)
+
+    AdminAccount:
+      type: object
+      required:
+        - id
+        - email
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum:
+            - support_admin
+            - super_admin
+
+    AdminLoginResponse:
+      type: object
+      required:
+        - adminAccount
+        - sessionToken
+        - mfaRequired
+      properties:
+        adminAccount:
+          $ref: '#/components/schemas/AdminAccount'
+        sessionToken:
+          type: string
+          description: Admin session token (sent as bearer or cookie depending on deployment)
+        mfaRequired:
+          type: boolean
+
+    AdminMfaSetupResponse:
+      type: object
+      required:
+        - secret
+        - qrCodeUrl
+      properties:
+        secret:
+          type: string
+          description: Base32 TOTP secret
+        qrCodeUrl:
+          type: string
+          description: Data URL for QR code image
+
+    AdminMfaVerifyRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 6
+          maxLength: 6
+
+    AdminMfaVerifyResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+
+    # Admin Purchase Timeline (minimal contract; can be expanded)
+    AdminPurchaseTimelineResponse:
+      type: object
+      required:
+        - purchaseId
+        - purchase
+        - events
+      properties:
+        purchaseId:
+          type: string
+          format: uuid
+        purchase:
+          type: object
+          required:
+            - id
+            - gameId
+            - gameTitle
+            - viewerId
+            - viewerEmail
+            - amountCents
+            - status
+            - createdAt
+          properties:
+            id:
+              type: string
+              format: uuid
+            gameId:
+              type: string
+              format: uuid
+            gameTitle:
+              type: string
+            viewerId:
+              type: string
+              format: uuid
+            viewerEmail:
+              type: string
+              description: Full email for SuperAdmin, masked for SupportAdmin
+            viewerEmailMasked:
+              type: string
+            amountCents:
+              type: integer
+            status:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            paidAt:
+              type: string
+              format: date-time
+        events:
+          type: array
+          items:
+            type: object
+            required:
+              - type
+              - timestamp
+              - description
+            properties:
+              type:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              description:
+                type: string
+              metadata:
+                type: object
+                additionalProperties: true
+
+    AdminGameAudienceResponse:
+      type: object
+      required:
+        - gameId
+        - purchasers
+        - watchers
+        - purchaseToWatchConversionRate
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        purchasers:
+          type: array
+          items:
+            type: object
+            required:
+              - purchaseId
+              - emailMasked
+              - purchasedAt
+              - amountCents
+              - watched
+            properties:
+              purchaseId:
+                type: string
+                format: uuid
+              emailMasked:
+                type: string
+                description: Masked email for SupportAdmin; may be full email for SuperAdmin
+              purchasedAt:
+                type: string
+                format: date-time
+              amountCents:
+                type: integer
+              watched:
+                type: boolean
+        watchers:
+          type: array
+          items:
+            type: object
+            required:
+              - purchaseId
+              - emailMasked
+              - sessionCount
+            properties:
+              purchaseId:
+                type: string
+                format: uuid
+              emailMasked:
+                type: string
+              sessionCount:
+                type: integer
+              lastWatchedAt:
+                type: string
+                format: date-time
+              totalWatchMs:
+                type: integer
+        purchaseToWatchConversionRate:
+          type: number
+          minimum: 0
+          maximum: 1
+
     # Watch Bootstrap Response
     WatchBootstrapResponse:
       type: object
@@ -272,6 +536,116 @@ components:
             - strong
             - moderate
             - best_effort
+
+    # Watch Sessions & Telemetry
+    WatchCreateSessionRequest:
+      type: object
+      properties:
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional client metadata (device, player version, etc.)
+
+    WatchCreateSessionResponse:
+      type: object
+      required:
+        - sessionId
+        - startedAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+
+    TelemetryEvent:
+      type: object
+      required:
+        - type
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum:
+            - buffer
+            - error
+            - play
+            - pause
+            - seek
+            - quality_change
+        timestamp:
+          type: integer
+          description: Unix epoch timestamp in milliseconds
+        duration:
+          type: integer
+          minimum: 0
+          description: Optional duration in milliseconds (when applicable)
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    WatchSubmitTelemetryRequest:
+      type: object
+      required:
+        - events
+      properties:
+        events:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TelemetryEvent'
+
+    WatchEndSessionRequest:
+      type: object
+      required:
+        - totalWatchMs
+        - totalBufferMs
+        - bufferEvents
+        - fatalErrors
+      properties:
+        totalWatchMs:
+          type: integer
+          minimum: 0
+        totalBufferMs:
+          type: integer
+          minimum: 0
+        bufferEvents:
+          type: integer
+          minimum: 0
+        fatalErrors:
+          type: integer
+          minimum: 0
+        startupLatencyMs:
+          type: integer
+          minimum: 0
+        streamDownMs:
+          type: integer
+          minimum: 0
+
+    WatchEndSessionResponse:
+      type: object
+      required:
+        - sessionId
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        endedAt:
+          type: string
+          format: date-time
+        totalWatchMs:
+          type: integer
+        totalBufferMs:
+          type: integer
+        bufferEvents:
+          type: integer
+        fatalErrors:
+          type: integer
 
     # Error Response
     ErrorResponse:

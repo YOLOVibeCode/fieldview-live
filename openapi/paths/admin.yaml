@@ -1,4 +1,75 @@
 paths:
+  /admin/login:
+    post:
+      tags:
+        - Admin
+      summary: Admin login
+      description: Admin login with MFA support. Returns a session token.
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Login response
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/AdminLoginResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /admin/mfa/setup:
+    post:
+      tags:
+        - Admin
+      summary: Setup MFA
+      description: Generates MFA secret and QR code (requires admin session).
+      operationId: adminMfaSetup
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: MFA setup payload
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/AdminMfaSetupResponse'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /admin/mfa/verify:
+    post:
+      tags:
+        - Admin
+      summary: Verify MFA
+      description: Verifies MFA token and enables MFA (requires admin session).
+      operationId: adminMfaVerify
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/AdminMfaVerifyRequest'
+      responses:
+        '200':
+          description: MFA verification result
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/AdminMfaVerifyResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
   /admin/search:
     get:
       tags:
@@ -55,3 +126,50 @@ paths:
                           type: string
         '401':
           $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /admin/purchases/{purchaseId}:
+    get:
+      tags:
+        - Admin
+      summary: Get purchase timeline
+      description: Returns purchase detail + timeline. SuperAdmin sees full email; SupportAdmin masked.
+      operationId: adminGetPurchaseTimeline
+      security:
+        - SessionAuth: []
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/PurchaseId'
+      responses:
+        '200':
+          description: Purchase timeline
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/AdminPurchaseTimelineResponse'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /admin/owners/{ownerId}/games/{gameId}/audience:
+    get:
+      tags:
+        - Admin
+      summary: Get game audience (admin)
+      description: Returns game audience; SuperAdmin may see full email, SupportAdmin masked.
+      operationId: adminGetGameAudience
+      security:
+        - SessionAuth: []
+      parameters:
+        - $ref: '../../components/parameters.yaml#/components/parameters/OwnerId'
+        - $ref: '../../components/parameters.yaml#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Game audience
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/AdminGameAudienceResponse'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'

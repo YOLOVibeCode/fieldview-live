@@ -39,8 +39,18 @@ paths:
     $ref: './paths/public.yaml#/paths/~1public~1games~1{gameId}'
   /public/games/{gameId}/checkout:
     $ref: './paths/public.yaml#/paths/~1public~1games~1{gameId}~1checkout'
+  /public/purchases/{purchaseId}/process:
+    $ref: './paths/public.yaml#/paths/~1public~1purchases~1{purchaseId}~1process'
+  /public/purchases/{purchaseId}/status:
+    $ref: './paths/public.yaml#/paths/~1public~1purchases~1{purchaseId}~1status'
   /public/watch/{token}:
     $ref: './paths/public.yaml#/paths/~1public~1watch~1{token}'
+  /public/watch/{token}/sessions:
+    $ref: './paths/public.yaml#/paths/~1public~1watch~1{token}~1sessions'
+  /public/watch/{token}/telemetry:
+    $ref: './paths/public.yaml#/paths/~1public~1watch~1{token}~1telemetry'
+  /public/watch/{token}/sessions/{sessionId}/end:
+    $ref: './paths/public.yaml#/paths/~1public~1watch~1{token}~1sessions~1{sessionId}~1end'
   /owners/me:
     $ref: './paths/owners.yaml#/paths/~1owners~1me'
   /owners/me/games:
@@ -49,6 +59,16 @@ paths:
     $ref: './paths/owners.yaml#/paths/~1owners~1me~1games~1{gameId}~1audience'
   /admin/search:
     $ref: './paths/admin.yaml#/paths/~1admin~1search'
+  /admin/login:
+    $ref: './paths/admin.yaml#/paths/~1admin~1login'
+  /admin/mfa/setup:
+    $ref: './paths/admin.yaml#/paths/~1admin~1mfa~1setup'
+  /admin/mfa/verify:
+    $ref: './paths/admin.yaml#/paths/~1admin~1mfa~1verify'
+  /admin/purchases/{purchaseId}:
+    $ref: './paths/admin.yaml#/paths/~1admin~1purchases~1{purchaseId}'
+  /admin/owners/{ownerId}/games/{gameId}/audience:
+    $ref: './paths/admin.yaml#/paths/~1admin~1owners~1{ownerId}~1games~1{gameId}~1audience'
   /webhooks/twilio:
     $ref: './paths/webhooks.yaml#/paths/~1webhooks~1twilio'
   /webhooks/square:

@@ -8,6 +8,7 @@ import { muxClient } from '@/lib/mux';
 
 // Mock Mux client
 vi.mock('@/lib/mux', () => ({
+  assertMuxConfigured: vi.fn(),
   muxClient: {
     video: {
       liveStreams: {

@@ -20,11 +20,11 @@
 
 # Admin endpoints
 /admin/search:
-  $ref: './admin.yaml#/paths~1admin~1search'
+  $ref: './admin.yaml#/paths/~1admin~1search'
 
 # Webhook endpoints
 /webhooks/twilio:
-  $ref: './webhooks.yaml#/paths~1webhooks~1twilio'
+  $ref: './webhooks.yaml#/paths/~1webhooks~1twilio'
 
 /webhooks/square:
-  $ref: './webhooks.yaml#/paths~1webhooks~1square'
+  $ref: './webhooks.yaml#/paths/~1webhooks~1square'

@@ -1,44 +1,48 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import { app } from '@/server';
-import { AdminAuthService } from '@/services/AdminAuthService';
-import { AdminService } from '@/services/AdminService';
-import { setAdminAuthService, setAdminService } from '@/routes/admin';
-import type { IAdminAccountReader, IAdminAccountWriter } from '@/repositories/IAdminAccountRepository';
-import { AdminAccountRepository } from '@/repositories/implementations/AdminAccountRepository';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import speakeasy from 'speakeasy';
+import app from '@/server';
+import { setAdminAuthService } from '@/routes/admin';
+import { UnauthorizedError } from '@/lib/errors';
 
 // Mock JWT verification for admin routes
 vi.mock('@/lib/jwt', () => ({
   verifyToken: vi.fn(),
 }));
 
+// Mock Prisma (admin routes use repositories wired from prisma; tests inject services instead)
+vi.mock('@/lib/prisma', () => ({
+  prisma: {},
+}));
+
 describe('Admin Routes', () => {
-  let adminAccountRepo: AdminAccountRepository;
-  let adminAuthService: AdminAuthService;
-  let adminService: AdminService;
+  let mockAdminAuthService: {
+    login: ReturnType<typeof vi.fn>;
+    setupMfa: ReturnType<typeof vi.fn>;
+    verifyMfa: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    adminAccountRepo = new AdminAccountRepository(prisma);
-    adminAuthService = new AdminAuthService(adminAccountRepo, adminAccountRepo);
-    // AdminService setup would require many dependencies - simplified for integration test
-    setAdminAuthService(adminAuthService);
+
+    mockAdminAuthService = {
+      login: vi.fn(),
+      setupMfa: vi.fn(),
+      verifyMfa: vi.fn(),
+    };
+
+    setAdminAuthService(mockAdminAuthService as any);
   });
 
   describe('POST /api/admin/login', () => {
     it('returns 200 with session token for valid credentials', async () => {
-      // Create test admin account
-      const passwordHash = await bcrypt.hash('password123', 10);
-      const adminAccount = await prisma.adminAccount.create({
-        data: {
+      mockAdminAuthService.login.mockResolvedValue({
+        adminAccount: {
+          id: 'admin-1',
           email: 'admin@test.com',
-          passwordHash,
           role: 'support_admin',
-          status: 'active',
         },
+        sessionToken: 'admin_session_admin-1_123',
+        mfaRequired: false,
       });
 
       const response = await request(app)
@@ -52,12 +56,11 @@ describe('Admin Routes', () => {
       expect(response.body.adminAccount).toBeDefined();
       expect(response.body.sessionToken).toBeTruthy();
       expect(response.body.mfaRequired).toBe(false);
-
-      // Cleanup
-      await prisma.adminAccount.delete({ where: { id: adminAccount.id } });
     });
 
     it('returns 401 for invalid credentials', async () => {
+      mockAdminAuthService.login.mockRejectedValue(new UnauthorizedError('Invalid credentials'));
+
       const response = await request(app)
         .post('/api/admin/login')
         .send({

@@ -56,6 +56,83 @@ const ConfigureExternalEmbedSchema = z.object({
 });
 
 /**
+ * GET /api/owners/me/games/:gameId/streams/credentials
+ * 
+ * Get RTMP credentials for an existing stream.
+ */
+router.get(
+  '/me/games/:gameId/streams/credentials',
+  requireOwnerAuth,
+  (req: AuthRequest, res, next) => {
+    void (async () => {
+      try {
+        if (!req.ownerAccountId) {
+          return next(new Error('Owner account ID not found'));
+        }
+
+        const gameId = req.params.gameId;
+        if (!gameId) {
+          return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing game ID' } });
+        }
+
+        const ownerAccountId = req.ownerAccountId;
+
+        // Verify game ownership
+        const gameRepo = new GameRepository(prisma);
+        const game = await gameRepo.getById(gameId);
+        if (!game || game.ownerAccountId !== ownerAccountId) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Game not found' } });
+        }
+
+        // Get stream source
+        const streamingService = getStreamingService();
+        const streamSource = await streamingService.getStreamSource(gameId);
+        
+        if (!streamSource) {
+          return res.status(404).json({ 
+            error: { 
+              code: 'NOT_FOUND', 
+              message: 'No stream configured for this game. Create one first.' 
+            } 
+          });
+        }
+
+        // Return credentials based on stream type
+        if (streamSource.type === 'mux_managed' || streamSource.type === 'byo_rtmp') {
+          res.json({
+            type: streamSource.type,
+            rtmpPublishUrl: streamSource.rtmpPublishUrl,
+            streamKey: streamSource.rtmpStreamKey,
+            playbackId: streamSource.muxPlaybackId,
+            muxStreamId: streamSource.muxAssetId,
+          });
+        } else if (streamSource.type === 'byo_hls') {
+          res.json({
+            type: streamSource.type,
+            hlsManifestUrl: streamSource.hlsManifestUrl,
+            protectionLevel: streamSource.protectionLevel,
+          });
+        } else if (streamSource.type === 'external_embed') {
+          res.json({
+            type: streamSource.type,
+            externalEmbedUrl: streamSource.externalEmbedUrl,
+            externalProvider: streamSource.externalProvider,
+            protectionLevel: streamSource.protectionLevel,
+          });
+        } else {
+          res.json({
+            type: streamSource.type,
+            protectionLevel: streamSource.protectionLevel,
+          });
+        }
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
  * POST /api/owners/me/games/:gameId/streams/mux
  * 
  * Create Mux-managed stream for a game.

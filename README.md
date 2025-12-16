@@ -2,6 +2,12 @@
 
 Monetization platform for youth sports live streaming.
 
+## 🚀 Ready to Deploy?
+
+**👉 [START HERE - Deployment Guide](./START_HERE.md)**
+
+Your site is configured and ready to deploy to Railway in ~15 minutes!
+
 ## Architecture
 
 Monorepo structure using pnpm workspaces:
@@ -115,6 +121,18 @@ fieldview-live/
 
 ## Documentation
 
+### 🚀 Deployment
+- **[Deploy to Railway (Quick Start)](./DEPLOY_TO_RAILWAY.md)** - Deploy in 15 minutes
+- **[Deployment Guide (Detailed)](./DEPLOYMENT_GUIDE.md)** - Complete deployment reference
+- **[Deployment Summary](./DEPLOYMENT_SUMMARY.md)** - What was created and next steps
+
+### 📹 Streaming Setup
+- **[Streaming Quick Start](./README_STREAMING.md)** - Get started with RTMP streaming in 3 steps
+- **[Quick Reference](./docs/QUICK_START_RTMP.md)** - Fast setup for external platforms (Veo, etc.)
+- **[Detailed Setup Guide](./docs/STREAMING_SETUP_GUIDE.md)** - Complete RTMP configuration
+- **[Veo Setup Example](./docs/EXAMPLE_VEO_SETUP.md)** - Step-by-step Veo camera configuration
+
+### 📖 General Documentation
 See `docs/` directory for:
 - Product specifications
 - API documentation

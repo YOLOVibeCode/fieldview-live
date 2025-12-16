@@ -8,7 +8,7 @@
 import type { StreamSource } from '@prisma/client';
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
-import { muxClient } from '../lib/mux';
+import { assertMuxConfigured, muxClient } from '../lib/mux';
 import type { IGameReader, IGameWriter } from '../repositories/IGameRepository';
 import type {
   IStreamSourceReader,
@@ -35,6 +35,7 @@ export class StreamingService implements IStreamingReader, IStreamingWriter {
   }
 
   async createMuxStream(gameId: string): Promise<MuxStreamConfig> {
+    assertMuxConfigured();
     // Verify game exists
     const game = await this.gameReader.getById(gameId);
     if (!game) {
@@ -131,6 +132,7 @@ export class StreamingService implements IStreamingReader, IStreamingWriter {
   }
 
   async configureByoRtmp(gameId: string, rtmpUrl?: string): Promise<RtmpConfig> {
+    assertMuxConfigured();
     // Verify game exists
     const game = await this.gameReader.getById(gameId);
     if (!game) {

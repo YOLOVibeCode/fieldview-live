@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api-client';
+import { dataEventBus, DataEvents } from '@/lib/event-bus';
 
 export default function CheckoutSuccessPage() {
   const params = useParams();
@@ -18,24 +19,27 @@ export default function CheckoutSuccessPage() {
     // Poll for purchase status and get entitlement token
     async function checkPurchaseStatus() {
       try {
-        // Note: This endpoint doesn't exist yet, but will be implemented
-        // For now, we'll redirect to a generic success page
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/public/purchases/${purchaseId}/status`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === 'paid' && data.entitlementToken) {
-            setEntitlementToken(data.entitlementToken);
-            setLoading(false);
-          } else {
-            // Poll again after delay
-            setTimeout(checkPurchaseStatus, 2000);
-          }
-        } else {
-          // If endpoint doesn't exist, just show success
+        const data = await apiClient.getPurchaseStatus(purchaseId);
+        if (data.status === 'paid' && data.entitlementToken) {
+          setEntitlementToken(data.entitlementToken);
+          dataEventBus.emit(DataEvents.PURCHASE_COMPLETED, {
+            purchaseId,
+            entitlementToken: data.entitlementToken,
+          });
           setLoading(false);
+          return;
         }
+
+        if (data.status === 'failed') {
+          dataEventBus.emit(DataEvents.PURCHASE_FAILED, { purchaseId });
+          setLoading(false);
+          return;
+        }
+
+        // Poll again after delay
+        setTimeout(checkPurchaseStatus, 2000);
       } catch (err) {
-        console.error('Failed to check purchase status:', err);
+        // Best-effort: show generic success state if status polling fails.
         setLoading(false);
       }
     }

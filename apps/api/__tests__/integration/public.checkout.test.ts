@@ -10,6 +10,15 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {},
 }));
 
+// Disable checkout rate limiting for this test suite to avoid cross-test interference
+vi.mock('@/middleware/rateLimit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/middleware/rateLimit')>();
+  return {
+    ...actual,
+    checkoutRateLimit: (_req: unknown, _res: unknown, next: (err?: unknown) => void) => next(),
+  };
+});
+
 describe('Public Checkout Routes', () => {
   let request: SuperTest<typeof app>;
   let mockPaymentService: {

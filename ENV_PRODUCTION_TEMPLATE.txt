@@ -1,0 +1,43 @@
+# FieldView.live - Production Environment Variables
+# Copy this file to .env.production and fill in your values
+
+# ===== DATABASE =====
+DATABASE_URL="postgresql://user:password@host:5432/fieldview_live?schema=public"
+
+# ===== REDIS =====
+REDIS_URL="redis://default:password@host:6379"
+
+# ===== MUX (Streaming) =====
+MUX_TOKEN_ID="your_mux_token_id"
+MUX_TOKEN_SECRET="your_mux_token_secret"
+
+# ===== SQUARE (Payments) =====
+SQUARE_ACCESS_TOKEN="your_square_access_token"
+SQUARE_LOCATION_ID="your_square_location_id"
+SQUARE_WEBHOOK_SIGNATURE_KEY="your_webhook_signature_key"
+SQUARE_ENVIRONMENT="production"
+
+# ===== TWILIO (SMS) =====
+TWILIO_ACCOUNT_SID="your_twilio_account_sid"
+TWILIO_AUTH_TOKEN="your_twilio_auth_token"
+TWILIO_PHONE_NUMBER="+1234567890"
+
+# ===== JWT =====
+JWT_SECRET="your_secure_random_jwt_secret_min_32_chars"
+JWT_EXPIRY="24h"
+
+# ===== API =====
+PORT=3001
+NODE_ENV="production"
+API_BASE_URL="https://api.fieldview.live"
+
+# ===== CORS =====
+CORS_ORIGIN="https://fieldview.live,https://www.fieldview.live"
+
+# ===== WEB APP (Next.js) =====
+NEXT_PUBLIC_API_URL="https://api.fieldview.live"
+NEXTAUTH_URL="https://fieldview.live"
+NEXTAUTH_SECRET="your_secure_random_nextauth_secret"
+
+# ===== LOGGING =====
+LOG_LEVEL="info"

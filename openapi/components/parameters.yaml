@@ -18,6 +18,15 @@ components:
         format: uuid
       description: Purchase identifier
 
+    OwnerId:
+      name: ownerId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Owner account identifier
+
     EntitlementToken:
       name: token
       in: path
@@ -25,6 +34,24 @@ components:
       schema:
         type: string
       description: Entitlement token (signed, expiring)
+
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Playback session identifier
+
+    SessionIdQuery:
+      name: sessionId
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Playback session identifier (query parameter)
 
     Page:
       name: page
