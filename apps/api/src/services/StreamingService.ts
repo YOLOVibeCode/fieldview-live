@@ -62,8 +62,15 @@ export class StreamingService implements IStreamingReader, IStreamingWriter {
     const streamKey = muxStream.stream_key;
     const muxStreamId = muxStream.id;
 
-    // Get RTMP publish URL (Mux standard format)
-    const rtmpPublishUrl = `rtmp://global-live.mux.com:443/app/${streamKey}`;
+    /**
+     * RTMP ingest endpoint for encoders (OBS/Veo/etc).
+     * Use RTMPS over 443 for best compatibility.
+     *
+     * Encoders typically accept:
+     * - Server/RTMP URL: rtmps://global-live.mux.com:443/app
+     * - Stream key: <streamKey>
+     */
+    const rtmpPublishUrl = 'rtmps://global-live.mux.com:443/app';
 
     // Store in database
     const streamSource = await this.streamSourceWriter.create({
@@ -72,6 +79,8 @@ export class StreamingService implements IStreamingReader, IStreamingWriter {
       protectionLevel: 'strong',
       muxAssetId: muxStreamId, // Store stream ID as asset ID for now
       muxPlaybackId: playbackId,
+      rtmpPublishUrl,
+      rtmpStreamKey: streamKey,
     });
 
     // Update game with stream source ID
@@ -153,8 +162,8 @@ export class StreamingService implements IStreamingReader, IStreamingWriter {
     const streamKey = muxStream.stream_key;
     const muxStreamId = muxStream.id;
 
-    // Use provided RTMP URL or Mux standard format
-    const finalRtmpUrl = rtmpUrl || `rtmp://global-live.mux.com:443/app/${streamKey}`;
+    // Use provided RTMP URL or Mux standard ingest endpoint (stream key provided separately)
+    const finalRtmpUrl = rtmpUrl || 'rtmps://global-live.mux.com:443/app';
 
     // Check if stream source already exists
     const existing = await this.streamSourceReader.getByGameId(gameId);
