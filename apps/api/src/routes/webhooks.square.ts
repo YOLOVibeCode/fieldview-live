@@ -52,21 +52,28 @@ export function setPaymentService(service: PaymentService): void {
  */
 router.post(
   '/square',
-  express.json(),
   (req, res, next) => {
     void (async () => {
       try {
-        // Verify webhook signature (TODO: implement proper validation)
-        const signature = req.headers['x-square-signature'] as string | undefined;
-        const webhookUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-        const bodyString = JSON.stringify(req.body);
+        // Verify webhook signature (Square requires raw request body)
+        const signature =
+          (req.headers['x-square-hmacsha256-signature'] as string | undefined) ||
+          (req.headers['x-square-signature'] as string | undefined);
+
+        const apiBaseUrl = (process.env.API_BASE_URL || '').replace(/\/+$/, '');
+        const webhookUrl = apiBaseUrl
+          ? `${apiBaseUrl}${req.originalUrl}`
+          : `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+        const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
+        const bodyString = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body);
 
         const isValid = validateSquareWebhook(signature, bodyString, webhookUrl);
         if (!isValid) {
           return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid signature' } });
         }
 
-        const event = req.body as { type?: string; data?: unknown };
+        const event = JSON.parse(bodyString) as { type?: string; data?: unknown };
         if (!event.type) {
           return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing event type' } });
         }

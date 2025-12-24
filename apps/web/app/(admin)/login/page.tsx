@@ -88,8 +88,8 @@ export default function AdminLoginPage() {
                 <Input id="mfaToken" inputMode="numeric" placeholder="123456" {...form.register('mfaToken')} />
               </div>
             )}
-            {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
-            <Button type="submit" className="w-full">
+            {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</div>}
+            <Button type="submit" className="w-full" aria-label="Sign in">
               Sign in
             </Button>
           </form>

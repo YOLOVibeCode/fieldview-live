@@ -10,12 +10,20 @@ REDIS_URL="redis://default:password@host:6379"
 # ===== MUX (Streaming) =====
 MUX_TOKEN_ID="your_mux_token_id"
 MUX_TOKEN_SECRET="your_mux_token_secret"
+# Optional (defaults to mux.com)
+MUX_DOMAIN="mux.com"
 
 # ===== SQUARE (Payments) =====
+# Server-side (payments + webhooks)
 SQUARE_ACCESS_TOKEN="your_square_access_token"
 SQUARE_LOCATION_ID="your_square_location_id"
 SQUARE_WEBHOOK_SIGNATURE_KEY="your_webhook_signature_key"
 SQUARE_ENVIRONMENT="production"
+
+# Square Connect (OAuth onboarding for owners)
+SQUARE_APPLICATION_ID="your_square_application_id"
+SQUARE_APPLICATION_SECRET="your_square_application_secret"
+SQUARE_REDIRECT_URI="https://api.fieldview.live/api/owners/square/callback"
 
 # ===== TWILIO (SMS) =====
 TWILIO_ACCOUNT_SID="your_twilio_account_sid"
@@ -24,7 +32,15 @@ TWILIO_PHONE_NUMBER="+1234567890"
 
 # ===== JWT =====
 JWT_SECRET="your_secure_random_jwt_secret_min_32_chars"
-JWT_EXPIRY="24h"
+JWT_EXPIRES_IN="24h"
+
+# ===== APP URLs (used in checkout links / QR / webhooks) =====
+# Public web app base URL (NOT the API URL)
+APP_URL="https://fieldview.live"
+
+# ===== PAYOUT / FEES =====
+# Platform fee percent applied to purchases (default 10)
+PLATFORM_FEE_PERCENT="10"
 
 # ===== API =====
 PORT=3001
@@ -38,6 +54,12 @@ CORS_ORIGIN="https://fieldview.live,https://www.fieldview.live"
 NEXT_PUBLIC_API_URL="https://api.fieldview.live"
 NEXTAUTH_URL="https://fieldview.live"
 NEXTAUTH_SECRET="your_secure_random_nextauth_secret"
+
+# Square Web Payments SDK (frontend)
+NEXT_PUBLIC_SQUARE_APPLICATION_ID="your_square_application_id"
+NEXT_PUBLIC_SQUARE_LOCATION_ID="your_square_location_id"
+# 'sandbox' or 'production' (should match SQUARE_ENVIRONMENT)
+NEXT_PUBLIC_SQUARE_ENVIRONMENT="production"
 
 # ===== LOGGING =====
 LOG_LEVEL="info"

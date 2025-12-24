@@ -88,6 +88,7 @@ export default function PlayPage() {
           preload="auto"
           autoPlay
           muted={false}
+          aria-label="Video player"
         />
         
         {/* Live indicator overlay */}
@@ -100,7 +101,7 @@ export default function PlayPage() {
         
         {/* Error overlay */}
         {error && (
-          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white px-4 py-2 rounded-md text-sm max-w-md text-center">
+          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white px-4 py-2 rounded-md text-sm max-w-md text-center" role="alert">
             {error}
           </div>
         )}

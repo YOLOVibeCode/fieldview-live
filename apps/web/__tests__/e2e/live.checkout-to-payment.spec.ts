@@ -66,10 +66,11 @@ test('LIVE: checkout loads real game and proceeds to payment page (no mocks)', a
   await expect(page.getByText('Purchase Stream Access')).toBeVisible();
 
   // Submit email to create checkout -> should route to payment page
-  await page.fill('input[type="email"]', viewerEmail);
-  await page.click('button[type="submit"]');
+  await page.getByLabel(/Email Address/i).fill(viewerEmail);
+  await page.getByRole('button', { name: /Continue to Payment/i }).click();
 
   await expect(page).toHaveURL(/\/checkout\/[^/]+\/payment$/);
 });
+
 
 

@@ -59,35 +59,61 @@ function getHandlers(): PublicPurchaseHandlers {
         }
 
         // Create Square payment (synchronous capture)
-        // Square SDK types vary by version; use minimal fields and tolerate typing via `any`.
+        // Square SDK v43+ uses client.payments.create() instead of paymentsApi.createPayment()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const paymentsApi: any = (squareClient as any).paymentsApi || (squareClient as any).payments;
-        if (!paymentsApi?.createPayment) {
+        const paymentsApi: any = (squareClient as any).payments;
+        if (!paymentsApi?.create) {
           throw new Error('Square payments API not available');
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result: any = await paymentsApi.createPayment({
-          idempotencyKey: `purchase-${purchaseId}-${Date.now()}`,
-          sourceId,
-          amountMoney: {
-            amount: BigInt(purchase.amountCents),
-            currency: purchase.currency || 'USD',
-          },
-          locationId: squareLocationId,
-          autocomplete: true,
-        });
+        let result: any;
+        try {
+          // Square requires idempotency_key <= 45 chars. Use purchaseId (UUID) which is unique.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          result = await paymentsApi.create({
+            idempotencyKey: purchaseId.substring(0, 45), // UUID is 36 chars, well under limit
+            sourceId,
+            amountMoney: {
+              amount: BigInt(purchase.amountCents),
+              currency: purchase.currency || 'USD',
+            },
+            locationId: squareLocationId,
+            autocomplete: true,
+          });
+        } catch (error: any) {
+          // Log Square API error details for debugging
+          const errorMessage = error?.message || String(error);
+          const errorBody = error?.body || error?.errors || error?.result?.errors;
+          console.error('Square payment API error:', {
+            message: errorMessage,
+            body: errorBody,
+            sourceId,
+            amountCents: purchase.amountCents,
+            locationId: squareLocationId,
+          });
+          throw new BadRequestError(
+            `Square payment failed: ${errorMessage}${errorBody ? ` - ${JSON.stringify(errorBody)}` : ''}`
+          );
+        }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const payment = result?.result?.payment || result?.payment;
+        // Square SDK v43+ response structure: Try multiple possible paths
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const payment: any =
+          result?.result?.payment || // Standard structure
+          result?.payment || // Alternative structure
+          result?.result; // If payment is directly in result
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const paymentId = payment?.id as string | undefined;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const paymentStatus = payment?.status as string | undefined;
 
         if (!paymentId) {
-          await purchaseRepo.update(purchaseId, { status: 'failed', failedAt: new Date() });
-          return { purchaseId, status: 'failed' };
+          // Include response structure in error for debugging
+          const responseStr = JSON.stringify(result, null, 2).substring(0, 500);
+          throw new BadRequestError(
+            `Square payment response missing payment ID. Response structure: ${responseStr}`
+          );
         }
 
         // Persist provider payment id
@@ -97,6 +123,8 @@ function getHandlers(): PublicPurchaseHandlers {
 
         if (paymentStatus && paymentStatus !== 'COMPLETED') {
           // Payment not completed; mark as failed for now (can be expanded to pending state later)
+          // Log the actual status for debugging
+          console.warn(`Square payment status is '${paymentStatus}', expected 'COMPLETED'. Marking as failed.`);
           await purchaseRepo.update(purchaseId, { status: 'failed', failedAt: new Date() });
           return { purchaseId, status: 'failed' };
         }

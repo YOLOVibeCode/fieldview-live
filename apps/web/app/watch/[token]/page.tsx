@@ -159,8 +159,12 @@ export default function WatchPage() {
 
   // Periodic telemetry flush
   useEffect(() => {
-    if (!sessionId) return;
-    if (!token) return;
+    const sid = sessionId;
+    const watchToken = token;
+    if (!sid) return;
+    if (!watchToken) return;
+    const activeSessionId: string = sid;
+    const activeToken: string = watchToken;
 
     let stopped = false;
 
@@ -172,7 +176,7 @@ export default function WatchPage() {
       if (events.length === 0) return;
 
       try {
-        await apiClient.submitWatchTelemetry(token, sessionId, { events });
+        await apiClient.submitWatchTelemetry(activeToken, activeSessionId, { events });
       } catch {
         // Best-effort: do not fail playback UI on telemetry issues.
       }
@@ -250,7 +254,7 @@ export default function WatchPage() {
             <CardDescription>{ui.message}</CardDescription>
           </CardHeader>
           <CardFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push('/')}>
+            <Button variant="outline" onClick={() => router.push('/')} aria-label="Go to home page">
               Go Home
             </Button>
           </CardFooter>
@@ -303,6 +307,7 @@ export default function WatchPage() {
                   controls
                   playsInline
                   preload="auto"
+                  aria-label="Video player"
                 />
               </div>
               <div className="text-xs text-muted-foreground">
@@ -312,7 +317,7 @@ export default function WatchPage() {
           )}
         </CardContent>
         <CardFooter className="flex gap-2">
-          <Button onClick={endNow} disabled={!sessionId || ending} variant="outline">
+          <Button onClick={endNow} disabled={!sessionId || ending} variant="outline" aria-label="End session and exit">
             {ending ? 'Ending…' : 'End & Exit'}
           </Button>
         </CardFooter>

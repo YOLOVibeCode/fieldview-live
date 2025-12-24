@@ -23,15 +23,16 @@ export default function AdminAudiencePage() {
   const [ui, setUi] = useState<UiState>({ kind: 'loading' });
 
   useEffect(() => {
-    if (!sessionToken) {
+    const token = sessionToken;
+    if (!token) {
       router.replace('/login');
       return;
     }
 
     let cancelled = false;
-    async function load() {
+    async function load(activeToken: string) {
       try {
-        const data = await apiClient.adminGetGameAudience(sessionToken, ownerId, gameId);
+        const data = await apiClient.adminGetGameAudience(activeToken, ownerId, gameId);
         if (cancelled) return;
         setUi({ kind: 'ready', data });
       } catch (err) {
@@ -41,7 +42,7 @@ export default function AdminAudiencePage() {
       }
     }
 
-    void load();
+    void load(token);
     return () => {
       cancelled = true;
     };
@@ -68,7 +69,7 @@ export default function AdminAudiencePage() {
             <CardDescription>{ui.message}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={() => router.push('/console')}>
+            <Button variant="outline" onClick={() => router.push('/console')} aria-label="Back to admin console">
               Back to search
             </Button>
           </CardContent>
@@ -88,7 +89,7 @@ export default function AdminAudiencePage() {
             owner {ownerId} • game {gameId}
           </p>
         </div>
-        <Button variant="outline" onClick={() => router.push('/console')}>
+        <Button variant="outline" onClick={() => router.push('/console')} aria-label="Back to admin console">
           Back
         </Button>
       </div>

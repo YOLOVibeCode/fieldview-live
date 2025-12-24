@@ -14,22 +14,26 @@ function assertLiveTestEnv(): void {
     throw new Error('LIVE tests require DATABASE_URL to be set (use a dedicated test database).');
   }
 
-  // Safety: prevent accidental production runs
-  const url = process.env.DATABASE_URL.toLowerCase();
-  if (url.includes('prod') || url.includes('production')) {
-    throw new Error('Refusing to run LIVE tests against a production DATABASE_URL.');
+  // Safety: prevent accidental production runs.
+  // Check DB name (not the password/user) so we don't false-positive on strings like "change_in_production".
+  const parsed = new URL(process.env.DATABASE_URL);
+  const dbName = parsed.pathname.replace(/^\//, '').toLowerCase();
+  if (!dbName.includes('test') && !dbName.includes('dev')) {
+    throw new Error(
+      `Refusing to run LIVE tests unless DATABASE_URL points to a test/dev database (got db="${dbName}").`
+    );
   }
 }
 
 describe('LIVE: Health + DB connectivity', () => {
-  it('GET /api/health returns healthy and DB is reachable', async () => {
+  it('GET /health returns healthy and DB is reachable', async () => {
     assertLiveTestEnv();
 
     // DB connectivity check (real database)
     await prisma.$queryRaw`SELECT 1`;
 
     const request: SuperTest<typeof app> = agent(app);
-    const response = await request.get('/api/health').expect(200);
+    const response = await request.get('/health').expect(200);
     expect(response.body.status).toBe('healthy');
   });
 });

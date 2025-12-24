@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 /**
  * POC: Mobile-optimized RTMP stream viewer
@@ -17,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function StreamViewerPOC() {
   const [streamUrl, setStreamUrl] = useState('');
+  const [streamUrlInput, setStreamUrlInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -87,11 +90,8 @@ export default function StreamViewerPOC() {
   }, [streamUrl]);
 
   const handleConnect = () => {
-    // For POC: You can hardcode a test stream URL or use Mux playback URL
-    // Example Mux signed URL format: https://stream.mux.com/{PLAYBACK_ID}.m3u8?token={JWT}
-    const testUrl = prompt('Enter HLS stream URL (e.g., from Mux):');
-    if (testUrl) {
-      setStreamUrl(testUrl);
+    if (streamUrlInput.trim()) {
+      setStreamUrl(streamUrlInput.trim());
     }
   };
 
@@ -140,7 +140,22 @@ export default function StreamViewerPOC() {
                   This POC allows you to view an RTMP stream that&apos;s being relayed through Mux.
                   The video player is optimized for mobile devices and will use the full available resolution.
                 </p>
-                <Button onClick={handleConnect} size="lg" className="w-full md:w-auto">
+                <div className="space-y-2">
+                  <Label htmlFor="stream-url-input">HLS Stream URL</Label>
+                  <Input
+                    id="stream-url-input"
+                    type="url"
+                    placeholder="https://stream.mux.com/[PLAYBACK_ID].m3u8?token=[JWT]"
+                    value={streamUrlInput}
+                    onChange={(e) => setStreamUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleConnect();
+                      }
+                    }}
+                  />
+                </div>
+                <Button onClick={handleConnect} size="lg" className="w-full md:w-auto" disabled={!streamUrlInput.trim()}>
                   Connect to Stream
                 </Button>
               </div>
@@ -156,7 +171,7 @@ export default function StreamViewerPOC() {
               </div>
             )}
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
                 {error}
               </div>
             )}
@@ -183,6 +198,7 @@ export default function StreamViewerPOC() {
               preload="auto"
               autoPlay
               muted={false}
+              aria-label="Stream video player"
             />
             
             {/* Fullscreen Toggle - Desktop only (mobile has native controls) */}
@@ -258,3 +274,4 @@ export default function StreamViewerPOC() {
     </div>
   );
 }
+

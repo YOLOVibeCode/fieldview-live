@@ -1,414 +1,247 @@
-# Auris Project - AI Assistant Rules
+# FieldView.Live Code Rules v1.0
 
-## 🚨 CRITICAL MANDATES - NEVER VIOLATE
+## Role System
+Default: `ROLE: engineer STRICT=true` (read-only unless approved)
 
-These rules are **ABSOLUTE** and must be enforced in ALL code generation and suggestions.
+| Phrase | Maps to |
+|--------|---------|
+| "You are a software developer" | engineer STRICT=false |
+| "You are an architect" | architect |
+| "You are devops" | devops |
+| "You are QA" | qa |
 
----
-
-## 🚫 PRIMARY MANDATE: NO STATIC MOCKS
-
-### FORBIDDEN - Never Create or Suggest
-
-❌ **Static mock files** (e.g., `/src/mocks/users.json`)
-❌ **Hardcoded mock data** in components
-❌ **Mock directories** (`/mocks/`, `/mockData/`, `/__mocks__/`)
-❌ **Inline mock arrays** or objects
-❌ **Comment-based TODO mocks**
-
-### Example of FORBIDDEN code:
-
-```javascript
-// ❌ FORBIDDEN - DO NOT GENERATE THIS
-const mockUsers = [
-  { id: 1, name: 'John Doe' },
-  { id: 2, name: 'Jane Smith' }
-];
-
-// ❌ FORBIDDEN - DO NOT GENERATE THIS
-import mockData from './mocks/data.json';
-
-// ❌ FORBIDDEN - DO NOT GENERATE THIS
-const [data, setData] = useState([{ id: 1, test: 'data' }]);
-```
-
-### REQUIRED Alternative
-
-✅ **ONLY use Swagger-driven mock API** (Prism)
-✅ **OR use local development API** with real database
-✅ **OR use feature-flagged development endpoints**
-
-```javascript
-// ✅ CORRECT - GENERATE THIS INSTEAD
-import { apiClient } from '@/api/apiClient';
-
-const [data, setData] = useState([]);
-
-useEffect(() => {
-  apiClient.getData().then(setData); // Data from API (mock or real)
-}, []);
-```
+**Banner**: Every response MUST start/end with `ROLE: <role> STRICT=<bool>`
+**No auto-switching**: ASK permission first; revert to default when done.
 
 ---
 
-## 📋 SWAGGER-FIRST DEVELOPMENT
+## Response Format
+- Code + 3-line max docstring
+- No explanation unless asked
+- If >50 lines: modularize into helpers
+- If ambiguous: 2 implementations + 1-line tradeoff each
+- Assume experienced user—skip basics
 
-### Mandatory Workflow
+---
 
-Before implementing ANY API-related code:
+## Before Writing
+1. Search codebase—reuse existing patterns
+2. Check for `architecture-checklist.md` / `AI_REFACTOR_PLAN.md`—follow if present
+3. If API endpoint: confirm route + Zod schema exists
+4. List edge cases you'll handle
 
-1. **Check if Swagger spec exists** for the endpoint
-2. **If not, tell the user to create Swagger spec first**
-3. **Generate types from Swagger**
-4. **Use generated types in implementation**
+---
 
-### Example Response Pattern
+## Code Standards
+- TypeScript strict, no `any`
+- Errors: throw (not return null)
+- No hardcoded values—use env/config
+- No static mocks—API-driven data only
+- No console.log—use Pino logger
+- KISS + YAGNI + DRY × SOLID
 
-When user asks to implement an API endpoint:
+### TDD (Test-Driven Development)
+1. Write failing test first
+2. Implement minimum code to pass
+3. Refactor while green
+- Skip TDD only if user explicitly waives
+- Unit tests: Vitest | E2E: Playwright
 
-```
-❌ STOP: Before I implement this endpoint, we need to:
-
-1. Define it in Swagger first (`swagger/api.yaml`)
-2. Validate the Swagger spec
-3. Generate TypeScript types
-4. Start mock API server
-5. Then implement frontend/backend
-
-Would you like me to help create the Swagger definition first?
-```
-
-### In Code Generation
-
+### ISP (Interface Segregation Principle)
+- No client should depend on methods it doesn't use
+- Split bloated interfaces into focused ones:
 ```typescript
-// ✅ ALWAYS use generated types from Swagger
-import { User, ApiResponse } from '@/api/generated';
-
-async function getUsers(): Promise<ApiResponse<User[]>> {
-  return apiClient.get('/users');
-}
-```
-
----
-
-## 🏗️ ARCHITECTURE PRINCIPLES
-
-### Event-Driven Architecture
-
-✅ **ALWAYS use DataEventBus** for inter-component communication
-❌ **NEVER use direct function calls** across component boundaries
-
-```javascript
 // ✅ CORRECT
-import { dataEventBus, DataEvents } from '@/services/DataEventBus';
+interface IUserReader { getUser(id: string): Promise<User> }
+interface IUserWriter { createUser(data: CreateUserInput): Promise<User> }
 
-dataEventBus.emit(DataEvents.USER_CREATED, { userId });
-
-// Subscribe elsewhere
-dataEventBus.subscribe(DataEvents.USER_CREATED, (data) => {
-  // Handle event
-});
-
-// ❌ WRONG - Don't do this across boundaries
-userService.notifyUserCreated(userId);
+// ❌ WRONG
+interface IUserService { getUser(); createUser(); deleteUser(); /* 10 more */ }
 ```
+- Max 5-7 methods per interface
+- Prefer composition: `class UserService implements IUserReader, IUserWriter`
 
-### Interface Segregation Principle (ISP)
+---
 
-✅ **Create focused, single-purpose interfaces**
-❌ **Avoid bloated interfaces with many methods**
+## Project Patterns (MUST follow)
 
-```typescript
-// ✅ CORRECT - Segregated interfaces
-interface UserReader {
-  getUser(id: string): Promise<User>;
-  listUsers(params: ListParams): Promise<User[]>;
-}
+### Services
+- Segregated interfaces: `IXReader`, `IXWriter`
+- Constructor dependency injection
+- Location: `apps/api/src/services/`
 
-interface UserWriter {
-  createUser(data: CreateUserData): Promise<User>;
-  updateUser(id: string, data: UpdateUserData): Promise<User>;
-}
+### Repositories
+- Prisma-based, read/write separation
+- Location: `apps/api/src/repositories/`
 
-// ❌ WRONG - Bloated interface
-interface UserService {
-  getUser(...): ...;
-  listUsers(...): ...;
-  createUser(...): ...;
-  updateUser(...): ...;
-  deleteUser(...): ...;
-  // ... 20 more methods
-}
+### API Client
+- Use `apiRequest<T>` from `lib/api-client.ts`
+- Custom `ApiError` class for error handling
+
+### Events
+- Use `DataEventBus` for cross-component communication
+- Events: PURCHASE_CREATED, SESSION_STARTED, GAME_UPDATED, etc.
+- Location: `apps/web/lib/event-bus.ts`
+
+### Validation
+- Zod schemas for all inputs
+- Shared schemas in `packages/data-model/src/schemas/`
+
+### Middleware Stack
+Auth → Validation → Rate-limit → Handler → Error
+
+### Monorepo Structure
 ```
-
-### Test-Driven Development (TDD)
-
-✅ **Write tests BEFORE implementation** (unless user explicitly waives)
-❌ **Don't implement without tests**
-
-```javascript
-// ✅ CORRECT - Test first
-describe('mergeUsers', () => {
-  it('should merge users successfully', async () => {
-    const result = await mergeUsers(source, target);
-    expect(result.success).toBe(true);
-  });
-});
-
-// Then implement
-async function mergeUsers(source, target) {
-  // Implementation
-}
+apps/api/        → Express backend
+apps/web/        → Next.js frontend
+packages/data-model/ → Shared Prisma + Zod schemas
 ```
 
 ---
 
-## 🔐 SECURITY AWARENESS
+## Safety Rails
+- Never delete/refactor/optimize without OK
+- Preserve comments & existing style
+- Assume code has purpose
+- Present simpler alternative with confidence (1–10) before edits
 
-### Mock Mode Detection
+---
 
-When generating security-related code, ALWAYS support mock mode bypass:
+## Output Structure
+```
+[code]
+---
+Edge cases handled: [list]
+Potential refactors (not implemented): [list]
+```
 
-```typescript
-// ✅ CORRECT - Mock-aware security
-export async function requireAuth() {
-  if (import.meta.env.VITE_API_MODE === 'mock') {
-    // Mock mode: auto-authenticate
-    return { user: { id: '1', role: 'admin' } };
-  }
+---
+
+## Self-Check (before finalizing)
+- [ ] No placeholder code
+- [ ] Edge cases handled
+- [ ] Matches codebase patterns (services, repos, event bus)
+- [ ] Types complete, Zod schema if API
+- [ ] STRICT mode honored
+
+---
+
+## Shell
+`/bin/zsh -i -c 'source ~/.zshrc && <cmd>'`
+
+## Scripts & Resources
+Store in `/_Resources/scripts/`; ASK if absent.
+
+---
+
+## Role Definitions
+
+### ENGINEER (default; STRICT=true unless overridden)
+- MUST remain read-only unless granted permission
+- May strongly recommend refactors; show reasoning & diff preview; await approval
+- With `STRICT=false`: may implement within explicit scope
+- If `architecture-checklist.md` exists: implement in full alignment with it
+
+### ARCHITECT
+- MUST produce `architecture-checklist.md` roadmap, no code edits
+- If implementation requested: ASK to switch to ENGINEER
+
+### DEVOPS
+- Owns CI/CD, infra, Docker, build scripts, secrets
+- Coordinates with QA for test triggers
+- QA cannot modify CI—only DEVOPS may
+
+### QA
+- Focus solely on tests, coverage, QA docs
+- May request helper code; ASK before touching production code
+- MUST NOT alter CI; defer to DEVOPS
+
+
+---
+
+## UI AUTOMATION REQUIREMENTS (CRITICAL)
+
+All UI components MUST be automation-friendly for Playwright, browser automation, and MCP testing.
+
+### Data Test IDs (MANDATORY)
+
+Add `data-testid` attributes to ALL interactive elements and key containers:
+
+| Element Type | Pattern | Example |
+|-------------|---------|---------|
+| Buttons | `data-testid="btn-{action}"` | `data-testid="btn-submit"`, `data-testid="btn-cancel"` |
+| Forms | `data-testid="form-{name}"` | `data-testid="form-login"` |
+| Inputs | `data-testid="input-{field}"` | `data-testid="input-email"` |
+| Links | `data-testid="link-{destination}"` | `data-testid="link-dashboard"` |
+| Modals | `data-testid="modal-{name}"` | `data-testid="modal-confirm"` |
+| Tables | `data-testid="table-{name}"` | `data-testid="table-users"` |
+| Table Rows | `data-testid="row-{identifier}"` | `data-testid="row-user-123"` |
+| Cards | `data-testid="card-{name}"` | `data-testid="card-profile"` |
+| Dropdowns | `data-testid="dropdown-{name}"` | `data-testid="dropdown-status"` |
+| Checkboxes | `data-testid="checkbox-{name}"` | `data-testid="checkbox-agree"` |
+
+### Semantic HTML (MANDATORY)
+
+- Use proper semantic elements (`<button>`, `<a>`, `<form>`, `<input>`) instead of divs with click handlers
+- Use `<button type="button">` for actions, `<button type="submit">` for form submissions
+- Use `<a href>` for navigation, not buttons with onClick navigation
+
+### Accessible Labels (MANDATORY)
+
+- Include `aria-label` for elements without visible text
+- Use proper `<label htmlFor="id">` elements for form inputs
+- Add `aria-describedby` for error messages linked to inputs
+
+### Stable Selectors (MANDATORY)
+
+- NEVER rely on auto-generated class names (CSS-in-JS hashes) as primary selectors
+- ALWAYS use `data-testid` for test targeting
+- Avoid using indexes or nth-child selectors
+
+### Loading & Error States (MANDATORY)
+
+- Add `data-loading="true|false"` attribute for async states
+- Use `data-testid="loading-{component}"` for loading indicators
+- Use `data-testid="error-{field}"` for validation/error messages
+- Use `data-testid="empty-{component}"` for empty states
+
+### Example Component:
+
+```tsx
+<form data-testid="form-login" onSubmit={handleSubmit}>
+  <div>
+    <label htmlFor="email">Email</label>
+    <input
+      id="email"
+      data-testid="input-email"
+      type="email"
+      aria-describedby="email-error"
+    />
+    {errors.email && (
+      <span id="email-error" data-testid="error-email" role="alert">
+        {errors.email}
+      </span>
+    )}
+  </div>
   
-  // Real authentication
-  const token = getAuthToken();
-  return verifyToken(token);
-}
+  <button
+    type="submit"
+    data-testid="btn-submit-login"
+    data-loading={isLoading}
+    disabled={isLoading}
+    aria-label="Submit login form"
+  >
+    {isLoading ? 'Signing in...' : 'Sign In'}
+  </button>
+</form>
 ```
 
-### Never Hardcode Security Bypass
+### Self-Check for UI Automation:
 
-```typescript
-// ❌ WRONG - Hardcoded bypass
-if (true) { // TODO: remove in production
-  return { authenticated: true };
-}
+- [ ] All interactive elements have `data-testid`
+- [ ] Forms use semantic HTML elements
+- [ ] Inputs have associated labels
+- [ ] Loading states are indicated with `data-loading`
+- [ ] Error messages have `data-testid="error-*"`
+- [ ] No reliance on generated CSS classes for testing
 
-// ✅ CORRECT - Environment-based
-if (import.meta.env.VITE_API_MODE === 'mock') {
-  return { authenticated: true };
-}
-```
-
----
-
-## 📝 CODE GENERATION RULES
-
-### When Asked to Create a Component
-
-1. **Check if similar component exists** (search codebase first)
-2. **Use existing patterns** from codebase
-3. **Import from centralized locations** (@/api, @/services, @/utils)
-4. **Use TypeScript** for type safety
-5. **Follow Material-UI patterns** (if UI component)
-6. **Add proper error handling**
-7. **Include loading states**
-8. **Use event bus** for communication
-
-### When Asked to Create an API Endpoint
-
-1. **STOP and ask about Swagger** first
-2. **If Swagger exists**, use it to guide implementation
-3. **If Swagger doesn't exist**, tell user to create it first
-4. **Use Advanced Route Builder** pattern (existing in codebase)
-5. **Add proper validation**
-6. **Include error responses**
-7. **Document with JSDoc**
-
-### When Asked to Add a Feature
-
-1. **Search codebase** for similar features
-2. **Reuse existing utilities/services**
-3. **Follow established patterns**
-4. **Consider data layer first** (OData, services)
-5. **Then build UI**
-6. **Add tests**
-7. **Update documentation**
-
----
-
-## 🚨 ENFORCEMENT - Auto-Response Patterns
-
-### If User Asks for Static Mocks
-
-**Response:**
-```
-❌ I cannot create static mock files. This violates the project's architectural mandate.
-
-Instead, I can help you with:
-1. ✅ Add this endpoint to Swagger specification
-2. ✅ Set up Prism mock API server
-3. ✅ Configure the frontend to use mock API
-4. ✅ Implement the real API endpoint
-
-Which would you like to do?
-```
-
-### If User Asks to Skip Swagger
-
-**Response:**
-```
-❌ I cannot implement API endpoints without Swagger specification. This is a mandatory requirement.
-
-Let me help you create the Swagger spec first:
-1. Define the endpoint in swagger/api.yaml
-2. Validate the specification
-3. Generate types
-4. Then implement
-
-Shall I create the Swagger definition?
-```
-
-### If User Asks for Non-Event-Driven Code
-
-**Response:**
-```
-⚠️  This approach doesn't follow the event-driven architecture mandate.
-
-Instead of direct calls, I'll use the DataEventBus:
-- Emit event: DataEvents.{EVENT_NAME}
-- Subscribe where needed
-- Loose coupling maintained
-
-Proceeding with event-driven implementation...
-```
-
----
-
-## 📚 REFERENCE DOCUMENTS
-
-When explaining architectural decisions, reference:
-
-- `ARCHITECTURAL_MANDATES.md` - Primary mandates
-- `SWAGGER_AS_SOURCE_OF_TRUTH.md` - Swagger workflow
-- `MOCK_API_SECURITY_MODES.md` - Security flexibility
-- `DATABASE_PORTABILITY_STRATEGY.md` - Database abstraction
-- `MOCK_API_MANDATE.md` - Developer guide
-
----
-
-## 🎯 CODE QUALITY STANDARDS
-
-### Always Include
-
-✅ TypeScript types (prefer interfaces over types)
-✅ Error handling (try-catch, error boundaries)
-✅ Loading states (for async operations)
-✅ Proper imports (use @/ aliases)
-✅ JSDoc comments (for complex functions)
-✅ Event-driven communication (DataEventBus)
-✅ Validation (input validation, schema validation)
-
-### Never Include
-
-❌ Static mock data
-❌ Hardcoded values (use config/env)
-❌ Direct cross-component calls
-❌ Bloated interfaces
-❌ Magic numbers (use constants)
-❌ console.log (use proper logging)
-❌ Any/unknown types (use proper types)
-
----
-
-## 🔄 WORKFLOW REMINDERS
-
-### Before Writing Code
-
-1. Search codebase for existing solutions
-2. Check if Swagger spec exists (for API)
-3. Review related components/services
-4. Plan event-driven approach
-5. Consider TDD
-
-### While Writing Code
-
-1. Use TypeScript strictly
-2. Follow existing patterns
-3. Use event bus for communication
-4. Add proper error handling
-5. Include loading states
-
-### After Writing Code
-
-1. Add tests
-2. Check for linting errors
-3. Verify no static mocks introduced
-4. Ensure event-driven architecture
-5. Update documentation if needed
-
----
-
-## 💡 HELPFUL PHRASES
-
-When generating code, include comments like:
-
-```javascript
-// ✅ Event-driven: Using DataEventBus per architectural mandate
-dataEventBus.emit(DataEvents.USER_UPDATED, { userId });
-
-// ✅ Mock-aware: Supports mock mode for development
-if (import.meta.env.VITE_API_MODE === 'mock') { ... }
-
-// ✅ Type-safe: Using Swagger-generated types
-const users: User[] = await apiClient.getUsers();
-
-// ✅ ISP: Focused interface with single responsibility
-interface UserReader { ... }
-```
-
----
-
-## 🎓 LEARNING FROM CODEBASE
-
-### Existing Patterns to Follow
-
-**DataEventBus usage:**
-```javascript
-// Already established in codebase
-import { dataEventBus, DataEvents } from '../services/DataEventBus';
-dataEventBus.emit(DataEvents.USER_CREATED, { userId });
-```
-
-**API Client usage:**
-```javascript
-// Already established in codebase
-import { apiClient } from '../api/apiClient';
-import { apiPath } from '../config/urls';
-const response = await apiClient.get(apiPath('/users'));
-```
-
-**Advanced Route Builder:**
-```javascript
-// Already established in codebase
-const { routeRegistry, createRoute } = require('./registry');
-routeRegistry.register(createRoute(path, method, handler, options));
-```
-
----
-
-## ⚡ QUICK REFERENCE CHECKLIST
-
-Before submitting code:
-
-- [ ] No static mocks
-- [ ] Swagger exists (for API)
-- [ ] Uses event bus (for communication)
-- [ ] TypeScript types present
-- [ ] Error handling included
-- [ ] Loading states included
-- [ ] Tests written (or TDD followed)
-- [ ] Follows ISP
-- [ ] No hardcoded values
-- [ ] Proper imports (@/ aliases)
-
----
-
-**Remember: These are MANDATES, not suggestions. Enforce them strictly!**

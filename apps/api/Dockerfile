@@ -1,5 +1,5 @@
 # Multi-stage build for FieldView.live API
-FROM node:20-alpine AS base
+FROM node:20-bullseye-slim AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
@@ -43,7 +43,7 @@ RUN cd packages/data-model && pnpm build
 RUN cd apps/api && pnpm build
 
 # ===== Production stage =====
-FROM node:20-alpine AS runner
+FROM node:20-bullseye-slim AS runner
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
@@ -76,3 +76,4 @@ WORKDIR /app/apps/api
 
 # Start the server
 CMD ["node", "dist/server.js"]
+

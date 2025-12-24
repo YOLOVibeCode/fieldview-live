@@ -3,7 +3,8 @@ builder = "NIXPACKS"
 buildCommand = "cd ../.. && pnpm install && pnpm --filter @fieldview/data-model build && pnpm --filter web build"
 
 [deploy]
-startCommand = "cd apps/web && pnpm start"
+startCommand = "pnpm start"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
+

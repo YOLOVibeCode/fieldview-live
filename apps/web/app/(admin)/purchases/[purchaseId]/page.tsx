@@ -22,15 +22,16 @@ export default function AdminPurchasePage() {
   const [ui, setUi] = useState<UiState>({ kind: 'loading' });
 
   useEffect(() => {
-    if (!sessionToken) {
+    const token = sessionToken;
+    if (!token) {
       router.replace('/login');
       return;
     }
 
     let cancelled = false;
-    async function load() {
+    async function load(activeToken: string) {
       try {
-        const data = await apiClient.adminGetPurchaseTimeline(sessionToken, purchaseId);
+        const data = await apiClient.adminGetPurchaseTimeline(activeToken, purchaseId);
         if (cancelled) return;
         setUi({ kind: 'ready', data });
       } catch (err) {
@@ -40,7 +41,7 @@ export default function AdminPurchasePage() {
       }
     }
 
-    void load();
+    void load(token);
     return () => {
       cancelled = true;
     };
@@ -67,7 +68,7 @@ export default function AdminPurchasePage() {
             <CardDescription>{ui.message}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={() => router.push('/console')}>
+            <Button variant="outline" onClick={() => router.push('/console')} aria-label="Back to admin console">
               Back to search
             </Button>
           </CardContent>
@@ -85,7 +86,7 @@ export default function AdminPurchasePage() {
           <h1 className="text-2xl font-semibold">Purchase</h1>
           <p className="text-sm text-muted-foreground">{data.purchaseId}</p>
         </div>
-        <Button variant="outline" onClick={() => router.push('/console')}>
+        <Button variant="outline" onClick={() => router.push('/console')} aria-label="Back to admin console">
           Back
         </Button>
       </div>

@@ -6,14 +6,23 @@
 
 import Redis from 'ioredis';
 
-export const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === '1';
+
+export const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:4303', {
   maxRetriesPerRequest: null,
+  // Avoid noisy connection attempts during unit tests; tests that need Redis should provide REDIS_URL.
+  lazyConnect: isTest,
+  enableOfflineQueue: !isTest,
 });
 
 redisClient.on('error', (error) => {
-  console.error('Redis connection error:', error);
+  if (!isTest) {
+    console.error('Redis connection error:', error);
+  }
 });
 
 redisClient.on('connect', () => {
-  console.log('Redis connected');
+  if (!isTest) {
+    console.log('Redis connected');
+  }
 });

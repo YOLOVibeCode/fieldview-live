@@ -232,12 +232,12 @@ export default function CheckoutPage() {
               />
 
               {error && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
                   {error}
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button type="submit" className="w-full" disabled={submitting} aria-label="Continue to payment">
                 {submitting ? 'Processing...' : `Continue to Payment - ${formatPrice(game.priceCents, game.currency)}`}
               </Button>
             </form>

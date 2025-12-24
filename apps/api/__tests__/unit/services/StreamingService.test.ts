@@ -123,6 +123,8 @@ describe('StreamingService', () => {
         protectionLevel: 'strong',
         muxAssetId: 'mux-stream-123',
         muxPlaybackId: 'playback-xyz',
+        rtmpPublishUrl: 'rtmps://global-live.mux.com:443/app',
+        rtmpStreamKey: 'stream-key-abc',
       });
       expect(mockGameWriter.update).toHaveBeenCalledWith('game-1', {
         streamSourceId: 'stream-1',

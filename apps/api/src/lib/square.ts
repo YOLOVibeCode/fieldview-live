@@ -5,20 +5,19 @@
  * Uses Square SDK for Checkout API with Apple Pay, Google Pay support.
  */
 
+import crypto from 'crypto';
 import { SquareClient, SquareEnvironment } from 'square';
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN || '';
 const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox;
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID || '';
+const SQUARE_WEBHOOK_SIGNATURE_KEY = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || '';
 
-// Square SDK v43+ uses bearerAuthCredentials
-// Type assertion needed due to SDK type definitions
+// Square SDK v43+ uses `token` parameter directly (not bearerAuthCredentials)
 export const squareClient = new SquareClient({
-  bearerAuthCredentials: {
-    accessToken: SQUARE_ACCESS_TOKEN,
-  },
+  token: SQUARE_ACCESS_TOKEN,
   environment: SQUARE_ENVIRONMENT,
-} as never);
+});
 
 export const squareLocationId = SQUARE_LOCATION_ID;
 
@@ -26,11 +25,23 @@ export const squareLocationId = SQUARE_LOCATION_ID;
  * Validate Square webhook signature.
  */
 export function validateSquareWebhook(
-  _signature: string | undefined,
-  _body: string,
-  _webhookUrl: string
+  signature: string | undefined,
+  body: string,
+  webhookUrl: string
 ): boolean {
-  // TODO: Implement Square webhook signature validation
-  // For now, return true (should be implemented in production)
-  return true;
+  if (!signature || !body || !webhookUrl || !SQUARE_WEBHOOK_SIGNATURE_KEY) {
+    return false;
+  }
+
+  // Square spec: base64(HMAC-SHA256(signatureKey, notificationUrl + requestBody))
+  const expected = crypto
+    .createHmac('sha256', SQUARE_WEBHOOK_SIGNATURE_KEY)
+    .update(`${webhookUrl}${body}`)
+    .digest('base64');
+
+  // Constant-time compare
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }

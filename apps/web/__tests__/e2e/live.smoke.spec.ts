@@ -13,7 +13,8 @@ function assertLiveWebEnv() {
 test('LIVE: home page loads', async ({ page }) => {
   assertLiveWebEnv();
   await page.goto('/');
-  await expect(page.getByText('FieldView.Live')).toBeVisible();
+  // Use getByRole for heading instead of getByText for better accessibility testing
+  await expect(page.getByRole('heading', { name: /FieldView\.Live/i })).toBeVisible();
 });
 
 

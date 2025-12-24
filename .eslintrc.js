@@ -4,7 +4,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',
-    project: './tsconfig.base.json',
+    tsconfigRootDir: __dirname,
+    project: ['./tsconfig.base.json'],
   },
   plugins: ['@typescript-eslint', 'import'],
   extends: [

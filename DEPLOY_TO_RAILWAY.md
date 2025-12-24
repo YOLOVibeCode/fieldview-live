@@ -213,6 +213,24 @@ NEXTAUTH_URL=https://fieldview.live
 3. URL: `https://api.fieldview.live/api/webhooks/square`
 4. Events: `payment.*`, `refund.*`
 
+#### Square env vars you must set (API + Web)
+
+**API service (server-side Square):**
+
+- `SQUARE_ENVIRONMENT` (`sandbox` or `production`)
+- `SQUARE_ACCESS_TOKEN`
+- `SQUARE_LOCATION_ID`
+- `SQUARE_WEBHOOK_SIGNATURE_KEY`
+- `SQUARE_APPLICATION_ID` (Connect / OAuth)
+- `SQUARE_APPLICATION_SECRET` (Connect / OAuth)
+- `SQUARE_REDIRECT_URI` (must match your Square app OAuth redirect exactly)
+
+**Web service (Square Web Payments SDK):**
+
+- `NEXT_PUBLIC_SQUARE_APPLICATION_ID`
+- `NEXT_PUBLIC_SQUARE_LOCATION_ID`
+- `NEXT_PUBLIC_SQUARE_ENVIRONMENT` (`sandbox` or `production`)
+
 ### Twilio Webhooks
 
 1. Go to [Twilio Console](https://console.twilio.com)
@@ -406,3 +424,4 @@ Your Services:
 - 🌐 Web: `https://your-web-service.up.railway.app`
 - 🔌 API: `https://your-api-service.up.railway.app`
 - 📹 Stream POC: `https://your-web-service.up.railway.app/poc/stream-viewer`
+

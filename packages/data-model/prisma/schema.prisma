@@ -8,7 +8,7 @@ datasource db {
 }
 
 model OwnerAccount {
-  id                String   @id @default(uuid())
+  id                String   @id @default(uuid()) @db.Uuid
   type              String   // 'owner' | 'association'
   name              String
   status            String   // 'active' | 'suspended' | 'pending_verification'
@@ -26,7 +26,7 @@ model OwnerAccount {
 }
 
 model OwnerUser {
-  id            String       @id @default(uuid())
+  id            String       @id @default(uuid()) @db.Uuid
   ownerAccountId String      @db.Uuid
   email         String
   passwordHash  String       // bcrypt hashed password
@@ -45,7 +45,7 @@ model OwnerUser {
 }
 
 model Game {
-  id            String        @id @default(uuid())
+  id            String        @id @default(uuid()) @db.Uuid
   ownerAccountId String      @db.Uuid
   title         String
   homeTeam      String
@@ -73,7 +73,7 @@ model Game {
 }
 
 model StreamSource {
-  id                String   @id @default(uuid())
+  id                String   @id @default(uuid()) @db.Uuid
   gameId            String   @db.Uuid @unique
   type              String   // 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed'
   protectionLevel   String   // 'strong' | 'moderate' | 'best_effort'
@@ -102,7 +102,7 @@ model StreamSource {
 }
 
 model ViewerIdentity {
-  id          String     @id @default(uuid())
+  id          String     @id @default(uuid()) @db.Uuid
   email       String     @unique
   phoneE164   String?
   smsOptOut   Boolean    @default(false)
@@ -117,7 +117,7 @@ model ViewerIdentity {
 }
 
 model Purchase {
-  id                      String     @id @default(uuid())
+  id                      String     @id @default(uuid()) @db.Uuid
   gameId                  String     @db.Uuid
   viewerId                String     @db.Uuid
   amountCents             Int
@@ -145,7 +145,7 @@ model Purchase {
 }
 
 model Entitlement {
-  id          String     @id @default(uuid())
+  id          String     @id @default(uuid()) @db.Uuid
   purchaseId  String     @db.Uuid @unique
   tokenId     String     @unique // Hash of token claims
   validFrom   DateTime
@@ -162,7 +162,7 @@ model Entitlement {
 }
 
 model PlaybackSession {
-  id              String     @id @default(uuid())
+  id              String     @id @default(uuid()) @db.Uuid
   entitlementId   String     @db.Uuid
   startedAt       DateTime   @default(now())
   endedAt         DateTime?
@@ -184,7 +184,7 @@ model PlaybackSession {
 }
 
 model Refund {
-  id              String     @id @default(uuid())
+  id              String     @id @default(uuid()) @db.Uuid
   purchaseId      String     @db.Uuid
   amountCents     Int
   reasonCode      String     // 'buffer_ratio_high' | 'buffer_ratio_medium' | 'excessive_buffering' | 'fatal_error' | 'manual'
@@ -200,7 +200,7 @@ model Refund {
 }
 
 model LedgerEntry {
-  id            String     @id @default(uuid())
+  id            String     @id @default(uuid()) @db.Uuid
   ownerAccountId String    @db.Uuid
   type          String     // 'charge' | 'platform_fee' | 'processor_fee' | 'refund' | 'payout'
   amountCents   Int        // Positive for credits, negative for debits
@@ -217,7 +217,7 @@ model LedgerEntry {
 }
 
 model Payout {
-  id              String     @id @default(uuid())
+  id              String     @id @default(uuid()) @db.Uuid
   ownerAccountId  String     @db.Uuid
   amountCents     Int
   currency         String     @default("USD")
@@ -235,7 +235,7 @@ model Payout {
 }
 
 model SMSMessage {
-  id              String     @id @default(uuid())
+  id              String     @id @default(uuid()) @db.Uuid
   direction       String     // 'inbound' | 'outbound'
   phoneE164       String
   keywordCode     String?
@@ -251,7 +251,7 @@ model SMSMessage {
 }
 
 model AdminAccount {
-  id            String       @id @default(uuid())
+  id            String       @id @default(uuid()) @db.Uuid
   email         String       @unique
   passwordHash  String       // bcrypt hashed password
   role          String       // 'support_admin' | 'super_admin'
@@ -269,7 +269,7 @@ model AdminAccount {
 }
 
 model AdminAuditLog {
-  id              String     @id @default(uuid())
+  id              String     @id @default(uuid()) @db.Uuid
   adminUserId     String     @db.Uuid
   actionType      String     // 'refund_create' | 'resend_sms' | 'keyword_disable' | 'view_audience' | etc.
   targetType      String     // 'purchase' | 'game' | 'owner' | 'config' | 'viewer'
@@ -286,7 +286,7 @@ model AdminAuditLog {
 }
 
 model PaymentAttempt {
-  id              String     @id @default(uuid())
+  id              String     @id @default(uuid()) @db.Uuid
   purchaseId      String     @db.Uuid
   status          String     // 'created' | 'succeeded' | 'failed'
   failureReason   String?

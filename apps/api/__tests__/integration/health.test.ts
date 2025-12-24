@@ -5,7 +5,7 @@ import app from '@/server';
 describe('Health Endpoint', () => {
   it('returns 200 with healthy status', async () => {
     const request: SuperTest<typeof app> = agent(app);
-    const response = await request.get('/api/health');
+    const response = await request.get('/health');
 
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('healthy');

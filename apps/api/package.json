@@ -5,7 +5,7 @@
   "main": "./dist/server.js",
   "types": "./dist/server.d.ts",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "PORT=4301 tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "pnpm test:live",

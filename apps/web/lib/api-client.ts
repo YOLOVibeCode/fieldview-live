@@ -5,7 +5,7 @@
  * Types will be generated from OpenAPI spec.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
 export class ApiError extends Error {
   constructor(

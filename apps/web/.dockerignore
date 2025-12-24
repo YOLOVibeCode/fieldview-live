@@ -20,3 +20,4 @@ playwright.config.ts
 .playwright
 test-results
 playwright-report
+

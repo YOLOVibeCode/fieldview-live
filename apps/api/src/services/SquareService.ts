@@ -18,7 +18,7 @@ import type { ISquareReader, ISquareWriter, SquareConnectUrlData } from './ISqua
 const SQUARE_APP_ID = process.env.SQUARE_APPLICATION_ID || '';
 const SQUARE_APP_SECRET = process.env.SQUARE_APPLICATION_SECRET || '';
 const SQUARE_ENV = process.env.SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
-const SQUARE_REDIRECT_URI = process.env.SQUARE_REDIRECT_URI || 'http://localhost:3001/api/owners/square/callback';
+const SQUARE_REDIRECT_URI = process.env.SQUARE_REDIRECT_URI || 'http://localhost:4301/api/owners/square/callback';
 const SQUARE_API_BASE = SQUARE_ENV === 'production' 
   ? 'https://connect.squareup.com' 
   : 'https://connect.squareupsandbox.com';

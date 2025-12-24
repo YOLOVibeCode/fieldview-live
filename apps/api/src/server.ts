@@ -25,14 +25,22 @@ import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 
 const app: Express = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4301;
+
+// Trust proxy (Railway/NGINX) so req.protocol/host are correct for webhooks
+app.set('trust proxy', 1);
 
 // Middleware
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    // Preserve raw body for webhook signature verification (Square requires exact bytes)
+    (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+  },
+}));
 app.use(pinoHttp({ logger }));
 
 // Routes
-app.use('/api', createHealthRouter());
+app.use('/', createHealthRouter());
 app.use('/api/admin', createAdminRouter());
 app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersAnalyticsRouter());

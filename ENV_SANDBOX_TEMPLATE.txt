@@ -1,0 +1,73 @@
+# FieldView.live - Sandbox Environment Variables
+# Copy this file to a real .env file (do not commit secrets)
+# Example local usage:
+# - apps/api/.env
+# - apps/web/.env.local
+
+# ===== DATABASE (Local or Railway) =====
+DATABASE_URL="postgresql://user:password@localhost:4302/fieldview_sandbox?schema=public"
+
+# ===== REDIS =====
+REDIS_URL="redis://localhost:4303"
+
+# ===== MUX (Streaming) =====
+# Create in Mux Dashboard -> Settings -> Access Tokens
+MUX_TOKEN_ID=""
+MUX_TOKEN_SECRET=""
+# Optional (defaults to mux.com)
+MUX_DOMAIN="mux.com"
+
+# ===== SQUARE (Payments) =====
+# Server-side (payments + webhooks)
+# Create in Square Developer Dashboard -> Apps -> (your app) -> Credentials
+SQUARE_ACCESS_TOKEN=""
+SQUARE_LOCATION_ID=""
+SQUARE_WEBHOOK_SIGNATURE_KEY=""
+SQUARE_ENVIRONMENT="sandbox"
+
+# Square Connect (OAuth onboarding for owners)
+# Apps -> (your app) -> OAuth
+SQUARE_APPLICATION_ID=""
+SQUARE_APPLICATION_SECRET=""
+# For local dev this callback is fine; in Railway set to your public API URL
+SQUARE_REDIRECT_URI="http://localhost:4301/api/owners/square/callback"
+
+# ===== TWILIO (SMS) =====
+TWILIO_ACCOUNT_SID=""
+TWILIO_AUTH_TOKEN=""
+TWILIO_PHONE_NUMBER="+15551234567"
+
+# ===== JWT =====
+# Generate with: openssl rand -base64 32
+JWT_SECRET=""
+JWT_EXPIRES_IN="24h"
+
+# ===== APP URLs (used in checkout links / QR / webhooks) =====
+# Public web app base URL (NOT the API URL)
+APP_URL="http://localhost:4300"
+
+# ===== PAYOUT / FEES =====
+# Platform fee percent applied to purchases (default 10)
+PLATFORM_FEE_PERCENT="10"
+
+# ===== API =====
+PORT=4301
+NODE_ENV="development"
+# Public base URL of the API (used for Square/Twilio webhook URL signature validation)
+API_BASE_URL="http://localhost:4301"
+
+# ===== CORS =====
+CORS_ORIGIN="http://localhost:4300"
+
+# ===== WEB APP (Next.js) =====
+NEXT_PUBLIC_API_URL="http://localhost:4301"
+NEXTAUTH_URL="http://localhost:4300"
+NEXTAUTH_SECRET=""
+
+# Square Web Payments SDK (frontend)
+NEXT_PUBLIC_SQUARE_APPLICATION_ID=""
+NEXT_PUBLIC_SQUARE_LOCATION_ID=""
+NEXT_PUBLIC_SQUARE_ENVIRONMENT="sandbox"
+
+# ===== LOGGING =====
+LOG_LEVEL="info"

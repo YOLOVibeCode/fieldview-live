@@ -230,3 +230,4 @@ Verify your setup is working:
 ---
 
 **Ready to stream? Start with:** `./scripts/get-rtmp-credentials.sh YOUR_GAME_ID YOUR_TOKEN`
+

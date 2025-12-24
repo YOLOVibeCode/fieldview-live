@@ -34,6 +34,11 @@ export default function PaymentPage() {
 
   const squareApplicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || '';
   const squareLocationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '';
+  const squareEnvironment = (process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox').toLowerCase();
+  const squareSdkUrl =
+    squareEnvironment === 'production'
+      ? 'https://web.squarecdn.com/v1/square.js'
+      : 'https://sandbox.web.squarecdn.com/v1/square.js';
 
   useEffect(() => {
     if (sdkLoaded && squareApplicationId && squareLocationId && cardRef.current) {
@@ -93,7 +98,7 @@ export default function PaymentPage() {
   return (
     <>
       <Script
-        src="https://sandbox.web.squarecdn.com/v1/square.js"
+        src={squareSdkUrl}
         onLoad={() => setSdkLoaded(true)}
         onError={() => {
           setError('Failed to load Square payment SDK');
@@ -110,7 +115,7 @@ export default function PaymentPage() {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
                 {error}
               </div>
             )}
@@ -121,8 +126,8 @@ export default function PaymentPage() {
               </div>
             ) : squareApplicationId && squareLocationId ? (
               <div className="space-y-4">
-                <div id="card-container" ref={cardRef}></div>
-                <Button onClick={handlePayment} className="w-full">
+                <div id="card-container" ref={cardRef} data-testid="square-card-container"></div>
+                <Button onClick={handlePayment} className="w-full" data-testid="pay-now">
                   Pay Now
                 </Button>
               </div>

@@ -89,11 +89,12 @@ export default function CheckoutSuccessPage() {
             <Button
               className="w-full"
               onClick={() => router.push(`/watch/${entitlementToken}`)}
+              aria-label="Watch stream"
             >
               Watch Stream
             </Button>
           )}
-          <Button variant="outline" className="w-full" onClick={() => router.push('/')}>
+          <Button variant="outline" className="w-full" onClick={() => router.push('/')} aria-label="Go to home page">
             Go Home
           </Button>
         </CardFooter>

@@ -51,7 +51,7 @@ export default function AdminConsolePage() {
           <h1 className="text-2xl font-semibold">Admin Console</h1>
           <p className="text-sm text-muted-foreground">Search-first support tooling</p>
         </div>
-        <Button variant="outline" onClick={logout}>
+        <Button variant="outline" onClick={logout} aria-label="Sign out">
           Sign out
         </Button>
       </div>
@@ -64,15 +64,17 @@ export default function AdminConsolePage() {
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Input
+              id="admin-search-q"
+              aria-label="Global Search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="e.g. parent@example.com, +15551234567, EAGLES22, purchase UUID…"
             />
-            <Button onClick={runSearch} disabled={loading || q.trim().length === 0}>
+            <Button onClick={runSearch} disabled={loading || q.trim().length === 0} aria-label="Search">
               {loading ? 'Searching…' : 'Search'}
             </Button>
           </div>
-          {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+          {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</div>}
         </CardContent>
       </Card>
 
@@ -141,6 +143,7 @@ export default function AdminConsolePage() {
                   key={p.id}
                   className="w-full text-left rounded-md border p-3 hover:bg-muted"
                   onClick={() => router.push(`/purchases/${p.id}`)}
+                  aria-label={`View purchase ${p.id}`}
                 >
                   <div className="flex justify-between gap-2">
                     <div className="min-w-0">

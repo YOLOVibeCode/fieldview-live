@@ -3,7 +3,15 @@ import { resolve } from 'path';
 
 export default defineConfig({
   test: {
-    exclude: ['__tests__/live/**'],
+    // IMPORTANT: Setting `exclude` overrides Vitest defaults. Include node_modules, build output, etc.
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/coverage/**',
+      '**/.next/**',
+      '__tests__/live/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
