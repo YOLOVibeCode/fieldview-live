@@ -49,12 +49,19 @@ export function setPaymentService(service: PaymentService): void {
  * GET /api/webhooks/square
  * 
  * Handle Square's validation check (Square may send GET/HEAD to verify endpoint).
+ * Returns simple 200 OK for Square's URL validation.
  */
 router.get('/square', (_req, res) => {
-  res.status(200).json({ 
-    status: 'ready', 
-    message: 'Square webhook endpoint is ready to receive events' 
-  });
+  res.status(200).json({ received: true });
+});
+
+/**
+ * HEAD /api/webhooks/square
+ * 
+ * Handle Square's HEAD request for validation.
+ */
+router.head('/square', (_req, res) => {
+  res.status(200).end();
 });
 
 /**
