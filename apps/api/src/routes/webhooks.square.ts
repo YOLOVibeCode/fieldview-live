@@ -46,6 +46,18 @@ export function setPaymentService(service: PaymentService): void {
 }
 
 /**
+ * GET /api/webhooks/square
+ * 
+ * Handle Square's validation check (Square may send GET/HEAD to verify endpoint).
+ */
+router.get('/square', (_req, res) => {
+  res.status(200).json({ 
+    status: 'ready', 
+    message: 'Square webhook endpoint is ready to receive events' 
+  });
+});
+
+/**
  * POST /api/webhooks/square
  * 
  * Handle Square payment webhooks.
@@ -67,6 +79,14 @@ router.post(
 
         const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
         const bodyString = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body);
+
+        // Handle Square's validation request (empty body or test payload)
+        // Square may send a validation request without signature during setup
+        const isEmptyOrTest = !bodyString || bodyString === '{}' || bodyString === 'null';
+        if (isEmptyOrTest && !signature) {
+          // Return 200 OK for Square's validation check
+          return res.status(200).json({ received: true, message: 'Webhook endpoint is ready' });
+        }
 
         const isValid = validateSquareWebhook(signature, bodyString, webhookUrl);
         if (!isValid) {
