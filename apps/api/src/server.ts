@@ -24,6 +24,7 @@ import { createPublicRouter } from './routes/public.checkout';
 import { createPublicGamesRouter } from './routes/public.games';
 import { createPublicPurchasesRouter } from './routes/public.purchases';
 import { createWatchRouter } from './routes/public.watch';
+import { createTestStreamsRouter } from './routes/test.streams';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 
@@ -92,6 +93,9 @@ app.use('/api/public', createPublicPurchasesRouter());
 app.use('/api/public', createWatchRouter());
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
+
+// Test routes (POC/development only)
+app.use('/api/test/streams', createTestStreamsRouter());
 
 // Error handling (must be last)
 app.use(errorHandler);
