@@ -23,10 +23,12 @@ function createRateLimiter(options: Partial<Options>): ReturnType<typeof rateLim
   
   if (useRedis) {
     // RedisStore for production - works across multiple instances
-    // ioredis client is compatible with rate-limit-redis
+    // rate-limit-redis requires sendCommand function for ioredis
     rateLimitOptions.store = new RedisStore({
-      // @ts-expect-error - rate-limit-redis expects a redis client with call method
-      client: redisClient,
+      // @ts-expect-error - rate-limit-redis types don't match ioredis call signature exactly
+      sendCommand: (...args: string[]) => {
+        return redisClient.call(...(args as [string, ...string[]])) as Promise<string | number | Buffer | null>;
+      },
       prefix: 'rl:',
     });
   }
