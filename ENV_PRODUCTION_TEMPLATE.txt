@@ -63,3 +63,7 @@ NEXT_PUBLIC_SQUARE_ENVIRONMENT="production"
 
 # ===== LOGGING =====
 LOG_LEVEL="info"
+
+# ===== ERROR TRACKING (Optional) =====
+# Sentry DSN for error tracking (leave empty to disable)
+SENTRY_DSN=""

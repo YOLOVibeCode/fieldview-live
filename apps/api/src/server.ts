@@ -4,10 +4,13 @@
  * Main server setup with middleware and routes.
  */
 
+import cors from 'cors';
 import express, { type Express } from 'express';
+import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 
 import { logger } from './lib/logger';
+import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import { createAdminRouter } from './routes/admin';
 import { createHealthRouter } from './routes/health';
@@ -24,11 +27,46 @@ import { createWatchRouter } from './routes/public.watch';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 
+// Initialize Sentry error tracking (optional, requires SENTRY_DSN env var)
+initSentry();
+
 const app: Express = express();
 const PORT = process.env.PORT || 4301;
 
 // Trust proxy (Railway/NGINX) so req.protocol/host are correct for webhooks
 app.set('trust proxy', 1);
+
+// Security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.squarecdn.com'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: [
+          "'self'",
+          'https://api.squareup.com',
+          'https://connect.squareup.com',
+          'https://mux.com',
+          'https://*.mux.com',
+        ],
+        frameSrc: ["'self'", 'https://js.squarecdn.com'],
+      },
+    },
+  })
+);
+
+// CORS configuration
+const corsOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:4300'];
+app.use(
+  cors({
+    origin: corsOrigins,
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
 
 // Middleware
 app.use(express.json({

@@ -245,3 +245,49 @@ Add `data-testid` attributes to ALL interactive elements and key containers:
 - [ ] Error messages have `data-testid="error-*"`
 - [ ] No reliance on generated CSS classes for testing
 
+---
+
+## MODULAR CODE STRUCTURE (iOS Swift)
+
+### Purpose
+Keep Swift code maintainable, testable, and aligned with MVVM architecture.
+
+### SIZE THRESHOLDS (iOS Swift MVVM)
+
+| Metric | Limit | Rationale |
+|--------|-------|-----------|
+| **File Length** | 300 lines max | Swift files should be focused |
+| **Function/Method** | 40 lines max | Single responsibility |
+| **SwiftUI View** | 150 lines max | Extract sub-views early |
+| **ViewModel** | 250 lines max | Business logic container |
+| **Service Class** | 200 lines max | Protocol-based, focused |
+| **Parameters** | 6 max | Use structs for complex configs |
+| **Nesting Depth** | 3 levels max | Guard clauses, early returns |
+
+### WHEN LIMITS ARE EXCEEDED
+
+```
+If View > 150 lines:
+  → Extract ViewBuilder components
+  → Create reusable sub-views
+  → Move computed properties to ViewModel
+
+If ViewModel > 250 lines:
+  → Split by domain (e.g., SessionViewModel → PlaybackViewModel + RecordingViewModel)
+  → Extract services for API calls
+  → Use Combine/async streams
+
+If Service > 200 lines:
+  → Apply Interface Segregation
+  → Split read/write responsibilities
+```
+
+### SELF-CHECK UPDATE
+
+Add to existing checklist:
+- [ ] Files under 300 lines
+- [ ] Views under 150 lines
+- [ ] ViewModels under 250 lines
+- [ ] No force unwraps in production code
+- [ ] Protocols before implementations
+
