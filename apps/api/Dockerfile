@@ -75,5 +75,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 WORKDIR /app/apps/api
 
 # Start the server
-CMD ["node", "dist/server.js"]
+CMD ["pnpm", "start"]
 
