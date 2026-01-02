@@ -100,6 +100,11 @@ export default function TchsPage() {
     const el = container as HTMLDivElement & {
       webkitRequestFullscreen?: () => Promise<void> | void;
     };
+    const video = videoRef.current as (HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitExitFullscreen?: () => void;
+      webkitDisplayingFullscreen?: boolean;
+    }) | null;
 
     const activeFullscreenElement = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
 
@@ -111,6 +116,12 @@ export default function TchsPage() {
       if (doc.webkitExitFullscreen) {
         await doc.webkitExitFullscreen();
       }
+      return;
+    }
+
+    // iOS Safari: use native video fullscreen when available (more reliable than element fullscreen).
+    if (video?.webkitEnterFullscreen) {
+      video.webkitEnterFullscreen();
       return;
     }
 
@@ -126,7 +137,8 @@ export default function TchsPage() {
   useEffect(() => {
     function onFullscreenChange() {
       const doc = document as Document & { webkitFullscreenElement?: Element | null };
-      const active = Boolean(doc.fullscreenElement ?? doc.webkitFullscreenElement);
+      const video = videoRef.current as (HTMLVideoElement & { webkitDisplayingFullscreen?: boolean }) | null;
+      const active = Boolean(doc.fullscreenElement ?? doc.webkitFullscreenElement ?? video?.webkitDisplayingFullscreen);
       setIsFullscreen(active);
     }
 
@@ -272,7 +284,7 @@ export default function TchsPage() {
           <div
             ref={playerContainerRef}
             className="relative w-full bg-gray-900 rounded-lg overflow-hidden"
-            style={{ paddingBottom: '56.25%' }}
+            style={isFullscreen ? { height: '100vh' } : { paddingBottom: '56.25%' }}
             data-testid="container-player"
           >
             {status === 'offline' && (
@@ -319,7 +331,7 @@ export default function TchsPage() {
 
             <video
               ref={videoRef}
-              className="absolute inset-0 w-full h-full bg-black"
+              className="absolute inset-0 w-full h-full bg-black object-contain"
               controls
               playsInline
               data-testid="video-player"
