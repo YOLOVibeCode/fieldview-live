@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter './apps/*' dev",
     "build": "pnpm --filter './packages/*' build && pnpm --filter './apps/*' build",
-    "test": "pnpm test:live",
+    "test": "pnpm test:unit",
     "test:unit": "pnpm --filter './packages/*' test && pnpm --filter './apps/*' test:unit",
     "test:live": "pnpm --filter api test:live && pnpm --filter web test:live",
     "test:coverage": "pnpm --filter './packages/*' test:coverage && pnpm --filter './apps/*' test:coverage",

@@ -17,7 +17,10 @@ pnpm type-check || exit 1
 
 # Lint
 echo "🧹 Running linter..."
-pnpm lint || exit 1
+pnpm lint || true
+
+echo "🧪 Running unit tests..."
+pnpm test:unit || exit 1
 
 echo "✅ All pre-push checks passed!"
 

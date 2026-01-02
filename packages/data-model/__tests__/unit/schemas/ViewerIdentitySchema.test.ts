@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { ViewerIdentitySchema } from '@/schemas/ViewerIdentitySchema';
-import { z } from 'zod';
 
 describe('ViewerIdentitySchema', () => {
   it('validates valid viewer identity with email', () => {
@@ -21,7 +20,12 @@ describe('ViewerIdentitySchema', () => {
       createdAt: new Date(),
     };
     
-    expect(() => ViewerIdentitySchema.parse(invalid)).toThrow(z.ZodError);
+    const result = ViewerIdentitySchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected ViewerIdentitySchema to reject missing email');
+    }
+    expect(result.error.issues[0]?.path).toEqual(['email']);
   });
   
   it('rejects invalid email format', () => {
@@ -32,7 +36,12 @@ describe('ViewerIdentitySchema', () => {
       createdAt: new Date(),
     };
     
-    expect(() => ViewerIdentitySchema.parse(invalid)).toThrow(z.ZodError);
+    const result = ViewerIdentitySchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected ViewerIdentitySchema to reject invalid email format');
+    }
+    expect(result.error.issues[0]?.path).toEqual(['email']);
   });
   
   it('validates optional phoneE164 in E.164 format', () => {
@@ -56,6 +65,11 @@ describe('ViewerIdentitySchema', () => {
       createdAt: new Date(),
     };
     
-    expect(() => ViewerIdentitySchema.parse(invalid)).toThrow(z.ZodError);
+    const result = ViewerIdentitySchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected ViewerIdentitySchema to reject invalid phoneE164 format');
+    }
+    expect(result.error.issues[0]?.path).toEqual(['phoneE164']);
   });
 });
