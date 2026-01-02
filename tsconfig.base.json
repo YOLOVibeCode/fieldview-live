@@ -24,8 +24,8 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@fieldview/data-model": ["./packages/data-model/src"],
-      "@fieldview/data-model/*": ["./packages/data-model/src/*"]
+      "@fieldview/data-model": ["./packages/data-model/dist"],
+      "@fieldview/data-model/*": ["./packages/data-model/dist/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build", ".next"]

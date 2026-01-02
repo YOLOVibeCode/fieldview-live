@@ -66,7 +66,7 @@ export class AdminService implements IAdminReader {
     }
 
     // Get game
-    const game = await this.gameReader.getById(purchase.gameId);
+    const game = purchase.gameId ? await this.gameReader.getById(purchase.gameId) : null;
     if (!game) {
       throw new NotFoundError('Game not found');
     }
@@ -78,8 +78,8 @@ export class AdminService implements IAdminReader {
       purchaseId,
       purchase: {
         id: purchase.id,
-        gameId: purchase.gameId,
-        gameTitle: game.title,
+        gameId: purchase.gameId ?? '',
+        gameTitle: game.title ?? '',
         viewerId: purchase.viewerId,
         viewerEmail: isSuperAdmin ? viewer.email : maskEmail(viewer.email),
         viewerEmailMasked: isSuperAdmin ? undefined : maskEmail(viewer.email),
@@ -172,12 +172,12 @@ export class AdminService implements IAdminReader {
       const purchase = await this.purchaseReader.getById(query);
       if (purchase) {
         const viewer = await this.viewerIdentityReader.getById(purchase.viewerId);
-        const game = await this.gameReader.getById(purchase.gameId);
+        const game = purchase.gameId ? await this.gameReader.getById(purchase.gameId) : null;
         if (viewer && game) {
           purchases.push({
             id: purchase.id,
-            gameId: purchase.gameId,
-            gameTitle: game.title,
+            gameId: purchase.gameId ?? '',
+            gameTitle: game.title ?? '',
             viewerId: purchase.viewerId,
             viewerEmail: isSuperAdmin ? viewer.email : maskEmail(viewer.email),
             viewerEmailMasked: isSuperAdmin ? undefined : maskEmail(viewer.email),

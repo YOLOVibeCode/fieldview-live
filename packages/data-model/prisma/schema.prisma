@@ -119,7 +119,8 @@ model ViewerIdentity {
 
 model Purchase {
   id                      String     @id @default(uuid()) @db.Uuid
-  gameId                  String     @db.Uuid
+  gameId                  String?    @db.Uuid  // Made optional
+  channelId               String?    @db.Uuid  // Added for watch-link purchases
   viewerId                String     @db.Uuid
   amountCents             Int
   currency                String     @default("USD")
@@ -134,13 +135,15 @@ model Purchase {
   failedAt                DateTime?
   refundedAt              DateTime?
   
-  game                    Game       @relation(fields: [gameId], references: [id])
+  game                    Game?       @relation(fields: [gameId], references: [id])
+  channel                 WatchChannel? @relation(fields: [channelId], references: [id])
   viewer                  ViewerIdentity @relation(fields: [viewerId], references: [id])
   entitlement             Entitlement?
   paymentAttempts         PaymentAttempt[]
   refunds                 Refund[]
   
   @@index([gameId])
+  @@index([channelId])
   @@index([viewerId])
   @@index([status])
 }
@@ -308,6 +311,11 @@ model WatchChannel {
   displayName      String
   requireEventCode Boolean  @default(false)
 
+  // Access control
+  accessMode       String   @default("public_free")  // 'public_free' | 'pay_per_view'
+  priceCents       Int?
+  currency         String?  @default("USD")
+
   // Current stream mapping (not tied to a Game)
   streamType       String   // 'mux_playback' | 'byo_hls' | 'external_embed'
   muxPlaybackId    String?
@@ -320,6 +328,7 @@ model WatchChannel {
 
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   eventCodes       WatchEventCode[]
+  purchases        Purchase[]
 
   @@unique([organizationId, teamSlug])
   @@index([organizationId])

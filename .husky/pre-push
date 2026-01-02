@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-push checks..."
+
+# Generate Prisma client first
+echo "📦 Generating Prisma client..."
+pnpm db:generate || exit 1
+
+# Type check
+echo "🔎 Running type-check..."
+pnpm type-check || exit 1
+
+# Lint
+echo "🧹 Running linter..."
+pnpm lint || exit 1
+
+echo "✅ All pre-push checks passed!"
+

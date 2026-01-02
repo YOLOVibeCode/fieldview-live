@@ -71,8 +71,10 @@ router.post(
               reconnect_window: 60,
               max_continuous_duration: 43200, // 12 hours
               // Smart tier uses ML-based encoding for better quality
+              // @ts-ignore - encoding_tier not yet in SDK types
               encoding_tier: 'smart',
               // Standard latency preserves quality (vs low latency which sacrifices it)
+              // @ts-ignore - latency_mode not yet in SDK types
               latency_mode: 'standard',
               new_asset_settings: {
                 playback_policies: ['public'],
@@ -92,7 +94,9 @@ router.post(
               playback_policies: ['public'],
               reconnect_window: 60,
               max_continuous_duration: 43200,
+              // @ts-ignore - encoding_tier not yet in SDK types
               encoding_tier: 'smart',
+              // @ts-ignore - latency_mode not yet in SDK types
               latency_mode: 'standard',
               new_asset_settings: {
                 playback_policies: ['public'],
@@ -267,7 +271,7 @@ router.get(
 
         const lines = manifestText.split('\n');
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+          const line = lines[i] ?? '';
           if (line.startsWith('#EXT-X-STREAM-INF:')) {
             const bandwidthMatch = line.match(/BANDWIDTH=(\d+)/);
             const resolutionMatch = line.match(/RESOLUTION=(\d+x\d+)/);
@@ -276,7 +280,7 @@ router.get(
             if (bandwidthMatch || resolutionMatch) {
               renditions.push({
                 resolution: resolutionMatch?.[1] || 'unknown',
-                bandwidth: bandwidthMatch ? `${(parseInt(bandwidthMatch[1]) / 1000000).toFixed(2)} Mbps` : 'unknown',
+                bandwidth: bandwidthMatch ? `${(parseInt(bandwidthMatch[1] ?? '0') / 1000000).toFixed(2)} Mbps` : 'unknown',
                 codec: codecMatch?.[1] || 'unknown',
               });
             }
