@@ -24,11 +24,11 @@ import { createOwnersWatchLinksRouter } from './routes/owners.watch-links';
 import { createPublicRouter } from './routes/public.checkout';
 import { createPublicGamesRouter } from './routes/public.games';
 import { createPublicPurchasesRouter } from './routes/public.purchases';
-import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createWatchRouter } from './routes/public.watch';
-import { createTestStreamsRouter } from './routes/test.streams';
-import { createTestCleanupRouter } from './routes/test.cleanup';
+import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createTchsRouter } from './routes/tchs';
+import { createTestCleanupRouter } from './routes/test.cleanup';
+import { createTestStreamsRouter } from './routes/test.streams';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 

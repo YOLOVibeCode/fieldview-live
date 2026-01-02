@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+
 import { logger } from '../lib/logger';
 
 const router = Router();

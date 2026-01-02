@@ -7,8 +7,8 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
-import { prisma } from '../lib/prisma';
 import { BadRequestError } from '../lib/errors';
+import { prisma } from '../lib/prisma';
 import { validateRequest } from '../middleware/validation';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 import { WatchLinkService } from '../services/WatchLinkService';

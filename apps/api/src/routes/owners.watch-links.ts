@@ -4,13 +4,13 @@
  * Owner-managed org/team channels that back stable watch links.
  */
 
+import { CreateWatchChannelSchema, CreateWatchEventCodeSchema, CreateWatchOrgSchema, UpdateWatchChannelStreamSchema } from '@fieldview/data-model';
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
-import { CreateWatchChannelSchema, CreateWatchEventCodeSchema, CreateWatchOrgSchema, UpdateWatchChannelStreamSchema } from '@fieldview/data-model';
 
-import { prisma } from '../lib/prisma';
 import { BadRequestError, NotFoundError, ForbiddenError } from '../lib/errors';
+import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';

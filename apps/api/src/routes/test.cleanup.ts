@@ -7,10 +7,10 @@
 
 import express, { type Router, type Response, type NextFunction } from 'express';
 
-import { prisma } from '../lib/prisma';
-import { logger } from '../lib/logger';
-import type { AuthRequest } from '../middleware/auth';
 import { UnauthorizedError } from '../lib/errors';
+import { logger } from '../lib/logger';
+import { prisma } from '../lib/prisma';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 

@@ -6,6 +6,8 @@
 
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from '../lib/errors';
 import { hashIp } from '../lib/ipHash';
+import type { IWatchLinkReaderRepo, IWatchLinkWriterRepo } from '../repositories/IWatchLinkRepository';
+
 import type {
   GetWatchLinkBootstrapInput,
   IWatchLinkReader,
@@ -13,7 +15,6 @@ import type {
   WatchChannelRecord,
   WatchLinkBootstrap,
 } from './IWatchLinkService';
-import type { IWatchLinkReaderRepo, IWatchLinkWriterRepo } from '../repositories/IWatchLinkRepository';
 
 export interface WatchLinkServiceOptions {
   ipHashSecret: string;

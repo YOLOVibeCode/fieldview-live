@@ -7,6 +7,10 @@ echo "🔍 Running pre-push checks..."
 echo "📦 Generating Prisma client..."
 pnpm db:generate || exit 1
 
+# Build data-model package
+echo "🏗️  Building @fieldview/data-model..."
+pnpm --filter @fieldview/data-model build || exit 1
+
 # Type check
 echo "🔎 Running type-check..."
 pnpm type-check || exit 1

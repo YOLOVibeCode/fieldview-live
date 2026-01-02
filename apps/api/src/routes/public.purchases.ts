@@ -13,9 +13,9 @@ import { z } from 'zod';
 import { BadRequestError, NotFoundError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { squareClient, squareLocationId } from '../lib/square';
+import { validateRequest } from '../middleware/validation';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
-import { validateRequest } from '../middleware/validation';
 
 interface PublicPurchaseHandlers {
   getStatus(purchaseId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;

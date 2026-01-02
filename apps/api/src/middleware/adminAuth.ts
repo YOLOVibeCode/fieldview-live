@@ -46,7 +46,7 @@ export function requireAdminAuth(
   const adminAccountId = match[1];
   
   // Set admin info on request
-  req.adminUserId = adminAccountId as string;
+  req.adminUserId = adminAccountId;
   // TODO: Fetch admin role from database
   req.role = 'support_admin'; // Default, should be fetched from session/database
 

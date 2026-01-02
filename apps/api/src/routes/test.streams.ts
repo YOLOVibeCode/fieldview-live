@@ -8,8 +8,8 @@
 import express, { type Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 
-import { assertMuxConfigured, muxClient } from '../lib/mux';
 import { logger } from '../lib/logger';
+import { assertMuxConfigured, muxClient } from '../lib/mux';
 import { validateRequest } from '../middleware/validation';
 
 const router = express.Router();
