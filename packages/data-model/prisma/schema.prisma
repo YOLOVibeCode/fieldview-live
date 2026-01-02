@@ -21,6 +21,7 @@ model OwnerAccount {
   users             OwnerUser[]
   ledgerEntries     LedgerEntry[]
   payouts           Payout[]
+  organizations     Organization[]
   
   @@index([status])
 }
