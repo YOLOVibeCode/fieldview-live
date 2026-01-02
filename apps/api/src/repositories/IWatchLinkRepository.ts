@@ -18,6 +18,9 @@ export interface IWatchLinkWriterRepo {
     organizationId: string;
     teamSlug: string;
     displayName: string;
+    accessMode: string;
+    priceCents: number | null;
+    currency: string | null;
     requireEventCode: boolean;
     streamType: string;
     muxPlaybackId: string | null;
@@ -25,14 +28,18 @@ export interface IWatchLinkWriterRepo {
     externalEmbedUrl: string | null;
     externalProvider: string | null;
   }): Promise<WatchChannel>;
-  updateChannelStream(input: {
+  updateChannel(input: {
     channelId: string;
+    displayName?: string;
+    accessMode?: string;
+    priceCents?: number | null;
+    currency?: string | null;
     requireEventCode?: boolean;
-    streamType: string;
-    muxPlaybackId: string | null;
-    hlsManifestUrl: string | null;
-    externalEmbedUrl: string | null;
-    externalProvider: string | null;
+    streamType?: string;
+    muxPlaybackId?: string | null;
+    hlsManifestUrl?: string | null;
+    externalEmbedUrl?: string | null;
+    externalProvider?: string | null;
   }): Promise<WatchChannel>;
   createEventCode(input: { channelId: string; code: string }): Promise<WatchEventCode>;
   bindEventCodeToIp(input: { eventCodeId: string; boundIpHash: string; boundAt: Date }): Promise<void>;

@@ -127,8 +127,8 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
             .update(`${purchase.id}-${Date.now()}`)
             .digest('hex');
 
-          // Get game to determine entitlement validity period
-          const game = await this.gameReader.getById(purchase.gameId);
+          // Get game to determine entitlement validity period (channel purchases may not have a game)
+          const game = purchase.gameId ? await this.gameReader.getById(purchase.gameId) : null;
           const validFrom = new Date();
           const validTo = game?.endsAt || new Date(validFrom.getTime() + 24 * 60 * 60 * 1000); // Default 24 hours or game end time
 

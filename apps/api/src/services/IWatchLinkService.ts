@@ -10,6 +10,9 @@ export interface WatchChannelRecord {
   id: string;
   orgShortName: string;
   teamSlug: string;
+  accessMode: 'public_free' | 'pay_per_view';
+  priceCents: number | null;
+  currency: string | null;
   requireEventCode: boolean;
   streamType: WatchChannelStreamType;
   muxPlaybackId: string | null;
@@ -27,10 +30,16 @@ export interface WatchEventCodeRecord {
 }
 
 export interface WatchLinkBootstrap {
-  streamUrl: string;
-  playerType: 'hls' | 'embed';
+  accessMode: 'public_free' | 'pay_per_view';
   orgShortName: string;
   teamSlug: string;
+  // Present when accessMode is public_free
+  playerType?: 'hls' | 'embed';
+  streamUrl?: string;
+  // Present when accessMode is pay_per_view
+  priceCents?: number;
+  currency?: string;
+  checkoutRequired?: boolean;
 }
 
 export interface GetWatchLinkBootstrapInput {
@@ -47,6 +56,22 @@ export interface IWatchLinkReader {
 
 export interface IWatchLinkWriter {
   bindEventCodeToIp(eventCodeId: string, ipHash: string, boundAt: Date): Promise<void>;
+}
+
+export interface WatchLinkCheckoutResponse {
+  purchaseId: string;
+  checkoutUrl: string;
+}
+
+export interface IWatchLinkCheckoutWriter {
+  createCheckout(
+    orgShortName: string,
+    teamSlug: string,
+    viewerEmail: string,
+    viewerPhone?: string,
+    eventCode?: string,
+    returnUrl?: string
+  ): Promise<WatchLinkCheckoutResponse>;
 }
 
 

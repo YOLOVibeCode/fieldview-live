@@ -7,7 +7,8 @@
 import type { Purchase } from '@prisma/client';
 
 export interface CreatePurchaseData {
-  gameId: string;
+  gameId: string | null;
+  channelId?: string | null;
   viewerId: string;
   amountCents: number;
   currency?: string;

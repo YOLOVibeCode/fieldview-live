@@ -88,7 +88,7 @@ export default function CheckoutSuccessPage() {
           {entitlementToken && (
             <Button
               className="w-full"
-              onClick={() => router.push(`/watch/${entitlementToken}`)}
+              onClick={() => router.push(`/stream/${entitlementToken}`)}
               aria-label="Watch stream"
             >
               Watch Stream

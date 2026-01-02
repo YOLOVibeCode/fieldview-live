@@ -647,6 +647,340 @@ components:
         fatalErrors:
           type: integer
 
+    # Watch Links (Org/Team Stable URLs)
+    WatchLinkResolveResponse:
+      type: object
+      required:
+        - accessMode
+        - orgShortName
+        - teamSlug
+      properties:
+        accessMode:
+          type: string
+          enum:
+            - public_free
+            - pay_per_view
+          description: Access mode determines if payment is required
+        orgShortName:
+          type: string
+        teamSlug:
+          type: string
+        playerType:
+          type: string
+          enum:
+            - hls
+            - embed
+          description: Present when accessMode is public_free
+        streamUrl:
+          type: string
+          format: uri
+          description: Present when accessMode is public_free
+        priceCents:
+          type: integer
+          minimum: 0
+          description: Present when accessMode is pay_per_view
+        currency:
+          type: string
+          default: USD
+          description: Present when accessMode is pay_per_view
+        checkoutRequired:
+          type: boolean
+          description: Present when accessMode is pay_per_view; true if payment needed
+
+    WatchLinkCheckoutRequest:
+      type: object
+      required:
+        - viewerEmail
+      properties:
+        viewerEmail:
+          type: string
+          format: email
+          description: Required for viewer identity and monitoring
+        viewerPhone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          description: Optional, E.164 format
+        code:
+          type: string
+          minLength: 4
+          maxLength: 32
+          pattern: '^[A-Za-z0-9]+$'
+          description: Optional event code
+        returnUrl:
+          type: string
+          format: uri
+          description: Optional return URL after payment
+
+    WatchLinkCheckoutResponse:
+      type: object
+      required:
+        - purchaseId
+        - checkoutUrl
+      properties:
+        purchaseId:
+          type: string
+          format: uuid
+        checkoutUrl:
+          type: string
+          format: uri
+          description: Square checkout URL
+
+    CreateWatchOrgRequest:
+      type: object
+      required:
+        - shortName
+        - name
+      properties:
+        shortName:
+          type: string
+          minLength: 2
+          maxLength: 20
+          pattern: '^[A-Z0-9]+$'
+          description: Uppercase alphanumeric, unique
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    WatchOrgResponse:
+      type: object
+      required:
+        - id
+        - shortName
+        - name
+        - ownerAccountId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        shortName:
+          type: string
+        name:
+          type: string
+        ownerAccountId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateWatchChannelRequest:
+      type: object
+      required:
+        - teamSlug
+        - displayName
+        - accessMode
+        - streamType
+      properties:
+        teamSlug:
+          type: string
+          minLength: 2
+          maxLength: 40
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*$'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        accessMode:
+          type: string
+          enum:
+            - public_free
+            - pay_per_view
+        priceCents:
+          type: integer
+          minimum: 0
+          description: Required when accessMode is pay_per_view
+        currency:
+          type: string
+          default: USD
+          description: Required when accessMode is pay_per_view
+        requireEventCode:
+          type: boolean
+          default: false
+        streamType:
+          type: string
+          enum:
+            - mux_playback
+            - byo_hls
+            - external_embed
+        muxPlaybackId:
+          type: string
+          description: Required when streamType is mux_playback
+        hlsManifestUrl:
+          type: string
+          format: uri
+          description: Required when streamType is byo_hls
+        externalEmbedUrl:
+          type: string
+          format: uri
+          description: Required when streamType is external_embed
+        externalProvider:
+          type: string
+          enum:
+            - youtube
+            - twitch
+            - vimeo
+            - other
+          description: Required when streamType is external_embed
+
+    UpdateWatchChannelRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        accessMode:
+          type: string
+          enum:
+            - public_free
+            - pay_per_view
+        priceCents:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+        requireEventCode:
+          type: boolean
+        streamType:
+          type: string
+          enum:
+            - mux_playback
+            - byo_hls
+            - external_embed
+        muxPlaybackId:
+          type: string
+        hlsManifestUrl:
+          type: string
+          format: uri
+        externalEmbedUrl:
+          type: string
+          format: uri
+        externalProvider:
+          type: string
+          enum:
+            - youtube
+            - twitch
+            - vimeo
+            - other
+
+    WatchChannelResponse:
+      type: object
+      required:
+        - id
+        - organizationId
+        - teamSlug
+        - displayName
+        - accessMode
+        - streamType
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        teamSlug:
+          type: string
+        displayName:
+          type: string
+        accessMode:
+          type: string
+          enum:
+            - public_free
+            - pay_per_view
+        priceCents:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        requireEventCode:
+          type: boolean
+        streamType:
+          type: string
+          enum:
+            - mux_playback
+            - byo_hls
+            - external_embed
+        muxPlaybackId:
+          type: string
+          nullable: true
+        hlsManifestUrl:
+          type: string
+          format: uri
+          nullable: true
+        externalEmbedUrl:
+          type: string
+          format: uri
+          nullable: true
+        externalProvider:
+          type: string
+          enum:
+            - youtube
+            - twitch
+            - vimeo
+            - other
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateWatchEventCodeRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 32
+          pattern: '^[A-Za-z0-9]+$'
+
+    WatchEventCodeResponse:
+      type: object
+      required:
+        - id
+        - channelId
+        - code
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        boundIpHash:
+          type: string
+          nullable: true
+        boundAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     # Error Response
     ErrorResponse:
       type: object

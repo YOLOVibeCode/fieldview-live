@@ -65,10 +65,14 @@ export class AdminService implements IAdminReader {
       throw new NotFoundError('Viewer not found');
     }
 
-    // Get game
-    const game = await this.gameReader.getById(purchase.gameId);
-    if (!game) {
-      throw new NotFoundError('Game not found');
+    const timelineGameId = purchase.gameId ?? purchase.channelId ?? 'unknown';
+    let timelineGameTitle = 'Watch link';
+    if (purchase.gameId) {
+      const game = await this.gameReader.getById(purchase.gameId);
+      if (!game) throw new NotFoundError('Game not found');
+      timelineGameTitle = game.title;
+    } else if (!purchase.channelId) {
+      throw new NotFoundError('Purchase is missing both gameId and channelId');
     }
 
     // Build timeline events
@@ -78,8 +82,8 @@ export class AdminService implements IAdminReader {
       purchaseId,
       purchase: {
         id: purchase.id,
-        gameId: purchase.gameId,
-        gameTitle: game.title,
+        gameId: timelineGameId,
+        gameTitle: timelineGameTitle,
         viewerId: purchase.viewerId,
         viewerEmail: isSuperAdmin ? viewer.email : maskEmail(viewer.email),
         viewerEmailMasked: isSuperAdmin ? undefined : maskEmail(viewer.email),
@@ -172,12 +176,20 @@ export class AdminService implements IAdminReader {
       const purchase = await this.purchaseReader.getById(query);
       if (purchase) {
         const viewer = await this.viewerIdentityReader.getById(purchase.viewerId);
-        const game = await this.gameReader.getById(purchase.gameId);
-        if (viewer && game) {
+        let gameId = purchase.gameId ?? purchase.channelId ?? 'unknown';
+        let gameTitle = 'Watch link';
+        if (purchase.gameId) {
+          const game = await this.gameReader.getById(purchase.gameId);
+          if (game) gameTitle = game.title;
+          else gameTitle = 'Unknown game';
+        } else if (!purchase.channelId) {
+          gameTitle = 'Unknown purchase';
+        }
+        if (viewer) {
           purchases.push({
             id: purchase.id,
-            gameId: purchase.gameId,
-            gameTitle: game.title,
+            gameId,
+            gameTitle,
             viewerId: purchase.viewerId,
             viewerEmail: isSuperAdmin ? viewer.email : maskEmail(viewer.email),
             viewerEmailMasked: isSuperAdmin ? undefined : maskEmail(viewer.email),

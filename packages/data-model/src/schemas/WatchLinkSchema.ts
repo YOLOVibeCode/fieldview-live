@@ -26,6 +26,8 @@ export const EventCodeSchema = z
 
 export const WatchChannelStreamTypeSchema = z.enum(['mux_playback', 'byo_hls', 'external_embed']);
 
+export const WatchChannelAccessModeSchema = z.enum(['public_free', 'pay_per_view']);
+
 export const UpdateWatchChannelStreamSchema = z.object({
   streamType: WatchChannelStreamTypeSchema,
   muxPlaybackId: z.string().min(1).optional(),
@@ -40,16 +42,58 @@ export const CreateWatchOrgSchema = z.object({
   name: z.string().min(1).max(120),
 });
 
-export const CreateWatchChannelSchema = z.object({
-  teamSlug: TeamSlugSchema,
-  displayName: z.string().min(1).max(120),
-  requireEventCode: z.boolean().optional(),
-  streamType: WatchChannelStreamTypeSchema,
-  muxPlaybackId: z.string().min(1).optional(),
-  hlsManifestUrl: z.string().url().optional(),
-  externalEmbedUrl: z.string().url().optional(),
-  externalProvider: z.enum(['youtube', 'twitch', 'vimeo', 'other']).optional(),
-});
+export const CreateWatchChannelSchema = z
+  .object({
+    teamSlug: TeamSlugSchema,
+    displayName: z.string().min(1).max(120),
+    accessMode: WatchChannelAccessModeSchema,
+    priceCents: z.number().int().min(0).optional(),
+    currency: z.string().default('USD').optional(),
+    requireEventCode: z.boolean().optional(),
+    streamType: WatchChannelStreamTypeSchema,
+    muxPlaybackId: z.string().min(1).optional(),
+    hlsManifestUrl: z.string().url().optional(),
+    externalEmbedUrl: z.string().url().optional(),
+    externalProvider: z.enum(['youtube', 'twitch', 'vimeo', 'other']).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.accessMode === 'pay_per_view') {
+        return data.priceCents !== undefined && data.priceCents > 0;
+      }
+      return true;
+    },
+    {
+      message: 'priceCents is required when accessMode is pay_per_view',
+      path: ['priceCents'],
+    }
+  );
+
+export const UpdateWatchChannelSchema = z
+  .object({
+    displayName: z.string().min(1).max(120).optional(),
+    accessMode: WatchChannelAccessModeSchema.optional(),
+    priceCents: z.number().int().min(0).optional(),
+    currency: z.string().optional(),
+    requireEventCode: z.boolean().optional(),
+    streamType: WatchChannelStreamTypeSchema.optional(),
+    muxPlaybackId: z.string().min(1).optional(),
+    hlsManifestUrl: z.string().url().optional(),
+    externalEmbedUrl: z.string().url().optional(),
+    externalProvider: z.enum(['youtube', 'twitch', 'vimeo', 'other']).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.accessMode === 'pay_per_view') {
+        return data.priceCents === undefined || data.priceCents > 0;
+      }
+      return true;
+    },
+    {
+      message: 'priceCents must be > 0 when accessMode is pay_per_view',
+      path: ['priceCents'],
+    }
+  );
 
 export const CreateWatchEventCodeSchema = z.object({
   code: EventCodeSchema,

@@ -35,6 +35,9 @@ export class WatchLinkRepository implements IWatchLinkReaderRepo, IWatchLinkWrit
     organizationId: string;
     teamSlug: string;
     displayName: string;
+    accessMode: string;
+    priceCents: number | null;
+    currency: string | null;
     requireEventCode: boolean;
     streamType: string;
     muxPlaybackId: string | null;
@@ -50,14 +53,18 @@ export class WatchLinkRepository implements IWatchLinkReaderRepo, IWatchLinkWrit
     });
   }
 
-  async updateChannelStream(input: {
+  async updateChannel(input: {
     channelId: string;
+    displayName?: string;
+    accessMode?: string;
+    priceCents?: number | null;
+    currency?: string | null;
     requireEventCode?: boolean;
-    streamType: string;
-    muxPlaybackId: string | null;
-    hlsManifestUrl: string | null;
-    externalEmbedUrl: string | null;
-    externalProvider: string | null;
+    streamType?: string;
+    muxPlaybackId?: string | null;
+    hlsManifestUrl?: string | null;
+    externalEmbedUrl?: string | null;
+    externalProvider?: string | null;
   }) {
     const { channelId, ...data } = input;
     return this.prisma.watchChannel.update({ where: { id: channelId }, data });

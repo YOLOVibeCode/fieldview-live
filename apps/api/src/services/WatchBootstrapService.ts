@@ -39,6 +39,9 @@ export class WatchBootstrapService implements IWatchBootstrapReader {
     }
 
     // Get game
+    if (!purchase.gameId) {
+      throw new NotFoundError('Game not found');
+    }
     const game = await this.gameReader.getById(purchase.gameId);
     if (!game) {
       throw new NotFoundError('Game not found');

@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import Hls from 'hls.js';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 /**
  * Public watch link viewer
@@ -16,8 +21,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
 type Bootstrap =
-  | { playerType: 'hls'; streamUrl: string; orgShortName: string; teamSlug: string }
-  | { playerType: 'embed'; streamUrl: string; orgShortName: string; teamSlug: string };
+  | {
+      accessMode: 'public_free';
+      orgShortName: string;
+      teamSlug: string;
+      playerType: 'hls' | 'embed';
+      streamUrl: string;
+    }
+  | {
+      accessMode: 'pay_per_view';
+      orgShortName: string;
+      teamSlug: string;
+      priceCents: number;
+      currency: string;
+      checkoutRequired: boolean;
+    };
+
+const CheckoutSchema = z.object({
+  viewerEmail: z.string().email('Invalid email address'),
+  viewerPhone: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Invalid phone number').optional().or(z.literal('')),
+});
 
 function parseMuxPlaybackIdFromHlsUrl(url: string): string | null {
   try {
@@ -32,6 +55,7 @@ function parseMuxPlaybackIdFromHlsUrl(url: string): string | null {
 
 export default function WatchLinkPage() {
   const params = useParams();
+  const router = useRouter();
   const org = (params.org as string) || '';
   const team = (params.team as string) || '';
   const codeParts = (params.code as string[] | undefined) ?? [];
@@ -40,11 +64,20 @@ export default function WatchLinkPage() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
   const title = useMemo(() => `${org}/${team}`, [org, team]);
+
+  const form = useForm<z.infer<typeof CheckoutSchema>>({
+    resolver: zodResolver(CheckoutSchema),
+    defaultValues: {
+      viewerEmail: '',
+      viewerPhone: '',
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -76,8 +109,42 @@ export default function WatchLinkPage() {
     };
   }, [org, team, eventCode]);
 
+  async function handleCheckout(data: z.infer<typeof CheckoutSchema>) {
+    if (bootstrap?.accessMode !== 'pay_per_view') return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${API_URL}/api/public/watch-links/${encodeURIComponent(org)}/${encodeURIComponent(team)}/checkout`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            viewerEmail: data.viewerEmail,
+            viewerPhone: data.viewerPhone || undefined,
+            code: eventCode,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        throw new Error(body?.error?.message || 'Failed to create checkout');
+      }
+
+      const result = (await res.json()) as { purchaseId: string; checkoutUrl: string };
+      router.push(`/checkout/${result.purchaseId}/payment`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create checkout');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   useEffect(() => {
-    if (!bootstrap || bootstrap.playerType !== 'hls') return;
+    if (!bootstrap || bootstrap.accessMode !== 'public_free' || bootstrap.playerType !== 'hls') return;
     if (!videoRef.current) return;
 
     const video = videoRef.current;
@@ -119,7 +186,17 @@ export default function WatchLinkPage() {
     };
   }, [bootstrap]);
 
-  const muxPlaybackId = bootstrap?.playerType === 'hls' ? parseMuxPlaybackIdFromHlsUrl(bootstrap.streamUrl) : null;
+  const muxPlaybackId =
+    bootstrap?.accessMode === 'public_free' && bootstrap.playerType === 'hls'
+      ? parseMuxPlaybackIdFromHlsUrl(bootstrap.streamUrl)
+      : null;
+
+  function formatPrice(cents: number, currency: string = 'USD'): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).format(cents / 100);
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -141,8 +218,9 @@ export default function WatchLinkPage() {
               </div>
             )}
 
-            {!loading && !error && bootstrap?.playerType === 'hls' && (
-              <div className="space-y-2">
+            {/* Public Free - Show Player */}
+            {!loading && !error && bootstrap?.accessMode === 'public_free' && bootstrap.playerType === 'hls' && (
+              <div className="space-y-2" data-testid="video-player">
                 <div className="relative aspect-video bg-black rounded-md overflow-hidden">
                   <video
                     ref={videoRef}
@@ -170,8 +248,8 @@ export default function WatchLinkPage() {
               </div>
             )}
 
-            {!loading && !error && bootstrap?.playerType === 'embed' && (
-              <div className="space-y-2">
+            {!loading && !error && bootstrap?.accessMode === 'public_free' && bootstrap.playerType === 'embed' && (
+              <div className="space-y-2" data-testid="video-player">
                 <div className="relative aspect-video bg-black rounded-md overflow-hidden">
                   <iframe
                     src={bootstrap.streamUrl}
@@ -184,9 +262,65 @@ export default function WatchLinkPage() {
               </div>
             )}
 
+            {/* Pay Per View - Show Checkout Form */}
+            {!loading && !error && bootstrap?.accessMode === 'pay_per_view' && (
+              <div className="space-y-4" data-testid="form-checkout">
+                <div className="text-center">
+                  <p className="text-lg font-semibold">Pay to Watch</p>
+                  <p className="text-2xl font-bold" data-testid="price-display">{formatPrice(bootstrap.priceCents, bootstrap.currency)}</p>
+                </div>
+
+                <form onSubmit={form.handleSubmit(handleCheckout)} data-testid="form-watch-link-checkout" className="space-y-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="viewerEmail">Email *</Label>
+                    <Input
+                      id="viewerEmail"
+                      type="email"
+                      {...form.register('viewerEmail')}
+                      data-testid="input-viewer-email"
+                      aria-describedby={form.formState.errors.viewerEmail ? 'email-error' : undefined}
+                    />
+                    {form.formState.errors.viewerEmail && (
+                      <span id="email-error" data-testid="error-email" role="alert" className="text-sm text-destructive">
+                        {form.formState.errors.viewerEmail.message}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="viewerPhone">Phone (Optional)</Label>
+                    <Input
+                      id="viewerPhone"
+                      type="tel"
+                      placeholder="+1234567890"
+                      {...form.register('viewerPhone')}
+                      data-testid="input-viewer-phone"
+                      aria-describedby={form.formState.errors.viewerPhone ? 'phone-error' : undefined}
+                    />
+                    {form.formState.errors.viewerPhone && (
+                      <span id="phone-error" data-testid="error-phone" role="alert" className="text-sm text-destructive">
+                        {form.formState.errors.viewerPhone.message}
+                      </span>
+                    )}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    data-testid="btn-submit-checkout"
+                    data-loading={submitting}
+                    disabled={submitting}
+                    aria-label="Submit checkout form"
+                  >
+                    {submitting ? 'Processing...' : `Pay ${formatPrice(bootstrap.priceCents, bootstrap.currency)}`}
+                  </Button>
+                </form>
+              </div>
+            )}
+
             {!loading && !error && !bootstrap && (
               <div data-testid="empty-watch-link" className="text-sm text-muted-foreground">
-                No stream configured.
+                Stream is offline or not available. Please check back later.
               </div>
             )}
 

@@ -8,6 +8,7 @@
 import type { Response, NextFunction } from 'express';
 
 import { UnauthorizedError } from '../lib/errors';
+import { prisma } from '../lib/prisma';
 
 import type { AuthRequest } from './auth';
 
@@ -22,35 +23,47 @@ export function requireAdminAuth(
   _res: Response,
   next: NextFunction
 ): void {
-  // Extract session token from Authorization header or cookie
-  const authHeader = req.headers.authorization;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  const sessionToken = authHeader?.startsWith('Bearer ') 
-    ? authHeader.substring(7)
-    : (req.cookies as { adminSessionToken?: string } | undefined)?.adminSessionToken;
+  void (async () => {
+    try {
+      // Extract session token from Authorization header or cookie
+      const authHeader = req.headers.authorization;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const sessionToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : (req.cookies as { adminSessionToken?: string } | undefined)?.adminSessionToken;
 
-  if (!sessionToken || typeof sessionToken !== 'string') {
-    return next(new UnauthorizedError('Admin session required'));
-  }
+      if (!sessionToken || typeof sessionToken !== 'string') {
+        return next(new UnauthorizedError('Admin session required'));
+      }
 
-  // TODO: In production, verify session token against session store
-  // For now, parse token to extract admin account ID
-  // Format: admin_session_{adminAccountId}_{timestamp}
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  const match = sessionToken.match(/^admin_session_([^_]+)_/);
-  if (!match || !match[1]) {
-    return next(new UnauthorizedError('Invalid session token'));
-  }
+      // TODO: In production, verify session token against session store
+      // For now, parse token to extract admin account ID
+      // Format: admin_session_{adminAccountId}_{timestamp}
+      const match = sessionToken.match(/^admin_session_([^_]+)_/);
+      if (!match || !match[1]) {
+        return next(new UnauthorizedError('Invalid session token'));
+      }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const adminAccountId = match[1];
-  
-  // Set admin info on request
-  req.adminUserId = adminAccountId as string;
-  // TODO: Fetch admin role from database
-  req.role = 'support_admin'; // Default, should be fetched from session/database
+      const adminAccountId = match[1];
 
-  next();
+      const adminAccount = await prisma.adminAccount.findUnique({
+        where: { id: adminAccountId },
+        select: { id: true, role: true, status: true },
+      });
+
+      if (!adminAccount || adminAccount.status !== 'active') {
+        return next(new UnauthorizedError('Admin session required'));
+      }
+
+      // Set admin info on request
+      req.adminUserId = adminAccount.id;
+      req.role = adminAccount.role;
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  })();
 }
 
 /**

@@ -192,3 +192,102 @@ paths:
                 $ref: '../../components/schemas.yaml#/components/schemas/PurchaseStatusResponse'
         '404':
           $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /public/watch-links/{orgShortName}/{teamSlug}:
+    get:
+      tags:
+        - Public
+      summary: Resolve watch link
+      description: |
+        Resolves a stable watch link (org/team) to the current stream configuration.
+        Returns accessMode (public_free or pay_per_view), stream details, and pricing if applicable.
+      operationId: resolveWatchLink
+      parameters:
+        - name: orgShortName
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 20
+            pattern: '^[A-Z0-9]+$'
+          description: Organization short name (uppercase alphanumeric)
+        - name: teamSlug
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 40
+            pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*$'
+          description: Team slug (URL-safe)
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 32
+            pattern: '^[A-Za-z0-9]+$'
+          description: Optional event code (required if channel requires it)
+      responses:
+        '200':
+          description: Watch link resolved
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchLinkResolveResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../../components/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /public/watch-links/{orgShortName}/{teamSlug}/checkout:
+    post:
+      tags:
+        - Public
+      summary: Create checkout for watch link
+      description: |
+        Creates a checkout/payment intent for a pay_per_view watch link.
+        **viewerEmail is required** for viewer identity and monitoring.
+      operationId: createWatchLinkCheckout
+      parameters:
+        - name: orgShortName
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 20
+            pattern: '^[A-Z0-9]+$'
+        - name: teamSlug
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 40
+            pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/WatchLinkCheckoutRequest'
+      responses:
+        '200':
+          description: Checkout created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchLinkCheckoutResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'

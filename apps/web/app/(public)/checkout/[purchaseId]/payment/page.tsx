@@ -78,7 +78,7 @@ export default function PaymentPage() {
             purchaseId,
             entitlementToken: data.entitlementToken,
           });
-          router.push(`/watch/${data.entitlementToken}`);
+          router.push(`/stream/${data.entitlementToken}`);
         } else {
           router.push(`/checkout/${purchaseId}/success`);
         }

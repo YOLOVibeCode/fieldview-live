@@ -112,3 +112,148 @@ paths:
           $ref: '../../components/responses.yaml#/components/responses/Forbidden'
         '404':
           $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /owners/me/watch-links/orgs:
+    post:
+      tags:
+        - Owners
+      summary: Create organization
+      description: Creates a new organization for watch links
+      operationId: createWatchOrg
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/CreateWatchOrgRequest'
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchOrgResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+
+  /owners/me/watch-links/orgs/{orgShortName}/channels:
+    post:
+      tags:
+        - Owners
+      summary: Create watch channel
+      description: Creates a new watch channel for an organization
+      operationId: createWatchChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orgShortName
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 20
+            pattern: '^[A-Z0-9]+$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/CreateWatchChannelRequest'
+      responses:
+        '201':
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchChannelResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /owners/me/watch-links/orgs/{orgShortName}/channels/{teamSlug}:
+    patch:
+      tags:
+        - Owners
+      summary: Update watch channel
+      description: Updates channel configuration (accessMode, pricing, stream mapping)
+      operationId: updateWatchChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orgShortName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: teamSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/UpdateWatchChannelRequest'
+      responses:
+        '200':
+          description: Channel updated
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchChannelResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /owners/me/watch-links/orgs/{orgShortName}/channels/{teamSlug}/event-codes:
+    post:
+      tags:
+        - Owners
+      summary: Create event code
+      description: Creates a new event code for a channel (for IP binding)
+      operationId: createWatchEventCode
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orgShortName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: teamSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/CreateWatchEventCodeRequest'
+      responses:
+        '201':
+          description: Event code created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/WatchEventCodeResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../../components/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../../components/responses.yaml#/components/responses/NotFound'

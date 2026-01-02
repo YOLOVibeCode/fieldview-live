@@ -14,6 +14,13 @@ import { validateRequest } from '../middleware/validation';
 
 const router = express.Router();
 
+type MuxLiveStreamCreateParams = Parameters<typeof muxClient.video.liveStreams.create>[0];
+type MuxLiveStreamCreateParamsWithExtras = MuxLiveStreamCreateParams & {
+  // Mux supports these but their SDK types can lag behind the API.
+  encoding_tier?: 'baseline' | 'smart';
+  latency_mode?: 'low' | 'reduced' | 'standard';
+};
+
 // Encoding profile options
 export type EncodingProfile = 'default' | 'smart' | 'smart_4k';
 
@@ -77,7 +84,7 @@ router.post(
               new_asset_settings: {
                 playback_policies: ['public'],
               },
-            });
+            } as MuxLiveStreamCreateParamsWithExtras);
             profileDetails = {
               encodingTier: 'smart',
               latencyMode: 'standard',
@@ -99,7 +106,7 @@ router.post(
               },
               // Note: 4K support may require Mux plan upgrade
               // If this fails, Mux will fall back to 1080p
-            });
+            } as MuxLiveStreamCreateParamsWithExtras);
             profileDetails = {
               encodingTier: 'smart',
               latencyMode: 'standard',
@@ -267,7 +274,7 @@ router.get(
 
         const lines = manifestText.split('\n');
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+          const line = lines[i] ?? '';
           if (line.startsWith('#EXT-X-STREAM-INF:')) {
             const bandwidthMatch = line.match(/BANDWIDTH=(\d+)/);
             const resolutionMatch = line.match(/RESOLUTION=(\d+x\d+)/);
@@ -276,7 +283,9 @@ router.get(
             if (bandwidthMatch || resolutionMatch) {
               renditions.push({
                 resolution: resolutionMatch?.[1] || 'unknown',
-                bandwidth: bandwidthMatch ? `${(parseInt(bandwidthMatch[1]) / 1000000).toFixed(2)} Mbps` : 'unknown',
+                bandwidth: bandwidthMatch?.[1]
+                  ? `${(parseInt(bandwidthMatch[1], 10) / 1000000).toFixed(2)} Mbps`
+                  : 'unknown',
                 codec: codecMatch?.[1] || 'unknown',
               });
             }
