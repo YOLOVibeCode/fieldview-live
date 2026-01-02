@@ -8,7 +8,7 @@
     "dev": "PORT=4301 tsx watch src/server.ts",
     "build": "tsc",
     "prestart": "pnpm build",
-    "start": "node dist/server.js",
+    "start": "node dist/server.js || tsx src/server.ts",
     "test": "pnpm test:live",
     "test:unit": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",
