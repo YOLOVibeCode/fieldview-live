@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "pnpm --filter './apps/*' dev",
     "build": "pnpm --filter './packages/*' build && pnpm --filter './apps/*' build",
+    "start": "bash scripts/railway-start.sh",
+    "start:api": "pnpm --filter api start",
+    "start:web": "pnpm --filter web start",
     "test": "pnpm test:unit",
     "test:unit": "pnpm --filter './packages/*' test && pnpm --filter './apps/*' test:unit",
     "test:live": "pnpm --filter api test:live && pnpm --filter web test:live",
