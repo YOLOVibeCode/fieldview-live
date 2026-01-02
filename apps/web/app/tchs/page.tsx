@@ -9,12 +9,14 @@ const ADMIN_PASSWORD = 'tchs2026'; // Simple password protection
 
 export default function TchsPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const [streamUrl, setStreamUrl] = useState('');
   const [inputUrl, setInputUrl] = useState('');
   const [password, setPassword] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     // Load current stream URL from server
@@ -86,6 +88,58 @@ export default function TchsPage() {
       });
     }
   }
+
+  async function toggleFullscreen(): Promise<void> {
+    const container = playerContainerRef.current;
+    if (!container) return;
+
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => Promise<void> | void;
+      webkitFullscreenElement?: Element | null;
+    };
+    const el = container as HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+
+    const activeFullscreenElement = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+
+    if (activeFullscreenElement) {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (doc.webkitExitFullscreen) {
+        await doc.webkitExitFullscreen();
+      }
+      return;
+    }
+
+    if (el.requestFullscreen) {
+      await el.requestFullscreen();
+      return;
+    }
+    if (el.webkitRequestFullscreen) {
+      await el.webkitRequestFullscreen();
+    }
+  }
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      const active = Boolean(doc.fullscreenElement ?? doc.webkitFullscreenElement);
+      setIsFullscreen(active);
+    }
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    // Safari
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange as EventListener);
+    onFullscreenChange();
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange as EventListener);
+    };
+  }, []);
 
   async function handleSaveUrl() {
     if (!inputUrl.trim()) {
@@ -184,13 +238,25 @@ export default function TchsPage() {
 
       {/* Quick Edit Button (always visible) */}
       {!isEditing && (
-        <button
-          onClick={() => setIsEditing(true)}
-          className="fixed top-4 right-4 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-50 hover:opacity-100 z-50"
-          data-testid="btn-open-edit"
-        >
-          Edit Stream URL
-        </button>
+        <div className="fixed top-4 right-4 flex items-center gap-2 z-50">
+          <button
+            onClick={() => {
+              void toggleFullscreen();
+            }}
+            className="px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-70 hover:opacity-100"
+            data-testid="btn-fullscreen"
+            aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
+          >
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          </button>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-50 hover:opacity-100"
+            data-testid="btn-open-edit"
+          >
+            Edit Stream URL
+          </button>
+        </div>
       )}
 
       {/* Main Content */}
@@ -203,7 +269,12 @@ export default function TchsPage() {
           </div>
 
           {/* Video Player */}
-          <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+          <div
+            ref={playerContainerRef}
+            className="relative w-full bg-gray-900 rounded-lg overflow-hidden"
+            style={{ paddingBottom: '56.25%' }}
+            data-testid="container-player"
+          >
             {status === 'offline' && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center text-white">
@@ -214,6 +285,7 @@ export default function TchsPage() {
                   <button
                     onClick={() => setIsEditing(true)}
                     className="px-4 py-2 bg-gray-700 text-white text-sm rounded hover:bg-gray-600"
+                    data-testid="btn-set-stream"
                   >
                     Set Stream URL
                   </button>
@@ -229,6 +301,7 @@ export default function TchsPage() {
                   <button
                     onClick={() => setIsEditing(true)}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    data-testid="btn-update-stream"
                   >
                     Update Stream URL
                   </button>
