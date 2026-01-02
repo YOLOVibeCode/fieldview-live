@@ -6,3 +6,4 @@
 
 export * from './ViewerIdentitySchema';
 export * from './StreamSourceSchema';
+export * from './WatchLinkSchema';
