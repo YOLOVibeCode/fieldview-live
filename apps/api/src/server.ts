@@ -27,6 +27,8 @@ import { createPublicPurchasesRouter } from './routes/public.purchases';
 import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createWatchRouter } from './routes/public.watch';
 import { createTestStreamsRouter } from './routes/test.streams';
+import { createTestCleanupRouter } from './routes/test.cleanup';
+import { createTchsRouter } from './routes/tchs';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 
@@ -95,11 +97,16 @@ app.use('/api/public', createPublicGamesRouter());
 app.use('/api/public', createPublicPurchasesRouter());
 app.use('/api/public', createPublicWatchLinksRouter());
 app.use('/api/public', createWatchRouter());
+app.use('/api/tchs', createTchsRouter());
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
 
 // Test routes (POC/development only)
-app.use('/api/test/streams', createTestStreamsRouter());
+const enableTestRoutes = process.env.ENABLE_TEST_ROUTES === '1' || process.env.NODE_ENV !== 'production';
+if (enableTestRoutes) {
+  app.use('/api/test/streams', createTestStreamsRouter());
+  app.use('/api/test/cleanup', createTestCleanupRouter());
+}
 
 // Error handling (must be last)
 app.use(errorHandler);
