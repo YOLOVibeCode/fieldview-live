@@ -285,6 +285,62 @@ model AdminAuditLog {
   @@index([createdAt])
 }
 
+model Organization {
+  id             String   @id @default(uuid()) @db.Uuid
+  ownerAccountId String   @db.Uuid
+  shortName      String   @unique
+  name           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+  channels       WatchChannel[]
+
+  @@index([ownerAccountId])
+  @@index([shortName])
+}
+
+model WatchChannel {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @db.Uuid
+  teamSlug         String
+  displayName      String
+  requireEventCode Boolean  @default(false)
+
+  // Current stream mapping (not tied to a Game)
+  streamType       String   // 'mux_playback' | 'byo_hls' | 'external_embed'
+  muxPlaybackId    String?
+  hlsManifestUrl   String?
+  externalEmbedUrl String?
+  externalProvider String?  // 'youtube' | 'twitch' | 'vimeo' | 'other'
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventCodes       WatchEventCode[]
+
+  @@unique([organizationId, teamSlug])
+  @@index([organizationId])
+}
+
+model WatchEventCode {
+  id          String   @id @default(uuid()) @db.Uuid
+  channelId   String   @db.Uuid
+  code        String
+  status      String   @default("active") // 'active' | 'disabled'
+  boundIpHash String?
+  boundAt     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  channel     WatchChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, code])
+  @@index([channelId])
+  @@index([code])
+}
+
 model PaymentAttempt {
   id              String     @id @default(uuid()) @db.Uuid
   purchaseId      String     @db.Uuid

@@ -6,16 +6,35 @@
 
 import type { Request } from 'express';
 import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+
+import { redisClient } from '../lib/redis';
 
 /**
  * Create a rate limiter with specified options.
+ * Uses Redis store in production, in-memory fallback for development.
  */
 function createRateLimiter(options: Partial<Options>): ReturnType<typeof rateLimit> {
-  return rateLimit({
+  const useRedis = process.env.REDIS_URL && process.env.NODE_ENV === 'production';
+  
+  const rateLimitOptions: Partial<Options> = {
     ...options,
-    // TODO: Switch to RedisStore when Redis is properly configured
-    // For now, using in-memory store for local development
-  });
+  };
+  
+  if (useRedis) {
+    // RedisStore for production - works across multiple instances
+    // rate-limit-redis requires sendCommand function for ioredis
+    rateLimitOptions.store = new RedisStore({
+      // @ts-expect-error - rate-limit-redis types don't match ioredis call signature exactly
+      sendCommand: (...args: string[]) => {
+        return redisClient.call(...(args as [string, ...string[]])) as Promise<string | number | Buffer | null>;
+      },
+      prefix: 'rl:',
+    });
+  }
+  // If not using Redis, default in-memory store is used
+  
+  return rateLimit(rateLimitOptions);
 }
 
 /**

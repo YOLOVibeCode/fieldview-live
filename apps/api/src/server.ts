@@ -4,10 +4,13 @@
  * Main server setup with middleware and routes.
  */
 
+import cors from 'cors';
 import express, { type Express } from 'express';
+import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 
 import { logger } from './lib/logger';
+import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import { createAdminRouter } from './routes/admin';
 import { createHealthRouter } from './routes/health';
@@ -17,18 +20,58 @@ import { createOwnersGamesRouter } from './routes/owners.games';
 import { createOwnersMeRouter } from './routes/owners.me';
 import { createOwnersSquareRouter } from './routes/owners.square';
 import { createOwnersStreamsRouter } from './routes/owners.streams';
+import { createOwnersWatchLinksRouter } from './routes/owners.watch-links';
 import { createPublicRouter } from './routes/public.checkout';
 import { createPublicGamesRouter } from './routes/public.games';
 import { createPublicPurchasesRouter } from './routes/public.purchases';
+import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createWatchRouter } from './routes/public.watch';
+import { createTestStreamsRouter } from './routes/test.streams';
+import { createTestCleanupRouter } from './routes/test.cleanup';
+import { createTchsRouter } from './routes/tchs';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
+
+// Initialize Sentry error tracking (optional, requires SENTRY_DSN env var)
+initSentry();
 
 const app: Express = express();
 const PORT = process.env.PORT || 4301;
 
 // Trust proxy (Railway/NGINX) so req.protocol/host are correct for webhooks
 app.set('trust proxy', 1);
+
+// Security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.squarecdn.com'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: [
+          "'self'",
+          'https://api.squareup.com',
+          'https://connect.squareup.com',
+          'https://mux.com',
+          'https://*.mux.com',
+        ],
+        frameSrc: ["'self'", 'https://js.squarecdn.com'],
+      },
+    },
+  })
+);
+
+// CORS configuration
+const corsOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:4300'];
+app.use(
+  cors({
+    origin: corsOrigins,
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
 
 // Middleware
 app.use(express.json({
@@ -48,12 +91,22 @@ app.use('/api/owners', createOwnersGamesRouter());
 app.use('/api/owners', createOwnersMeRouter());
 app.use('/api/owners', createOwnersSquareRouter());
 app.use('/api/owners', createOwnersStreamsRouter());
+app.use('/api/owners', createOwnersWatchLinksRouter());
 app.use('/api/public', createPublicRouter());
 app.use('/api/public', createPublicGamesRouter());
 app.use('/api/public', createPublicPurchasesRouter());
+app.use('/api/public', createPublicWatchLinksRouter());
 app.use('/api/public', createWatchRouter());
+app.use('/api/tchs', createTchsRouter());
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
+
+// Test routes (POC/development only)
+const enableTestRoutes = process.env.ENABLE_TEST_ROUTES === '1' || process.env.NODE_ENV !== 'production';
+if (enableTestRoutes) {
+  app.use('/api/test/streams', createTestStreamsRouter());
+  app.use('/api/test/cleanup', createTestCleanupRouter());
+}
 
 // Error handling (must be last)
 app.use(errorHandler);
