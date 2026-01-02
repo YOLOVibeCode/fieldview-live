@@ -125,6 +125,12 @@ export default function TchsPage() {
       return;
     }
 
+    // Most browsers (including Android Chrome/Firefox): video element fullscreen is the most consistent UX.
+    if (video?.requestFullscreen) {
+      await video.requestFullscreen();
+      return;
+    }
+
     if (el.requestFullscreen) {
       await el.requestFullscreen();
       return;
