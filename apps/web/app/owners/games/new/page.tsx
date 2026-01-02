@@ -201,7 +201,7 @@ export default function OwnerCreateGamePage() {
 
                 {checkoutLink && (
                   <div className="rounded-md border p-3">
-                    <div className="font-semibold">Checkout link (if price > 0)</div>
+                    <div className="font-semibold">Checkout link (if price &gt; 0)</div>
                     <div className="text-sm break-all" data-testid="text-checkout-link">
                       <a className="underline" href={checkoutLink}>
                         {checkoutLink}

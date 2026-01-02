@@ -15,12 +15,16 @@ const UpdateStreamSchema = z.object({
 });
 
 // GET /api/tchs/:slug - Get current stream URL
-router.get(
+      router.get(
   '/:slug',
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
         const { slug } = req.params;
+        
+        if (!slug) {
+          return res.status(400).json({ error: 'Slug is required' });
+        }
 
         // Use in-memory store (simple and fast)
         const streamUrl = streamStore.get(slug);
@@ -44,6 +48,11 @@ router.post(
     void (async () => {
       try {
         const { slug } = req.params;
+        
+        if (!slug) {
+          return res.status(400).json({ error: 'Slug is required' });
+        }
+        
         const body = UpdateStreamSchema.parse({ slug, ...req.body });
 
         // Simple password protection (you can change this)
