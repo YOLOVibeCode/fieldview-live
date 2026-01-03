@@ -15,10 +15,18 @@ export class WatchLinkRepository implements IWatchLinkReaderRepo, IWatchLinkWrit
     return this.prisma.organization.findUnique({ where: { shortName } });
   }
 
+  async getOrganizationById(organizationId: string) {
+    return this.prisma.organization.findUnique({ where: { id: organizationId } });
+  }
+
   async getChannelByOrgIdAndTeamSlug(orgId: string, teamSlug: string) {
     return this.prisma.watchChannel.findUnique({
       where: { organizationId_teamSlug: { organizationId: orgId, teamSlug } },
     });
+  }
+
+  async getChannelById(channelId: string) {
+    return this.prisma.watchChannel.findUnique({ where: { id: channelId } });
   }
 
   async getEventCodeByChannelIdAndCode(channelId: string, code: string) {

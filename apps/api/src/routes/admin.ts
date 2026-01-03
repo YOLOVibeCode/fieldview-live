@@ -231,6 +231,262 @@ router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog
   })();
 });
 
+/**
+ * GET /api/admin/purchases
+ * 
+ * List purchases with payout breakdown (gross, fees, net, recipient).
+ * Supports filtering by date range, recipient type, org, and status.
+ */
+const ListPurchasesQuerySchema = z.object({
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  recipientType: z.enum(['personal', 'organization']).optional(),
+  organizationId: z.string().uuid().optional(),
+  orgShortName: z.string().optional(),
+  status: z.enum(['created', 'paid', 'failed', 'refunded', 'partially_refunded']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+router.get('/purchases', requireAdminAuth, auditLog({ actionType: 'view_purchases', targetType: 'purchase' }), validateRequest({ query: ListPurchasesQuerySchema }), (req: AuthRequest, res, next) => {
+  void (async () => {
+    try {
+      const query = req.query as unknown as z.infer<typeof ListPurchasesQuerySchema>;
+      
+      // Build where clause
+      const where: any = {};
+      
+      if (query.startDate || query.endDate) {
+        where.createdAt = {};
+        if (query.startDate) where.createdAt.gte = query.startDate;
+        if (query.endDate) where.createdAt.lte = query.endDate;
+      }
+      
+      if (query.recipientType) {
+        where.recipientType = query.recipientType;
+      }
+      
+      if (query.organizationId) {
+        where.recipientOrganizationId = query.organizationId;
+      }
+      
+      if (query.orgShortName) {
+        // Need to join with Organization to filter by shortName
+        const org = await prisma.organization.findUnique({ where: { shortName: query.orgShortName } });
+        if (org) {
+          where.recipientOrganizationId = org.id;
+        } else {
+          // Return empty result if org not found
+          return res.json({ purchases: [], total: 0 });
+        }
+      }
+      
+      if (query.status) {
+        where.status = query.status;
+      }
+      
+      // Get purchases with related data
+      const [purchases, total] = await Promise.all([
+        prisma.purchase.findMany({
+          where,
+          include: {
+            game: {
+              include: {
+                ownerAccount: true,
+              },
+            },
+            channel: {
+              include: {
+                organization: true,
+              },
+            },
+            event: {
+              include: {
+                organization: true,
+              },
+            },
+            viewer: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: query.limit,
+          skip: query.offset,
+        }),
+        prisma.purchase.count({ where }),
+      ]);
+      
+      // Format response with breakdown
+      const formatted = purchases.map((p) => {
+        // Determine recipient identity
+        let recipientIdentity: string | null = null;
+        if (p.recipientType === 'personal' && p.game?.ownerAccount) {
+          recipientIdentity = p.game.ownerAccount.contactEmail;
+        } else if (p.recipientType === 'organization') {
+          if (p.channel?.organization) {
+            recipientIdentity = `${p.channel.organization.name} (${p.channel.organization.shortName})`;
+          } else if (p.event?.organization) {
+            recipientIdentity = `${p.event.organization.name} (${p.event.organization.shortName})`;
+          }
+        }
+        
+        return {
+          id: p.id,
+          createdAt: p.createdAt,
+          paidAt: p.paidAt,
+          status: p.status,
+          gross: p.amountCents,
+          processorFee: p.processorFeeCents,
+          platformFee: p.platformFeeCents,
+          net: p.ownerNetCents,
+          recipientType: p.recipientType,
+          recipientIdentity,
+          recipientOwnerAccountId: p.recipientOwnerAccountId,
+          recipientOrganizationId: p.recipientOrganizationId,
+          viewer: {
+            email: p.viewer.email,
+            phoneE164: p.viewer.phoneE164,
+          },
+          game: p.game ? {
+            id: p.game.id,
+            title: p.game.title,
+          } : null,
+          channel: p.channel ? {
+            id: p.channel.id,
+            teamSlug: p.channel.teamSlug,
+            displayName: p.channel.displayName,
+            orgShortName: p.channel.organization.shortName,
+          } : null,
+          event: p.event ? {
+            id: p.event.id,
+            canonicalPath: p.event.canonicalPath,
+            orgShortName: p.event.organization.shortName,
+          } : null,
+        };
+      });
+      
+      res.json({
+        purchases: formatted,
+        total,
+        limit: query.limit,
+        offset: query.offset,
+      });
+    } catch (error) {
+      next(error);
+    }
+  })();
+});
+
+/**
+ * GET /api/admin/purchases/:purchaseId
+ * 
+ * Get detailed purchase breakdown with recipient information.
+ */
+router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next) => {
+  void (async () => {
+    try {
+      const { purchaseId } = req.params;
+      
+      const purchase = await prisma.purchase.findUnique({
+        where: { id: purchaseId },
+        include: {
+          game: {
+            include: {
+              ownerAccount: true,
+            },
+          },
+          channel: {
+            include: {
+              organization: true,
+            },
+          },
+          event: {
+            include: {
+              organization: true,
+            },
+          },
+          viewer: true,
+          refunds: true,
+        },
+      });
+      
+      if (!purchase) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Purchase not found' } });
+      }
+      
+      // Determine recipient identity
+      let recipientIdentity: string | null = null;
+      if (purchase.recipientType === 'personal' && purchase.game?.ownerAccount) {
+        recipientIdentity = purchase.game.ownerAccount.contactEmail;
+      } else if (purchase.recipientType === 'organization') {
+        if (purchase.channel?.organization) {
+          recipientIdentity = `${purchase.channel.organization.name} (${purchase.channel.organization.shortName})`;
+        } else if (purchase.event?.organization) {
+          recipientIdentity = `${purchase.event.organization.name} (${purchase.event.organization.shortName})`;
+        }
+      }
+      
+      res.json({
+        id: purchase.id,
+        createdAt: purchase.createdAt,
+        paidAt: purchase.paidAt,
+        failedAt: purchase.failedAt,
+        refundedAt: purchase.refundedAt,
+        status: purchase.status,
+        gross: purchase.amountCents,
+        processorFee: purchase.processorFeeCents,
+        platformFee: purchase.platformFeeCents,
+        net: purchase.ownerNetCents,
+        recipientType: purchase.recipientType,
+        recipientIdentity,
+        recipientOwnerAccountId: purchase.recipientOwnerAccountId,
+        recipientOrganizationId: purchase.recipientOrganizationId,
+        viewer: {
+          id: purchase.viewer.id,
+          email: purchase.viewer.email,
+          phoneE164: purchase.viewer.phoneE164,
+        },
+        game: purchase.game ? {
+          id: purchase.game.id,
+          title: purchase.game.title,
+          ownerAccount: {
+            id: purchase.game.ownerAccount.id,
+            contactEmail: purchase.game.ownerAccount.contactEmail,
+            name: purchase.game.ownerAccount.name,
+          },
+        } : null,
+        channel: purchase.channel ? {
+          id: purchase.channel.id,
+          teamSlug: purchase.channel.teamSlug,
+          displayName: purchase.channel.displayName,
+          organization: {
+            id: purchase.channel.organization.id,
+            shortName: purchase.channel.organization.shortName,
+            name: purchase.channel.organization.name,
+          },
+        } : null,
+        event: purchase.event ? {
+          id: purchase.event.id,
+          canonicalPath: purchase.event.canonicalPath,
+          organization: {
+            id: purchase.event.organization.id,
+            shortName: purchase.event.organization.shortName,
+            name: purchase.event.organization.name,
+          },
+        } : null,
+        refunds: purchase.refunds.map((r) => ({
+          id: r.id,
+          amountCents: r.amountCents,
+          reasonCode: r.reasonCode,
+          issuedBy: r.issuedBy,
+          createdAt: r.createdAt,
+          processedAt: r.processedAt,
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  })();
+});
+
 export function createAdminRouter(): Router {
   return router;
 }

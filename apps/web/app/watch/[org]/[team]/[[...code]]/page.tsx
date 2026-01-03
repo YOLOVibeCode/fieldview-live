@@ -6,6 +6,7 @@ import Hls from 'hls.js';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SubscribeForm } from '@/components/SubscribeForm';
 
 /**
  * Public watch link viewer
@@ -202,6 +203,16 @@ export default function WatchLinkPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Subscribe Form */}
+        {!loading && !error && bootstrap && (
+          <div className="mt-4">
+            <SubscribeForm
+              organizationId={undefined} // Will be fetched from bootstrap if needed
+              channelId={undefined} // Will be fetched from bootstrap if needed
+            />
+          </div>
+        )}
       </div>
     </div>
   );

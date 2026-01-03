@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import type { Purchase } from '@prisma/client';
 
 import { NotFoundError } from '../lib/errors';
+import { prisma } from '../lib/prisma';
 import type { IEntitlementReader, IEntitlementWriter } from '../repositories/IEntitlementRepository';
 import type { IGameReader } from '../repositories/IGameRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
@@ -72,7 +73,34 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     // Calculate marketplace split
     const split = calculateMarketplaceSplit(game.priceCents, PLATFORM_FEE_PERCENT);
 
-    // Create purchase record
+    // Determine recipient based on account type
+    const ownerAccount = await prisma.ownerAccount.findUnique({
+      where: { id: game.ownerAccountId },
+    });
+    if (!ownerAccount) {
+      throw new NotFoundError('Owner account not found');
+    }
+
+    let recipientOwnerAccountId: string = ownerAccount.id;
+    let recipientType: 'personal' | 'organization' | null = null;
+    let recipientOrganizationId: string | null = null;
+
+    if (ownerAccount.type === 'owner') {
+      // Personal plan: payout goes to individual owner
+      recipientType = 'personal';
+    } else if (ownerAccount.type === 'association') {
+      // Fundraising plan: payout goes to organization
+      recipientType = 'organization';
+      // Find organization for this owner account
+      const organization = await prisma.organization.findFirst({
+        where: { ownerAccountId: ownerAccount.id },
+      });
+      if (organization) {
+        recipientOrganizationId = organization.id;
+      }
+    }
+
+    // Create purchase record with recipient fields
     const purchase = await this.purchaseWriter.create({
       gameId: game.id,
       viewerId: viewer.id,
@@ -82,6 +110,9 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
       processorFeeCents: split.processorFeeCents,
       ownerNetCents: split.ownerNetCents,
       status: 'created',
+      recipientOwnerAccountId,
+      recipientType,
+      recipientOrganizationId,
     });
 
     // Return checkout URL - Frontend will use Square Web Payments SDK

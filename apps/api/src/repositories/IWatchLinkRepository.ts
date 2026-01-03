@@ -8,7 +8,9 @@ import type { Organization, WatchChannel, WatchEventCode } from '@prisma/client'
 
 export interface IWatchLinkReaderRepo {
   getOrganizationByShortName(shortName: string): Promise<Organization | null>;
+  getOrganizationById(organizationId: string): Promise<Organization | null>;
   getChannelByOrgIdAndTeamSlug(orgId: string, teamSlug: string): Promise<WatchChannel | null>;
+  getChannelById(channelId: string): Promise<WatchChannel | null>;
   getEventCodeByChannelIdAndCode(channelId: string, code: string): Promise<WatchEventCode | null>;
 }
 

@@ -39,6 +39,7 @@ model OwnerUser {
   lastLoginAt   DateTime?
   
   ownerAccount OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+  organizationMemberships OrganizationMember[]
   
   @@index([ownerAccountId])
   @@index([email])
@@ -112,6 +113,7 @@ model ViewerIdentity {
   lastSeenAt DateTime?
   
   purchases   Purchase[]
+  subscriptions Subscription[]
   
   @@index([email])
   @@index([phoneE164])
@@ -121,6 +123,7 @@ model Purchase {
   id                      String     @id @default(uuid()) @db.Uuid
   gameId                  String?    @db.Uuid  // Made optional
   channelId               String?    @db.Uuid  // Added for watch-link purchases
+  eventId                 String?    @db.Uuid  // Added for event-scoped purchases
   viewerId                String     @db.Uuid
   amountCents             Int
   currency                String     @default("USD")
@@ -130,6 +133,12 @@ model Purchase {
   status                  String     // 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
   paymentProviderPaymentId String?
   paymentProviderCustomerId String?
+  
+  // Payout recipient tracking (for admin visibility)
+  recipientOwnerAccountId String?    @db.Uuid
+  recipientType           String?    // 'personal' | 'organization'
+  recipientOrganizationId String?    @db.Uuid
+  
   createdAt               DateTime   @default(now())
   paidAt                  DateTime?
   failedAt                DateTime?
@@ -137,6 +146,7 @@ model Purchase {
   
   game                    Game?       @relation(fields: [gameId], references: [id])
   channel                 WatchChannel? @relation(fields: [channelId], references: [id])
+  event                   Event?       @relation(fields: [eventId], references: [id])
   viewer                  ViewerIdentity @relation(fields: [viewerId], references: [id])
   entitlement             Entitlement?
   paymentAttempts         PaymentAttempt[]
@@ -144,8 +154,11 @@ model Purchase {
   
   @@index([gameId])
   @@index([channelId])
+  @@index([eventId])
   @@index([viewerId])
   @@index([status])
+  @@index([recipientOwnerAccountId])
+  @@index([recipientType])
 }
 
 model Entitlement {
@@ -299,6 +312,9 @@ model Organization {
 
   ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
   channels       WatchChannel[]
+  members        OrganizationMember[]
+  events         Event[]
+  subscriptions  Subscription[]
 
   @@index([ownerAccountId])
   @@index([shortName])
@@ -329,6 +345,8 @@ model WatchChannel {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   eventCodes       WatchEventCode[]
   purchases        Purchase[]
+  events           Event[]
+  subscriptions    Subscription[]
 
   @@unique([organizationId, teamSlug])
   @@index([organizationId])
@@ -363,4 +381,97 @@ model PaymentAttempt {
   purchase        Purchase   @relation(fields: [purchaseId], references: [id])
   
   @@index([purchaseId])
+}
+
+model OrganizationMember {
+  id             String   @id @default(uuid()) @db.Uuid
+  ownerUserId    String   @db.Uuid
+  organizationId String   @db.Uuid
+  role           String   // 'org_admin' | 'team_manager' | 'coach'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  ownerUser      OwnerUser    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerUserId, organizationId])
+  @@index([ownerUserId])
+  @@index([organizationId])
+  @@index([role])
+}
+
+model Subscription {
+  id             String   @id @default(uuid()) @db.Uuid
+  viewerId       String   @db.Uuid
+  
+  // Subscription target (at least one must be set)
+  organizationId String?  @db.Uuid  // Subscribe to all events in org
+  channelId      String?  @db.Uuid  // Subscribe to all events in team/channel
+  eventId        String?  @db.Uuid  // Subscribe to specific event
+  
+  // Notification preferences
+  preference     String   @default("email") // 'email' | 'sms' | 'both'
+  confirmed      Boolean  @default(false)    // Email confirmation required
+  confirmedAt    DateTime?
+  
+  // Status
+  status         String   @default("active") // 'active' | 'unsubscribed' | 'bounced'
+  unsubscribedAt DateTime?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  viewer         ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel        WatchChannel?  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  event          Event?         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([viewerId])
+  @@index([organizationId])
+  @@index([channelId])
+  @@index([eventId])
+  @@index([status])
+  @@index([confirmed])
+  // Note: At least one target (organizationId, channelId, or eventId) must be set
+  // This is enforced at the application level via Zod schema validation
+}
+
+model Event {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  channelId      String   @db.Uuid
+  startsAt       DateTime
+  urlKey         String   // Generated from startsAt (YYYYMMDDHHmm) + suffix if needed
+  canonicalPath  String   @unique // Rendered from preset/template (e.g., /StormFC/2010/202501301430)
+  state          String   @default("scheduled") // 'scheduled' | 'live' | 'ended' | 'cancelled'
+  
+  // Stream source (can inherit from channel or override)
+  streamType     String?  // 'mux_playback' | 'byo_hls' | 'external_embed'
+  muxPlaybackId  String?
+  hlsManifestUrl String?
+  externalEmbedUrl String?
+  externalProvider String? // 'youtube' | 'twitch' | 'vimeo' | 'other'
+  
+  // Pricing (inherit from channel or override)
+  accessMode     String?  // 'public_free' | 'pay_per_view'
+  priceCents     Int?
+  currency       String?  @default("USD")
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  cancelledAt   DateTime?
+  wentLiveAt     DateTime?
+  endedAt        DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel        WatchChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  purchases      Purchase[]
+  subscriptions  Subscription[]
+
+  @@unique([channelId, urlKey])
+  @@index([organizationId])
+  @@index([channelId])
+  @@index([canonicalPath])
+  @@index([state])
+  @@index([startsAt])
 }

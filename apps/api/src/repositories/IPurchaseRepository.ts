@@ -7,7 +7,9 @@
 import type { Purchase } from '@prisma/client';
 
 export interface CreatePurchaseData {
-  gameId: string;
+  gameId?: string | null;
+  channelId?: string | null;
+  eventId?: string | null;
   viewerId: string;
   amountCents: number;
   currency?: string;
@@ -17,6 +19,9 @@ export interface CreatePurchaseData {
   status: string;
   paymentProviderPaymentId?: string;
   paymentProviderCustomerId?: string;
+  recipientOwnerAccountId?: string | null;
+  recipientType?: 'personal' | 'organization' | null;
+  recipientOrganizationId?: string | null;
 }
 
 export interface UpdatePurchaseData {

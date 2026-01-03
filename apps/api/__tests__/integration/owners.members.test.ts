@@ -1,0 +1,157 @@
+/**
+ * Owner Members Routes Integration Tests (TDD)
+ *
+ * Tests for organization membership management endpoints.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { SuperTest } from 'supertest';
+import { agent } from 'supertest';
+
+import app from '@/server';
+import { verifyToken } from '@/lib/jwt';
+
+// Mock JWT verification
+vi.mock('@/lib/jwt', () => ({
+  verifyToken: vi.fn(),
+}));
+
+// Mock Prisma
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    ownerUser: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    organization: {
+      findUnique: vi.fn(),
+    },
+    organizationMember: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+  },
+}));
+
+describe('Owner Members Routes', () => {
+  let request: SuperTest<typeof app>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    request = agent(app);
+    vi.mocked(verifyToken).mockReturnValue({
+      ownerAccountId: 'owner-account-1',
+      email: 'admin@example.com',
+    });
+  });
+
+  describe('POST /api/owners/me/orgs/:orgShortName/members', () => {
+    it('adds member to organization successfully', async () => {
+      const { prisma } = await import('@/lib/prisma');
+      vi.mocked(prisma.ownerUser.findFirst).mockResolvedValue({
+        id: 'owner-user-1',
+        ownerAccountId: 'owner-account-1',
+      } as any);
+
+      vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+        id: 'org-1',
+        shortName: 'STORMFC',
+        name: 'Storm FC',
+        ownerAccountId: 'owner-account-1',
+      } as any);
+
+      vi.mocked(prisma.ownerUser.findUnique).mockResolvedValue({
+        id: 'coach-user-1',
+        email: 'coach@example.com',
+      } as any);
+
+      vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue(null); // No existing membership
+      vi.mocked(prisma.organizationMember.create).mockResolvedValue({
+        id: 'membership-1',
+        ownerUserId: 'coach-user-1',
+        organizationId: 'org-1',
+        role: 'coach',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      const response = await request
+        .post('/api/owners/me/orgs/STORMFC/members')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          email: 'coach@example.com',
+          organizationId: 'org-1',
+          role: 'coach',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.role).toBe('coach');
+    });
+
+    it('returns 409 if member already exists', async () => {
+      const { prisma } = await import('@/lib/prisma');
+      vi.mocked(prisma.ownerUser.findFirst).mockResolvedValue({
+        id: 'owner-user-1',
+      } as any);
+      vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+        id: 'org-1',
+        ownerAccountId: 'owner-account-1',
+      } as any);
+      vi.mocked(prisma.ownerUser.findUnique).mockResolvedValue({
+        id: 'coach-user-1',
+      } as any);
+      vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
+        id: 'existing-membership',
+      } as any);
+
+      await request
+        .post('/api/owners/me/orgs/STORMFC/members')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          email: 'coach@example.com',
+          organizationId: 'org-1',
+          role: 'coach',
+        })
+        .expect(409);
+    });
+  });
+
+  describe('GET /api/owners/me/orgs/:orgShortName/members', () => {
+    it('lists all members of an organization', async () => {
+      const { prisma } = await import('@/lib/prisma');
+      vi.mocked(prisma.ownerUser.findFirst).mockResolvedValue({
+        id: 'owner-user-1',
+      } as any);
+      vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+        id: 'org-1',
+        ownerAccountId: 'owner-account-1',
+      } as any);
+      vi.mocked(prisma.organizationMember.findMany).mockResolvedValue([
+        {
+          id: 'membership-1',
+          ownerUserId: 'coach-1',
+          organizationId: 'org-1',
+          role: 'coach',
+          createdAt: new Date(),
+        },
+      ] as any);
+      vi.mocked(prisma.ownerUser.findUnique).mockResolvedValue({
+        id: 'coach-1',
+        email: 'coach@example.com',
+      } as any);
+
+      const response = await request
+        .get('/api/owners/me/orgs/STORMFC/members')
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('members');
+      expect(Array.isArray(response.body.members)).toBe(true);
+    });
+  });
+});
+

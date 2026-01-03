@@ -95,6 +95,24 @@ export default function OwnerDashboardPage() {
             </CardContent>
           </Card>
 
+          <Card data-testid="card-coach">
+            <CardHeader>
+              <CardTitle>Coach Dashboard</CardTitle>
+              <CardDescription>Manage events and teams</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-2">
+                <a
+                  href="/owners/coach"
+                  className="text-primary underline"
+                  data-testid="link-coach-dashboard"
+                >
+                  Go to Coach Dashboard →
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card data-testid="card-analytics">
             <CardHeader>
               <CardTitle>Analytics</CardTitle>
