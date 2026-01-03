@@ -56,9 +56,12 @@ router.post(
         
         const body = UpdateStreamSchema.parse({ slug, ...req.body });
 
-        // Password protection - use admin2026 for StormFC
-        const expectedPassword = process.env.DIRECT_ADMIN_PASSWORD || 'admin2026';
-        if (body.password !== expectedPassword) {
+        // Password protection - use admin2026 for StormFC (case-insensitive)
+        const expectedPassword = (process.env.DIRECT_ADMIN_PASSWORD || 'admin2026').toLowerCase().trim();
+        const providedPassword = (body.password || '').toLowerCase().trim();
+        
+        if (!body.password || providedPassword !== expectedPassword) {
+          logger.warn({ slug, providedPassword: body.password ? '***' : 'missing' }, 'Invalid password attempt');
           return res.status(401).json({ error: 'Invalid password' });
         }
 
