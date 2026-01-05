@@ -15,6 +15,10 @@ const UpdateStreamSchema = z.object({
   password: z.string().optional(),
 });
 
+function keyFor(slug: string): string {
+  return slug.trim().toLowerCase();
+}
+
 // GET /api/tchs/:slug - Get current stream URL
       router.get(
   '/:slug',
@@ -28,7 +32,7 @@ const UpdateStreamSchema = z.object({
         }
 
         // Use in-memory store (simple and fast)
-        const streamUrl = streamStore.get(slug);
+        const streamUrl = streamStore.get(keyFor(slug));
         if (streamUrl) {
           return res.json({ streamUrl });
         }
@@ -57,13 +61,14 @@ router.post(
         const body = UpdateStreamSchema.parse({ slug, ...req.body });
 
         // Simple password protection (you can change this)
-        const expectedPassword = process.env.TCHS_ADMIN_PASSWORD || 'tchs2026';
-        if (body.password !== expectedPassword) {
+        const expectedPassword = (process.env.TCHS_ADMIN_PASSWORD || 'tchs2026').trim();
+        const providedPassword = (body.password || '').trim();
+        if (!providedPassword || providedPassword !== expectedPassword) {
           return res.status(401).json({ error: 'Invalid password' });
         }
 
         // Store in memory (simple, works immediately)
-        streamStore.set(slug, body.streamUrl);
+        streamStore.set(keyFor(slug), body.streamUrl);
 
         logger.info({ slug, streamUrl: body.streamUrl }, 'Stream URL updated');
 

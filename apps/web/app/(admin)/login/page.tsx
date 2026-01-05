@@ -66,35 +66,62 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Admin Login</CardTitle>
-          <CardDescription>SupportAdmin / SuperAdmin access</CardDescription>
+    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 bg-muted/30">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1 text-center pb-4">
+          <div className="mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <svg className="w-6 h-6 sm:w-7 sm:h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <CardTitle className="text-xl sm:text-2xl">Admin Login</CardTitle>
+          <CardDescription className="text-sm sm:text-base">SupportAdmin / SuperAdmin access</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...form.register('email')} />
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                className="h-11 sm:h-12 text-base"
+                autoComplete="email"
+                {...form.register('email')} 
+              />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" {...form.register('password')} />
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
+              <Input 
+                id="password" 
+                type="password" 
+                className="h-11 sm:h-12 text-base"
+                autoComplete="current-password"
+                {...form.register('password')} 
+              />
             </div>
             {mfaRequired && (
-              <div className="space-y-1">
-                <Label htmlFor="mfaToken">MFA Token</Label>
-                <Input id="mfaToken" inputMode="numeric" placeholder="123456" {...form.register('mfaToken')} />
+              <div className="space-y-2">
+                <Label htmlFor="mfaToken" className="text-sm sm:text-base">MFA Token</Label>
+                <Input 
+                  id="mfaToken" 
+                  inputMode="numeric" 
+                  placeholder="123456" 
+                  className="h-11 sm:h-12 text-base text-center tracking-widest"
+                  {...form.register('mfaToken')} 
+                />
               </div>
             )}
-            {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</div>}
-            <Button type="submit" className="w-full" aria-label="Sign in">
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive" role="alert">
+                {error}
+              </div>
+            )}
+            <Button type="submit" className="w-full h-11 sm:h-12 text-base font-semibold" size="lg" aria-label="Sign in">
               Sign in
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-xs text-muted-foreground">
+        <CardFooter className="text-xs sm:text-sm text-muted-foreground text-center pt-2">
           MFA setup/verification will be exposed in-console next.
         </CardFooter>
       </Card>

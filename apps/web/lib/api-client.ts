@@ -95,6 +95,26 @@ export interface PurchaseStatusResponse {
   entitlementToken?: string;
 }
 
+export interface Purchase {
+  id: string;
+  amountCents: number;
+  currency: string;
+  status: 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
+  viewerEmail?: string;
+}
+
+export interface SavedPaymentMethod {
+  id: string;
+  cardBrand: string;
+  last4: string;
+  expMonth?: number;
+  expYear?: number;
+}
+
+export interface SavedPaymentMethodsResponse {
+  paymentMethods: SavedPaymentMethod[];
+}
+
 // Admin types (SupportAdmin / SuperAdmin)
 export interface AdminLoginRequest {
   email: string;
@@ -271,6 +291,37 @@ export const apiClient = {
   },
 
   /**
+   * Create checkout for watch link channel
+   */
+  async createChannelCheckout(
+    orgShortName: string,
+    teamSlug: string,
+    data: CheckoutRequest
+  ): Promise<CheckoutResponse> {
+    return apiRequest<CheckoutResponse>(`/api/public/watch-links/${encodeURIComponent(orgShortName)}/${encodeURIComponent(teamSlug)}/checkout`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Subscribe to notifications
+   */
+  async subscribe(data: {
+    email: string;
+    phoneE164?: string;
+    organizationId?: string;
+    channelId?: string;
+    eventId?: string;
+    preference?: 'email' | 'sms' | 'both';
+  }): Promise<{ success: boolean; message: string }> {
+    return apiRequest(`/api/public/subscriptions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
    * Process a purchase payment (Square sourceId -> entitlement token)
    */
   async processPurchasePayment(
@@ -281,6 +332,22 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  /**
+   * Get purchase details
+   */
+  async getPurchase(purchaseId: string): Promise<Purchase> {
+    return apiRequest<Purchase>(`/api/public/purchases/${purchaseId}`);
+  },
+
+  /**
+   * Get saved payment methods for a purchase (scoped to the purchase recipient owner).
+   */
+  async getSavedPaymentMethods(purchaseId: string): Promise<SavedPaymentMethodsResponse> {
+    return apiRequest<SavedPaymentMethodsResponse>(
+      `/api/public/saved-payments?purchaseId=${encodeURIComponent(purchaseId)}`
+    );
   },
 
   /**

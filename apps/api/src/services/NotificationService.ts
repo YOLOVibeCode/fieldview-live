@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { getEmailProvider } from '../lib/email';
 import { twilioClient, twilioPhoneNumber } from '../lib/twilio';
 import type { IViewerIdentityReader } from '../repositories/IViewerIdentityRepository';
 
@@ -50,12 +51,14 @@ export class NotificationService implements INotificationService {
   }
 
   async sendEmail(to: string, subject: string, body: string): Promise<void> {
-    // TODO: Implement email provider (SendGrid, AWS SES, etc.)
-    // For now, log to console in development
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[EMAIL] To: ${to}, Subject: ${subject}, Body: ${body}`);
-    }
-    // In production, this would call an email service
+    const emailProvider = getEmailProvider();
+    
+    await emailProvider.sendEmail({
+      to,
+      subject,
+      text: body,
+      html: body.replace(/\n/g, '<br>'), // Simple text-to-HTML conversion
+    });
   }
 
   async sendSms(phoneE164: string, message: string): Promise<void> {

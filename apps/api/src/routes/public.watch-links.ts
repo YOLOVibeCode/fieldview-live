@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { BadRequestError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { validateRequest } from '../middleware/validation';
+import { EventRepository } from '../repositories/implementations/EventRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 import { WatchLinkService } from '../services/WatchLinkService';
 
@@ -34,11 +35,13 @@ router.get(
         const teamSlug = req.params.teamSlug;
         if (!orgShortName || !teamSlug) throw new BadRequestError('Missing org/team');
 
-        const ipHashSecret = process.env.WATCH_LINK_IP_HASH_SECRET ?? process.env.JWT_SECRET;
-        if (!ipHashSecret) throw new Error('WATCH_LINK_IP_HASH_SECRET or JWT_SECRET must be set');
+        // Keep behavior consistent with `lib/jwt.ts` local-dev fallback.
+        const ipHashSecret =
+          process.env.WATCH_LINK_IP_HASH_SECRET ?? process.env.JWT_SECRET ?? 'change-me-in-production';
 
         const repo = new WatchLinkRepository(prisma);
-        const service = WatchLinkService.fromRepos(repo, repo, {
+        const eventRepo = new EventRepository(prisma);
+        const service = WatchLinkService.fromRepos(repo, repo, eventRepo, {
           ipHashSecret,
           enforceIpBindingWhenCodeProvided: true,
         });

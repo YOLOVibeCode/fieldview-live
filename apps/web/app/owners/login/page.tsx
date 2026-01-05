@@ -65,11 +65,16 @@ export default function OwnerLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background">
-      <Card className="w-full max-w-md" data-testid="card-owner-login">
-        <CardHeader>
-          <CardTitle>Owner Login</CardTitle>
-          <CardDescription>Sign in to manage your games and watch links</CardDescription>
+    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 gradient-primary">
+      <Card className="w-full max-w-md shadow-lg" data-testid="card-owner-login">
+        <CardHeader className="space-y-1 text-center pb-4">
+          <div className="mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <svg className="w-6 h-6 sm:w-7 sm:h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <CardTitle className="text-xl sm:text-2xl">Owner Login</CardTitle>
+          <CardDescription className="text-sm sm:text-base">Sign in to manage your games and watch links</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -77,47 +82,52 @@ export default function OwnerLoginPage() {
             onSubmit={form.handleSubmit(onSubmit)}
             data-testid="form-login"
           >
-            <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
               <Input
                 id="email"
                 type="email"
+                className="h-11 sm:h-12 text-base"
+                autoComplete="email"
                 data-testid="input-email"
                 {...form.register('email')}
                 aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
               />
               {form.formState.errors.email && (
-                <span id="email-error" data-testid="error-email" role="alert" className="text-sm text-destructive">
+                <span id="email-error" data-testid="error-email" role="alert" className="text-xs sm:text-sm text-destructive">
                   {form.formState.errors.email.message}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
               <Input
                 id="password"
                 type="password"
+                className="h-11 sm:h-12 text-base"
+                autoComplete="current-password"
                 data-testid="input-password"
                 {...form.register('password')}
                 aria-describedby={form.formState.errors.password ? 'password-error' : undefined}
               />
               {form.formState.errors.password && (
-                <span id="password-error" data-testid="error-password" role="alert" className="text-sm text-destructive">
+                <span id="password-error" data-testid="error-password" role="alert" className="text-xs sm:text-sm text-destructive">
                   {form.formState.errors.password.message}
                 </span>
               )}
             </div>
 
             {error && (
-              <div role="alert" data-testid="error-login" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div role="alert" data-testid="error-login" className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive">
                 {error}
               </div>
             )}
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-11 sm:h-12 text-base font-semibold"
+              size="lg"
               data-testid="btn-submit-login"
               data-loading={loading}
               disabled={loading}
@@ -127,10 +137,10 @@ export default function OwnerLoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <CardFooter className="flex flex-col gap-2 text-sm sm:text-base text-muted-foreground text-center pt-2">
           <p>
             Don&apos;t have an account?{' '}
-            <a href="/owners/register" className="text-primary underline" data-testid="link-register">
+            <a href="/owners/register" className="text-primary font-medium hover:underline" data-testid="link-register">
               Register
             </a>
           </p>

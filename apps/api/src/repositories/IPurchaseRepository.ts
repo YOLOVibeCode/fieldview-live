@@ -28,6 +28,8 @@ export interface UpdatePurchaseData {
   status?: string;
   paymentProviderPaymentId?: string;
   paymentProviderCustomerId?: string;
+  processorFeeCents?: number;
+  ownerNetCents?: number;
   paidAt?: Date | null;
   failedAt?: Date | null;
   refundedAt?: Date | null;

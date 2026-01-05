@@ -130,9 +130,10 @@ export default function CheckoutPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg">Loading game information...</p>
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-base sm:text-lg text-muted-foreground">Loading game information...</p>
         </div>
       </div>
     );
@@ -140,14 +141,19 @@ export default function CheckoutPage() {
 
   if (error && !game) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-            <CardDescription>{error}</CardDescription>
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+              <svg className="w-6 h-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <CardTitle className="text-xl">Error</CardTitle>
+            <CardDescription className="text-sm sm:text-base">{error}</CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button onClick={() => router.push('/')}>Go Home</Button>
+            <Button className="w-full" onClick={() => router.push('/')}>Go Home</Button>
           </CardFooter>
         </Card>
       </div>
@@ -159,91 +165,107 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-2xl py-8 px-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Purchase Stream Access</CardTitle>
-          <CardDescription>
-            {game.homeTeam} vs {game.awayTeam}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Game Info */}
-          <div className="mb-6 space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Teams:</span>
-              <span className="text-sm font-medium">
-                {game.homeTeam} vs {game.awayTeam}
-              </span>
+    <div className="min-h-screen py-6 sm:py-8 lg:py-12 px-4 sm:px-6">
+      <div className="max-w-2xl mx-auto">
+        <Card className="shadow-lg">
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl sm:text-2xl">Purchase Stream Access</CardTitle>
+            <CardDescription className="text-base sm:text-lg font-medium">
+              {game.homeTeam} vs {game.awayTeam}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Game Info */}
+            <div className="rounded-lg bg-muted/50 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                <span className="text-sm text-muted-foreground">Teams</span>
+                <span className="text-sm sm:text-base font-medium">
+                  {game.homeTeam} vs {game.awayTeam}
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                <span className="text-sm text-muted-foreground">Start Time</span>
+                <span className="text-sm sm:text-base font-medium">{formatDateTime(game.startsAt)}</span>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 pt-2 border-t">
+                <span className="text-sm text-muted-foreground">Price</span>
+                <span className="text-xl sm:text-2xl font-bold text-primary">{formatPrice(game.priceCents, game.currency)}</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Start Time:</span>
-              <span className="text-sm font-medium">{formatDateTime(game.startsAt)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Price:</span>
-              <span className="text-lg font-bold">{formatPrice(game.priceCents, game.currency)}</span>
-            </div>
-          </div>
 
-          {/* Checkout Form */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="viewerEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="your@email.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Required for stream access and receipts
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+            {/* Checkout Form */}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="viewerEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm sm:text-base">Email Address *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="your@email.com"
+                          className="h-11 sm:h-12 text-base"
+                          autoComplete="email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs sm:text-sm">
+                        Required for stream access and receipts
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="viewerPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm sm:text-base">Phone Number (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="tel"
+                          placeholder="+1234567890"
+                          className="h-11 sm:h-12 text-base"
+                          autoComplete="tel"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs sm:text-sm">
+                        E.164 format (e.g., +1234567890). Used for SMS notifications.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {error && (
+                  <div className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive" role="alert">
+                    {error}
+                  </div>
                 )}
-              />
 
-              <FormField
-                control={form.control}
-                name="viewerPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number (Optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="tel"
-                        placeholder="+1234567890"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      E.164 format (e.g., +1234567890). Used for SMS notifications.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {error && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-                  {error}
-                </div>
-              )}
-
-              <Button type="submit" className="w-full" disabled={submitting} aria-label="Continue to payment">
-                {submitting ? 'Processing...' : `Continue to Payment - ${formatPrice(game.priceCents, game.currency)}`}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold" 
+                  size="lg"
+                  disabled={submitting} 
+                  aria-label="Continue to payment"
+                >
+                  {submitting ? 'Processing...' : `Continue to Payment - ${formatPrice(game.priceCents, game.currency)}`}
+                </Button>
+                
+                <p className="text-xs sm:text-sm text-center text-muted-foreground">
+                  Secure payment powered by Square
+                </p>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

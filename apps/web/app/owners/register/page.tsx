@@ -65,67 +65,78 @@ export default function OwnerRegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background">
-      <Card className="w-full max-w-md" data-testid="card-owner-register">
-        <CardHeader>
-          <CardTitle>Owner Register</CardTitle>
-          <CardDescription>Create an account to manage games and watch links</CardDescription>
+    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 gradient-primary">
+      <Card className="w-full max-w-md shadow-lg" data-testid="card-owner-register">
+        <CardHeader className="space-y-1 text-center pb-4">
+          <div className="mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <svg className="w-6 h-6 sm:w-7 sm:h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+          </div>
+          <CardTitle className="text-xl sm:text-2xl">Create Account</CardTitle>
+          <CardDescription className="text-sm sm:text-base">Get started with FieldView.Live</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} data-testid="form-owner-register">
-            <div className="space-y-1">
-              <Label htmlFor="name">Name</Label>
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm sm:text-base">Name</Label>
               <Input
                 id="name"
+                className="h-11 sm:h-12 text-base"
+                autoComplete="name"
                 data-testid="input-name"
                 {...form.register('name')}
                 aria-describedby={form.formState.errors.name ? 'name-error' : undefined}
               />
               {form.formState.errors.name && (
-                <span id="name-error" data-testid="error-name" role="alert" className="text-sm text-destructive">
+                <span id="name-error" data-testid="error-name" role="alert" className="text-xs sm:text-sm text-destructive">
                   {form.formState.errors.name.message}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
               <Input
                 id="email"
                 type="email"
+                className="h-11 sm:h-12 text-base"
+                autoComplete="email"
                 data-testid="input-email"
                 {...form.register('email')}
                 aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
               />
               {form.formState.errors.email && (
-                <span id="email-error" data-testid="error-email" role="alert" className="text-sm text-destructive">
+                <span id="email-error" data-testid="error-email" role="alert" className="text-xs sm:text-sm text-destructive">
                   {form.formState.errors.email.message}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
               <Input
                 id="password"
                 type="password"
+                className="h-11 sm:h-12 text-base"
+                autoComplete="new-password"
                 data-testid="input-password"
                 {...form.register('password')}
                 aria-describedby={form.formState.errors.password ? 'password-error' : undefined}
               />
               {form.formState.errors.password && (
-                <span id="password-error" data-testid="error-password" role="alert" className="text-sm text-destructive">
+                <span id="password-error" data-testid="error-password" role="alert" className="text-xs sm:text-sm text-destructive">
                   {form.formState.errors.password.message}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="type">Account type</Label>
+            <div className="space-y-2">
+              <Label htmlFor="type" className="text-sm sm:text-base">Account type</Label>
               <select
                 id="type"
                 data-testid="dropdown-type"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="w-full h-11 sm:h-12 rounded-md border bg-background px-3 py-2 text-base"
                 value={form.watch('type')}
                 onChange={(e) => form.setValue('type', e.target.value as RegisterValues['type'])}
               >
@@ -135,14 +146,15 @@ export default function OwnerRegisterPage() {
             </div>
 
             {error && (
-              <div role="alert" data-testid="error-form" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div role="alert" data-testid="error-form" className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive">
                 {error}
               </div>
             )}
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-11 sm:h-12 text-base font-semibold"
+              size="lg"
               data-testid="btn-submit-register"
               data-loading={loading}
               disabled={loading}
@@ -152,9 +164,9 @@ export default function OwnerRegisterPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-sm text-muted-foreground">
-          <a href="/owners/login" className="text-primary underline" data-testid="link-login">
-            Back to login
+        <CardFooter className="text-sm sm:text-base text-muted-foreground text-center pt-2">
+          <a href="/owners/login" className="text-primary font-medium hover:underline" data-testid="link-login">
+            ← Back to login
           </a>
         </CardFooter>
       </Card>

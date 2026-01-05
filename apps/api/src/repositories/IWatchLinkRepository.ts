@@ -21,11 +21,22 @@ export interface IWatchLinkWriterRepo {
     teamSlug: string;
     displayName: string;
     requireEventCode: boolean;
+    accessMode: string;
+    priceCents: number | null;
+    currency: string | null;
     streamType: string;
     muxPlaybackId: string | null;
     hlsManifestUrl: string | null;
     externalEmbedUrl: string | null;
     externalProvider: string | null;
+  }): Promise<WatchChannel>;
+  updateChannelSettings(input: {
+    channelId: string;
+    displayName?: string;
+    requireEventCode?: boolean;
+    accessMode?: string;
+    priceCents?: number | null;
+    currency?: string | null;
   }): Promise<WatchChannel>;
   updateChannelStream(input: {
     channelId: string;

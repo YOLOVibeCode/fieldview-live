@@ -15,6 +15,20 @@ import type { IViewerIdentityReader, IViewerIdentityWriter } from '@/repositorie
 import { PaymentService } from '@/services/PaymentService';
 import type { CheckoutResponse } from '@/services/IPaymentService';
 
+// Mock Prisma client for ownerAccount and organization lookups
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    ownerAccount: {
+      findUnique: vi.fn(),
+    },
+    organization: {
+      findFirst: vi.fn(),
+    },
+  },
+}));
+
+import { prisma } from '@/lib/prisma';
+
 describe('PaymentService - Recipient Field Assignment', () => {
   let mockGameReader: IGameReader;
   let mockViewerIdentityReader: IViewerIdentityReader;
@@ -26,6 +40,9 @@ describe('PaymentService - Recipient Field Assignment', () => {
   let paymentService: PaymentService;
 
   beforeEach(() => {
+    // Reset Prisma mocks
+    vi.clearAllMocks();
+    
     // Reset mocks
     mockGameReader = {
       getById: vi.fn(),
@@ -142,11 +159,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
       };
 
       vi.mocked(mockGameReader.getById).mockResolvedValue(game);
-
-      // Mock prisma calls - PaymentService will fetch ownerAccount
-      // We'll need to mock this at the service level or use a different approach
-      // For now, the test verifies the structure of the create call
-
+      (prisma.ownerAccount.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(personalOwnerAccount);
       vi.mocked(mockViewerIdentityReader.getByEmail).mockResolvedValue(null);
       vi.mocked(mockViewerIdentityWriter.create).mockResolvedValue(viewer);
       vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);
@@ -248,11 +261,8 @@ describe('PaymentService - Recipient Field Assignment', () => {
       };
 
       vi.mocked(mockGameReader.getById).mockResolvedValue(game);
-
-      // Mock prisma calls - PaymentService will fetch ownerAccount and organization
-      // We'll need to mock this at the service level or use a different approach
-      // For now, the test verifies the structure of the create call
-
+      (prisma.ownerAccount.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(orgOwnerAccount);
+      (prisma.organization.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(organization);
       vi.mocked(mockViewerIdentityReader.getByEmail).mockResolvedValue(null);
       vi.mocked(mockViewerIdentityWriter.create).mockResolvedValue(viewer);
       vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);

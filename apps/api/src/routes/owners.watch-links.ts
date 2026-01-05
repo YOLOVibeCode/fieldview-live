@@ -4,10 +4,15 @@
  * Owner-managed org/team channels that back stable watch links.
  */
 
-import { CreateWatchChannelSchema, CreateWatchEventCodeSchema, CreateWatchOrgSchema, UpdateWatchChannelStreamSchema } from '@fieldview/data-model';
+import {
+  CreateWatchChannelSchema,
+  CreateWatchEventCodeSchema,
+  CreateWatchOrgSchema,
+  UpdateWatchChannelSchema,
+  UpdateWatchChannelStreamSchema,
+} from '@fieldview/data-model';
 import express, { type Router } from 'express';
 import { z } from 'zod';
-
 
 import { BadRequestError, NotFoundError, ForbiddenError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
@@ -111,6 +116,9 @@ router.post(
           teamSlug: body.teamSlug,
           displayName: body.displayName,
           requireEventCode: body.requireEventCode ?? false,
+          accessMode: body.accessMode ?? 'public_free',
+          priceCents: body.accessMode === 'pay_per_view' ? (body.priceCents ?? null) : null,
+          currency: body.currency ?? 'USD',
           ...normalized,
         });
 
@@ -120,7 +128,66 @@ router.post(
           teamSlug: channel.teamSlug,
           displayName: channel.displayName,
           requireEventCode: channel.requireEventCode,
+          accessMode: channel.accessMode,
+          priceCents: channel.priceCents,
+          currency: channel.currency,
           streamType: channel.streamType,
+        });
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
+ * PATCH /api/owners/me/watch-links/orgs/:orgShortName/channels/:teamSlug/settings
+ *
+ * Updates channel monetization + metadata (free vs pay-per-view).
+ */
+router.patch(
+  '/me/watch-links/orgs/:orgShortName/channels/:teamSlug/settings',
+  requireOwnerAuth,
+  validateRequest({ body: UpdateWatchChannelSchema }),
+  (req: AuthRequest, res, next) => {
+    void (async () => {
+      try {
+        const ownerAccountId = requireOwnerId(req);
+        const orgShortName = req.params.orgShortName;
+        const teamSlug = req.params.teamSlug;
+        if (!orgShortName || !teamSlug) throw new BadRequestError('Missing org/team');
+
+        const body = req.body as z.infer<typeof UpdateWatchChannelSchema>;
+        const repo = new WatchLinkRepository(prisma);
+        const org = await repo.getOrganizationByShortName(orgShortName);
+        if (!org) throw new NotFoundError('Organization not found');
+        if (org.ownerAccountId !== ownerAccountId) throw new ForbiddenError('Not allowed');
+
+        const channel = await repo.getChannelByOrgIdAndTeamSlug(org.id, teamSlug);
+        if (!channel) throw new NotFoundError('Channel not found');
+
+        const accessMode = body.accessMode ?? undefined;
+        const priceCents =
+          accessMode === 'public_free' ? null : body.priceCents !== undefined ? body.priceCents : undefined;
+
+        const updated = await repo.updateChannelSettings({
+          channelId: channel.id,
+          displayName: body.displayName,
+          requireEventCode: body.requireEventCode,
+          accessMode,
+          priceCents,
+          currency: body.currency,
+        });
+
+        res.json({
+          id: updated.id,
+          orgShortName: org.shortName,
+          teamSlug: updated.teamSlug,
+          displayName: updated.displayName,
+          requireEventCode: updated.requireEventCode,
+          accessMode: updated.accessMode,
+          priceCents: updated.priceCents,
+          currency: updated.currency,
         });
       } catch (error) {
         next(error);

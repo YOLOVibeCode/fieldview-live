@@ -32,6 +32,17 @@ SQUARE_APPLICATION_SECRET=""
 # For local dev this callback is fine; in Railway set to your public API URL
 SQUARE_REDIRECT_URI="http://localhost:4301/api/owners/square/callback"
 
+# ===== EMAIL PROVIDER =====
+# Options: 'mailpit' (local testing) or 'sendgrid' (production)
+EMAIL_PROVIDER="mailpit"
+# Mailpit (local testing)
+MAILPIT_HOST="localhost"
+MAILPIT_PORT="1025"
+MAILPIT_FROM_EMAIL="noreply@fieldview.live"
+# SendGrid (production)
+SENDGRID_API_KEY=""
+SENDGRID_FROM_EMAIL="noreply@fieldview.live"
+
 # ===== TWILIO (SMS) =====
 TWILIO_ACCOUNT_SID=""
 TWILIO_AUTH_TOKEN=""
@@ -49,6 +60,11 @@ APP_URL="http://localhost:4300"
 # ===== PAYOUT / FEES =====
 # Platform fee percent applied to purchases (default 10)
 PLATFORM_FEE_PERCENT="10"
+
+# ===== ENCRYPTION =====
+# Required for encrypting Square OAuth tokens (AES-256-GCM)
+# Generate with: openssl rand -base64 32
+ENCRYPTION_KEY=""
 
 # ===== API =====
 PORT=4301

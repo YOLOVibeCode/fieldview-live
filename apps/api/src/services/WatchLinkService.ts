@@ -6,6 +6,7 @@
 
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from '../lib/errors';
 import { hashIp } from '../lib/ipHash';
+import type { IEventReaderRepo } from '../repositories/IEventRepository';
 import type { IWatchLinkReaderRepo, IWatchLinkWriterRepo } from '../repositories/IWatchLinkRepository';
 
 import type {
@@ -25,6 +26,7 @@ export class WatchLinkService {
   static fromRepos(
     readerRepo: IWatchLinkReaderRepo,
     writerRepo: IWatchLinkWriterRepo,
+    eventReader: IEventReaderRepo,
     opts: WatchLinkServiceOptions
   ): WatchLinkService {
     const reader: IWatchLinkReader = {
@@ -38,6 +40,9 @@ export class WatchLinkService {
           orgShortName: org.shortName,
           teamSlug: channel.teamSlug,
           requireEventCode: channel.requireEventCode,
+          accessMode: (channel.accessMode || 'public_free') as 'public_free' | 'pay_per_view',
+          priceCents: channel.priceCents,
+          currency: channel.currency || null,
           streamType: channel.streamType as WatchChannelRecord['streamType'],
           muxPlaybackId: channel.muxPlaybackId,
           hlsManifestUrl: channel.hlsManifestUrl,
@@ -64,12 +69,13 @@ export class WatchLinkService {
       },
     };
 
-    return new WatchLinkService(reader, writer, opts);
+    return new WatchLinkService(reader, writer, eventReader, opts);
   }
 
   constructor(
     private reader: IWatchLinkReader,
     private writer: IWatchLinkWriter,
+    private eventReader: IEventReaderRepo,
     private opts: WatchLinkServiceOptions
   ) {}
 
@@ -89,7 +95,19 @@ export class WatchLinkService {
       await this.enforceEventCodeIpBinding(channel, eventCode, viewerIp);
     }
 
-    return this.toBootstrap(channel);
+    // Get current/upcoming event for this channel
+    const now = new Date();
+    const upcomingEvents = await this.eventReader.listUpcomingEvents(channel.id, now);
+    const currentEvent = upcomingEvents.length > 0 ? upcomingEvents[0] : null;
+
+    // Map Event to the expected shape for toBootstrap
+    const eventForBootstrap = currentEvent ? {
+      id: currentEvent.id,
+      startsAt: currentEvent.startsAt,
+      canonicalPath: currentEvent.canonicalPath,
+    } : null;
+
+    return this.toBootstrap(channel, eventForBootstrap);
   }
 
   private async enforceEventCodeIpBinding(
@@ -118,34 +136,43 @@ export class WatchLinkService {
     }
   }
 
-  private toBootstrap(channel: WatchChannelRecord): WatchLinkBootstrap {
+  private toBootstrap(channel: WatchChannelRecord, event: { id: string; startsAt: Date; canonicalPath: string; [key: string]: any } | null): WatchLinkBootstrap {
+    const base = {
+      channelId: channel.id,
+      orgShortName: channel.orgShortName,
+      teamSlug: channel.teamSlug,
+      accessMode: channel.accessMode,
+      priceCents: channel.priceCents,
+      currency: channel.currency || null,
+      eventId: event?.id || null,
+      eventStartsAt: event?.startsAt.toISOString() || null,
+      eventTitle: event ? `${channel.orgShortName} ${channel.teamSlug}` : null,
+    };
+
     if (channel.streamType === 'mux_playback') {
       if (!channel.muxPlaybackId) throw new BadRequestError('Missing playback ID');
       return {
-        playerType: 'hls',
+        ...base,
+        playerType: 'hls' as const,
         streamUrl: `https://stream.mux.com/${channel.muxPlaybackId}.m3u8`,
-        orgShortName: channel.orgShortName,
-        teamSlug: channel.teamSlug,
       };
     }
 
     if (channel.streamType === 'byo_hls') {
       if (!channel.hlsManifestUrl) throw new BadRequestError('Missing HLS manifest URL');
       return {
-        playerType: 'hls',
+        ...base,
+        playerType: 'hls' as const,
         streamUrl: channel.hlsManifestUrl,
-        orgShortName: channel.orgShortName,
-        teamSlug: channel.teamSlug,
       };
     }
 
     if (channel.streamType === 'external_embed') {
       if (!channel.externalEmbedUrl) throw new BadRequestError('Missing embed URL');
       return {
-        playerType: 'embed',
+        ...base,
+        playerType: 'embed' as const,
         streamUrl: channel.externalEmbedUrl,
-        orgShortName: channel.orgShortName,
-        teamSlug: channel.teamSlug,
       };
     }
 

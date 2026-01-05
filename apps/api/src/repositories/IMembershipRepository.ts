@@ -24,3 +24,4 @@ export interface IMembershipWriterRepo {
   deleteMembershipByUserAndOrg(ownerUserId: string, organizationId: string): Promise<void>;
 }
 
+

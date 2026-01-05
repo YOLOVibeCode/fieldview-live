@@ -134,6 +134,16 @@ On the public landing page:
 - Platform fee remains consistent (e.g. 10%).
 - Processor fee pass-through remains visible.
 
+---
+
+## Addendum Spec — Square Tokens + Marketplace Model A E2E (MVP+)
+
+### Purpose
+Provide a concrete, end-to-end specification to make **Square Connect tokens** verifiable and **Marketplace Model A** payments reliable across local sandbox and production.
+
+### Spec document
+See `ARCHITECTURE-SQUARE-TOKENS-E2E.md` (definition of done + full verification matrix).
+
 ### Required persistence for reporting (recommended)
 Persist recipient on each purchase:
 - `recipientOwnerAccountId`

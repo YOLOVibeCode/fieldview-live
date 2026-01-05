@@ -51,13 +51,14 @@ describe('Owner Members Routes', () => {
   describe('POST /api/owners/me/orgs/:orgShortName/members', () => {
     it('adds member to organization successfully', async () => {
       const { prisma } = await import('@/lib/prisma');
+      const orgId = '00000000-0000-0000-0000-000000000001';
       vi.mocked(prisma.ownerUser.findFirst).mockResolvedValue({
         id: 'owner-user-1',
         ownerAccountId: 'owner-account-1',
       } as any);
 
       vi.mocked(prisma.organization.findUnique).mockResolvedValue({
-        id: 'org-1',
+        id: orgId,
         shortName: 'STORMFC',
         name: 'Storm FC',
         ownerAccountId: 'owner-account-1',
@@ -68,7 +69,16 @@ describe('Owner Members Routes', () => {
         email: 'coach@example.com',
       } as any);
 
-      vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue(null); // No existing membership
+      // Mock authorization check - user must be org_admin or team_manager
+      vi.mocked(prisma.organizationMember.findUnique).mockResolvedValueOnce({
+        id: 'admin-membership',
+        ownerUserId: 'owner-user-1',
+        organizationId: 'org-1',
+        role: 'org_admin',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any).mockResolvedValueOnce(null); // No existing membership for coach
+
       vi.mocked(prisma.organizationMember.create).mockResolvedValue({
         id: 'membership-1',
         ownerUserId: 'coach-user-1',
@@ -83,7 +93,7 @@ describe('Owner Members Routes', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({
           email: 'coach@example.com',
-          organizationId: 'org-1',
+          organizationId: '00000000-0000-0000-0000-000000000001',
           role: 'coach',
         })
         .expect(201);
@@ -94,26 +104,45 @@ describe('Owner Members Routes', () => {
 
     it('returns 409 if member already exists', async () => {
       const { prisma } = await import('@/lib/prisma');
+      const orgId = '00000000-0000-0000-0000-000000000001';
       vi.mocked(prisma.ownerUser.findFirst).mockResolvedValue({
         id: 'owner-user-1',
+        ownerAccountId: 'owner-account-1',
       } as any);
       vi.mocked(prisma.organization.findUnique).mockResolvedValue({
-        id: 'org-1',
+        id: orgId,
+        shortName: 'STORMFC',
         ownerAccountId: 'owner-account-1',
       } as any);
       vi.mocked(prisma.ownerUser.findUnique).mockResolvedValue({
         id: 'coach-user-1',
+        email: 'coach@example.com',
       } as any);
-      vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
-        id: 'existing-membership',
-      } as any);
+      // Mock authorization check
+      vi.mocked(prisma.organizationMember.findUnique)
+              .mockResolvedValueOnce({
+                id: 'admin-membership',
+                ownerUserId: 'owner-user-1',
+                organizationId: orgId,
+                role: 'org_admin',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as any) // Authorization check
+              .mockResolvedValueOnce({
+                id: 'existing-membership',
+                ownerUserId: 'coach-user-1',
+                organizationId: orgId,
+          role: 'coach',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any); // Existing membership check
 
       await request
         .post('/api/owners/me/orgs/STORMFC/members')
         .set('Authorization', 'Bearer valid-token')
         .send({
           email: 'coach@example.com',
-          organizationId: 'org-1',
+          organizationId: orgId,
           role: 'coach',
         })
         .expect(409);
@@ -130,6 +159,15 @@ describe('Owner Members Routes', () => {
         id: 'org-1',
         ownerAccountId: 'owner-account-1',
       } as any);
+      // Mock authorization check
+      vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
+        id: 'admin-membership',
+        ownerUserId: 'owner-user-1',
+        organizationId: 'org-1',
+        role: 'org_admin',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
       vi.mocked(prisma.organizationMember.findMany).mockResolvedValue([
         {
           id: 'membership-1',
@@ -137,6 +175,7 @@ describe('Owner Members Routes', () => {
           organizationId: 'org-1',
           role: 'coach',
           createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ] as any);
       vi.mocked(prisma.ownerUser.findUnique).mockResolvedValue({

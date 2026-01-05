@@ -55,3 +55,4 @@ export function validateConfirmationToken(token: string): { subscriptionId: stri
   }
 }
 
+

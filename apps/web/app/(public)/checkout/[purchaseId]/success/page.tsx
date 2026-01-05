@@ -51,11 +51,17 @@ export default function CheckoutSuccessPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Processing Payment...</CardTitle>
-            <CardDescription>
+      <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 gradient-primary">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
+            <CardTitle className="text-xl sm:text-2xl">Processing Payment...</CardTitle>
+            <CardDescription className="text-sm sm:text-base">
               Please wait while we confirm your payment.
             </CardDescription>
           </CardHeader>
@@ -65,36 +71,47 @@ export default function CheckoutSuccessPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Payment Successful!</CardTitle>
-          <CardDescription>
+    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 gradient-primary">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <CardTitle className="text-xl sm:text-2xl text-green-600 dark:text-green-400">Payment Successful!</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
             Your payment has been processed successfully.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="text-center">
           {entitlementToken ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               You can now access the stream.
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Your stream access will be available shortly. Check your email for the watch link.
             </p>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col gap-2">
+        <CardFooter className="flex flex-col gap-3 pt-2">
           {entitlementToken && (
             <Button
-              className="w-full"
-              onClick={() => router.push(`/watch/${entitlementToken}`)}
+              className="w-full text-base sm:text-lg py-3"
+              size="lg"
+              onClick={() => router.push(`/stream/${entitlementToken}`)}
               aria-label="Watch stream"
             >
               Watch Stream
             </Button>
           )}
-          <Button variant="outline" className="w-full" onClick={() => router.push('/')} aria-label="Go to home page">
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={() => router.push('/')} 
+            aria-label="Go to home page"
+          >
             Go Home
           </Button>
         </CardFooter>

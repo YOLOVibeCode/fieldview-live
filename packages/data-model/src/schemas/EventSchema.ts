@@ -22,7 +22,7 @@ export const CanonicalPathSchema = z
   .string()
   .min(1)
   .max(200)
-  .regex(/^\/[A-Za-z0-9][A-Za-z0-9_\/-]*$/, 'Canonical path must be a valid URL path');
+  .regex(/^\/[A-Za-z0-9][A-Za-z0-9_/-]*$/, 'Canonical path must be a valid URL path');
 
 export const CreateEventSchema = z.object({
   organizationId: z.string().uuid(),
@@ -62,4 +62,5 @@ export const ListEventsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
 

@@ -15,6 +15,7 @@ import { EntitlementRepository } from '../repositories/implementations/Entitleme
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 import { PaymentService } from '../services/PaymentService';
 
 const router = express.Router();
@@ -28,6 +29,7 @@ function getPaymentService(): PaymentService {
     const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
     const purchaseRepo = new PurchaseRepository(prisma);
     const entitlementRepo = new EntitlementRepository(prisma);
+    const watchLinkRepo = new WatchLinkRepository(prisma);
     paymentServiceInstance = new PaymentService(
       gameRepo,
       viewerIdentityRepo,
@@ -35,7 +37,8 @@ function getPaymentService(): PaymentService {
       purchaseRepo,
       purchaseRepo,
       entitlementRepo,
-      entitlementRepo
+      entitlementRepo,
+      watchLinkRepo
     );
   }
   return paymentServiceInstance;
@@ -75,6 +78,54 @@ router.post(
 
         const result = await paymentService.createCheckout(
           gameId,
+          body.viewerEmail,
+          body.viewerPhone,
+          body.returnUrl
+        );
+
+        res.json(result);
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
+ * POST /api/public/watch-links/:orgShortName/:teamSlug/checkout
+ * 
+ * Create checkout for watch link channel (supports Apple Pay, Google Pay).
+ */
+router.post(
+  '/watch-links/:orgShortName/:teamSlug/checkout',
+  checkoutRateLimit,
+  validateRequest({ body: CheckoutCreateSchema }),
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const orgShortName = req.params.orgShortName;
+        const teamSlug = req.params.teamSlug;
+        if (!orgShortName || !teamSlug) {
+          return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing orgShortName or teamSlug' } });
+        }
+
+        const body = req.body as z.infer<typeof CheckoutCreateSchema>;
+        const paymentService = getPaymentService();
+
+        // Get channel ID from org/team
+        const watchLinkRepo = new WatchLinkRepository(prisma);
+        const org = await watchLinkRepo.getOrganizationByShortName(orgShortName);
+        if (!org) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+        }
+
+        const channel = await watchLinkRepo.getChannelByOrgIdAndTeamSlug(org.id, teamSlug);
+        if (!channel) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Channel not found' } });
+        }
+
+        const result = await paymentService.createChannelCheckout(
+          channel.id,
           body.viewerEmail,
           body.viewerPhone,
           body.returnUrl

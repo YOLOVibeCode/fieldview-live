@@ -26,3 +26,4 @@ export interface ILinkTemplateRenderer {
   getPresetTemplate(presetId: LinkPresetId): string;
 }
 
+

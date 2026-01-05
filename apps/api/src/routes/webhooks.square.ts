@@ -13,6 +13,7 @@ import { EntitlementRepository } from '../repositories/implementations/Entitleme
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 import type { SquareWebhookEvent } from '../services/IPaymentService';
 import { PaymentService } from '../services/PaymentService';
 
@@ -27,6 +28,7 @@ function getPaymentService(): PaymentService {
     const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
     const purchaseRepo = new PurchaseRepository(prisma);
     const entitlementRepo = new EntitlementRepository(prisma);
+    const watchLinkRepo = new WatchLinkRepository(prisma);
     paymentServiceInstance = new PaymentService(
       gameRepo,
       viewerIdentityRepo,
@@ -34,7 +36,8 @@ function getPaymentService(): PaymentService {
       purchaseRepo,
       purchaseRepo,
       entitlementRepo,
-      entitlementRepo
+      entitlementRepo,
+      watchLinkRepo
     );
   }
   return paymentServiceInstance;

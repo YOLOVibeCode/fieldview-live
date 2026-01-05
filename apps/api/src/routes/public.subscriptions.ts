@@ -29,7 +29,7 @@ const SubscribeSchema = z.object({
  * Subscribe to a team or event for notifications.
  */
 router.post(
-  '/',
+  '/subscriptions',
   validateRequest({ body: SubscribeSchema }),
   (req, res: Response, next: NextFunction) => {
     void (async () => {
@@ -141,11 +141,11 @@ router.post(
 );
 
 /**
- * POST /api/public/unsubscribe
+ * POST /api/public/subscriptions/unsubscribe
  * Unsubscribe from notifications.
  */
 router.post(
-  '/unsubscribe',
+  '/subscriptions/unsubscribe',
   validateRequest({
     body: z.object({
       email: z.string().email(),
@@ -193,7 +193,7 @@ router.post(
  * Confirm a subscription via email token.
  */
 router.get(
-  '/confirm',
+  '/subscriptions/confirm',
   (req, res: Response, next: NextFunction) => {
     void (async () => {
       try {

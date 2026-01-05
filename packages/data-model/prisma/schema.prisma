@@ -8,22 +8,29 @@ datasource db {
 }
 
 model OwnerAccount {
-  id                String   @id @default(uuid()) @db.Uuid
-  type              String   // 'owner' | 'association'
-  name              String
-  status            String   // 'active' | 'suspended' | 'pending_verification'
-  contactEmail      String
-  payoutProviderRef String?  // Square account ID
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                      String   @id @default(uuid()) @db.Uuid
+  type                    String   // 'owner' | 'association'
+  name                    String
+  status                  String   // 'active' | 'suspended' | 'pending_verification'
+  contactEmail            String
+  payoutProviderRef       String?  // Square merchant_id
+  squareAccessTokenEncrypted String?  // Encrypted Square OAuth access_token
+  squareRefreshTokenEncrypted String? // Encrypted Square OAuth refresh_token
+  squareTokenExpiresAt    DateTime? // When access_token expires
+  squareLocationId        String?  // Owner (seller) Square location ID for marketplace payments
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
   
-  games             Game[]
-  users             OwnerUser[]
-  ledgerEntries     LedgerEntry[]
-  payouts           Payout[]
-  organizations     Organization[]
+  games                   Game[]
+  users                   OwnerUser[]
+  ledgerEntries           LedgerEntry[]
+  payouts                 Payout[]
+  organizations           Organization[]
+  viewerSquareCustomers   ViewerSquareCustomer[]
   
   @@index([status])
+  @@index([payoutProviderRef])
+  @@index([squareLocationId])
 }
 
 model OwnerUser {
@@ -104,19 +111,39 @@ model StreamSource {
 }
 
 model ViewerIdentity {
-  id          String     @id @default(uuid()) @db.Uuid
-  email       String     @unique
-  phoneE164   String?
-  smsOptOut   Boolean    @default(false)
-  optOutAt    DateTime?
-  createdAt   DateTime   @default(now())
-  lastSeenAt DateTime?
+  id              String     @id @default(uuid()) @db.Uuid
+  email           String     @unique
+  phoneE164       String?
+  smsOptOut       Boolean    @default(false)
+  optOutAt        DateTime?
+  createdAt       DateTime   @default(now())
+  lastSeenAt      DateTime?
   
-  purchases   Purchase[]
-  subscriptions Subscription[]
+  purchases       Purchase[]
+  subscriptions  Subscription[]
+  viewerSquareCustomers ViewerSquareCustomer[]
   
   @@index([email])
   @@index([phoneE164])
+}
+
+// Per-owner Square customer mapping (required for marketplace Model A + saved cards correctness).
+// IMPORTANT: reference IDs only. No card data is stored in FieldView.
+model ViewerSquareCustomer {
+  id             String       @id @default(uuid()) @db.Uuid
+  ownerAccountId String       @db.Uuid
+  viewerId       String       @db.Uuid
+  squareCustomerId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+  viewer         ViewerIdentity @relation(fields: [viewerId], references: [id])
+
+  @@unique([ownerAccountId, viewerId])
+  @@index([ownerAccountId])
+  @@index([viewerId])
+  @@index([squareCustomerId])
 }
 
 model Purchase {

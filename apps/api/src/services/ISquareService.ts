@@ -25,5 +25,5 @@ export interface ISquareReader {
  */
 export interface ISquareWriter {
   generateConnectUrl(ownerAccountId: string, returnUrl: string): Promise<SquareConnectUrlData>;
-  handleConnectCallback(code: string, state: string): Promise<{ merchantId: string }>;
+  handleConnectCallback(code: string, state: string): Promise<{ merchantId: string; returnUrl: string }>;
 }

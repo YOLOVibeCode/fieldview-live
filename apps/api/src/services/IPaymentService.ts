@@ -50,5 +50,6 @@ export interface IPaymentReader {
  */
 export interface IPaymentWriter {
   createCheckout(gameId: string, viewerEmail: string, viewerPhone?: string, returnUrl?: string): Promise<CheckoutResponse>;
+  createChannelCheckout(channelId: string, viewerEmail: string, viewerPhone?: string, returnUrl?: string): Promise<CheckoutResponse>;
   processSquareWebhook(event: SquareWebhookEvent): Promise<void>;
 }

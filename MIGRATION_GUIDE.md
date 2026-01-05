@@ -193,3 +193,4 @@ ALTER TABLE "Purchase" DROP COLUMN IF EXISTS "recipientOwnerAccountId";
 **Migration Status**: ✅ **READY TO APPLY**  
 **Tested**: Schema validated, Prisma client regenerated successfully
 
+
