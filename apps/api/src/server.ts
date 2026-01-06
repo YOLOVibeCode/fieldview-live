@@ -13,6 +13,7 @@ import { logger } from './lib/logger';
 import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import { createAdminRouter } from './routes/admin';
+import { createAdminSetupRouter } from './routes/admin.setup';
 import { createHealthRouter } from './routes/health';
 import { createOwnersRouter } from './routes/owners';
 import { createOwnersAnalyticsRouter } from './routes/owners.analytics';
@@ -95,6 +96,7 @@ app.use(pinoHttp({ logger }));
 // Routes
 app.use('/', createHealthRouter());
 app.use('/api/admin', createAdminRouter());
+app.use('/api/admin/setup', createAdminSetupRouter());
 app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersAnalyticsRouter());
 app.use('/api/owners', createOwnersGamesRouter());
