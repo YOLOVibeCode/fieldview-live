@@ -59,10 +59,13 @@ router.get(
 
             if (owner) {
               // Check if game already exists for this slug
+              // Note: Using keywordCode as a unique identifier for TCHS streams
+              const streamKey = `tchs-${slug}`;
+              
               const existingGame = await prisma.game.findFirst({
                 where: {
-                  ownerId: owner.id,
-                  customSlug: slug,
+                  ownerAccountId: owner.id,
+                  keywordCode: streamKey,
                 }
               });
 
@@ -72,13 +75,22 @@ router.get(
                 chatEnabled = true;
               } else {
                 // Create new game for this stream
+                // Parse team from slug (e.g., "tchs-20260106-soccerjv")
+                const parts = slug.split('-');
+                const team = parts.slice(2).join(' ') || 'Unknown';
+                
                 const newGame = await prisma.game.create({
                   data: {
-                    ownerId: owner.id,
-                    status: 'scheduled',
-                    customSlug: slug,
-                    // Parse date and team from slug if possible
-                    eventName: slug.includes('/') ? slug.split('/').pop() : slug,
+                    ownerAccountId: owner.id,
+                    title: `TCHS ${team}`,
+                    homeTeam: team,
+                    awayTeam: 'TBD',
+                    startsAt: new Date(),
+                    state: 'live',
+                    priceCents: 0, // Free for TCHS POC
+                    currency: 'USD',
+                    keywordCode: streamKey,
+                    qrUrl: `https://fieldview.live/direct/tchs/${slug}`,
                   }
                 });
                 associatedGameId = newGame.id;
