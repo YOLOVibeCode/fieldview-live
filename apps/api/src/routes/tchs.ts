@@ -2,12 +2,16 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 
 import { logger } from '../lib/logger';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 
 // Simple in-memory store as fallback (for quick deployment)
 // In production, this could be stored in Redis or DB
 const streamStore = new Map<string, string>();
+
+// In-memory store for slug->gameId mapping (for chat)
+const slugGameMap = new Map<string, string>();
 
 const UpdateStreamSchema = z.object({
   slug: z.string().min(1).max(50),
@@ -19,8 +23,94 @@ function keyFor(slug: string): string {
   return slug.trim().toLowerCase();
 }
 
-// GET /api/tchs/:slug - Get current stream URL
-      router.get(
+// GET /api/tchs/:slug/bootstrap - Get bootstrap data (stream + chat)
+// MUST come before /:slug route!
+router.get(
+  '/:slug/bootstrap',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        if (!slug) {
+          return res.status(400).json({ error: 'Slug is required' });
+        }
+
+        const key = keyFor(slug);
+        const streamUrl = streamStore.get(key);
+        const gameId = slugGameMap.get(key);
+
+        // Try to find or create a Game for this stream
+        let associatedGameId = gameId || null;
+        let chatEnabled = false;
+
+        if (!associatedGameId) {
+          // Create a placeholder Game for chat (if one doesn't exist)
+          try {
+            // Find owner account for TCHS
+            const owner = await prisma.ownerAccount.findFirst({
+              where: { 
+                OR: [
+                  { contactEmail: { contains: 'tchs', mode: 'insensitive' } },
+                  { name: { contains: 'TCHS', mode: 'insensitive' } }
+                ]
+              }
+            });
+
+            if (owner) {
+              // Check if game already exists for this slug
+              const existingGame = await prisma.game.findFirst({
+                where: {
+                  ownerId: owner.id,
+                  customSlug: slug,
+                }
+              });
+
+              if (existingGame) {
+                associatedGameId = existingGame.id;
+                slugGameMap.set(key, existingGame.id);
+                chatEnabled = true;
+              } else {
+                // Create new game for this stream
+                const newGame = await prisma.game.create({
+                  data: {
+                    ownerId: owner.id,
+                    status: 'scheduled',
+                    customSlug: slug,
+                    // Parse date and team from slug if possible
+                    eventName: slug.includes('/') ? slug.split('/').pop() : slug,
+                  }
+                });
+                associatedGameId = newGame.id;
+                slugGameMap.set(key, newGame.id);
+                chatEnabled = true;
+              }
+            }
+          } catch (dbError) {
+            logger.warn({ error: dbError, slug }, 'Failed to create/find Game for TCHS stream');
+            // Continue without chat if DB fails
+          }
+        } else {
+          chatEnabled = true;
+        }
+
+        return res.json({
+          slug,
+          gameId: associatedGameId,
+          streamUrl: streamUrl || null,
+          chatEnabled,
+          title: 'TCHS Live Stream',
+        });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
+        next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/tchs/:slug - Get current stream URL (legacy endpoint)
+router.get(
   '/:slug',
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {

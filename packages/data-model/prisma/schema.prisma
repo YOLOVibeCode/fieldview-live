@@ -75,6 +75,7 @@ model Game {
   ownerAccount OwnerAccount  @relation(fields: [ownerAccountId], references: [id])
   streamSource StreamSource?
   purchases    Purchase[]
+  chatMessages GameChatMessage[]
   
   @@index([ownerAccountId])
   @@index([keywordCode])
@@ -114,6 +115,8 @@ model ViewerIdentity {
   id              String     @id @default(uuid()) @db.Uuid
   email           String     @unique
   phoneE164       String?
+  firstName       String?    // For direct stream unlock + chat display
+  lastName        String?    // For direct stream unlock + chat display
   smsOptOut       Boolean    @default(false)
   optOutAt        DateTime?
   createdAt       DateTime   @default(now())
@@ -122,6 +125,7 @@ model ViewerIdentity {
   purchases       Purchase[]
   subscriptions  Subscription[]
   viewerSquareCustomers ViewerSquareCustomer[]
+  chatMessages    GameChatMessage[]
   
   @@index([email])
   @@index([phoneE164])
@@ -258,6 +262,21 @@ model LedgerEntry {
   
   @@index([ownerAccountId])
   @@index([referenceType, referenceId])
+}
+
+model GameChatMessage {
+  id          String     @id @default(uuid()) @db.Uuid
+  gameId      String     @db.Uuid
+  viewerId    String     @db.Uuid
+  displayName String     // e.g., "First L." for privacy
+  message     String     // 1-240 chars
+  createdAt   DateTime   @default(now())
+  
+  game        Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  viewer      ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  
+  @@index([gameId, createdAt(sort: Desc)])
+  @@index([viewerId, createdAt(sort: Desc)])
 }
 
 model Payout {

@@ -265,20 +265,20 @@ export default function WatchLinkPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 sm:p-6 max-w-2xl">
+      <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-2xl">
         <Card data-testid="card-watch-link">
-          <CardHeader>
-            <CardTitle data-testid="text-title">{title}</CardTitle>
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle data-testid="text-title" className="text-xl sm:text-2xl">{title}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {loading && (
-              <div data-testid="loading-watch-link" data-loading="true" className="text-sm text-muted-foreground">
+              <div data-testid="loading-watch-link" data-loading="true" className="text-sm sm:text-base text-muted-foreground py-4 text-center">
                 Loading stream…
               </div>
             )}
 
             {error && (
-              <div role="alert" data-testid="error-watch-link" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div role="alert" data-testid="error-watch-link" className="rounded-md bg-destructive/10 p-3 sm:p-4 text-sm sm:text-base text-destructive leading-relaxed">
                 {error}
               </div>
             )}
@@ -291,7 +291,7 @@ export default function WatchLinkPage() {
                   <p className="text-2xl sm:text-3xl font-bold mb-4">
                     {bootstrap.priceCents ? formatPrice(bootstrap.priceCents, bootstrap.currency || 'USD') : ''}
                   </p>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                  <p className="text-sm sm:text-base text-muted-foreground mb-4 leading-relaxed">
                     Complete payment to access the stream. Apple Pay and other convenient payment methods are available.
                   </p>
                 </div>
@@ -331,7 +331,7 @@ export default function WatchLinkPage() {
                       name="viewerEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel htmlFor="input-email">Email Address *</FormLabel>
+                          <FormLabel htmlFor="input-email" className="text-sm sm:text-base">Email Address *</FormLabel>
                           <FormControl>
                             <Input
                               id="input-email"
@@ -340,6 +340,8 @@ export default function WatchLinkPage() {
                               data-testid="input-email"
                               autoComplete="email"
                               autoFocus
+                              className="min-h-[44px] text-base"
+                              aria-label="Email address for receipt"
                               {...field}
                               onKeyDown={(e) => {
                                 // Auto-submit on Enter if email is valid
@@ -350,7 +352,7 @@ export default function WatchLinkPage() {
                               }}
                             />
                           </FormControl>
-                          <FormDescription>
+                          <FormDescription className="text-xs sm:text-sm leading-relaxed">
                             Required for stream access and payment receipts. We'll send your receipt to this email address.
                           </FormDescription>
                           <FormMessage />
@@ -363,7 +365,7 @@ export default function WatchLinkPage() {
                       name="viewerPhone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel htmlFor="input-phone">Phone Number (Optional)</FormLabel>
+                          <FormLabel htmlFor="input-phone" className="text-sm sm:text-base">Phone Number (Optional)</FormLabel>
                           <FormControl>
                             <Input
                               id="input-phone"
@@ -371,6 +373,8 @@ export default function WatchLinkPage() {
                               placeholder="+1234567890"
                               data-testid="input-phone"
                               autoComplete="tel"
+                              className="min-h-[44px] text-base"
+                              aria-label="Phone number for SMS notifications"
                               {...field}
                               onKeyDown={(e) => {
                                 // Auto-submit on Enter if form is valid
@@ -381,7 +385,7 @@ export default function WatchLinkPage() {
                               }}
                             />
                           </FormControl>
-                          <FormDescription>
+                          <FormDescription className="text-xs sm:text-sm leading-relaxed">
                             E.164 format (e.g., +1234567890). Used for SMS notifications.
                           </FormDescription>
                           <FormMessage />
@@ -395,7 +399,7 @@ export default function WatchLinkPage() {
                         control={form.control}
                         name="sendReminder"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 sm:p-4">
                             <FormControl>
                               <input
                                 type="checkbox"
@@ -403,14 +407,15 @@ export default function WatchLinkPage() {
                                 checked={Boolean(field.value)}
                                 onChange={(e) => field.onChange(e.target.checked)}
                                 data-testid="checkbox-reminder"
-                                className="h-4 w-4 rounded border-gray-300"
+                                className="h-5 w-5 sm:h-6 sm:w-6 mt-0.5 flex-shrink-0 rounded border-gray-300 active:scale-95 transition-transform"
+                                aria-label="Send event reminder"
                               />
                             </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel htmlFor="checkbox-reminder" className="cursor-pointer">
+                            <div className="space-y-1 leading-none flex-1">
+                              <FormLabel htmlFor="checkbox-reminder" className="text-sm sm:text-base font-medium cursor-pointer">
                                 Send me a reminder email before the event
                               </FormLabel>
-                              <FormDescription className="text-xs">
+                              <FormDescription className="text-xs sm:text-sm leading-relaxed">
                                 We'll send you an email reminder before the stream starts
                               </FormDescription>
                             </div>
@@ -478,7 +483,7 @@ export default function WatchLinkPage() {
                       };
 
                       return (
-                        <div className="rounded-md border p-3 sm:p-4 space-y-2">
+                        <div className="rounded-md border p-3 sm:p-4 space-y-2 sm:space-y-3">
                           <p className="text-xs sm:text-sm font-semibold">Add to Calendar:</p>
                           <div className="flex flex-wrap gap-2">
                             <Button
@@ -487,6 +492,8 @@ export default function WatchLinkPage() {
                               size="sm"
                               onClick={() => window.open(googleUrl.toString(), '_blank')}
                               data-testid="btn-calendar-google"
+                              className="min-h-[40px] text-sm sm:text-base active:scale-95 transition-transform"
+                              aria-label="Add to Google Calendar"
                             >
                               Google Calendar
                             </Button>
@@ -496,6 +503,8 @@ export default function WatchLinkPage() {
                               size="sm"
                               onClick={() => window.open(outlookUrl.toString(), '_blank')}
                               data-testid="btn-calendar-outlook"
+                              className="min-h-[40px] text-sm sm:text-base active:scale-95 transition-transform"
+                              aria-label="Add to Outlook Calendar"
                             >
                               Outlook
                             </Button>
@@ -505,6 +514,8 @@ export default function WatchLinkPage() {
                               size="sm"
                               onClick={downloadICal}
                               data-testid="btn-calendar-ical"
+                              className="min-h-[40px] text-sm sm:text-base active:scale-95 transition-transform"
+                              aria-label="Download calendar file"
                             >
                               Download .ics
                             </Button>
@@ -514,25 +525,25 @@ export default function WatchLinkPage() {
                     })()}
 
                     {checkoutError && (
-                      <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert" data-testid="error-checkout">
+                      <div className="rounded-md bg-destructive/10 p-3 sm:p-4 text-sm sm:text-base text-destructive leading-relaxed" role="alert" data-testid="error-checkout">
                         {checkoutError}
                       </div>
                     )}
 
                     <Button
                       type="submit"
-                      className="w-full text-base sm:text-lg"
+                      className="w-full min-h-[48px] text-base sm:text-lg font-medium active:scale-95 transition-transform"
                       disabled={checkoutSubmitting || !form.formState.isValid}
                       data-testid="btn-submit-checkout"
-                      aria-label="Continue to payment"
+                      aria-label={checkoutSubmitting ? 'Processing payment...' : 'Continue to payment'}
                       size="lg"
                     >
                       {checkoutSubmitting ? 'Processing...' : `Pay ${bootstrap.priceCents ? formatPrice(bootstrap.priceCents, bootstrap.currency || 'USD') : ''}`}
                     </Button>
-                    <p className="text-xs sm:text-sm text-center text-muted-foreground px-2">
+                    <p className="text-xs sm:text-sm text-center text-muted-foreground px-2 leading-relaxed">
                       Secure payment powered by Square
                     </p>
-                    <p className="text-xs text-center text-muted-foreground">
+                    <p className="text-xs text-center text-muted-foreground leading-relaxed">
                       Press Enter to submit • Your information will be saved for next time
                     </p>
                   </form>
@@ -542,7 +553,7 @@ export default function WatchLinkPage() {
 
             {/* Player - Show when access granted */}
             {!loading && !error && hasAccess && bootstrap?.playerType === 'hls' && (
-              <div className="space-y-2">
+              <div className="space-y-2 sm:space-y-3">
                 <div className="relative aspect-video bg-black rounded-md overflow-hidden">
                   <video
                     ref={videoRef}
@@ -557,12 +568,12 @@ export default function WatchLinkPage() {
                   />
                 </div>
 
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div data-testid="text-stream-url" className="break-all">
+                <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                  <div data-testid="text-stream-url" className="break-all leading-relaxed">
                     <span className="font-semibold">Stream:</span> {bootstrap.streamUrl}
                   </div>
                   {muxPlaybackId && (
-                    <div data-testid="text-playback-id" className="break-all">
+                    <div data-testid="text-playback-id" className="break-all leading-relaxed">
                       <span className="font-semibold">Mux playbackId:</span> {muxPlaybackId}
                     </div>
                   )}
@@ -571,7 +582,7 @@ export default function WatchLinkPage() {
             )}
 
             {!loading && !error && hasAccess && bootstrap?.playerType === 'embed' && (
-              <div className="space-y-2">
+              <div className="space-y-2 sm:space-y-3">
                 <div className="relative aspect-video bg-black rounded-md overflow-hidden">
                   <iframe
                     src={bootstrap.streamUrl}
@@ -585,7 +596,7 @@ export default function WatchLinkPage() {
             )}
 
             {!loading && !error && !bootstrap && (
-              <div data-testid="empty-watch-link" className="text-sm text-muted-foreground">
+              <div data-testid="empty-watch-link" className="text-sm sm:text-base text-muted-foreground text-center py-4">
                 No stream configured.
               </div>
             )}
@@ -596,6 +607,8 @@ export default function WatchLinkPage() {
                 variant="outline"
                 onClick={() => window.location.reload()}
                 data-testid="btn-reload-watch-link"
+                className="min-h-[44px] text-sm sm:text-base active:scale-95 transition-transform"
+                aria-label="Reload page"
               >
                 Reload
               </Button>

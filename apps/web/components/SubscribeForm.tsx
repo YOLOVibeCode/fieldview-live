@@ -88,8 +88,8 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
     return (
       <Card data-testid="card-subscribe-success">
         <CardHeader>
-          <CardTitle>Subscribed!</CardTitle>
-          <CardDescription>You&apos;ll be notified when the stream goes live</CardDescription>
+          <CardTitle className="text-lg sm:text-xl">Subscribed!</CardTitle>
+          <CardDescription className="text-sm sm:text-base">You&apos;ll be notified when the stream goes live</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -98,25 +98,27 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
   return (
     <Card data-testid="card-subscribe">
       <CardHeader>
-        <CardTitle>Get Notified</CardTitle>
-        <CardDescription>Subscribe to be notified when this stream goes live</CardDescription>
+        <CardTitle className="text-lg sm:text-xl">Get Notified</CardTitle>
+        <CardDescription className="text-sm sm:text-base">Subscribe to be notified when this stream goes live</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} data-testid="form-subscribe">
           {error && (
-            <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm" data-testid="error-subscribe">
+            <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm sm:text-base leading-relaxed" data-testid="error-subscribe" role="alert">
               {error}
             </div>
           )}
 
           <div className="space-y-1">
-            <Label htmlFor="subscribe-email">Email</Label>
+            <Label htmlFor="subscribe-email" className="text-sm sm:text-base">Email</Label>
             <Input
               id="subscribe-email"
               type="email"
               data-testid="input-subscribe-email"
-              {...form.register('email')}
+              className="min-h-[44px] text-base"
               aria-describedby={form.formState.errors.email ? 'subscribe-email-error' : undefined}
+              aria-label="Email address for notifications"
+              {...form.register('email')}
             />
             {form.formState.errors.email && (
               <span
@@ -131,14 +133,16 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="subscribe-phone">Phone (Optional)</Label>
+            <Label htmlFor="subscribe-phone" className="text-sm sm:text-base">Phone (Optional)</Label>
             <Input
               id="subscribe-phone"
               type="tel"
               placeholder="+1234567890"
               data-testid="input-subscribe-phone"
-              {...form.register('phoneE164')}
+              className="min-h-[44px] text-base"
               aria-describedby={form.formState.errors.phoneE164 ? 'subscribe-phone-error' : undefined}
+              aria-label="Phone number for SMS notifications"
+              {...form.register('phoneE164')}
             />
             {form.formState.errors.phoneE164 && (
               <span
@@ -153,12 +157,13 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="subscribe-preference">Notification Preference</Label>
+            <Label htmlFor="subscribe-preference" className="text-sm sm:text-base">Notification Preference</Label>
             <select
               id="subscribe-preference"
               data-testid="select-subscribe-preference"
               {...form.register('preference')}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full min-h-[44px] px-3 py-2 text-base border rounded-md bg-background"
+              aria-label="Notification preference"
             >
               <option value="email">Email only</option>
               <option value="sms">SMS only</option>
@@ -166,7 +171,14 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
             </select>
           </div>
 
-          <Button type="submit" disabled={loading} data-testid="btn-subscribe" data-loading={loading}>
+          <Button 
+            type="submit" 
+            disabled={loading} 
+            data-testid="btn-subscribe" 
+            data-loading={loading}
+            className="w-full min-h-[44px] text-base font-medium active:scale-95 transition-transform"
+            aria-label={loading ? 'Subscribing...' : 'Subscribe to notifications'}
+          >
             {loading ? 'Subscribing...' : 'Subscribe'}
           </Button>
         </form>
