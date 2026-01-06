@@ -85,7 +85,12 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium' }: Gam
     <Card className={className} data-testid="panel-chat">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base sm:text-lg">Chat</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base sm:text-lg">Chat</CardTitle>
+            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">
+              Beta
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm">
             {chat.isConnected ? (
               <span className="text-green-600 font-medium">● Live</span>
@@ -94,6 +99,9 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium' }: Gam
             )}
           </div>
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          This is a beta feature and may not be functioning yet.
+        </p>
       </CardHeader>
 
       <CardContent className="space-y-3 sm:space-y-4">
