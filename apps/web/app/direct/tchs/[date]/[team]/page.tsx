@@ -172,6 +172,40 @@ export default function DirectTchsTeamPage({
     }
   }
 
+  async function handleClearStream(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/tchs/${streamKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          streamUrl: '', // Empty string clears the stream
+          password,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to clear stream' }));
+        throw new Error(error.error || 'Clear failed');
+      }
+
+      setMessage('✓ Stream cleared successfully!');
+      setInputUrl('');
+      setStatus('offline');
+      
+      // Clear the player
+      const video = videoRef.current;
+      if (video) {
+        video.src = '';
+        video.load();
+      }
+    } catch (err) {
+      setMessage(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-black">
       {/* Header - Collapsible on mobile */}
@@ -234,12 +268,24 @@ export default function DirectTchsTeamPage({
                   {message}
                 </div>
               )}
-              <button
-                type="submit"
-                className="px-6 py-3 min-h-[44px] bg-blue-600 text-white text-base font-medium rounded hover:bg-blue-700 transition active:scale-95"
-              >
-                Update Stream
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 min-h-[44px] bg-blue-600 text-white text-base font-medium rounded hover:bg-blue-700 transition active:scale-95"
+                >
+                  Update Stream
+                </button>
+                {inputUrl && (
+                  <button
+                    type="button"
+                    onClick={handleClearStream}
+                    className="px-6 py-3 min-h-[44px] bg-red-600 text-white text-base font-medium rounded hover:bg-red-700 transition active:scale-95"
+                    aria-label="Clear stream"
+                  >
+                    Clear Stream
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>
