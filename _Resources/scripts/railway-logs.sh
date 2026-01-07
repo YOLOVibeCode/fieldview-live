@@ -107,6 +107,50 @@ get_logs() {
 # Commands
 ###############################################################################
 
+cmd_status() {
+    print_header "Deployment Status"
+    select_service
+    
+    if [ "$SERVICE" = "both" ]; then
+        echo -e "${GREEN}━━━ API Service ━━━${NC}"
+        show_deployment_status "api"
+        echo ""
+        echo -e "${GREEN}━━━ Web Service ━━━${NC}"
+        show_deployment_status "web"
+    else
+        show_deployment_status "$SERVICE"
+    fi
+}
+
+show_deployment_status() {
+    local service=$1
+    
+    print_info "Fetching deployment info for $service..."
+    
+    # Get latest deployment
+    DEPLOYMENTS=$(railway deployment list --service "$service" 2>&1 | head -5)
+    
+    echo "$DEPLOYMENTS" | while IFS= read -r line; do
+        if [[ $line == *"SUCCESS"* ]]; then
+            echo -e "${GREEN}$line${NC}"
+        elif [[ $line == *"FAILED"* ]]; then
+            echo -e "${RED}$line${NC}"
+        elif [[ $line == *"BUILDING"* ]] || [[ $line == *"DEPLOYING"* ]]; then
+            echo -e "${YELLOW}$line${NC}"
+        else
+            echo "$line"
+        fi
+    done
+    
+    echo ""
+    
+    # Get current git commit
+    CURRENT_COMMIT=$(git log --oneline -1 2>/dev/null)
+    if [ -n "$CURRENT_COMMIT" ]; then
+        print_info "Local commit: $CURRENT_COMMIT"
+    fi
+}
+
 cmd_tail() {
     print_header "Tail Logs (Real-time)"
     select_service
@@ -190,6 +234,96 @@ cmd_export() {
     print_info "Lines: $(wc -l < "$OUTPUT_FILE")"
 }
 
+cmd_status() {
+    print_header "Deployment Status"
+    
+    echo -e "${BLUE}Checking current deployments...${NC}"
+    echo ""
+    
+    # Get local git info
+    LOCAL_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    LOCAL_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+    REMOTE_COMMIT=$(git rev-parse --short origin/main 2>/dev/null || echo "unknown")
+    
+    echo -e "${YELLOW}Local Repository:${NC}"
+    echo "  Branch: $LOCAL_BRANCH"
+    echo "  Commit: $LOCAL_COMMIT"
+    echo "  Remote: $REMOTE_COMMIT"
+    
+    if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
+        echo -e "  ${RED}⚠️  Local and remote are different!${NC}"
+        echo "     Run 'git push origin main' to sync"
+    else
+        echo -e "  ${GREEN}✓ In sync with remote${NC}"
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    # API deployments
+    echo -e "${BLUE}API Service:${NC}"
+    railway deployment list --service api 2>&1 | head -5 | tail -4
+    echo ""
+    
+    # Get latest API deployment time
+    API_LATEST=$(railway deployment list --service api 2>&1 | grep "SUCCESS" | head -1 | awk '{print $4, $5, $6, $7}')
+    if [ -n "$API_LATEST" ]; then
+        echo -e "  Latest Success: ${GREEN}$API_LATEST${NC}"
+    else
+        echo -e "  ${RED}No successful deployments found${NC}"
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    # Web deployments
+    echo -e "${BLUE}Web Service:${NC}"
+    railway deployment list --service web 2>&1 | head -5 | tail -4
+    echo ""
+    
+    # Get latest Web deployment time
+    WEB_LATEST=$(railway deployment list --service web 2>&1 | grep "SUCCESS" | head -1 | awk '{print $4, $5, $6, $7}')
+    if [ -n "$WEB_LATEST" ]; then
+        echo -e "  Latest Success: ${GREEN}$WEB_LATEST${NC}"
+    else
+        echo -e "  ${RED}No successful deployments found${NC}"
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    # Check if deployments are recent (within last hour)
+    echo -e "${BLUE}Status Summary:${NC}"
+    
+    # Parse dates and check freshness
+    NOW=$(date +%s)
+    
+    if railway deployment list --service api 2>&1 | grep -q "BUILDING\|DEPLOYING"; then
+        echo -e "  API: ${YELLOW}⏳ Deploying now...${NC}"
+    elif railway deployment list --service api 2>&1 | head -3 | grep -q "FAILED"; then
+        echo -e "  API: ${RED}❌ Latest deployment failed${NC}"
+    else
+        echo -e "  API: ${GREEN}✓ Running (deployed $API_LATEST)${NC}"
+    fi
+    
+    if railway deployment list --service web 2>&1 | grep -q "BUILDING\|DEPLOYING"; then
+        echo -e "  Web: ${YELLOW}⏳ Deploying now...${NC}"
+    elif railway deployment list --service web 2>&1 | head -3 | grep -q "FAILED"; then
+        echo -e "  Web: ${RED}❌ Latest deployment failed${NC}"
+    else
+        echo -e "  Web: ${GREEN}✓ Running (deployed $WEB_LATEST)${NC}"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}Quick Actions:${NC}"
+    echo "  Deploy latest: git push origin main"
+    echo "  View API logs: $0 recent api"
+    echo "  View errors:   $0 errors api"
+}
+
 cmd_help() {
     cat << 'EOF'
 
@@ -200,6 +334,7 @@ USAGE:
   ./railway-logs.sh [command] [service] [options]
 
 COMMANDS:
+  status     Show deployment status and what's running
   tail       Stream logs in real-time (default)
   recent     Show last 100 lines
   errors     Show only error/fail/exception lines
@@ -251,6 +386,9 @@ fi
 
 # Execute command
 case $COMMAND in
+    status)
+        cmd_status
+        ;;
     tail)
         cmd_tail
         ;;
