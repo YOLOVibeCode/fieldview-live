@@ -21,6 +21,7 @@ import { useGameChat } from '@/hooks/useGameChat';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { GameChatPanel } from '@/components/GameChatPanel';
 import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
+import { TchsFullscreenChatOverlay } from '@/components/TchsFullscreenChatOverlay';
 import { buildTchsStreamKey } from '@/lib/tchs-stream-key';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
@@ -45,6 +46,7 @@ export default function DirectTchsTeamPage({
   const sharePath = `fieldview.live/direct/tchs/${params.date}/${params.team}`;
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [inputUrl, setInputUrl] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +54,8 @@ export default function DirectTchsTeamPage({
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
+  const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Load font size preference
   useEffect(() => {
@@ -90,6 +94,47 @@ export default function DirectTchsTeamPage({
     viewerToken: viewer.token,
     enabled: viewer.isUnlocked && bootstrap?.chatEnabled === true,
   });
+
+  // Fullscreen API detection
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Keyboard shortcut: F for fullscreen toggle
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if ((e.key === 'f' || e.key === 'F') && status === 'playing') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [status]);
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        setIsChatOverlayVisible(true); // Show chat overlay in fullscreen
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Fullscreen toggle failed:', err);
+    }
+  };
 
   function initPlayer(url: string) {
     const video = videoRef.current;
@@ -336,11 +381,11 @@ export default function DirectTchsTeamPage({
       )}
 
       {/* Main Content: Responsive Layout */}
-      <div className="max-w-screen-2xl mx-auto p-2 sm:p-4">
+      <div ref={containerRef} className="max-w-screen-2xl mx-auto p-2 sm:p-4">
         <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 min-h-[calc(100vh-180px)] sm:min-h-[calc(100vh-200px)]">
           
           {/* Video Player - Mobile: Full width, Tablet: 70%, Desktop: 80% */}
-          <div className="w-full lg:flex-[7] xl:flex-[4] flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden aspect-video lg:aspect-auto lg:min-h-[500px]">
+          <div className="w-full lg:flex-[7] xl:flex-[4] flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden aspect-video lg:aspect-auto lg:min-h-[500px] relative">
             {status === 'offline' && (
               <div className="text-center text-gray-400 p-4 sm:p-8">
                 <p className="text-base sm:text-lg">Stream is offline</p>
@@ -365,6 +410,17 @@ export default function DirectTchsTeamPage({
               playsInline
               data-testid="video-player"
             />
+            
+            {/* Fullscreen button overlay */}
+            {status === 'playing' && !isFullscreen && (
+              <button
+                onClick={toggleFullscreen}
+                className="absolute bottom-4 right-4 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 text-white rounded-lg text-sm font-medium backdrop-blur-sm transition-all active:scale-95"
+                aria-label="Enter fullscreen"
+              >
+                🗖 Fullscreen
+              </button>
+            )}
           </div>
 
           {/* Chat Sidebar - Mobile: Below video, Tablet: 30%, Desktop: 20% */}
@@ -401,6 +457,17 @@ export default function DirectTchsTeamPage({
             )}
           </div>
         </div>
+
+        {/* Fullscreen Chat Overlay - Only show when unlocked and in fullscreen */}
+        {viewer.isUnlocked && bootstrap?.chatEnabled && bootstrap.gameId && isFullscreen && (
+          <TchsFullscreenChatOverlay
+            chat={chat}
+            isVisible={isChatOverlayVisible}
+            onToggle={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
+            position="right"
+            fontSize={fontSize}
+          />
+        )}
       </div>
     </div>
   );

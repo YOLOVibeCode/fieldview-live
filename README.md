@@ -2,11 +2,24 @@
 
 Monetization platform for youth sports live streaming.
 
-## 🚀 Ready to Deploy?
+## 🚀 Deployment
 
-**👉 [START HERE - Deployment Guide](./START_HERE.md)**
+Choose your deployment speed:
 
-Your site is configured and ready to deploy to Railway in ~15 minutes!
+| Method | Time | Documentation |
+|--------|------|---------------|
+| **Full Validation** | 30 min | Safe for features, migrations, releases |
+| **Quick Deploy** | 2 min | Fast for bug fixes, small API changes |
+| **Hotfix** | 30 sec | Emergency production fixes only |
+
+**📋 [Deployment Options - Complete Guide](./DEPLOYMENT_OPTIONS.md)** ← Start here
+
+**Quick commands:**
+```bash
+./scripts/railway-ready-check.sh  # Full validation (30 min)
+./scripts/yolo-deploy.sh api      # Quick deploy API (2 min)
+./scripts/yolo-deploy.sh web      # Quick deploy Web (2 min)
+```
 
 ## Architecture
 
@@ -122,9 +135,9 @@ fieldview-live/
 ## Documentation
 
 ### 🚀 Deployment
-- **[Deploy to Railway (Quick Start)](./DEPLOY_TO_RAILWAY.md)** - Deploy in 15 minutes
-- **[Deployment Guide (Detailed)](./DEPLOYMENT_GUIDE.md)** - Complete deployment reference
-- **[Deployment Summary](./DEPLOYMENT_SUMMARY.md)** - What was created and next steps
+- **[Deployment Options](./DEPLOYMENT_OPTIONS.md)** - **SOURCE OF TRUTH** for all deployment methods
+- **[Deploy to Railway (First Time)](./DEPLOY_TO_RAILWAY.md)** - Initial Railway setup
+- **[Environment Setup](./ENV_SETUP_GUIDE.md)** - Required environment variables
 
 ### 📹 Streaming Setup
 - **[Streaming Quick Start](./README_STREAMING.md)** - Get started with RTMP streaming in 3 steps

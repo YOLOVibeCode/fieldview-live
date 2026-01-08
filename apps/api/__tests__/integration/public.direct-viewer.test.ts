@@ -19,7 +19,9 @@ describe('Direct Stream Viewer Unlock', () => {
     // Create test owner
     testOwner = await prisma.ownerAccount.create({
       data: {
+        type: 'owner',
         name: 'Test Owner',
+        contactEmail: 'owner@test.com',
         status: 'active',
       },
     });
