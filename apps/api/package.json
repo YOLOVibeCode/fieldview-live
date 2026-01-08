@@ -10,6 +10,7 @@
     "prestart": "pnpm build",
     "start": "node dist/server.js || node dist/src/server.js",
     "setup:prod": "tsx setup-production-db.ts",
+    "db:migrate": "cd ../../packages/data-model && npx prisma migrate deploy --schema=./prisma/schema.prisma",
     "test": "pnpm test:live",
     "test:unit": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",
