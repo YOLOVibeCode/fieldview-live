@@ -11,11 +11,13 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { checkoutRateLimit } from '../middleware/rateLimit';
 import { validateRequest } from '../middleware/validation';
+import { CouponRepository } from '../repositories/implementations/CouponRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
+import { CouponService } from '../services/CouponService';
 import { PaymentService } from '../services/PaymentService';
 
 const router = express.Router();
@@ -49,11 +51,23 @@ export function setPaymentService(service: PaymentService): void {
   paymentServiceInstance = service;
 }
 
+// Lazy initialization for coupon service
+let couponServiceInstance: CouponService | null = null;
+
+function getCouponService(): CouponService {
+  if (!couponServiceInstance) {
+    const couponRepo = new CouponRepository(prisma);
+    couponServiceInstance = new CouponService(couponRepo, couponRepo);
+  }
+  return couponServiceInstance;
+}
+
 // Checkout request schema (viewerEmail required)
 const CheckoutCreateSchema = z.object({
   viewerEmail: z.string().email(),
   viewerPhone: z.string().regex(/^\+[1-9]\d{1,14}$/).optional(),
   returnUrl: z.string().url().optional(),
+  couponCode: z.string().max(20).optional(),
 });
 
 /**
@@ -75,12 +89,15 @@ router.post(
 
         const body = req.body as z.infer<typeof CheckoutCreateSchema>;
         const paymentService = getPaymentService();
+        const couponService = getCouponService();
 
         const result = await paymentService.createCheckout(
           gameId,
           body.viewerEmail,
           body.viewerPhone,
-          body.returnUrl
+          body.returnUrl,
+          body.couponCode,
+          couponService
         );
 
         res.json(result);

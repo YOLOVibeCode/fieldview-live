@@ -164,25 +164,30 @@ model Purchase {
   status                  String     // 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
   paymentProviderPaymentId String?
   paymentProviderCustomerId String?
-  
+
+  // Coupon discount
+  couponCodeId            String?    @db.Uuid
+  discountCents           Int        @default(0)
+
   // Payout recipient tracking (for admin visibility)
   recipientOwnerAccountId String?    @db.Uuid
   recipientType           String?    // 'personal' | 'organization'
   recipientOrganizationId String?    @db.Uuid
-  
+
   createdAt               DateTime   @default(now())
   paidAt                  DateTime?
   failedAt                DateTime?
   refundedAt              DateTime?
-  
+
   game                    Game?       @relation(fields: [gameId], references: [id])
   channel                 WatchChannel? @relation(fields: [channelId], references: [id])
   event                   Event?       @relation(fields: [eventId], references: [id])
   viewer                  ViewerIdentity @relation(fields: [viewerId], references: [id])
+  couponCode              CouponCode? @relation(fields: [couponCodeId], references: [id])
   entitlement             Entitlement?
   paymentAttempts         PaymentAttempt[]
   refunds                 Refund[]
-  
+
   @@index([gameId])
   @@index([channelId])
   @@index([eventId])
@@ -190,6 +195,7 @@ model Purchase {
   @@index([status])
   @@index([recipientOwnerAccountId])
   @@index([recipientType])
+  @@index([couponCodeId])
 }
 
 model Entitlement {
@@ -520,4 +526,44 @@ model Event {
   @@index([canonicalPath])
   @@index([state])
   @@index([startsAt])
+}
+
+model CouponCode {
+  id                String     @id @default(uuid()) @db.Uuid
+  code              String     @unique
+  discountType      String     // 'percentage' | 'fixed_cents'
+  discountValue     Int        // 10 for 10%, or 500 for $5.00
+  ownerAccountId    String?    @db.Uuid   // null = global (any owner)
+  gameId            String?    @db.Uuid   // null = all games
+  maxUses           Int?                   // null = unlimited
+  usedCount         Int        @default(0)
+  maxUsesPerViewer  Int        @default(1)
+  minPurchaseCents  Int?
+  validFrom         DateTime   @default(now())
+  validTo           DateTime?
+  status            String     @default("active") // 'active' | 'disabled'
+  createdAt         DateTime   @default(now())
+  createdByAdminId  String     @db.Uuid
+
+  redemptions       CouponRedemption[]
+  purchases         Purchase[]
+
+  @@index([code])
+  @@index([status])
+  @@index([ownerAccountId])
+}
+
+model CouponRedemption {
+  id            String     @id @default(uuid()) @db.Uuid
+  couponId      String     @db.Uuid
+  purchaseId    String     @db.Uuid
+  viewerId      String     @db.Uuid
+  discountCents Int
+  createdAt     DateTime   @default(now())
+
+  coupon        CouponCode @relation(fields: [couponId], references: [id])
+
+  @@unique([couponId, purchaseId])
+  @@index([couponId])
+  @@index([viewerId])
 }

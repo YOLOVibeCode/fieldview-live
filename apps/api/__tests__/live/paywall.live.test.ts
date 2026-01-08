@@ -24,7 +24,7 @@
  * - SQUARE_ENVIRONMENT=sandbox
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { agent, type SuperTest } from 'supertest';
 
 import app from '@/server';
@@ -119,6 +119,9 @@ function uniqueEmail(prefix: string) {
   return `${prefix}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@fieldview.live`;
 }
 
+// Helper to wait between tests to avoid rate limiting
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 describe('LIVE: Paywall Functionality (Square Sandbox)', () => {
   // Test data for cleanup
   const testData: {
@@ -131,10 +134,20 @@ describe('LIVE: Paywall Functionality (Square Sandbox)', () => {
     gameIds: [],
   };
 
+  // Add delay between tests to avoid rate limiting on checkout endpoint
+  // The public checkout endpoint has a 5 req/min limit per IP
+  beforeEach(async () => {
+    await wait(13000); // Wait 13 seconds to stay under 5 req/min
+  });
+
   afterAll(async () => {
-    // Cleanup all test data
+    // Cleanup all test data - order matters for foreign key constraints
     for (const gameId of testData.gameIds) {
-      await prisma.ledgerEntry.deleteMany({ where: { referenceId: { startsWith: gameId.slice(0, 8) } } }).catch(() => {});
+      // Get purchase IDs to clean up ledger entries
+      const purchases = await prisma.purchase.findMany({ where: { gameId }, select: { id: true } }).catch(() => []);
+      for (const p of purchases) {
+        await prisma.ledgerEntry.deleteMany({ where: { referenceId: p.id } }).catch(() => {});
+      }
       await prisma.playbackSession.deleteMany({ where: { entitlement: { purchase: { gameId } } } }).catch(() => {});
       await prisma.entitlement.deleteMany({ where: { purchase: { gameId } } }).catch(() => {});
       await prisma.purchase.deleteMany({ where: { gameId } }).catch(() => {});
@@ -144,7 +157,12 @@ describe('LIVE: Paywall Functionality (Square Sandbox)', () => {
     for (const email of testData.viewerEmails) {
       await prisma.viewerIdentity.deleteMany({ where: { email } }).catch(() => {});
     }
+    // Delete ledger entries for owner accounts before deleting the accounts
     for (const email of testData.ownerEmails) {
+      const account = await prisma.ownerAccount.findFirst({ where: { contactEmail: email }, select: { id: true } }).catch(() => null);
+      if (account) {
+        await prisma.ledgerEntry.deleteMany({ where: { ownerAccountId: account.id } }).catch(() => {});
+      }
       await prisma.ownerUser.deleteMany({ where: { email } }).catch(() => {});
       await prisma.ownerAccount.deleteMany({ where: { contactEmail: email } }).catch(() => {});
     }
@@ -648,12 +666,16 @@ describe('LIVE: Paywall Functionality (Square Sandbox)', () => {
         const ownerAccountId: string = meResp.body.id;
         await setupSquareCredentials(ownerAccountId);
 
-        // Test different price points
-        const testAmounts = [500, 999, 2500, 5000]; // $5, $9.99, $25, $50
+        // Test different price points (reduced to 2 to avoid rate limiting)
+        const testAmounts = [500, 2500]; // $5, $25
 
-        for (const priceCents of testAmounts) {
+        for (let i = 0; i < testAmounts.length; i++) {
+          const priceCents = testAmounts[i];
           const viewerEmail = uniqueEmail(`viewer-${priceCents}`);
           testData.viewerEmails.push(viewerEmail);
+
+          // Wait between iterations to avoid rate limiting (5 req/min on checkout)
+          if (i > 0) await wait(13000);
 
           // Create game
           const gameResp = await request

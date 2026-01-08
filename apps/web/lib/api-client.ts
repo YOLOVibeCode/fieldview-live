@@ -71,6 +71,7 @@ export interface CheckoutRequest {
   viewerEmail: string;
   viewerPhone?: string;
   returnUrl?: string;
+  couponCode?: string;
 }
 
 export interface CheckoutResponse {
@@ -211,6 +212,92 @@ export interface AdminGameAudienceResponse {
     totalWatchMs?: number;
   }>;
   purchaseToWatchConversionRate: number;
+}
+
+export interface RevenueByMonth {
+  month: string;
+  platformFeeCents: number;
+  processorFeeCents: number;
+  grossCents: number;
+  purchaseCount: number;
+}
+
+export interface TopOwner {
+  ownerAccountId: string;
+  name: string;
+  contactEmail: string;
+  platformFeeCents: number;
+  grossCents: number;
+  purchaseCount: number;
+}
+
+export interface PlatformRevenueResponse {
+  totalPlatformRevenueCents: number;
+  totalProcessorFeeCents: number;
+  totalGrossRevenueCents: number;
+  totalPurchases: number;
+  thisMonthRevenueCents: number;
+  thisWeekRevenueCents: number;
+  revenueByMonth: RevenueByMonth[];
+  topOwners: TopOwner[];
+}
+
+// Coupon types
+export interface CouponValidationRequest {
+  code: string;
+  gameId?: string;
+  viewerEmail: string;
+}
+
+export interface CouponValidationResponse {
+  valid: boolean;
+  discountCents?: number;
+  discountType?: 'percentage' | 'fixed_cents';
+  discountValue?: number;
+  error?: string;
+}
+
+export interface CouponCode {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed_cents';
+  discountValue: number;
+  ownerAccountId?: string | null;
+  gameId?: string | null;
+  maxUses?: number | null;
+  usedCount: number;
+  maxUsesPerViewer: number;
+  minPurchaseCents?: number | null;
+  validFrom: string;
+  validTo?: string | null;
+  status: 'active' | 'disabled';
+  createdAt: string;
+}
+
+export interface CouponListResponse {
+  coupons: CouponCode[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface CreateCouponRequest {
+  code: string;
+  discountType: 'percentage' | 'fixed_cents';
+  discountValue: number;
+  ownerAccountId?: string | null;
+  gameId?: string | null;
+  maxUses?: number | null;
+  maxUsesPerViewer?: number;
+  minPurchaseCents?: number | null;
+  validFrom?: string;
+  validTo?: string | null;
+}
+
+export interface UpdateCouponRequest {
+  status?: 'active' | 'disabled';
+  maxUses?: number | null;
+  validTo?: string | null;
 }
 
 // Watch types
@@ -423,6 +510,95 @@ export const apiClient = {
     gameId: string
   ): Promise<AdminGameAudienceResponse> {
     return apiRequest<AdminGameAudienceResponse>(`/api/admin/owners/${ownerId}/games/${gameId}/audience`, {
+      headers: {
+        ...withBearerToken(sessionToken),
+      },
+    });
+  },
+
+  /**
+   * Admin platform revenue stats (requires admin session token)
+   */
+  async adminGetPlatformRevenue(sessionToken: string): Promise<PlatformRevenueResponse> {
+    return apiRequest<PlatformRevenueResponse>(`/api/admin/platform/revenue`, {
+      headers: {
+        ...withBearerToken(sessionToken),
+      },
+    });
+  },
+
+  /**
+   * Validate a coupon code for a game purchase
+   */
+  async validateCoupon(data: CouponValidationRequest): Promise<CouponValidationResponse> {
+    return apiRequest<CouponValidationResponse>(`/api/public/coupons/validate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Admin list coupons (requires admin session token)
+   */
+  async adminListCoupons(
+    sessionToken: string,
+    options?: { status?: string; limit?: number; offset?: number }
+  ): Promise<CouponListResponse> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return apiRequest<CouponListResponse>(`/api/admin/coupons${query ? `?${query}` : ''}`, {
+      headers: {
+        ...withBearerToken(sessionToken),
+      },
+    });
+  },
+
+  /**
+   * Admin create coupon (requires admin session token)
+   */
+  async adminCreateCoupon(sessionToken: string, data: CreateCouponRequest): Promise<CouponCode> {
+    return apiRequest<CouponCode>(`/api/admin/coupons`, {
+      method: 'POST',
+      headers: {
+        ...withBearerToken(sessionToken),
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Admin get coupon details (requires admin session token)
+   */
+  async adminGetCoupon(sessionToken: string, couponId: string): Promise<CouponCode> {
+    return apiRequest<CouponCode>(`/api/admin/coupons/${couponId}`, {
+      headers: {
+        ...withBearerToken(sessionToken),
+      },
+    });
+  },
+
+  /**
+   * Admin update coupon (requires admin session token)
+   */
+  async adminUpdateCoupon(sessionToken: string, couponId: string, data: UpdateCouponRequest): Promise<CouponCode> {
+    return apiRequest<CouponCode>(`/api/admin/coupons/${couponId}`, {
+      method: 'PATCH',
+      headers: {
+        ...withBearerToken(sessionToken),
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Admin delete (disable) coupon (requires admin session token)
+   */
+  async adminDeleteCoupon(sessionToken: string, couponId: string): Promise<void> {
+    await apiRequest<void>(`/api/admin/coupons/${couponId}`, {
+      method: 'DELETE',
       headers: {
         ...withBearerToken(sessionToken),
       },

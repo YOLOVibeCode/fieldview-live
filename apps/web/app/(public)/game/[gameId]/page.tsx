@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { apiClient, ApiError, type Game } from '@/lib/api-client';
+import { apiClient, ApiError, type Game, type CouponValidationResponse } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 
-// Form schema: email required, phone optional (E.164)
+// Form schema: email required, phone optional (E.164), coupon optional
 const checkoutSchema = z.object({
   viewerEmail: z.string().email('Please enter a valid email address'),
   viewerPhone: z
@@ -35,6 +35,7 @@ const checkoutSchema = z.object({
     .regex(/^\+[1-9]\d{1,14}$/, 'Phone must be in E.164 format (e.g., +1234567890)')
     .optional()
     .or(z.literal('')),
+  couponCode: z.string().max(20).optional().or(z.literal('')),
 });
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
@@ -49,11 +50,19 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Coupon state
+  const [showCouponField, setShowCouponField] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
       viewerEmail: '',
       viewerPhone: '',
+      couponCode: '',
     },
   });
 
@@ -79,6 +88,59 @@ export default function CheckoutPage() {
     }
   }, [gameId]);
 
+  // Validate coupon code
+  async function handleValidateCoupon() {
+    if (!couponInput.trim() || !game) return;
+
+    setValidatingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const result = await apiClient.validateCoupon({
+        code: couponInput.trim().toUpperCase(),
+        gameId,
+        viewerEmail: form.getValues('viewerEmail') || 'anonymous@temp.com',
+      });
+
+      if (result.valid) {
+        setAppliedCoupon(result);
+        form.setValue('couponCode', couponInput.trim().toUpperCase());
+        setCouponError(null);
+      } else {
+        setAppliedCoupon(null);
+        setCouponError(result.error || 'Invalid coupon code');
+        form.setValue('couponCode', '');
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setCouponError(err.message);
+      } else {
+        setCouponError('Failed to validate coupon');
+      }
+      setAppliedCoupon(null);
+      form.setValue('couponCode', '');
+    } finally {
+      setValidatingCoupon(false);
+    }
+  }
+
+  // Remove applied coupon
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError(null);
+    form.setValue('couponCode', '');
+  }
+
+  // Calculate final price
+  function getFinalPrice(): number {
+    if (!game) return 0;
+    if (appliedCoupon?.valid && appliedCoupon.discountCents) {
+      return Math.max(0, game.priceCents - appliedCoupon.discountCents);
+    }
+    return game.priceCents;
+  }
+
   // Handle form submission
   async function onSubmit(data: CheckoutFormValues) {
     if (!game) return;
@@ -91,6 +153,7 @@ export default function CheckoutPage() {
       const checkout = await apiClient.createCheckout(gameId, {
         viewerEmail: data.viewerEmail,
         viewerPhone: data.viewerPhone || undefined,
+        couponCode: appliedCoupon?.valid ? data.couponCode : undefined,
       });
 
       // Redirect to Square checkout
@@ -189,8 +252,29 @@ export default function CheckoutPage() {
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 pt-2 border-t">
                 <span className="text-sm text-muted-foreground">Price</span>
-                <span className="text-xl sm:text-2xl font-bold text-primary">{formatPrice(game.priceCents, game.currency)}</span>
+                <div className="text-right">
+                  {appliedCoupon?.valid && appliedCoupon.discountCents ? (
+                    <>
+                      <span className="text-sm line-through text-muted-foreground mr-2">
+                        {formatPrice(game.priceCents, game.currency)}
+                      </span>
+                      <span className="text-xl sm:text-2xl font-bold text-primary">
+                        {formatPrice(getFinalPrice(), game.currency)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xl sm:text-2xl font-bold text-primary">
+                      {formatPrice(game.priceCents, game.currency)}
+                    </span>
+                  )}
+                </div>
               </div>
+              {appliedCoupon?.valid && appliedCoupon.discountCents && (
+                <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
+                  <span>Discount ({appliedCoupon.discountType === 'percentage' ? `${appliedCoupon.discountValue}%` : 'applied'})</span>
+                  <span>-{formatPrice(appliedCoupon.discountCents, game.currency)}</span>
+                </div>
+              )}
             </div>
 
             {/* Checkout Form */}
@@ -242,20 +326,90 @@ export default function CheckoutPage() {
                   )}
                 />
 
+                {/* Coupon Code Section */}
+                <div className="space-y-2">
+                  {!showCouponField && !appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCouponField(true)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Have a promo code?
+                    </button>
+                  ) : appliedCoupon?.valid ? (
+                    <div className="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                            Code "{form.getValues('couponCode')}" applied
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="text-sm text-green-600 dark:text-green-400 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-sm sm:text-base">Promo Code</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="text"
+                          placeholder="Enter code"
+                          className="h-11 sm:h-12 text-base uppercase"
+                          value={couponInput}
+                          onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                          maxLength={20}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleValidateCoupon}
+                          disabled={validatingCoupon || !couponInput.trim()}
+                          className="h-11 sm:h-12 px-4"
+                        >
+                          {validatingCoupon ? 'Checking...' : 'Apply'}
+                        </Button>
+                      </div>
+                      {couponError && (
+                        <p className="text-sm text-destructive">{couponError}</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCouponField(false);
+                          setCouponInput('');
+                          setCouponError(null);
+                        }}
+                        className="text-xs text-muted-foreground hover:underline"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {error && (
                   <div className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive" role="alert">
                     {error}
                   </div>
                 )}
 
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold" 
+                <Button
+                  type="submit"
+                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold"
                   size="lg"
-                  disabled={submitting} 
+                  disabled={submitting}
                   aria-label="Continue to payment"
                 >
-                  {submitting ? 'Processing...' : `Continue to Payment - ${formatPrice(game.priceCents, game.currency)}`}
+                  {submitting ? 'Processing...' : `Continue to Payment - ${formatPrice(getFinalPrice(), game.currency)}`}
                 </Button>
                 
                 <p className="text-xs sm:text-sm text-center text-muted-foreground">

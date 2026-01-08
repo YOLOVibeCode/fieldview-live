@@ -27,6 +27,7 @@ import { LedgerService } from './LedgerService';
 import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { ReceiptService } from './ReceiptService';
+import type { CouponService } from './CouponService';
 
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
@@ -59,7 +60,9 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     gameId: string,
     viewerEmail: string,
     viewerPhone?: string,
-    returnUrl?: string
+    returnUrl?: string,
+    couponCode?: string,
+    couponService?: CouponService
   ): Promise<CheckoutResponse> {
     // Get game
     const game = await this.gameReader.getById(gameId);
@@ -86,9 +89,6 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
       });
     }
 
-    // Calculate marketplace split
-    const split = calculateMarketplaceSplit(game.priceCents, PLATFORM_FEE_PERCENT);
-
     // Determine recipient based on account type
     const ownerAccount = await prisma.ownerAccount.findUnique({
       where: { id: game.ownerAccountId },
@@ -96,6 +96,33 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     if (!ownerAccount) {
       throw new NotFoundError('Owner account not found');
     }
+
+    // Apply coupon if provided
+    let discountCents = 0;
+    let couponCodeId: string | null = null;
+
+    if (couponCode && couponService) {
+      const couponResult = await couponService.validateCoupon({
+        code: couponCode,
+        gameId: game.id,
+        ownerAccountId: game.ownerAccountId,
+        viewerId: viewer.id,
+        amountCents: game.priceCents,
+      });
+
+      if (!couponResult.valid) {
+        throw new BadRequestError(couponResult.error || 'Invalid coupon code');
+      }
+
+      discountCents = couponResult.discountCents || 0;
+      couponCodeId = couponResult.coupon?.id || null;
+    }
+
+    // Calculate final amount after discount
+    const finalAmountCents = Math.max(0, game.priceCents - discountCents);
+
+    // Calculate marketplace split on the discounted amount
+    const split = calculateMarketplaceSplit(finalAmountCents, PLATFORM_FEE_PERCENT);
 
     let recipientOwnerAccountId: string = ownerAccount.id;
     let recipientType: 'personal' | 'organization' | null = null;
@@ -116,11 +143,11 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
       }
     }
 
-    // Create purchase record with recipient fields
+    // Create purchase record with recipient fields and coupon info
     const purchase = await this.purchaseWriter.create({
       gameId: game.id,
       viewerId: viewer.id,
-      amountCents: game.priceCents,
+      amountCents: finalAmountCents,
       currency: game.currency || 'USD',
       platformFeeCents: split.platformFeeCents,
       processorFeeCents: split.processorFeeCents,
@@ -129,11 +156,18 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
       recipientOwnerAccountId,
       recipientType,
       recipientOrganizationId,
+      couponCodeId,
+      discountCents,
     });
+
+    // Apply coupon redemption after purchase is created
+    if (couponCodeId && couponService && discountCents > 0) {
+      await couponService.applyCoupon(couponCodeId, purchase.id, viewer.id, discountCents);
+    }
 
     // Return checkout URL - Frontend will use Square Web Payments SDK
     // Square Web Payments SDK supports Apple Pay and Google Pay natively
-    // This enables one-click checkout on mobile devices! 🚀
+    // This enables one-click checkout on mobile devices!
     const finalReturnUrl = returnUrl || `${APP_URL}/checkout/${purchase.id}/success`;
     const checkoutUrl = `${APP_URL}/checkout/${purchase.id}?square_checkout=true&email=${encodeURIComponent(viewerEmail)}&returnUrl=${encodeURIComponent(finalReturnUrl)}`;
 

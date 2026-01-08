@@ -263,13 +263,23 @@ describe('LIVE: public flow (no mocks, real DB)', () => {
     expect(endResp.body.sessionId).toBe(sessionId);
     expect(endResp.body.totalWatchMs).toBe(10_000);
 
-    // Cleanup (best-effort)
+    // Cleanup (best-effort) - order matters for foreign key constraints
     await prisma.playbackSession.deleteMany({ where: { entitlement: { purchase: { gameId } } } });
+    // Get purchase IDs to clean up ledger entries (LedgerEntry uses referenceId, not a relation)
+    const purchases = await prisma.purchase.findMany({ where: { gameId }, select: { id: true } });
+    for (const p of purchases) {
+      await prisma.ledgerEntry.deleteMany({ where: { referenceId: p.id } });
+    }
     await prisma.entitlement.deleteMany({ where: { purchase: { gameId } } });
     await prisma.purchase.deleteMany({ where: { gameId } });
     await prisma.streamSource.deleteMany({ where: { gameId } });
     await prisma.game.deleteMany({ where: { id: gameId } });
     await prisma.viewerIdentity.deleteMany({ where: { email: viewerEmail } });
+    // Clean up ledger entries for the owner account before deleting
+    const ownerAccount = await prisma.ownerAccount.findFirst({ where: { contactEmail: ownerEmail }, select: { id: true } });
+    if (ownerAccount) {
+      await prisma.ledgerEntry.deleteMany({ where: { ownerAccountId: ownerAccount.id } });
+    }
     await prisma.ownerUser.deleteMany({ where: { email: ownerEmail } });
     await prisma.ownerAccount.deleteMany({ where: { contactEmail: ownerEmail } });
   });

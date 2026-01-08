@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { type SuperTest, agent } from 'supertest';
 import app from '@/server';
 import { PaymentService } from '@/services/PaymentService';
+import { CouponService } from '@/services/CouponService';
 import * as publicCheckoutRoute from '@/routes/public.checkout';
 import { NotFoundError } from '@/lib/errors';
 
@@ -56,7 +57,9 @@ describe('Public Checkout Routes', () => {
         'game-1',
         'test@example.com',
         undefined,
-        undefined
+        undefined,
+        undefined,
+        expect.any(CouponService)
       );
     });
 
@@ -96,7 +99,9 @@ describe('Public Checkout Routes', () => {
         'game-1',
         'test@example.com',
         '+1234567890',
-        undefined
+        undefined,
+        undefined,
+        expect.any(CouponService)
       );
     });
 

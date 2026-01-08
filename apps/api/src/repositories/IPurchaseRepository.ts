@@ -22,6 +22,8 @@ export interface CreatePurchaseData {
   recipientOwnerAccountId?: string | null;
   recipientType?: 'personal' | 'organization' | null;
   recipientOrganizationId?: string | null;
+  couponCodeId?: string | null;
+  discountCents?: number;
 }
 
 export interface UpdatePurchaseData {
