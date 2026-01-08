@@ -11,7 +11,7 @@ echo "⚡ PHASE 1: Build Validation..."
 echo "--------------------------------"
 
 echo "  → Type checking..."
-pnpm type-check --silent 2>&1 | grep -i "error" && { echo "❌ Type errors found"; exit 1; } || echo "  ✅ Types valid"
+pnpm type-check 2>&1 | grep -i "error" && { echo "❌ Type errors found"; exit 1; } || echo "  ✅ Types valid"
 
 echo "  → Building packages..."
 pnpm --filter './packages/*' build > /dev/null 2>&1 || { echo "❌ Package build failed"; exit 1; }
@@ -31,7 +31,7 @@ echo "⚡ PHASE 2: Critical Tests..."
 echo "--------------------------------"
 
 echo "  → API integration tests..."
-pnpm --filter api test:live --silent 2>&1 | tail -5
+pnpm --filter api test --silent 2>&1 | tail -5
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
   echo "❌ API tests failed"
   exit 1
@@ -39,7 +39,7 @@ fi
 echo "  ✅ API tests passed"
 
 echo "  → Chat E2E (Chromium only)..."
-pnpm --filter web test:live --project=chromium __tests__/e2e/game-chat.spec.ts --silent 2>&1 | tail -5
+pnpm --filter web test:e2e --project=chromium __tests__/e2e/game-chat.spec.ts --silent 2>&1 | tail -5
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
   echo "❌ E2E tests failed"
   exit 1
