@@ -16,6 +16,8 @@ fi
 
 case "${target}" in
   api)
+    echo "Running database migrations..."
+    pnpm exec prisma migrate deploy --schema=packages/data-model/prisma/schema.prisma
     exec pnpm --filter api start
     ;;
   web)
