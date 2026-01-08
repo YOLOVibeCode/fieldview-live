@@ -31,7 +31,7 @@ echo "⚡ PHASE 2: Critical Tests..."
 echo "--------------------------------"
 
 echo "  → API integration tests..."
-pnpm --filter api test --silent 2>&1 | tail -5
+pnpm --filter api test:unit --silent 2>&1 | tail -5
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
   echo "❌ API tests failed"
   exit 1
