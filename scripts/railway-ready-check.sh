@@ -39,7 +39,7 @@ fi
 echo "  ✅ API tests passed"
 
 echo "  → Chat E2E (Chromium only)..."
-pnpm --filter web test:e2e --project=chromium __tests__/e2e/game-chat.spec.ts --silent 2>&1 | tail -5
+pnpm --filter web test:live --project=chromium __tests__/e2e/game-chat.spec.ts --silent 2>&1 | tail -5
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
   echo "❌ E2E tests failed"
   exit 1
@@ -52,12 +52,18 @@ echo "⚡ PHASE 3: Configuration..."
 echo "--------------------------------"
 
 echo "  → Checking DATABASE_URL..."
-[ -n "${DATABASE_URL:-}" ] || { echo "❌ DATABASE_URL not set"; exit 1; }
-echo "  ✅ DATABASE_URL configured"
+if [ -n "${DATABASE_URL:-}" ]; then
+  echo "  ✅ DATABASE_URL configured"
+else
+  echo "  ⚠️  DATABASE_URL not set (will be provided by Railway)"
+fi
 
 echo "  → Checking REDIS_URL..."
-[ -n "${REDIS_URL:-}" ] || { echo "❌ REDIS_URL not set"; exit 1; }
-echo "  ✅ REDIS_URL configured"
+if [ -n "${REDIS_URL:-}" ]; then
+  echo "  ✅ REDIS_URL configured"
+else
+  echo "  ⚠️  REDIS_URL not set (will be provided by Railway)"
+fi
 
 echo "  → Verifying railway.json..."
 [ -f railway.json ] || { echo "❌ railway.json missing"; exit 1; }
