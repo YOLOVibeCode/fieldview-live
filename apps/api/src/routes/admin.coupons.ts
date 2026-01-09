@@ -168,14 +168,14 @@ router.get(
         }
 
         // Get viewer emails for redemptions
-        const viewerIds = coupon.redemptions.map((r) => r.viewerId);
+        const viewerIds = coupon.redemptions.map((r: any) => r.viewerId);
         const viewers = await prisma.viewerIdentity.findMany({
           where: { id: { in: viewerIds } },
           select: { id: true, email: true },
         });
-        const viewerMap = new Map(viewers.map((v) => [v.id, v.email]));
+        const viewerMap = new Map(viewers.map((v: any) => [v.id, v.email]));
 
-        const redemptionsWithEmail = coupon.redemptions.map((r) => ({
+        const redemptionsWithEmail = coupon.redemptions.map((r: any) => ({
           id: r.id,
           purchaseId: r.purchaseId,
           viewerEmail: viewerMap.get(r.viewerId) ?? 'unknown',

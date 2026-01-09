@@ -129,7 +129,7 @@ export class PlatformRevenueService {
       ORDER BY month DESC
     `;
 
-    return result.map((row) => ({
+    return result.map((row: any) => ({
       month: row.month,
       platformFeeCents: Number(row.platformFeeCents),
       processorFeeCents: Number(row.processorFeeCents),
@@ -165,16 +165,16 @@ export class PlatformRevenueService {
     `;
 
     // Fetch owner account details
-    const ownerIds = result.map((r) => r.ownerAccountId);
+    const ownerIds = result.map((r: any) => r.ownerAccountId);
     const owners = await this.prisma.ownerAccount.findMany({
       where: { id: { in: ownerIds } },
       select: { id: true, name: true, contactEmail: true },
     });
 
-    const ownerMap = new Map(owners.map((o) => [o.id, o]));
+    const ownerMap = new Map(owners.map((o: any) => [o.id, o]));
 
-    return result.map((row) => {
-      const owner = ownerMap.get(row.ownerAccountId);
+    return result.map((row: any) => {
+      const owner = ownerMap.get(row.ownerAccountId) as any;
       return {
         ownerAccountId: row.ownerAccountId,
         name: owner?.name ?? 'Unknown',

@@ -713,7 +713,7 @@ router.get(
 
         // Mark viewers as active or inactive based on 1-minute threshold
         const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-        const viewersWithStatus = activeViewers.map((viewer) => ({
+        const viewersWithStatus = activeViewers.map((viewer: any) => ({
           ...viewer,
           isActive: viewer.lastSeenAt ? viewer.lastSeenAt >= oneMinuteAgo : false,
         }));

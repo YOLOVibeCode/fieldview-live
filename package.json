@@ -5,7 +5,7 @@
   "description": "FieldView.Live - Monetization platform for youth sports live streaming",
   "scripts": {
     "dev": "pnpm --filter './apps/*' dev",
-    "build": "pnpm --filter './packages/*' build && pnpm --filter './apps/*' build",
+    "build": "pnpm db:generate && pnpm --filter './packages/*' build && pnpm --filter './apps/*' build",
     "start": "bash scripts/railway-start.sh",
     "start:api": "pnpm --filter api start",
     "start:web": "pnpm --filter web start",

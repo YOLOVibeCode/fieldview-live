@@ -304,12 +304,12 @@ async function notifySubscribersForEvent(
   if (subscriptions.length === 0) return;
 
   const notificationTargets = subscriptions
-    .map((sub) => ({
+    .map((sub: any) => ({
       email: sub.viewer.email,
       phoneE164: sub.viewer.phoneE164 ?? undefined,
       preference: sub.preference as 'email' | 'sms' | 'both',
     }))
-    .filter((t) => t.email || t.phoneE164);
+    .filter((t: any) => t.email || t.phoneE164);
 
   await notificationService.notifyEventLive(notificationTargets, {
     eventId: event.id,

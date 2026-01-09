@@ -315,7 +315,7 @@ router.get('/purchases', requireAdminAuth, auditLog({ actionType: 'view_purchase
       ]);
       
       // Format response with breakdown
-      const formatted = purchases.map((p) => {
+      const formatted = purchases.map((p: any) => {
         // Determine recipient identity
         let recipientIdentity: string | null = null;
         if (p.recipientType === 'personal' && p.game?.ownerAccount) {
@@ -472,7 +472,7 @@ router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'v
             name: purchase.event.organization.name,
           },
         } : null,
-        refunds: purchase.refunds.map((r) => ({
+        refunds: purchase.refunds.map((r: any) => ({
           id: r.id,
           amountCents: r.amountCents,
           reasonCode: r.reasonCode,
