@@ -43,12 +43,29 @@ router.get(
         }
         
         // Check if event is listed (public) or if viewer has access
-        // For now, we'll allow anonymous viewing based on the effective config
         if (!config.allowAnonymousView && !req.query.token) {
           return res.status(403).json({ error: 'Authentication required' });
         }
         
-        res.json({ config });
+        // Transform to Bootstrap format (flat structure expected by frontend)
+        const bootstrap = {
+          slug: config.parentSlug,
+          gameId: null, // Events don't have gameIds yet (future feature)
+          streamUrl: config.streamUrl,
+          chatEnabled: config.chatEnabled,
+          title: config.title,
+          paywallEnabled: config.paywallEnabled,
+          priceInCents: config.priceInCents,
+          paywallMessage: config.paywallMessage,
+          allowSavePayment: false, // Can be added to event model later
+          scoreboardEnabled: config.scoreboardEnabled,
+          scoreboardHomeTeam: config.scoreboardHomeTeam,
+          scoreboardAwayTeam: config.scoreboardAwayTeam,
+          scoreboardHomeColor: config.scoreboardHomeColor,
+          scoreboardAwayColor: config.scoreboardAwayColor,
+        };
+        
+        res.json(bootstrap);
       } catch (error: any) {
         logger.error({ error }, 'Failed to fetch event bootstrap config');
         next(error);
