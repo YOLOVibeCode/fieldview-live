@@ -26,6 +26,7 @@ import { FullscreenChatOverlay } from '@/components/FullscreenChatOverlay';
 import { AdminPanel } from '@/components/AdminPanel';
 import { SocialProducerPanel } from '@/components/SocialProducerPanel';
 import { ScoreboardOverlay } from '@/components/ScoreboardOverlay';
+import { CollapsibleScoreboardOverlay } from '@/components/CollapsibleScoreboardOverlay';
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 import { Button } from '@/components/ui/button';
@@ -99,6 +100,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [message, setMessage] = useState('');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
+  const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
@@ -255,7 +257,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     };
   }, []);
 
-  // Keyboard shortcuts: F for fullscreen, C for chat overlay (in fullscreen), Escape to close chat
+  // Keyboard shortcuts: F for fullscreen, C for chat overlay (in fullscreen), S for scoreboard, Escape to close chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only if not typing in an input
@@ -280,6 +282,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         setIsChatOpen(!isChatOpen);
       }
 
+      // S toggles scoreboard in fullscreen mode
+      if ((e.key === 's' || e.key === 'S') && isFullscreen && bootstrap?.scoreboardEnabled) {
+        e.preventDefault();
+        setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible);
+      }
+
       // Escape closes chat
       if (e.key === 'Escape' && isChatOpen) {
         e.preventDefault();
@@ -289,7 +297,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, isChatOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled]);
+  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled]);
 
   return (
     <div className={`min-h-screen bg-black flex flex-col ${config.containerClassName || ''}`}>
@@ -390,8 +398,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             </div>
           )}
 
-          {/* Scoreboard Overlay (visible to all viewers) */}
-          <ScoreboardOverlay slug={bootstrap?.slug || ''} />
+          {/* Scoreboard Overlay (non-fullscreen - traditional fixed position) */}
+          {!isFullscreen && <ScoreboardOverlay slug={bootstrap?.slug || ''} />}
 
           {/* Paywall Modal */}
           {bootstrap?.paywallEnabled && (
@@ -462,7 +470,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 data-testid="video-player"
               />
 
-              {/* Fullscreen Chat Overlay */}
+              {/* Fullscreen Chat Overlay (right side) */}
               {viewer.isUnlocked && bootstrap?.chatEnabled && bootstrap.gameId && isFullscreen && (
                 <ChatOverlayComponent
                   chat={chat}
@@ -470,6 +478,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   onToggle={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
                   position="right"
                   fontSize={config.enableFontSize ? fontSize : undefined}
+                />
+              )}
+
+              {/* Fullscreen Collapsible Scoreboard Overlay (left side) */}
+              {isFullscreen && bootstrap?.scoreboardEnabled && (
+                <CollapsibleScoreboardOverlay
+                  slug={bootstrap.slug}
+                  isVisible={isScoreboardOverlayVisible}
+                  onToggle={() => setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible)}
+                  position="left"
+                  isFullscreen={isFullscreen}
                 />
               )}
             </div>
@@ -485,6 +504,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   💡 Press <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">F</kbd> for fullscreen
                   {bootstrap?.chatEnabled && (
                     <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">C</kbd> to toggle chat</>
+                  )}
+                  {bootstrap?.scoreboardEnabled && (
+                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">S</kbd> for scoreboard</>
                   )}
                 </p>
               )}
