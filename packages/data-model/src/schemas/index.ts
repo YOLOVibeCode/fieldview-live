@@ -17,3 +17,4 @@ export * from './payment';
 export * from './directStreamCheckout';
 export * from './directStreamRegistration';
 export * from './directStreamAdmin';
+export * from './directStreamEvent';

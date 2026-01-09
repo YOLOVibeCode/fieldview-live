@@ -639,6 +639,7 @@ model DirectStream {
   purchases         Purchase[]
   registrations     DirectStreamRegistration[]
   verificationTokens EmailVerificationToken[]
+  events            DirectStreamEvent[] // 🆕 Sub-events under this parent stream
   
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -646,6 +647,51 @@ model DirectStream {
   @@index([slug])
   @@index([scheduledStartAt]) // For email reminder cron jobs
   @@index([ownerAccountId])   // 🆕 For payment queries
+}
+
+// 🆕 Direct Stream Events (Sub-events under a DirectStream parent)
+// Example: /direct/tchs/soccer-varsity-2026-01-10
+model DirectStreamEvent {
+  id                String    @id @default(uuid()) @db.Uuid
+  directStreamId    String    @db.Uuid
+  eventSlug         String    // URL slug for this event (unique per parent)
+  title             String    // Event-specific title (e.g., "Varsity Soccer vs. Rival HS")
+  
+  // Event-specific stream & scheduling
+  streamUrl         String?   // Override parent stream URL
+  scheduledStartAt  DateTime? // Event start time
+  reminderSentAt    DateTime? // Track when reminder was sent
+  
+  // Lifecycle
+  status            String    @default("active") // active | archived | deleted
+  
+  // Feature flag overrides (NULL = inherit from parent DirectStream)
+  chatEnabled               Boolean?
+  scoreboardEnabled         Boolean?
+  paywallEnabled            Boolean?
+  priceInCents              Int?
+  paywallMessage            String?
+  allowAnonymousView        Boolean?
+  requireEmailVerification  Boolean?
+  listed                    Boolean?  // Show in public listings
+  
+  // Scoreboard overrides (NULL = inherit from parent DirectStream)
+  scoreboardHomeTeam   String?
+  scoreboardAwayTeam   String?
+  scoreboardHomeColor  String?
+  scoreboardAwayColor  String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  directStream      DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  registrations     DirectStreamRegistration[]
+  verificationTokens EmailVerificationToken[]
+  
+  @@unique([directStreamId, eventSlug]) // Ensure unique eventSlug per parent
+  @@index([directStreamId])
+  @@index([scheduledStartAt]) // For reminder cron + sorting
+  @@index([status])
 }
 
 // Social Producer Panel - Scoreboard Management
@@ -689,35 +735,40 @@ model GameScoreboard {
 
 // DirectStream Registration - Viewer registration for stream access + chat
 model DirectStreamRegistration {
-  id                String          @id @default(uuid()) @db.Uuid
-  directStreamId    String          @db.Uuid
-  viewerIdentityId  String          @db.Uuid
-  registeredAt      DateTime        @default(now())
-  verifiedAt        DateTime?       // When email was verified
-  wantsReminders    Boolean         @default(false)
-  lastSeenAt        DateTime?       @updatedAt
+  id                  String              @id @default(uuid()) @db.Uuid
+  directStreamId      String              @db.Uuid
+  directStreamEventId String?             @db.Uuid  // 🆕 Optional: event-specific registration
+  viewerIdentityId    String              @db.Uuid
+  registeredAt        DateTime            @default(now())
+  verifiedAt          DateTime?           // When email was verified
+  wantsReminders      Boolean             @default(false)
+  lastSeenAt          DateTime?           @updatedAt
   
-  directStream      DirectStream    @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  viewerIdentity    ViewerIdentity  @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  directStream        DirectStream        @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  directStreamEvent   DirectStreamEvent?  @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
+  viewerIdentity      ViewerIdentity      @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
   
   @@unique([directStreamId, viewerIdentityId])
   @@index([directStreamId])
+  @@index([directStreamEventId]) // 🆕 Index for event registrations
   @@index([viewerIdentityId])
   @@index([verifiedAt])
 }
 
 // Email Verification Tokens - For stream access verification
 model EmailVerificationToken {
-  id                String          @id @default(uuid()) @db.Uuid
-  viewerIdentityId  String          @db.Uuid
-  directStreamId    String?         @db.Uuid  // Optional: stream-specific token
-  tokenHash         String          @unique @db.VarChar(64)  // SHA-256 hash of token
-  expiresAt         DateTime
-  usedAt            DateTime?
-  createdAt         DateTime        @default(now())
+  id                  String              @id @default(uuid()) @db.Uuid
+  viewerIdentityId    String              @db.Uuid
+  directStreamId      String?             @db.Uuid  // Optional: stream-specific token
+  directStreamEventId String?             @db.Uuid  // 🆕 Optional: event-specific token
+  tokenHash           String              @unique @db.VarChar(64)  // SHA-256 hash of token
+  expiresAt           DateTime
+  usedAt              DateTime?
+  createdAt           DateTime            @default(now())
   
-  viewerIdentity    ViewerIdentity  @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
-  directStream      DirectStream?   @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  viewerIdentity      ViewerIdentity      @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  directStream        DirectStream?       @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  directStreamEvent   DirectStreamEvent?  @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
   
   @@index([viewerIdentityId, expiresAt])
   @@index([tokenHash])
