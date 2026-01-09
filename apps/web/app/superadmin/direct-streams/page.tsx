@@ -78,7 +78,7 @@ export default function SuperAdminDirectStreamsPage() {
           href={`/${row.original.slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 hover:underline font-mono"
+          className="text-primary hover:underline font-mono"
           data-testid={`link-stream-${row.original.slug}`}
         >
           {row.original.slug}
@@ -99,7 +99,7 @@ export default function SuperAdminDirectStreamsPage() {
       header: 'Scheduled Start',
       cell: ({ row }) => {
         const date = row.original.scheduledStartAt;
-        if (!date) return <span className="text-gray-400">Not scheduled</span>;
+        if (!date) return <span className="text-muted-foreground">Not scheduled</span>;
         return (
           <span data-testid={`scheduled-${row.original.slug}`}>
             {new Date(date).toLocaleString()}
@@ -131,7 +131,7 @@ export default function SuperAdminDirectStreamsPage() {
               ${(row.original.priceInCents / 100).toFixed(2)}
             </span>
           ) : (
-            <span className="text-gray-400">Free</span>
+            <span className="text-muted-foreground">Free</span>
           )}
         </span>
       ),
@@ -161,7 +161,7 @@ export default function SuperAdminDirectStreamsPage() {
         <div className="flex gap-2">
           <button
             onClick={() => handleImpersonate(row.original.slug)}
-            className="text-blue-600 hover:underline text-sm"
+            className="text-primary hover:underline text-sm"
             data-testid={`btn-impersonate-${row.original.slug}`}
           >
             Impersonate Admin
@@ -196,17 +196,17 @@ export default function SuperAdminDirectStreamsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8" data-testid="page-superadmin-streams">
+    <div className="min-h-screen bg-background p-8" data-testid="page-superadmin-streams">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Direct Streams Console</h1>
-            <p className="text-gray-600 mt-1">Manage all direct stream pages</p>
+            <h1 className="text-3xl font-bold text-foreground">Direct Streams Console</h1>
+            <p className="text-muted-foreground mt-1">Manage all direct stream pages</p>
           </div>
           <button
             onClick={() => setShowCreateDrawer(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold"
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 font-semibold"
             data-testid="btn-create-stream"
           >
             + Create Stream
@@ -214,42 +214,42 @@ export default function SuperAdminDirectStreamsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="bg-card p-4 rounded-lg shadow border border-border mb-6">
           <div className="flex gap-4 items-center">
-            <label className="text-sm font-medium text-gray-700">Status:</label>
+            <label className="text-sm font-medium text-foreground">Status:</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2"
+              className="border border-border rounded px-3 py-2 bg-input text-foreground"
               data-testid="select-status-filter"
             >
               <option value="active">Active</option>
               <option value="archived">Archived</option>
               <option value="deleted">Deleted</option>
             </select>
-            <span className="text-sm text-gray-600">{streams.length} streams</span>
+            <span className="text-sm text-muted-foreground">{streams.length} streams</span>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-card rounded-lg shadow border border-border overflow-hidden">
           {loading ? (
-            <div className="p-12 text-center text-gray-500" data-testid="loading-streams">
+            <div className="p-12 text-center text-muted-foreground" data-testid="loading-streams">
               Loading streams...
             </div>
           ) : streams.length === 0 ? (
-            <div className="p-12 text-center text-gray-500" data-testid="empty-streams">
+            <div className="p-12 text-center text-muted-foreground" data-testid="empty-streams">
               No streams found. Create your first stream!
             </div>
           ) : (
             <table className="w-full" data-testid="table-streams">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-secondary border-b border-border">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-accent"
                         onClick={header.column.getToggleSortingHandler()}
                         data-testid={`header-${header.id}`}
                       >
@@ -265,15 +265,15 @@ export default function SuperAdminDirectStreamsPage() {
                   </tr>
                 ))}
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="hover:bg-gray-50"
+                    className="hover:bg-secondary/50"
                     data-testid={`row-${row.original.slug}`}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -287,21 +287,21 @@ export default function SuperAdminDirectStreamsPage() {
         {/* Registrations Modal (simplified for now) */}
         {selectedStream && (
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
             data-testid="modal-registrations"
             onClick={() => setSelectedStream(null)}
           >
             <div
-              className="bg-white p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto"
+              className="bg-card p-6 rounded-lg border border-border max-w-4xl w-full max-h-[80vh] overflow-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-2xl font-bold mb-4">{selectedStream.title} - Registrations</h2>
-              <p className="text-gray-600 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">{selectedStream.title} - Registrations</h2>
+              <p className="text-muted-foreground mb-4">
                 {selectedStream.registrationsCount} total registrations
               </p>
               <button
                 onClick={() => setSelectedStream(null)}
-                className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
+                className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/80"
                 data-testid="btn-close-registrations"
               >
                 Close
@@ -313,19 +313,19 @@ export default function SuperAdminDirectStreamsPage() {
         {/* Create Drawer (simplified placeholder) */}
         {showCreateDrawer && (
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
             data-testid="drawer-create-stream"
             onClick={() => setShowCreateDrawer(false)}
           >
             <div
-              className="bg-white p-8 rounded-lg max-w-2xl w-full"
+              className="bg-card p-8 rounded-lg border border-border max-w-2xl w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-2xl font-bold mb-4">Create Direct Stream</h2>
-              <p className="text-gray-600 mb-6">Feature coming soon!</p>
+              <h2 className="text-2xl font-bold text-foreground mb-4">Create Direct Stream</h2>
+              <p className="text-muted-foreground mb-6">Feature coming soon!</p>
               <button
                 onClick={() => setShowCreateDrawer(false)}
-                className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
+                className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/80"
                 data-testid="btn-close-create"
               >
                 Close

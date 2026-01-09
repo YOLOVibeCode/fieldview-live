@@ -64,29 +64,29 @@ function VerifyEmailContent() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100"
+      className="min-h-screen flex items-center justify-center bg-background"
       data-testid="page-verify-email"
     >
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full text-center">
+      <div className="bg-card border border-border p-8 rounded-lg shadow-xl max-w-md w-full text-center">
         {status === 'loading' && (
           <div data-testid="loading-verification">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying Email...</h2>
-            <p className="text-gray-600">Please wait while we verify your email address.</p>
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto mb-4"></div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Verifying Email...</h2>
+            <p className="text-muted-foreground">Please wait while we verify your email address.</p>
           </div>
         )}
 
         {status === 'success' && (
           <div data-testid="success-verification">
             <div className="text-6xl mb-4">✅</div>
-            <h2 className="text-2xl font-bold text-green-600 mb-2">Email Verified!</h2>
-            <p className="text-gray-700 mb-6">{message}</p>
-            <p className="text-sm text-gray-600 mb-4">
+            <h2 className="text-2xl font-bold text-success mb-2">Email Verified!</h2>
+            <p className="text-foreground mb-6">{message}</p>
+            <p className="text-sm text-muted-foreground mb-4">
               You can now access the stream and participate in chat.
             </p>
             <button
               onClick={() => router.back()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold"
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 font-semibold"
               data-testid="btn-return-to-stream"
             >
               Return to Stream
@@ -97,14 +97,14 @@ function VerifyEmailContent() {
         {status === 'expired' && (
           <div data-testid="expired-verification">
             <div className="text-6xl mb-4">⏰</div>
-            <h2 className="text-2xl font-bold text-orange-600 mb-2">Link Expired</h2>
-            <p className="text-gray-700 mb-6">{message}</p>
-            <p className="text-sm text-gray-600 mb-4">
+            <h2 className="text-2xl font-bold text-warning mb-2">Link Expired</h2>
+            <p className="text-foreground mb-6">{message}</p>
+            <p className="text-sm text-muted-foreground mb-4">
               Check your email for the new verification link we just sent!
             </p>
             <button
               onClick={() => router.back()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold"
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 font-semibold"
               data-testid="btn-back"
             >
               Go Back
@@ -115,14 +115,14 @@ function VerifyEmailContent() {
         {status === 'error' && (
           <div data-testid="error-verification">
             <div className="text-6xl mb-4">❌</div>
-            <h2 className="text-2xl font-bold text-red-600 mb-2">Verification Failed</h2>
-            <p className="text-gray-700 mb-6">{message}</p>
-            <p className="text-sm text-gray-600 mb-4">
+            <h2 className="text-2xl font-bold text-destructive mb-2">Verification Failed</h2>
+            <p className="text-foreground mb-6">{message}</p>
+            <p className="text-sm text-muted-foreground mb-4">
               Please try registering again or contact support if the issue persists.
             </p>
             <button
               onClick={() => router.push('/')}
-              className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 font-semibold"
+              className="bg-secondary text-secondary-foreground px-6 py-3 rounded-lg hover:bg-secondary/80 font-semibold"
               data-testid="btn-home"
             >
               Go Home
