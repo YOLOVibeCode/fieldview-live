@@ -12,11 +12,14 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getExpandedRowModel,
   type ColumnDef,
   type SortingState,
+  type ExpandedState,
   flexRender,
 } from '@tanstack/react-table';
 import { apiRequest, ApiError } from '../../../lib/api-client';
+import { EventManagement } from './EventManagement';
 
 interface DirectStream {
   id: string;
@@ -44,6 +47,7 @@ export default function SuperAdminDirectStreamsPage() {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'scheduledStartAt', desc: false }, // Soonest upcoming first
   ]);
+  const [expanded, setExpanded] = useState<ExpandedState>({});
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [selectedStream, setSelectedStream] = useState<DirectStream | null>(null);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
@@ -70,6 +74,19 @@ export default function SuperAdminDirectStreamsPage() {
 
   // Table columns
   const columns: ColumnDef<DirectStream>[] = [
+    {
+      id: 'expander',
+      header: () => null,
+      cell: ({ row }) => (
+        <button
+          onClick={row.getToggleExpandedHandler()}
+          className="text-sm px-2"
+          data-testid={`btn-expand-${row.original.slug}`}
+        >
+          {row.getIsExpanded() ? '▼' : '▶'}
+        </button>
+      ),
+    },
     {
       accessorKey: 'slug',
       header: 'Slug',
@@ -174,11 +191,14 @@ export default function SuperAdminDirectStreamsPage() {
   const table = useReactTable({
     data: streams,
     columns,
-    state: { sorting },
+    state: { sorting, expanded },
     onSortingChange: setSorting,
+    onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    getRowCanExpand: () => true,
   });
 
   const handleImpersonate = async (slug: string) => {
@@ -267,17 +287,29 @@ export default function SuperAdminDirectStreamsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="hover:bg-secondary/50"
-                    data-testid={`row-${row.original.slug}`}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
+                  <>
+                    <tr
+                      key={row.id}
+                      className="hover:bg-secondary/50"
+                      data-testid={`row-${row.original.slug}`}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                    {row.getIsExpanded() && (
+                      <tr key={`${row.id}-expanded`}>
+                        <td colSpan={columns.length} className="px-6 py-4 bg-secondary/20">
+                          <EventManagement 
+                            parentStreamId={row.original.id}
+                            parentSlug={row.original.slug}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>

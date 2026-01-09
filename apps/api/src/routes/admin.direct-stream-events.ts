@@ -9,7 +9,6 @@ import { prisma } from '../lib/prisma';
 import { DirectStreamEventRepository } from '../repositories/DirectStreamEventRepository';
 import { DirectStreamEventService } from '../services/DirectStreamEventService';
 import { validateRequest } from '../middleware/validation';
-import { requireAdminAuth } from '../middleware/adminAuth';
 import {
   CreateDirectStreamEventSchema,
   UpdateDirectStreamEventSchema,
@@ -31,7 +30,6 @@ export function createAdminDirectStreamEventsRouter(): Router {
  */
 router.get(
   '/:directStreamId/events',
-  requireAdminAuth,
   validateRequest({ query: ListDirectStreamEventsQuerySchema }),
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
@@ -71,7 +69,6 @@ router.get(
  */
 router.post(
   '/:directStreamId/events',
-  requireAdminAuth,
   validateRequest({ body: CreateDirectStreamEventSchema }),
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
@@ -103,7 +100,6 @@ router.post(
  */
 router.patch(
   '/:directStreamId/events/:eventId',
-  requireAdminAuth,
   validateRequest({ body: UpdateDirectStreamEventSchema }),
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
@@ -135,7 +131,6 @@ router.patch(
  */
 router.post(
   '/:directStreamId/events/:eventId/archive',
-  requireAdminAuth,
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
@@ -164,7 +159,6 @@ router.post(
  */
 router.delete(
   '/:directStreamId/events/:eventId',
-  requireAdminAuth,
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
