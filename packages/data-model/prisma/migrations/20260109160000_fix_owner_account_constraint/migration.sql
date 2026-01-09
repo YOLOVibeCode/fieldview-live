@@ -16,13 +16,17 @@ BEGIN
   IF owner_count = 0 THEN
     INSERT INTO "OwnerAccount" (
       id,
+      type,
       name,
-      email,
+      status,
+      "contactEmail",
       "createdAt",
       "updatedAt"
     ) VALUES (
       gen_random_uuid(),
+      'owner',
       'FieldView Live',
+      'active',
       'admin@fieldview.live',
       NOW(),
       NOW()

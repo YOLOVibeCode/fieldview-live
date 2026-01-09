@@ -304,9 +304,6 @@ model GameChatMessage {
   @@index([viewerId])
   @@index([directStreamId])
 }
-  @@index([gameId, createdAt(sort: Desc)])
-  @@index([viewerId, createdAt(sort: Desc)])
-}
 
 model Payout {
   id              String     @id @default(uuid()) @db.Uuid
