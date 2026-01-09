@@ -53,7 +53,7 @@ export default function SuperAdminDirectStreamsPage() {
     try {
       setLoading(true);
       const response = await apiRequest<{ streams: DirectStream[] }>(
-        `/admin/direct-streams?status=${statusFilter}`,
+        `/api/admin/direct-streams?status=${statusFilter}`,
         { method: 'GET' }
       );
       setStreams(response.streams);

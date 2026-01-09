@@ -27,6 +27,9 @@ import { getEmailProvider } from '../lib/email';
 
 const router = express.Router();
 
+// TODO: Add Super Admin authentication middleware in production
+// For now, accessible in development for testing
+
 // Initialize services for registrations endpoint
 const registrationReader = new DirectStreamRegistrationRepository();
 const registrationWriter = new DirectStreamRegistrationRepository();
