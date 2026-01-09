@@ -42,6 +42,11 @@ export interface Bootstrap {
   priceInCents?: number;
   paywallMessage?: string | null;
   allowSavePayment?: boolean;
+  scoreboardEnabled?: boolean;
+  scoreboardHomeTeam?: string | null;
+  scoreboardAwayTeam?: string | null;
+  scoreboardHomeColor?: string | null;
+  scoreboardAwayColor?: string | null;
 }
 
 export type FontSize = 'small' | 'medium' | 'large';
@@ -356,6 +361,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     priceInCents: bootstrap?.priceInCents,
                     paywallMessage: bootstrap?.paywallMessage,
                     allowSavePayment: bootstrap?.allowSavePayment,
+                    scoreboardEnabled: bootstrap?.scoreboardEnabled,
+                    homeTeamName: bootstrap?.scoreboardHomeTeam || undefined,
+                    awayTeamName: bootstrap?.scoreboardAwayTeam || undefined,
+                    homeJerseyColor: bootstrap?.scoreboardHomeColor || undefined,
+                    awayJerseyColor: bootstrap?.scoreboardAwayColor || undefined,
                   }}
                   onAuthSuccess={(jwt) => {
                     setAdminJwt(jwt);

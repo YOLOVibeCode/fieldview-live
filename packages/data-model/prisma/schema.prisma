@@ -598,6 +598,13 @@ model DirectStream {
   
   // Feature flags
   chatEnabled       Boolean   @default(true)
+  scoreboardEnabled Boolean   @default(false)
+  
+  // Scoreboard preferences (set by admin, used for initialization)
+  scoreboardHomeTeam    String?   // Custom home team name
+  scoreboardAwayTeam    String?   // Custom away team name
+  scoreboardHomeColor   String?   // Custom home jersey color (hex)
+  scoreboardAwayColor   String?   // Custom away jersey color (hex)
   
   // Chat association (optional Game linkage)
   gameId            String?   @unique @db.Uuid

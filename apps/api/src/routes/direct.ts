@@ -133,6 +133,11 @@ router.get(
           priceInCents: directStream.priceInCents,
           paywallMessage: directStream.paywallMessage,
           allowSavePayment: directStream.allowSavePayment,
+          scoreboardEnabled: directStream.scoreboardEnabled,
+          scoreboardHomeTeam: directStream.scoreboardHomeTeam,
+          scoreboardAwayTeam: directStream.scoreboardAwayTeam,
+          scoreboardHomeColor: directStream.scoreboardHomeColor,
+          scoreboardAwayColor: directStream.scoreboardAwayColor,
         });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
@@ -229,6 +234,11 @@ router.post(
           priceInCents: z.number().int().min(0).max(99999).optional(),
           paywallMessage: z.string().max(1000).optional().nullable(),
           allowSavePayment: z.boolean().optional(),
+          scoreboardEnabled: z.boolean().optional(),
+          scoreboardHomeTeam: z.string().max(50).optional().nullable(),
+          scoreboardAwayTeam: z.string().max(50).optional().nullable(),
+          scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+          scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
         });
         
         const parsed = schema.safeParse(req.body);
@@ -272,6 +282,21 @@ router.post(
         if (body.chatEnabled !== undefined) {
           updateData.chatEnabled = body.chatEnabled;
         }
+        if (body.scoreboardEnabled !== undefined) {
+          updateData.scoreboardEnabled = body.scoreboardEnabled;
+        }
+        if (body.scoreboardHomeTeam !== undefined) {
+          updateData.scoreboardHomeTeam = body.scoreboardHomeTeam;
+        }
+        if (body.scoreboardAwayTeam !== undefined) {
+          updateData.scoreboardAwayTeam = body.scoreboardAwayTeam;
+        }
+        if (body.scoreboardHomeColor !== undefined) {
+          updateData.scoreboardHomeColor = body.scoreboardHomeColor;
+        }
+        if (body.scoreboardAwayColor !== undefined) {
+          updateData.scoreboardAwayColor = body.scoreboardAwayColor;
+        }
 
         // Update in database
         const updated = await prisma.directStream.update({
@@ -290,6 +315,11 @@ router.post(
             paywallMessage: updated.paywallMessage,
             allowSavePayment: updated.allowSavePayment,
             chatEnabled: updated.chatEnabled,
+            scoreboardEnabled: updated.scoreboardEnabled,
+            scoreboardHomeTeam: updated.scoreboardHomeTeam,
+            scoreboardAwayTeam: updated.scoreboardAwayTeam,
+            scoreboardHomeColor: updated.scoreboardHomeColor,
+            scoreboardAwayColor: updated.scoreboardAwayColor,
           },
         });
       } catch (error) {
