@@ -1,4 +1,15 @@
-# Visual Mockup: Collapsible Scoreboard & Chat Layout
+# Visual Mockup: Draggable, Translucent Scoreboard & Chat Layout
+
+## 🎯 NEW FEATURE: Draggable Overlays
+
+**Both scoreboard and chat are now DRAGGABLE in fullscreen mode!**
+- Grab the header (with ⋮⋮ icon) to drag
+- Position anywhere on screen
+- Position persists in localStorage
+- Translucency maintained during drag
+- Visual feedback (ring) while dragging
+
+---
 
 ## 📱 NON-FULLSCREEN MODE (Desktop/Mobile)
 
@@ -346,7 +357,78 @@ Chat Sidebar (Right):
 
 ---
 
-## 🎮 KEYBOARD SHORTCUTS
+---
+
+## 🖱️ FULLSCREEN MODE - DRAGGABLE ANYWHERE!
+
+### User Drags Scoreboard to Top-Right
+```
+┌───────────────────────────────────────────────────────┬────────────┐
+│                                                         │ ⋮⋮ Score×  │
+│                                                         ├────────────┤
+│                                                         │            │
+│                   📹 FULLSCREEN VIDEO                   │ HOME: 15   │
+│                                                         │            │
+│                  (Scoreboard repositioned)              │            │
+│                                                         │   VS       │
+│                       [▶ Controls]                      │            │
+│                                                         │ AWAY: 12   │
+│                                                         │            │
+│                                                         │ ⏱ 5:23     │
+│                                                         └────────────┘
+│                                          Chat can be anywhere too! →
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+### User Drags Both to Bottom Corners
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                                                                         │
+│                        📹 FULLSCREEN VIDEO                             │
+│                                                                         │
+│                         (Maximum visibility)                           │
+│                                                                         │
+│                            [▶ Controls]                                │
+│                                                                         │
+│                                                                         │
+│                                                                         │
+│ ┌──────────┐                                              ┌──────────┐│
+│ │⋮⋮ Score × │                                              │⋮⋮ Chat × ││
+│ ├──────────┤                                              ├──────────┤│
+│ │HOME: 15  │                                              │Player: GG││
+│ │ VS       │                                              │Admin: 🏀 ││
+│ │AWAY: 12  │                                              │Send msg  ││
+│ │⏱ 5:23    │                                              └──────────┘│
+│ └──────────┘                                                           │
+│ ↑ Bottom-left                                        Bottom-right ↑   │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+### Drag Indicators
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│  ┌─────────────────┐ ← RING while dragging                            │
+│  │ ⋮⋮ Scoreboard ×││                                                   │
+│  ├─────────────────┤                                                   │
+│  │                 │                                                   │
+│  │   HOME: 15      │    📹 Video still visible through                │
+│  │                 │       translucent background!                    │
+│  │     VS          │                                                   │
+│  │                 │                                                   │
+│  │   AWAY: 12      │                                                   │
+│  │                 │                                                   │
+│  │   ⏱ 5:23        │                                                   │
+│  │                 │                                                   │
+│  │ Drag to move    │                                                   │
+│  └─────────────────┘                                                   │
+│   ↑ Cursor: move                                                      │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🎮 KEYBOARD SHORTCUTS (UPDATED)
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -354,8 +436,42 @@ Chat Sidebar (Right):
 │  C  → Toggle Chat (fullscreen + unlocked)   │
 │  S  → Toggle Scoreboard (fullscreen only)   │
 │  Esc → Close chat (if open)                 │
+│                                             │
+│  🆕 MOUSE/TOUCH:                            │
+│  Drag header (⋮⋮) to reposition overlays   │
+│  Position saved automatically               │
 └─────────────────────────────────────────────┘
 ```
+
+---
+
+## 🖱️ HOW TO DRAG OVERLAYS
+
+### Desktop (Mouse)
+1. Hover over scoreboard/chat header (shows ⋮⋮ icon)
+2. Click and hold on header
+3. Drag to desired position
+4. Release to drop
+5. Position automatically saved
+
+### Mobile (Touch)
+1. Tap and hold header (⋮⋮ area)
+2. Drag finger to move
+3. Release to drop
+4. Position persists across sessions
+
+### Visual Feedback
+- **Cursor changes** to `move` icon over header
+- **Ring appears** around overlay while dragging (accent color)
+- **Translucency maintained** - video still visible
+- **Constrained to viewport** - can't drag off-screen
+
+### Position Persistence
+- **Scoreboard**: Saved per-stream in `localStorage`
+  - Key: `scoreboard-position-${slug}`
+- **Chat**: Saved globally
+  - Key: `chat-position`
+- **Reset**: Close and reopen overlay, or clear localStorage
 
 ---
 

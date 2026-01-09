@@ -12,9 +12,10 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/hooks/useGameChat';
 
 interface FullscreenChatOverlayProps {
@@ -31,6 +32,11 @@ interface FullscreenChatOverlayProps {
 
 const MAX_MESSAGE_LENGTH = 240;
 
+interface Position {
+  x: number;
+  y: number;
+}
+
 export function FullscreenChatOverlay({
   chat,
   isVisible,
@@ -39,7 +45,11 @@ export function FullscreenChatOverlay({
 }: FullscreenChatOverlayProps) {
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [dragPosition, setDragPosition] = useState<Position | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Keyboard shortcut: C to toggle chat
   useEffect(() => {
@@ -64,6 +74,117 @@ export function FullscreenChatOverlay({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chat.messages, isVisible]);
+
+  // Load saved position from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const savedPosition = localStorage.getItem('chat-position');
+    if (savedPosition) {
+      try {
+        const parsed = JSON.parse(savedPosition) as Position;
+        setDragPosition(parsed);
+      } catch (e) {
+        // Invalid saved position, ignore
+      }
+    }
+  }, []);
+
+  // Save position to localStorage
+  const savePosition = useCallback((pos: Position) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('chat-position', JSON.stringify(pos));
+  }, []);
+
+  // Drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!overlayRef.current) return;
+    
+    const rect = overlayRef.current.getBoundingClientRect();
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    
+    // Constrain to viewport
+    const maxX = window.innerWidth - (overlayRef.current?.offsetWidth || 400);
+    const maxY = window.innerHeight - (overlayRef.current?.offsetHeight || 500);
+    
+    const constrainedX = Math.max(0, Math.min(newX, maxX));
+    const constrainedY = Math.max(0, Math.min(newY, maxY));
+    
+    setDragPosition({ x: constrainedX, y: constrainedY });
+  }, [isDragging, dragOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging && dragPosition) {
+      savePosition(dragPosition);
+    }
+    setIsDragging(false);
+  }, [isDragging, dragPosition, savePosition]);
+
+  // Touch handlers for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!overlayRef.current) return;
+    
+    const touch = e.touches[0];
+    const rect = overlayRef.current.getBoundingClientRect();
+    setIsDragging(true);
+    setDragOffset({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    });
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const newX = touch.clientX - dragOffset.x;
+    const newY = touch.clientY - dragOffset.y;
+    
+    // Constrain to viewport
+    const maxX = window.innerWidth - (overlayRef.current?.offsetWidth || 400);
+    const maxY = window.innerHeight - (overlayRef.current?.offsetHeight || 500);
+    
+    const constrainedX = Math.max(0, Math.min(newX, maxX));
+    const constrainedY = Math.max(0, Math.min(newY, maxY));
+    
+    setDragPosition({ x: constrainedX, y: constrainedY });
+  }, [isDragging, dragOffset]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (isDragging && dragPosition) {
+      savePosition(dragPosition);
+    }
+    setIsDragging(false);
+  }, [isDragging, dragPosition, savePosition]);
+
+  // Attach global mouse/touch listeners
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,28 +247,45 @@ export function FullscreenChatOverlay({
 
   return (
     <div
-      className={`
-        fixed inset-y-0 ${position === 'right' ? 'right-0' : 'left-0'}
-        z-50
-        w-full sm:w-96 md:w-[28rem]
-        pointer-events-none
-      `}
+      ref={overlayRef}
+      className={cn(
+        'fixed z-50 pointer-events-none',
+        dragPosition ? '' : (position === 'right' ? 'inset-y-0 right-0' : 'inset-y-0 left-0'),
+        dragPosition ? '' : 'w-full sm:w-96 md:w-[28rem]'
+      )}
+      style={dragPosition ? {
+        left: `${dragPosition.x}px`,
+        top: `${dragPosition.y}px`,
+        width: window.innerWidth < 640 ? '90%' : '448px',
+        maxHeight: '90vh',
+      } : undefined}
       data-testid="overlay-chat"
     >
       {/* Gradient background - transparent top (near video), opaque bottom (chat input) */}
       <div
-        className={`
-          absolute inset-0
-          bg-gradient-to-b from-transparent via-black/30 to-black/80
-          backdrop-blur-sm
-        `}
+        className={cn(
+          'absolute inset-0',
+          'bg-gradient-to-b from-transparent via-black/30 to-black/80',
+          'backdrop-blur-sm',
+          'rounded-lg',
+          isDragging && 'ring-2 ring-primary'
+        )}
       />
 
       {/* Chat content */}
       <div className="relative h-full flex flex-col pointer-events-auto">
-        {/* Header - Minimal, semi-transparent */}
-        <div className="flex items-center justify-between p-4 bg-black/20 backdrop-blur-sm">
+        {/* Header - Minimal, semi-transparent, DRAGGABLE */}
+        <div 
+          className={cn(
+            "flex items-center justify-between p-4 bg-black/20 backdrop-blur-sm rounded-t-lg",
+            "cursor-move select-none"
+          )}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          data-testid="chat-drag-handle"
+        >
           <div className="flex items-center gap-3">
+            <span className="text-white/60 text-sm">⋮⋮</span>
             <h2 className="text-white font-bold text-lg">Chat</h2>
             {chat.isConnected ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm font-medium">

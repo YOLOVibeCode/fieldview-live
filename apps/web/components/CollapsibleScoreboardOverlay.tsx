@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -39,6 +39,11 @@ interface CollapsibleScoreboardOverlayProps {
   isFullscreen: boolean;
 }
 
+interface Position {
+  x: number;
+  y: number;
+}
+
 export function CollapsibleScoreboardOverlay({
   slug,
   isVisible,
@@ -49,6 +54,10 @@ export function CollapsibleScoreboardOverlay({
   const [scoreboard, setScoreboard] = useState<GameScoreboard | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [dragPosition, setDragPosition] = useState<Position | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -56,6 +65,117 @@ export function CollapsibleScoreboardOverlay({
   if (!isFullscreen) {
     return null;
   }
+
+  // Load saved position from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const savedPosition = localStorage.getItem(`scoreboard-position-${slug}`);
+    if (savedPosition) {
+      try {
+        const parsed = JSON.parse(savedPosition) as Position;
+        setDragPosition(parsed);
+      } catch (e) {
+        // Invalid saved position, ignore
+      }
+    }
+  }, [slug]);
+
+  // Save position to localStorage
+  const savePosition = useCallback((pos: Position) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(`scoreboard-position-${slug}`, JSON.stringify(pos));
+  }, [slug]);
+
+  // Drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!overlayRef.current) return;
+    
+    const rect = overlayRef.current.getBoundingClientRect();
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    
+    // Constrain to viewport
+    const maxX = window.innerWidth - (overlayRef.current?.offsetWidth || 400);
+    const maxY = window.innerHeight - (overlayRef.current?.offsetHeight || 500);
+    
+    const constrainedX = Math.max(0, Math.min(newX, maxX));
+    const constrainedY = Math.max(0, Math.min(newY, maxY));
+    
+    setDragPosition({ x: constrainedX, y: constrainedY });
+  }, [isDragging, dragOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging && dragPosition) {
+      savePosition(dragPosition);
+    }
+    setIsDragging(false);
+  }, [isDragging, dragPosition, savePosition]);
+
+  // Touch handlers for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!overlayRef.current) return;
+    
+    const touch = e.touches[0];
+    const rect = overlayRef.current.getBoundingClientRect();
+    setIsDragging(true);
+    setDragOffset({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    });
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const newX = touch.clientX - dragOffset.x;
+    const newY = touch.clientY - dragOffset.y;
+    
+    // Constrain to viewport
+    const maxX = window.innerWidth - (overlayRef.current?.offsetWidth || 400);
+    const maxY = window.innerHeight - (overlayRef.current?.offsetHeight || 500);
+    
+    const constrainedX = Math.max(0, Math.min(newX, maxX));
+    const constrainedY = Math.max(0, Math.min(newY, maxY));
+    
+    setDragPosition({ x: constrainedX, y: constrainedY });
+  }, [isDragging, dragOffset]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (isDragging && dragPosition) {
+      savePosition(dragPosition);
+    }
+    setIsDragging(false);
+  }, [isDragging, dragPosition, savePosition]);
+
+  // Attach global mouse/touch listeners
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   useEffect(() => {
     fetchScoreboard();
@@ -157,30 +277,49 @@ export function CollapsibleScoreboardOverlay({
   // Expanded: Full-height sidebar panel
   return (
     <div
-      className={`
-        fixed inset-y-0 ${position === 'left' ? 'left-0' : 'right-0'}
-        z-50
-        w-full sm:w-80 md:w-96
-        pointer-events-none
-      `}
+      ref={overlayRef}
+      className={cn(
+        'fixed z-50 pointer-events-none',
+        dragPosition ? '' : (position === 'left' ? 'inset-y-0 left-0' : 'inset-y-0 right-0'),
+        dragPosition ? '' : 'w-full sm:w-80 md:w-96'
+      )}
+      style={dragPosition ? {
+        left: `${dragPosition.x}px`,
+        top: `${dragPosition.y}px`,
+        width: window.innerWidth < 640 ? '90%' : '384px',
+        maxHeight: '90vh',
+      } : undefined}
       data-testid="overlay-scoreboard"
       role="region"
       aria-label="Game scoreboard"
     >
       {/* Gradient background - translucent to see video action */}
       <div
-        className={`
-          absolute inset-0
-          bg-gradient-to-b from-transparent via-black/40 to-black/85
-          backdrop-blur-sm
-        `}
+        className={cn(
+          'absolute inset-0',
+          'bg-gradient-to-b from-transparent via-black/40 to-black/85',
+          'backdrop-blur-sm',
+          'rounded-lg',
+          isDragging && 'ring-2 ring-accent'
+        )}
       />
 
       {/* Scoreboard content */}
       <div className="relative h-full flex flex-col pointer-events-auto">
-        {/* Header - Minimal, semi-transparent */}
-        <div className="flex items-center justify-between p-4 bg-black/20 backdrop-blur-sm">
-          <h2 className="text-white font-bold text-lg">Scoreboard</h2>
+        {/* Header - Minimal, semi-transparent, DRAGGABLE */}
+        <div 
+          className={cn(
+            "flex items-center justify-between p-4 bg-black/20 backdrop-blur-sm rounded-t-lg",
+            "cursor-move select-none"
+          )}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          data-testid="scoreboard-drag-handle"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-white/60 text-sm">⋮⋮</span>
+            <h2 className="text-white font-bold text-lg">Scoreboard</h2>
+          </div>
           <button
             onClick={onToggle}
             className="text-white/80 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -281,7 +420,8 @@ export function CollapsibleScoreboardOverlay({
 
         {/* Footer hint */}
         <div className="p-4 text-center text-white/40 text-xs">
-          Press <kbd className="px-2 py-1 bg-white/10 rounded">S</kbd> to toggle
+          <p>Press <kbd className="px-2 py-1 bg-white/10 rounded">S</kbd> to toggle</p>
+          <p className="mt-1">Drag header to reposition</p>
         </div>
       </div>
     </div>
