@@ -37,10 +37,16 @@ try {
   
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('✅ Migrations completed successfully!');
-  process.exit(0);
 } catch (error) {
   console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.error('❌ Migration failed:', error.message);
-  process.exit(1);
+  console.error('');
+  console.error('⚠️  WARNING: Continuing server startup despite migration failure');
+  console.error('    This allows the server to start so you can manually fix the database.');
+  console.error('');
+  // DON'T exit with error - let the server start so we can debug
 }
+
+console.log('✅ Migration runner completed (check logs above for any errors)');
+process.exit(0);
 
