@@ -21,7 +21,7 @@ const dbUrl = process.env.DATABASE_URL;
 console.log(`✅ DATABASE_URL found: ${dbUrl.substring(0, 30)}...`);
 
 // Change to data-model directory
-const dataModelDir = path.join(__dirname, '../../../../packages/data-model');
+const dataModelDir = path.join(__dirname, '../../packages/data-model');
 process.chdir(dataModelDir);
 
 console.log(`📂 Working directory: ${process.cwd()}`);
