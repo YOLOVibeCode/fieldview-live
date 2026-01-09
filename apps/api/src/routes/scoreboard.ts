@@ -23,7 +23,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
   const { slug } = req.params;
 
   try {
-    const stream = await prisma.directStream.findUnique({
+    let stream = await prisma.directStream.findUnique({
       where: { slug },
       include: { scoreboard: true },
     });
@@ -32,29 +32,52 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Stream not found' });
     }
 
+    // Auto-create scoreboard with 0-0 score if it doesn't exist
     if (!stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      logger.info({ slug }, 'Auto-creating scoreboard with default 0-0 score');
+      
+      const scoreboard = await prisma.gameScoreboard.create({
+        data: {
+          directStreamId: stream.id,
+          homeTeamName: 'Home',
+          awayTeamName: 'Away',
+          homeJerseyColor: '#003366', // Default navy blue
+          awayJerseyColor: '#CC0000', // Default red
+          homeScore: 0,
+          awayScore: 0,
+          clockMode: 'stopped',
+          clockSeconds: 0,
+          isVisible: true,
+          position: 'top',
+        },
+      });
+
+      // Reload stream with scoreboard
+      stream = await prisma.directStream.findUnique({
+        where: { slug },
+        include: { scoreboard: true },
+      });
     }
 
-    const { scoreboard } = stream;
+    const { scoreboard } = stream!;
 
     // Public response (don't expose password hash)
     const response = {
-      id: scoreboard.id,
-      homeTeamName: scoreboard.homeTeamName,
-      awayTeamName: scoreboard.awayTeamName,
-      homeJerseyColor: scoreboard.homeJerseyColor,
-      awayJerseyColor: scoreboard.awayJerseyColor,
-      homeScore: scoreboard.homeScore,
-      awayScore: scoreboard.awayScore,
-      clockMode: scoreboard.clockMode,
-      clockSeconds: scoreboard.clockSeconds,
-      clockStartedAt: scoreboard.clockStartedAt?.toISOString() ?? null,
-      isVisible: scoreboard.isVisible,
-      position: scoreboard.position,
-      requiresPassword: !!scoreboard.producerPassword,
-      lastEditedBy: scoreboard.lastEditedBy,
-      lastEditedAt: scoreboard.lastEditedAt?.toISOString() ?? null,
+      id: scoreboard!.id,
+      homeTeamName: scoreboard!.homeTeamName,
+      awayTeamName: scoreboard!.awayTeamName,
+      homeJerseyColor: scoreboard!.homeJerseyColor,
+      awayJerseyColor: scoreboard!.awayJerseyColor,
+      homeScore: scoreboard!.homeScore,
+      awayScore: scoreboard!.awayScore,
+      clockMode: scoreboard!.clockMode,
+      clockSeconds: scoreboard!.clockSeconds,
+      clockStartedAt: scoreboard!.clockStartedAt?.toISOString() ?? null,
+      isVisible: scoreboard!.isVisible,
+      position: scoreboard!.position,
+      requiresPassword: !!scoreboard!.producerPassword,
+      lastEditedBy: scoreboard!.lastEditedBy,
+      lastEditedAt: scoreboard!.lastEditedAt?.toISOString() ?? null,
     };
 
     res.json(response);
