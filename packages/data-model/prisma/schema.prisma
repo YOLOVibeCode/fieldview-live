@@ -127,14 +127,20 @@ model ViewerIdentity {
   // Email notification preferences
   wantsReminders  Boolean    @default(true)   // Opt-in for stream reminder emails
   
+  // Email verification (for DirectStream access)
+  emailVerifiedAt DateTime?  // When email was verified
+  
   purchases       Purchase[]
   subscriptions  Subscription[]
   viewerSquareCustomers ViewerSquareCustomer[]
   chatMessages    GameChatMessage[]
+  directStreamRegistrations DirectStreamRegistration[]
+  emailVerificationTokens EmailVerificationToken[]
   
   @@index([email])
   @@index([phoneE164])
   @@index([lastSeenAt])  // For active viewer queries
+  @@index([emailVerifiedAt]) // For verified viewer queries
 }
 
 // Per-owner Square customer mapping (required for marketplace Model A + saved cards correctness).
@@ -605,6 +611,11 @@ model DirectStream {
   chatEnabled       Boolean   @default(true)
   scoreboardEnabled Boolean   @default(false)
   
+  // 🆕 Access control
+  allowAnonymousView       Boolean   @default(true)  // Allow anonymous page viewing
+  requireEmailVerification Boolean   @default(true)  // Require verified email for access/chat
+  listed                   Boolean   @default(true)  // Show in public listings
+  
   // Scoreboard preferences (set by admin, used for initialization)
   scoreboardHomeTeam    String?   // Custom home team name
   scoreboardAwayTeam    String?   // Custom away team name
@@ -621,17 +632,13 @@ model DirectStream {
   gameId            String?   @unique @db.Uuid
   game              Game?     @relation(fields: [gameId], references: [id], onDelete: SetNull)
   
-  // Social Producer Panel
-  scoreboard        GameScoreboard?
-  
-  // Chat messages (for preservation)
-  chatMessages      GameChatMessage[]
-  
-  // 🆕 OWNER RELATION
+  // Relations
   ownerAccount      OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  
-  // 🆕 PURCHASES RELATION (reverse)
+  scoreboard        GameScoreboard?
+  chatMessages      GameChatMessage[]
   purchases         Purchase[]
+  registrations     DirectStreamRegistration[]
+  verificationTokens EmailVerificationToken[]
   
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -678,6 +685,42 @@ model GameScoreboard {
   directStream    DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
   
   @@index([directStreamId])
+}
+
+// DirectStream Registration - Viewer registration for stream access + chat
+model DirectStreamRegistration {
+  id                String          @id @default(uuid()) @db.Uuid
+  directStreamId    String          @db.Uuid
+  viewerIdentityId  String          @db.Uuid
+  registeredAt      DateTime        @default(now())
+  verifiedAt        DateTime?       // When email was verified
+  wantsReminders    Boolean         @default(false)
+  lastSeenAt        DateTime?       @updatedAt
+  
+  directStream      DirectStream    @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  viewerIdentity    ViewerIdentity  @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  
+  @@unique([directStreamId, viewerIdentityId])
+  @@index([directStreamId])
+  @@index([viewerIdentityId])
+  @@index([verifiedAt])
+}
+
+// Email Verification Tokens - For stream access verification
+model EmailVerificationToken {
+  id                String          @id @default(uuid()) @db.Uuid
+  viewerIdentityId  String          @db.Uuid
+  directStreamId    String?         @db.Uuid  // Optional: stream-specific token
+  tokenHash         String          @unique @db.VarChar(64)  // SHA-256 hash of token
+  expiresAt         DateTime
+  usedAt            DateTime?
+  createdAt         DateTime        @default(now())
+  
+  viewerIdentity    ViewerIdentity  @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  directStream      DirectStream?   @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  
+  @@index([viewerIdentityId, expiresAt])
+  @@index([tokenHash])
 }
 
 model CouponRedemption {

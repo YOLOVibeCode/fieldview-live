@@ -14,4 +14,6 @@ export * from './SubscriptionSchema';
 export * from './directStream';
 export * from './scoreboard';
 export * from './payment';
-export * from './directStreamCheckout';  // 🆕
+export * from './directStreamCheckout';
+export * from './directStreamRegistration';
+export * from './directStreamAdmin';

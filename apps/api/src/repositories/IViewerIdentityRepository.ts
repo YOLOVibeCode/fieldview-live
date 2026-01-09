@@ -27,6 +27,7 @@ export interface IViewerIdentityReader {
   getById(id: string): Promise<ViewerIdentity | null>;
   getByEmail(email: string): Promise<ViewerIdentity | null>;
   getByPhone(phoneE164: string): Promise<ViewerIdentity | null>;
+  getByEmailVerified(email: string): Promise<ViewerIdentity | null>;
 }
 
 /**
@@ -35,4 +36,5 @@ export interface IViewerIdentityReader {
 export interface IViewerIdentityWriter {
   create(data: CreateViewerIdentityData): Promise<ViewerIdentity>;
   update(id: string, data: UpdateViewerIdentityData): Promise<ViewerIdentity>;
+  markEmailVerified(id: string): Promise<ViewerIdentity>;
 }
