@@ -3,7 +3,8 @@ builder = "NIXPACKS"
 buildCommand = "cd ../.. && pnpm install --frozen-lockfile && cd packages/data-model && prisma generate --schema=./prisma/schema.prisma && cd ../.. && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
 
 [deploy]
-startCommand = "node railway-migrate.js && node dist/server.js"
+# Temporarily skip migrations to get server running
+startCommand = "node dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
