@@ -28,6 +28,11 @@ interface AdminPanelProps {
     priceInCents?: number;
     paywallMessage?: string | null;
     allowSavePayment?: boolean;
+    scoreboardEnabled?: boolean;
+    homeTeamName?: string;
+    awayTeamName?: string;
+    homeJerseyColor?: string;
+    awayJerseyColor?: string;
   };
   onAuthSuccess?: (token: string) => void;
 }
@@ -49,6 +54,11 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   );
   const [paywallMessage, setPaywallMessage] = useState(initialSettings?.paywallMessage || '');
   const [allowSavePayment, setAllowSavePayment] = useState(initialSettings?.allowSavePayment ?? false);
+  const [scoreboardEnabled, setScoreboardEnabled] = useState(initialSettings?.scoreboardEnabled ?? false);
+  const [homeTeamName, setHomeTeamName] = useState(initialSettings?.homeTeamName || '');
+  const [awayTeamName, setAwayTeamName] = useState(initialSettings?.awayTeamName || '');
+  const [homeJerseyColor, setHomeJerseyColor] = useState(initialSettings?.homeJerseyColor || '#003366');
+  const [awayJerseyColor, setAwayJerseyColor] = useState(initialSettings?.awayJerseyColor || '#CC0000');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -135,6 +145,36 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           setUnlockError('Session expired. Please log in again.');
         }
         throw new Error(data.error || 'Failed to save settings');
+      }
+
+      // If scoreboard is enabled, initialize it with custom values
+      if (scoreboardEnabled) {
+        const scoreboardResponse = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard/setup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({
+            homeTeamName: homeTeamName || 'Home',
+            awayTeamName: awayTeamName || 'Away',
+            homeJerseyColor: homeJerseyColor || '#003366',
+            awayJerseyColor: awayJerseyColor || '#CC0000',
+            homeScore: 0,
+            awayScore: 0,
+            clockMode: 'stopped',
+            clockSeconds: 0,
+            isVisible: true,
+            position: 'top',
+            editMode: homeTeamName || awayTeamName ? 'admin_only' : 'public', // If coach set names, lock it. Otherwise, public!
+          }),
+        });
+
+        if (!scoreboardResponse.ok) {
+          const scoreboardData = await scoreboardResponse.json();
+          // Don't fail the whole save, just warn
+          console.warn('Failed to setup scoreboard:', scoreboardData);
+        }
       }
 
       setSaveSuccess(true);
@@ -260,6 +300,125 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
             data-testid="chat-enabled-checkbox"
             aria-label="Enable chat"
           />
+        </div>
+
+        {/* Scoreboard Settings */}
+        <div className="space-y-4 border-t pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="scoreboard-enabled" className="text-sm font-medium">
+                Enable Scoreboard
+              </label>
+              <p className="text-xs text-muted-foreground">Show live game score and clock</p>
+            </div>
+            <input
+              id="scoreboard-enabled"
+              name="scoreboard-enabled"
+              type="checkbox"
+              checked={scoreboardEnabled}
+              onChange={(e) => setScoreboardEnabled(e.target.checked)}
+              className="w-5 h-5"
+              data-testid="scoreboard-enabled-checkbox"
+              aria-label="Enable scoreboard"
+            />
+          </div>
+
+          {scoreboardEnabled && (
+            <>
+              <div className="space-y-2">
+                <label htmlFor="home-team-name" className="text-sm font-medium">
+                  Home Team Name <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  id="home-team-name"
+                  name="home-team-name"
+                  type="text"
+                  value={homeTeamName}
+                  onChange={(e) => setHomeTeamName(e.target.value)}
+                  placeholder="Home (default)"
+                  data-testid="home-team-name-input"
+                  aria-label="Home team name"
+                  className="bg-background border-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank for default. Can be edited by social producers.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="away-team-name" className="text-sm font-medium">
+                  Away Team Name <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  id="away-team-name"
+                  name="away-team-name"
+                  type="text"
+                  value={awayTeamName}
+                  onChange={(e) => setAwayTeamName(e.target.value)}
+                  placeholder="Away (default)"
+                  data-testid="away-team-name-input"
+                  aria-label="Away team name"
+                  className="bg-background border-muted"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="home-jersey-color" className="text-sm font-medium">
+                    Home Color
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="home-jersey-color"
+                      name="home-jersey-color"
+                      type="color"
+                      value={homeJerseyColor}
+                      onChange={(e) => setHomeJerseyColor(e.target.value)}
+                      className="w-16 h-10 cursor-pointer"
+                      data-testid="home-jersey-color-input"
+                      aria-label="Home jersey color"
+                    />
+                    <Input
+                      type="text"
+                      value={homeJerseyColor}
+                      onChange={(e) => setHomeJerseyColor(e.target.value)}
+                      placeholder="#003366"
+                      className="flex-1 bg-background border-muted"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="away-jersey-color" className="text-sm font-medium">
+                    Away Color
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="away-jersey-color"
+                      name="away-jersey-color"
+                      type="color"
+                      value={awayJerseyColor}
+                      onChange={(e) => setAwayJerseyColor(e.target.value)}
+                      className="w-16 h-10 cursor-pointer"
+                      data-testid="away-jersey-color-input"
+                      aria-label="Away jersey color"
+                    />
+                    <Input
+                      type="text"
+                      value={awayJerseyColor}
+                      onChange={(e) => setAwayJerseyColor(e.target.value)}
+                      placeholder="#CC0000"
+                      className="flex-1 bg-background border-muted"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                💡 <strong>Tip:</strong> If you don't set team names/colors, the Social Producer Panel will use defaults (Home/Away, Navy/Red). Anyone can customize them later!
+              </p>
+            </>
+          )}
         </div>
 
         {/* Paywall Settings */}
