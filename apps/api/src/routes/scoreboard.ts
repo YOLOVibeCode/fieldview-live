@@ -3,7 +3,7 @@
  * Manages game scoreboard with configurable access control
  */
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { comparePassword, hashPassword } from '../lib/encryption';
@@ -11,12 +11,9 @@ import { adminJwtAuth } from '../middleware/admin-jwt';
 import {
   UpdateGameScoreboardSchema,
   ValidateProducerPasswordSchema,
-  ClockOperationSchema,
-  CreateGameScoreboardSchema,
 } from '@fieldview/data-model';
-import type { Request, Response, NextFunction } from 'express';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * GET /api/direct/:slug/scoreboard
@@ -127,7 +124,7 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
-        const { verifyAdminJwt } = await import('@/lib/admin-jwt');
+        const { verifyAdminJwt } = await import('../lib/admin-jwt');
         const decoded = verifyAdminJwt(token);
         
         if (decoded && decoded.slug === slug && decoded.role === 'admin') {

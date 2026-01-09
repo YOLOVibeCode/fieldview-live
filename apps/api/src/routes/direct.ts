@@ -87,20 +87,20 @@ router.get(
           if (existingGame) {
             gameId = existingGame.id;
           } else {
-            const newGame = await prisma.game.create({
-              data: {
-                ownerAccountId: defaultOwner.id,
-                title: `Direct Stream: ${slug}`,
-                homeTeam: slug,
-                awayTeam: 'TBD',
-                startsAt: new Date(),
-                priceCents: 0,
-                currency: 'USD',
-                keywordCode: `DIRECT-${slug.toUpperCase()}-${Date.now()}`,
-                qrUrl: '',
-                state: 'live',
-              },
-            });
+              const newGame = await prisma.game.create({
+                data: {
+                  ownerAccountId: defaultOwner.id,
+                  title: `Direct Stream: ${slug}`,
+                  homeTeam: slug,
+                  awayTeam: 'TBD',
+                  startsAt: new Date(),
+                  priceCents: 0,
+                  currency: 'USD',
+                  keywordCode: `DIRECT-${slug.toUpperCase()}-${Date.now()}`,
+                  qrUrl: '',
+                  state: 'live',
+                },
+              });
             gameId = newGame.id;
           }
 
@@ -348,27 +348,57 @@ router.post(
           return res.status(400).json({ error: 'Slug is required' });
         }
         
-        // Password validation
-        if (!validateAdminPassword(slug, password)) {
-          logger.warn({ slug }, 'Invalid password attempt (legacy endpoint)');
-          return res.status(401).json({ error: 'Invalid password' });
-        }
-
         if (!streamUrl || typeof streamUrl !== 'string') {
           return res.status(400).json({ error: 'streamUrl is required' });
         }
 
         const key = slug.toLowerCase();
         
-        // Update or create DirectStream
-        const updated = await prisma.directStream.upsert({
+        // Find existing stream to validate password
+        const existingStream = await prisma.directStream.findUnique({
           where: { slug: key },
-          update: { streamUrl },
-          create: {
+        });
+
+        if (existingStream) {
+          // Validate password for existing stream
+          if (!password) {
+            return res.status(401).json({ error: 'Password required' });
+          }
+          const isValid = await bcrypt.compare(password, existingStream.adminPassword);
+          if (!isValid) {
+            logger.warn({ slug }, 'Invalid password attempt (legacy endpoint)');
+          return res.status(401).json({ error: 'Invalid password' });
+          }
+          
+          // Update existing stream
+          const updated = await prisma.directStream.update({
+            where: { slug: key },
+            data: { streamUrl },
+          });
+          
+          logger.info({ slug, streamUrl }, 'Direct stream URL updated (legacy endpoint)');
+          return res.json({ success: true, streamUrl: updated.streamUrl });
+        }
+        
+        // Create new stream (requires ownerAccount)
+        const defaultOwner = await prisma.ownerAccount.findFirst({
+          select: { id: true },
+        });
+
+        if (!defaultOwner) {
+          return res.status(500).json({ error: 'No owner account found' });
+        }
+
+        const defaultHashedPassword = await bcrypt.hash(password || 'admin2026', 10);
+        
+        const updated = await prisma.directStream.create({
+          data: {
             slug: key,
             title: `Direct Stream: ${slug}`,
             streamUrl,
             chatEnabled: true,
+            ownerAccountId: defaultOwner.id,
+            adminPassword: defaultHashedPassword,
           },
         });
 
@@ -390,6 +420,10 @@ router.post(
     void (async () => {
       try {
         const { slug } = req.params;
+        
+        if (!slug) {
+          return res.status(400).json({ error: 'Slug is required' });
+        }
         
         // Validate request body
         const validation = DirectStreamCheckoutSchema.safeParse(req.body);
@@ -640,7 +674,7 @@ router.get(
         const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
         const viewersWithStatus = activeViewers.map((viewer) => ({
           ...viewer,
-          isActive: viewer.lastSeenAt >= oneMinuteAgo,
+          isActive: viewer.lastSeenAt ? viewer.lastSeenAt >= oneMinuteAgo : false,
         }));
 
         res.json({

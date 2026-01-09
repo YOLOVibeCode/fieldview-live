@@ -105,17 +105,12 @@ async function sendRemindersForStream(stream: any): Promise<void> {
         scheduledStartAt: stream.scheduledStartAt!,
       });
 
-      const sent = await sendEmail({
+      await sendEmail({
         to: viewer.email,
         subject: `🔴 Starting in ${stream.reminderMinutes} minutes: ${stream.title}`,
         html,
       });
-
-      if (sent) {
-        successCount++;
-      } else {
-        failureCount++;
-      }
+      successCount++;
     } catch (error) {
       logger.error({ error, email: viewer.email }, 'Failed to send reminder to viewer');
       failureCount++;

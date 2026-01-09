@@ -4,6 +4,7 @@
  */
 
 import { logger } from './logger';
+import type { IEmailProvider } from './email/IEmailProvider';
 
 let nodemailerInstance: typeof import('nodemailer') | null = null;
 
@@ -23,31 +24,45 @@ async function getTransporter() {
   } as any);
 }
 
+/**
+ * Get email provider (for legacy compatibility)
+ * Returns an IEmailProvider implementation
+ */
+export function getEmailProvider(): IEmailProvider {
+  return {
+    sendEmail: async (options) => {
+      await sendEmail(options);
+    },
+  };
+}
+
 export interface EmailOptions {
   to: string;
   subject: string;
-  html: string;
+  html?: string;
+  text?: string;
+  from?: string;
 }
 
 /**
  * Send an email
  */
-export async function sendEmail({ to, subject, html }: EmailOptions): Promise<boolean> {
+export async function sendEmail({ to, subject, html, text, from }: EmailOptions): Promise<void> {
   try {
     const transporter = await getTransporter();
     
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'notifications@fieldview.live',
+      from: from || process.env.EMAIL_FROM || 'notifications@fieldview.live',
       to,
       subject,
       html,
+      text,
     });
 
     logger.info({ to, subject }, 'Email sent successfully');
-    return true;
   } catch (error) {
     logger.error({ error, to, subject }, 'Failed to send email');
-    return false;
+    throw error; // Re-throw to match Promise<void> contract
   }
 }
 
