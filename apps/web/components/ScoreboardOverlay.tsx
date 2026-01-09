@@ -21,9 +21,11 @@ interface GameScoreboard {
 interface ScoreboardOverlayProps {
   slug: string;
   className?: string;
+  isCollapsed?: boolean;
+  onToggle?: () => void;
 }
 
-export function ScoreboardOverlay({ slug, className }: ScoreboardOverlayProps) {
+export function ScoreboardOverlay({ slug, className, isCollapsed = false, onToggle }: ScoreboardOverlayProps) {
   const [scoreboard, setScoreboard] = useState<GameScoreboard | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -98,10 +100,55 @@ export function ScoreboardOverlay({ slug, className }: ScoreboardOverlayProps) {
     }
   };
 
+  const getScoreBadge = (): string => {
+    if (!scoreboard) return '0-0';
+    return `${scoreboard.homeScore}-${scoreboard.awayScore}`;
+  };
+
   if (loading || !scoreboard || !scoreboard.isVisible) {
     return null;
   }
 
+  // Collapsed state: Left-edge tab
+  if (isCollapsed) {
+    return (
+      <div
+        data-testid="scoreboard-collapsed-tab"
+        className={cn(
+          'fixed left-0 top-1/2 -translate-y-1/2 z-50',
+          'w-12 py-4',
+          'bg-background/95 backdrop-blur-sm',
+          'border-r-2 border-outline',
+          'rounded-r-lg',
+          'shadow-xl',
+          'cursor-pointer pointer-events-auto',
+          'hover:bg-background hover:w-14',
+          'transition-all duration-200',
+          'flex flex-col items-center gap-2',
+          className
+        )}
+        onClick={onToggle}
+        role="button"
+        aria-label="Expand scoreboard"
+      >
+        <div className="text-white/80 text-xs font-bold">←</div>
+        <div className="text-2xl">📊</div>
+        <div 
+          className="text-white font-bold text-xs"
+          data-testid="scoreboard-collapsed-badge"
+        >
+          {getScoreBadge()}
+        </div>
+        {scoreboard.clockMode === 'running' && (
+          <div className="text-accent text-xs font-mono">
+            {formatTime(displayTime)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Expanded state: Traditional overlay with slide animation
   return (
     <div
       data-testid="scoreboard-overlay"
@@ -113,7 +160,19 @@ export function ScoreboardOverlay({ slug, className }: ScoreboardOverlayProps) {
       role="region"
       aria-label="Game scoreboard"
     >
-      <div className="bg-background/95 backdrop-blur-sm border-2 border-outline rounded-lg shadow-2xl overflow-hidden">
+      <div className="bg-background/95 backdrop-blur-sm border-2 border-outline rounded-lg shadow-2xl overflow-hidden relative">
+        {/* Collapse button */}
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            className="absolute -left-10 top-2 w-8 h-8 bg-background/95 backdrop-blur-sm border border-outline rounded-l-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-background transition-colors"
+            data-testid="btn-collapse-scoreboard"
+            aria-label="Collapse scoreboard"
+          >
+            <span className="text-xs font-bold">←</span>
+          </button>
+        )}
+        
         {/* Teams and Scores */}
         <div className="flex divide-x divide-outline">
           {/* Home Team */}

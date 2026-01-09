@@ -30,6 +30,8 @@ import { CollapsibleScoreboardOverlay } from '@/components/CollapsibleScoreboard
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 import { Button } from '@/components/ui/button';
+import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
+import { cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -106,6 +108,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+
+  // Collapsible panel state (non-fullscreen mode)
+  const scoreboardPanel = useCollapsiblePanel({
+    edge: 'left',
+    defaultCollapsed: false,
+    storageKey: `scoreboard-collapsed-${bootstrap?.slug || 'default'}`,
+  });
+
+  const chatPanel = useCollapsiblePanel({
+    edge: 'right',
+    defaultCollapsed: true,
+    storageKey: 'chat-collapsed',
+  });
 
   const ChatOverlayComponent = config.ChatOverlayComponent || FullscreenChatOverlay;
   // Load font size preference
@@ -288,6 +303,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible);
       }
 
+      // S toggles scoreboard collapse in non-fullscreen mode
+      if ((e.key === 's' || e.key === 'S') && !isFullscreen && bootstrap?.scoreboardEnabled) {
+        e.preventDefault();
+        scoreboardPanel.toggle();
+      }
+
+      // C toggles chat collapse in non-fullscreen mode (if not already handled)
+      if ((e.key === 'c' || e.key === 'C') && !isFullscreen && bootstrap?.chatEnabled && !isChatOpen) {
+        e.preventDefault();
+        chatPanel.toggle();
+      }
+
       // Escape closes chat
       if (e.key === 'Escape' && isChatOpen) {
         e.preventDefault();
@@ -398,8 +425,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             </div>
           )}
 
-          {/* Scoreboard Overlay (non-fullscreen - traditional fixed position) */}
-          {!isFullscreen && <ScoreboardOverlay slug={bootstrap?.slug || ''} />}
+          {/* Scoreboard Overlay (non-fullscreen - collapsible to left edge) */}
+          {!isFullscreen && bootstrap?.scoreboardEnabled && (
+            <ScoreboardOverlay 
+              slug={bootstrap?.slug || ''} 
+              isCollapsed={scoreboardPanel.isCollapsed}
+              onToggle={scoreboardPanel.toggle}
+            />
+          )}
 
           {/* Paywall Modal */}
           {bootstrap?.paywallEnabled && (
@@ -503,10 +536,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <p className="mt-2">
                   💡 Press <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">F</kbd> for fullscreen
                   {bootstrap?.chatEnabled && (
-                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">C</kbd> to toggle chat</>
+                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">C</kbd> to collapse/expand chat</>
                   )}
                   {bootstrap?.scoreboardEnabled && (
-                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">S</kbd> for scoreboard</>
+                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">S</kbd> to collapse/expand scoreboard</>
                   )}
                 </p>
               )}
@@ -517,68 +550,69 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           {children}
         </div>
 
-        {/* Corner Peek Chat - Glass Expansion */}
+        {/* Collapsible Chat Panel - Right Edge */}
         {!isFullscreen && bootstrap?.chatEnabled && bootstrap.gameId && (
           <>
-            {/* Backdrop */}
-            {isChatOpen && (
+            {/* Collapsed: Right-edge tab */}
+            {chatPanel.isCollapsed && (
               <div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ease-standard"
-                onClick={() => setIsChatOpen(false)}
-                data-testid="chat-backdrop"
-                aria-hidden="true"
-              />
-            )}
-
-            {/* Floating Chat Badge (Collapsed) */}
-            {!isChatOpen && (
-              <button
-                onClick={() => setIsChatOpen(true)}
-                className="fixed bottom-6 right-6 z-50 w-14 h-14 glass border border-primary/20 rounded-full shadow-elevation-2 hover:shadow-elevation-3 hover:border-primary/30 transition-all duration-fast ease-standard flex items-center justify-center group"
-                data-testid="btn-open-chat"
-                aria-label="Open chat"
-              >
-                <svg
-                  className="w-6 h-6 text-primary group-hover:scale-110 transition-transform duration-fast"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
-                
-                {/* Activity indicator (shows if chat is connected and has messages) */}
-                {chat.isConnected && chat.messages.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center shadow-lg">
-                    {chat.messages.length > 9 ? '9+' : chat.messages.length}
-                  </span>
+                data-testid="chat-collapsed-tab"
+                className={cn(
+                  'fixed right-0 top-1/2 -translate-y-1/2 z-50',
+                  'w-12 py-4',
+                  'bg-background/95 backdrop-blur-sm',
+                  'border-l-2 border-outline',
+                  'rounded-l-lg',
+                  'shadow-xl',
+                  'cursor-pointer pointer-events-auto',
+                  'hover:bg-background hover:w-14',
+                  'transition-all duration-200',
+                  'flex flex-col items-center gap-2'
                 )}
-              </button>
+                onClick={chatPanel.toggle}
+                role="button"
+                aria-label="Expand chat"
+              >
+                <div className="text-white/80 text-xs font-bold">→</div>
+                <div className="text-2xl">💬</div>
+                {chat.messages.length > 0 && (
+                  <div 
+                    className="text-white font-bold text-xs bg-accent/80 px-2 py-0.5 rounded-full"
+                    data-testid="chat-collapsed-badge"
+                  >
+                    {chat.messages.length > 9 ? '9+' : chat.messages.length}
+                  </div>
+                )}
+                {chat.isConnected && (
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                )}
+              </div>
             )}
 
             {/* Expanded Chat Panel */}
-            {isChatOpen && (
+            {!chatPanel.isCollapsed && (
               <div
-                className={`fixed bottom-6 right-6 z-50 w-[360px] h-[500px] glass border border-primary/20 rounded-lg shadow-elevation-3 flex flex-col transition-all duration-300 ease-standard origin-bottom-right ${
-                  isChatOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-                }`}
+                className={cn(
+                  'fixed right-0 top-1/2 -translate-y-1/2 z-50',
+                  'w-[360px] max-h-[80vh]',
+                  'bg-background/95 backdrop-blur-sm',
+                  'border-l-2 border-outline',
+                  'rounded-l-lg shadow-xl',
+                  'flex flex-col',
+                  'transition-transform duration-300 ease-in-out'
+                )}
                 data-testid="chat-panel"
                 role="dialog"
-                aria-modal="true"
+                aria-modal="false"
                 aria-label="Chat panel"
               >
-                {/* Header */}
-                <div className="p-4 border-b border-primary/10 flex items-center justify-between">
+                {/* Header with collapse button */}
+                <div className="p-4 border-b border-outline flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-base">Live Chat</h2>
                     {chat.isConnected ? (
-                      <span className="flex items-center gap-1 text-success text-xs">
-                        <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+                      <span className="flex items-center gap-1 text-green-400 text-xs">
+                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                         Live
                       </span>
                     ) : (
@@ -586,24 +620,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     )}
                   </div>
                   <button
-                    onClick={() => setIsChatOpen(false)}
-                    className="text-muted-foreground hover:text-white transition-colors p-1 rounded hover:bg-white/5"
-                    data-testid="btn-close-chat"
-                    aria-label="Close chat"
+                    onClick={chatPanel.toggle}
+                    className="text-white/80 hover:text-white transition-colors p-1 rounded hover:bg-white/10"
+                    data-testid="btn-collapse-chat"
+                    aria-label="Collapse chat"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+                    <span className="text-xs font-bold">→</span>
                   </button>
                 </div>
 
