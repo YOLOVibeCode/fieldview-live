@@ -5,7 +5,7 @@
 
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CollapsibleScoreboardOverlay, type GameScoreboard } from '../CollapsibleScoreboardOverlay';
+import { CollapsibleScoreboardOverlay, type GameScoreboard } from '@/components/CollapsibleScoreboardOverlay';
 
 // Mock fetch globally
 global.fetch = vi.fn();
