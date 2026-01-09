@@ -59,11 +59,22 @@ router.get(
 
         const key = slug.toLowerCase();
         
-        // Try to find existing DirectStream in DB
+        // Try to find existing DirectStream in DB (only active streams)
         let directStream = await prisma.directStream.findUnique({
           where: { slug: key },
           include: { game: true },
         });
+
+        // Check if stream is deleted or archived
+        if (directStream && directStream.status !== 'active') {
+          return res.status(410).json({ 
+            error: 'Stream not available',
+            status: directStream.status,
+            message: directStream.status === 'archived' 
+              ? 'This stream has been archived' 
+              : 'This stream has been deleted'
+          });
+        }
 
         // If not found, create a placeholder
         if (!directStream) {

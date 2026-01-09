@@ -293,9 +293,17 @@ model GameChatMessage {
   message     String     // 1-240 chars
   createdAt   DateTime   @default(now())
   
+  // 🆕 Direct stream reference for chat preservation
+  directStreamId String?  @db.Uuid
+  
   game        Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
   viewer      ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  directStream DirectStream? @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
   
+  @@index([gameId])
+  @@index([viewerId])
+  @@index([directStreamId])
+}
   @@index([gameId, createdAt(sort: Desc)])
   @@index([viewerId, createdAt(sort: Desc)])
 }
@@ -606,12 +614,21 @@ model DirectStream {
   scoreboardHomeColor   String?   // Custom home jersey color (hex)
   scoreboardAwayColor   String?   // Custom away jersey color (hex)
   
-  // Chat association (optional Game linkage)
+  // Lifecycle management (soft delete with archival)
+  status            String    @default("active") // 'active' | 'archived' | 'deleted'
+  archivedAt        DateTime? // When stream was archived
+  deletedAt         DateTime? // When stream was soft-deleted
+  autoPurgeAt       DateTime? // Scheduled auto-purge (14 days from deletion)
+  
+  // Chat association (optional Game linkage with SetNull on delete)
   gameId            String?   @unique @db.Uuid
-  game              Game?     @relation(fields: [gameId], references: [id])
+  game              Game?     @relation(fields: [gameId], references: [id], onDelete: SetNull)
   
   // Social Producer Panel
   scoreboard        GameScoreboard?
+  
+  // Chat messages (for preservation)
+  chatMessages      GameChatMessage[]
   
   // 🆕 OWNER RELATION
   ownerAccount      OwnerAccount @relation(fields: [ownerAccountId], references: [id])

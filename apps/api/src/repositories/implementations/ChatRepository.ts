@@ -49,6 +49,7 @@ export class ChatRepository implements IChatReader, IChatWriter {
         viewerId: data.viewerId,
         displayName: data.displayName,
         message: data.message,
+        directStreamId: data.directStreamId, // 🆕 Preserve link to DirectStream
       },
     });
   }

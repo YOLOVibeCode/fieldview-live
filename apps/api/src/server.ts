@@ -14,6 +14,7 @@ import { logger } from './lib/logger';
 import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import { sendStreamReminders } from './jobs/send-stream-reminders';
+import { autoPurgeDeletedStreams } from './jobs/auto-purge-streams';
 import { createAdminRouter } from './routes/admin';
 import { createAdminCouponsRouter } from './routes/admin.coupons';
 import { createAdminPlatformRouter } from './routes/admin.platform';
@@ -39,6 +40,7 @@ import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createStreamLinksRouter } from './routes/stream-links';
 import { createTchsRouter } from './routes/tchs';
 import { createDirectRouter } from './routes/direct';
+import { createDirectLifecycleRouter } from './routes/direct-lifecycle';
 import { createDirectViewerRouter } from './routes/public.direct-viewer';
 import { createPublicGameViewerRouter } from './routes/public.game-viewer';
 import { createPublicGameChatRouter } from './routes/public.game-chat';
@@ -130,6 +132,7 @@ app.use('/api/public/coupons', createPublicCouponsRouter());
 app.use('/api/streams', createStreamLinksRouter());
 app.use('/api/tchs', createTchsRouter());
 app.use('/api/direct', createDirectRouter());
+app.use('/api/direct', createDirectLifecycleRouter());
 app.use('/api/direct', scoreboardRouter);
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
@@ -154,7 +157,16 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
-logger.info('Cron jobs initialized: stream reminders running every minute');
+// Run auto-purge job daily at 3 AM
+cron.schedule('0 3 * * *', async () => {
+  try {
+    await autoPurgeDeletedStreams();
+  } catch (error) {
+    logger.error({ error }, 'Auto-purge cron job failed');
+  }
+});
+
+logger.info('Cron jobs initialized: stream reminders (every minute), auto-purge (daily at 3 AM)');
 
 // Start server
 if (require.main === module) {

@@ -11,6 +11,7 @@ export interface ChatMessageData {
   viewerId: string;
   displayName: string;
   message: string;
+  directStreamId?: string; // 🆕 For chat preservation
 }
 
 /**
