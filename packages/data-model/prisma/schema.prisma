@@ -27,6 +27,7 @@ model OwnerAccount {
   payouts                 Payout[]
   organizations           Organization[]
   viewerSquareCustomers   ViewerSquareCustomer[]
+  directStreams           DirectStream[]  // 🆕 Relation for DirectStream paywall revenue
   
   @@index([status])
   @@index([payoutProviderRef])
@@ -160,6 +161,7 @@ model Purchase {
   gameId                  String?    @db.Uuid  // Made optional
   channelId               String?    @db.Uuid  // Added for watch-link purchases
   eventId                 String?    @db.Uuid  // Added for event-scoped purchases
+  directStreamId          String?    @db.Uuid  // 🆕 For DirectStream paywall purchases
   viewerId                String     @db.Uuid
   amountCents             Int
   currency                String     @default("USD")
@@ -193,6 +195,7 @@ model Purchase {
   game                    Game?       @relation(fields: [gameId], references: [id])
   channel                 WatchChannel? @relation(fields: [channelId], references: [id])
   event                   Event?       @relation(fields: [eventId], references: [id])
+  directStream            DirectStream? @relation(fields: [directStreamId], references: [id])  // 🆕
   viewer                  ViewerIdentity @relation(fields: [viewerId], references: [id])
   couponCode              CouponCode? @relation(fields: [couponCodeId], references: [id])
   entitlement             Entitlement?
@@ -202,6 +205,7 @@ model Purchase {
   @@index([gameId])
   @@index([channelId])
   @@index([eventId])
+  @@index([directStreamId])  // 🆕
   @@index([viewerId])
   @@index([status])
   @@index([recipientOwnerAccountId])
@@ -571,6 +575,9 @@ model DirectStream {
   slug              String    @unique // URL slug (e.g., 'tchs', 'stormfc')
   title             String    // Display title (e.g., "TCHS Live Stream")
   
+  // 🆕 PAYMENT RECIPIENT: Owner who receives paywall revenue
+  ownerAccountId    String    @db.Uuid
+  
   // Stream configuration
   streamUrl         String?   // HLS manifest URL
   
@@ -599,11 +606,18 @@ model DirectStream {
   // Social Producer Panel
   scoreboard        GameScoreboard?
   
+  // 🆕 OWNER RELATION
+  ownerAccount      OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+  
+  // 🆕 PURCHASES RELATION (reverse)
+  purchases         Purchase[]
+  
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   
   @@index([slug])
   @@index([scheduledStartAt]) // For email reminder cron jobs
+  @@index([ownerAccountId])   // 🆕 For payment queries
 }
 
 // Social Producer Panel - Scoreboard Management

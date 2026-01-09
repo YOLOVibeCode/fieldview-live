@@ -10,6 +10,7 @@ export interface CreatePurchaseData {
   gameId?: string | null;
   channelId?: string | null;
   eventId?: string | null;
+  directStreamId?: string | null;  // 🆕 For DirectStream paywall purchases
   viewerId: string;
   amountCents: number;
   currency?: string;

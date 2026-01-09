@@ -258,6 +258,120 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     };
   }
 
+  async createDirectStreamCheckout(
+    directStreamSlug: string,
+    viewerEmail: string,
+    viewerFirstName: string,
+    viewerLastName: string,
+    viewerPhone?: string,
+    returnUrl?: string
+  ): Promise<CheckoutResponse> {
+    // Get DirectStream
+    const stream = await prisma.directStream.findUnique({
+      where: { slug: directStreamSlug },
+      include: { ownerAccount: true },
+    });
+
+    if (!stream) {
+      throw new NotFoundError('DirectStream not found');
+    }
+
+    // Check if paywall is enabled
+    if (!stream.paywallEnabled || stream.priceInCents <= 0) {
+      throw new BadRequestError('Paywall not enabled for this stream');
+    }
+
+    // Verify owner has Square credentials
+    const ownerAccount = stream.ownerAccount;
+    if (!ownerAccount) {
+      throw new NotFoundError('Owner account not found');
+    }
+
+    if (!ownerAccount.squareAccessTokenEncrypted || !ownerAccount.squareLocationId) {
+      throw new BadRequestError('Owner has not connected Square account. Please connect Square to receive payments.');
+    }
+
+    // Check token expiry
+    if (ownerAccount.squareTokenExpiresAt && new Date(ownerAccount.squareTokenExpiresAt) < new Date()) {
+      throw new BadRequestError('Owner Square token expired. Please reconnect Square.');
+    }
+
+    // Find or create viewer identity
+    let viewer = await this.viewerIdentityReader.getByEmail(viewerEmail);
+    if (!viewer) {
+      viewer = await this.viewerIdentityWriter.create({
+        email: viewerEmail,
+        firstName: viewerFirstName,
+        lastName: viewerLastName,
+        phoneE164: viewerPhone,
+      });
+    } else {
+      // Update names if they were not set before
+      const updates: { firstName?: string; lastName?: string; phoneE164?: string } = {};
+      if (!viewer.firstName) updates.firstName = viewerFirstName;
+      if (!viewer.lastName) updates.lastName = viewerLastName;
+      if (viewerPhone && !viewer.phoneE164) updates.phoneE164 = viewerPhone;
+      
+      if (Object.keys(updates).length > 0) {
+        viewer = await this.viewerIdentityWriter.update(viewer.id, updates);
+      }
+    }
+
+    // Calculate marketplace split
+    const split = calculateMarketplaceSplit(stream.priceInCents, PLATFORM_FEE_PERCENT);
+
+    // Determine recipient based on account type (same logic as Game/Channel)
+    let recipientOwnerAccountId: string = ownerAccount.id;
+    let recipientType: 'personal' | 'organization' | null = null;
+    let recipientOrganizationId: string | null = null;
+
+    if (ownerAccount.type === 'owner') {
+      // Personal plan: payout goes to individual owner
+      recipientType = 'personal';
+    } else if (ownerAccount.type === 'association') {
+      // Fundraising plan: payout goes to organization
+      recipientType = 'organization';
+      // Find organization for this owner account
+      const organization = await prisma.organization.findFirst({
+        where: { ownerAccountId: ownerAccount.id },
+      });
+      if (organization) {
+        recipientOrganizationId = organization.id;
+      }
+    }
+
+    // Create purchase record for DirectStream paywall
+    const purchase = await this.purchaseWriter.create({
+      directStreamId: stream.id,  // 🆕 Link to DirectStream
+      viewerId: viewer.id,
+      amountCents: stream.priceInCents,
+      currency: 'USD',
+      platformFeeCents: split.platformFeeCents,
+      processorFeeCents: split.processorFeeCents,
+      ownerNetCents: split.ownerNetCents,
+      status: 'created',
+      recipientOwnerAccountId,
+      recipientType,
+      recipientOrganizationId,
+    });
+
+    logger.info({
+      purchaseId: purchase.id,
+      directStreamSlug,
+      viewerEmail,
+      amountCents: stream.priceInCents,
+      recipientType,
+    }, 'DirectStream paywall checkout created');
+
+    const finalReturnUrl = returnUrl || `${APP_URL}/direct/${directStreamSlug}?payment=success`;
+    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}?square_checkout=true&email=${encodeURIComponent(viewerEmail)}&returnUrl=${encodeURIComponent(finalReturnUrl)}`;
+
+    return {
+      purchaseId: purchase.id,
+      checkoutUrl,
+    };
+  }
+
   async processSquareWebhook(event: SquareWebhookEvent): Promise<void> {
     // Handle payment.created and payment.updated events
     if (event.type === 'payment.created' || event.type === 'payment.updated') {

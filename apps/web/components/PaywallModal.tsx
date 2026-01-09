@@ -106,31 +106,29 @@ export function PaywallModal({
     setError(null);
 
     try {
-      // TODO: Integrate with Square Web SDK for actual payment
-      // For now, simulate payment success
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Call the DirectStream checkout API
+      const response = await fetch(`${apiUrl}/api/direct/${slug}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          firstName,
+          lastName,
+        }),
+      });
 
-      // If saving payment method, call the API
-      if (savePaymentMethod && allowSavePayment) {
-        await fetch(`${apiUrl}/api/direct/${slug}/save-payment-method`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            firstName,
-            lastName,
-            squareCustomerId: 'sq-cust-mock-123',
-            squareCardId: 'sq-card-mock-456',
-            cardLastFour: '1234',
-            cardBrand: 'Visa',
-          }),
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      onSuccess();
+      const { purchaseId, checkoutUrl } = await response.json();
+
+      // Redirect to Square checkout page
+      window.location.href = checkoutUrl;
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
-    } finally {
       setLoading(false);
     }
   };

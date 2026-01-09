@@ -51,5 +51,23 @@ export interface IPaymentReader {
 export interface IPaymentWriter {
   createCheckout(gameId: string, viewerEmail: string, viewerPhone?: string, returnUrl?: string): Promise<CheckoutResponse>;
   createChannelCheckout(channelId: string, viewerEmail: string, viewerPhone?: string, returnUrl?: string): Promise<CheckoutResponse>;
+  /**
+   * Create DirectStream paywall checkout session.
+   * @param directStreamSlug - The slug of the DirectStream (e.g., 'tchs')
+   * @param viewerEmail - Viewer's email address
+   * @param viewerFirstName - Viewer's first name
+   * @param viewerLastName - Viewer's last name
+   * @param viewerPhone - Optional phone number
+   * @param returnUrl - Optional return URL after payment
+   * @returns CheckoutResponse with purchaseId and checkoutUrl
+   */
+  createDirectStreamCheckout(
+    directStreamSlug: string,
+    viewerEmail: string,
+    viewerFirstName: string,
+    viewerLastName: string,
+    viewerPhone?: string,
+    returnUrl?: string
+  ): Promise<CheckoutResponse>;
   processSquareWebhook(event: SquareWebhookEvent): Promise<void>;
 }

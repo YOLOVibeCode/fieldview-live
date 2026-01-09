@@ -8,6 +8,8 @@ import type { ViewerIdentity } from '@prisma/client';
 
 export interface CreateViewerIdentityData {
   email: string;
+  firstName?: string;  // 🆕 For DirectStream viewer unlock
+  lastName?: string;   // 🆕 For DirectStream viewer unlock
   phoneE164?: string;
 }
 

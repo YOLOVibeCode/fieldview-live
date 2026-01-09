@@ -6,9 +6,44 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { validateAdminToken } from '../middleware/admin-jwt';
-import { SavePaymentMethodSchema, GetPaymentMethodsQuerySchema } from '@fieldview/data-model';
+import { 
+  SavePaymentMethodSchema, 
+  GetPaymentMethodsQuerySchema,
+  DirectStreamCheckoutSchema  // 🆕
+} from '@fieldview/data-model';
+// 🆕 Payment service dependencies
+import { PaymentService } from '../services/PaymentService';
+import { GameRepository } from '../repositories/implementations/GameRepository';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
+import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 
 const router = Router();
+
+// 🆕 Lazy initialization for PaymentService
+let paymentServiceInstance: PaymentService | null = null;
+
+function getPaymentService(): PaymentService {
+  if (!paymentServiceInstance) {
+    const gameRepo = new GameRepository(prisma);
+    const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
+    const purchaseRepo = new PurchaseRepository(prisma);
+    const entitlementRepo = new EntitlementRepository(prisma);
+    const watchLinkRepo = new WatchLinkRepository(prisma);
+    paymentServiceInstance = new PaymentService(
+      gameRepo,
+      viewerIdentityRepo,
+      viewerIdentityRepo,
+      purchaseRepo,
+      purchaseRepo,
+      entitlementRepo,
+      entitlementRepo,
+      watchLinkRepo
+    );
+  }
+  return paymentServiceInstance;
+}
 
 // GET /api/direct/:slug/bootstrap - Get bootstrap data for direct stream page
 router.get(
@@ -32,6 +67,15 @@ router.get(
 
         // If not found, create a placeholder
         if (!directStream) {
+          // Get default owner account for new streams
+          const defaultOwner = await prisma.ownerAccount.findFirst({
+            select: { id: true },
+          });
+
+          if (!defaultOwner) {
+            return res.status(500).json({ error: 'No owner account found. Please create an owner account first.' });
+          }
+
           // Find or create a game for chat
           let gameId: string | null = null;
           
@@ -43,27 +87,21 @@ router.get(
           if (existingGame) {
             gameId = existingGame.id;
           } else {
-            const defaultOwner = await prisma.ownerAccount.findFirst({
-              select: { id: true },
+            const newGame = await prisma.game.create({
+              data: {
+                ownerAccountId: defaultOwner.id,
+                title: `Direct Stream: ${slug}`,
+                homeTeam: slug,
+                awayTeam: 'TBD',
+                startsAt: new Date(),
+                priceCents: 0,
+                currency: 'USD',
+                keywordCode: `DIRECT-${slug.toUpperCase()}-${Date.now()}`,
+                qrUrl: '',
+                state: 'live',
+              },
             });
-
-            if (defaultOwner) {
-              const newGame = await prisma.game.create({
-                data: {
-                  ownerAccountId: defaultOwner.id,
-                  title: `Direct Stream: ${slug}`,
-                  homeTeam: slug,
-                  awayTeam: 'TBD',
-                  startsAt: new Date(),
-                  priceCents: 0,
-                  currency: 'USD',
-                  keywordCode: `DIRECT-${slug.toUpperCase()}-${Date.now()}`,
-                  qrUrl: '',
-                  state: 'live',
-                },
-              });
-              gameId = newGame.id;
-            }
+            gameId = newGame.id;
           }
 
           // Hash a default admin password (admin2026)
@@ -74,6 +112,7 @@ router.get(
             data: {
               slug: key,
               title: `Direct Stream: ${slug}`,
+              ownerAccountId: defaultOwner.id,  // 🆕 Required field
               adminPassword: defaultHashedPassword,
               gameId,
               chatEnabled: true,
@@ -344,6 +383,66 @@ router.post(
   }
 );
 
+// POST /api/direct/:slug/checkout - Create DirectStream paywall checkout session
+router.post(
+  '/:slug/checkout',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        // Validate request body
+        const validation = DirectStreamCheckoutSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({ 
+            error: 'Invalid request',
+            details: validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+          });
+        }
+
+        const { email, firstName, lastName, phone, returnUrl } = validation.data;
+
+        // Get payment service
+        const paymentService = getPaymentService();
+
+        // Create checkout session
+        const result = await paymentService.createDirectStreamCheckout(
+          slug,
+          email,
+          firstName,
+          lastName,
+          phone,
+          returnUrl
+        );
+
+        logger.info({ 
+          slug, 
+          email, 
+          purchaseId: result.purchaseId 
+        }, 'DirectStream checkout session created');
+
+        res.json(result);
+      } catch (error: any) {
+        logger.error({ 
+          error, 
+          slug: req.params.slug,
+          email: req.body?.email
+        }, 'Failed to create checkout session');
+        
+        // Return user-friendly error messages
+        if (error.name === 'NotFoundError') {
+          return res.status(404).json({ error: error.message });
+        }
+        if (error.name === 'BadRequestError') {
+          return res.status(400).json({ error: error.message });
+        }
+        
+        next(error);
+      }
+    })();
+  }
+);
+
 // GET /api/direct/:slug/payment-methods - Get saved payment methods for email
 router.get(
   '/:slug/payment-methods',
@@ -430,7 +529,7 @@ router.post(
           });
         }
 
-        const { email, firstName, lastName, squareCustomerId, squareCardId, cardLastFour, cardBrand } = validation.data;
+        const { email, firstName, lastName, squareCustomerId } = validation.data;
 
         // Check if stream exists
         const stream = await prisma.directStream.findUnique({
