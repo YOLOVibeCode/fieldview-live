@@ -31,7 +31,7 @@ export async function autoPurgeDeletedStreams() {
     }
 
     logger.info(
-      { count: streamsToPurge.length, slugs: streamsToPurge.map((s) => s.slug) },
+      { count: streamsToPurge.length, slugs: streamsToPurge.map((s: any) => s.slug) },
       'Auto-purge: Starting purge of deleted streams'
     );
 

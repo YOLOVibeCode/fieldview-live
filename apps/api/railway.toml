@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd ../.. && pnpm install --frozen-lockfile && cd packages/data-model && prisma generate --schema=./prisma/schema.prisma && cd ../.. && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
+buildCommand = "cd ../.. && pnpm install --frozen-lockfile && pnpm exec prisma generate --schema=packages/data-model/prisma/schema.prisma && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
 
 [deploy]
 # Temporarily skip migrations to get server running

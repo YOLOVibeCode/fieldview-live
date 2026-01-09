@@ -4,7 +4,6 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { validateAdminToken } from '../middleware/admin-jwt';
@@ -215,7 +214,7 @@ router.post(
         }
 
         // Restore to active status
-        const restored = await prisma.directStream.update({
+        await prisma.directStream.update({
           where: { slug },
           data: {
             status: 'active',
@@ -281,7 +280,7 @@ router.get(
         return res.json({
           success: true,
           count: streams.length,
-          streams: streams.map((s) => ({
+          streams: streams.map((s: any) => ({
             slug: s.slug,
             title: s.title,
             status: s.status,

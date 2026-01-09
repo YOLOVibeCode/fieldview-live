@@ -36,7 +36,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
     if (!stream.scoreboard) {
       logger.info({ slug }, 'Auto-creating scoreboard with default 0-0 score');
       
-      const scoreboard = await prisma.gameScoreboard.create({
+      await prisma.gameScoreboard.create({
         data: {
           directStreamId: stream.id,
           homeTeamName: 'Home',
