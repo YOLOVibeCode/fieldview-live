@@ -87,15 +87,15 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium' }: Gam
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base sm:text-lg">Chat</CardTitle>
-            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">
+            <span className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full font-medium">
               Beta
             </span>
           </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm">
             {chat.isConnected ? (
-              <span className="text-green-600 font-medium">● Live</span>
+              <span className="text-success font-medium">● Live</span>
             ) : (
-              <span className="text-gray-400">○ Connecting...</span>
+              <span className="text-muted-foreground">○ Connecting...</span>
             )}
           </div>
         </div>
@@ -108,7 +108,7 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium' }: Gam
         {/* Error message */}
         {chat.error && (
           <div 
-            className="p-3 bg-red-50 text-red-700 rounded-md text-sm leading-relaxed"
+            className="p-3 bg-destructive/10 text-destructive rounded-md text-sm leading-relaxed"
             data-testid="chat-error"
             role="alert"
           >

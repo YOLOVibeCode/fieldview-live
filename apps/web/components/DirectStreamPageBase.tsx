@@ -17,11 +17,18 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Hls from 'hls.js';
+import { MessageCircle, X } from 'lucide-react';
 import { useGameChat } from '@/hooks/useGameChat';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { GameChatPanel } from '@/components/GameChatPanel';
 import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
 import { FullscreenChatOverlay } from '@/components/FullscreenChatOverlay';
+import { AdminPanel } from '@/components/AdminPanel';
+import { SocialProducerPanel } from '@/components/SocialProducerPanel';
+import { ScoreboardOverlay } from '@/components/ScoreboardOverlay';
+import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
+import { PaywallModal } from '@/components/PaywallModal';
+import { Button } from '@/components/ui/button';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -31,6 +38,10 @@ export interface Bootstrap {
   streamUrl: string | null;
   chatEnabled: boolean;
   title: string;
+  paywallEnabled?: boolean;
+  priceInCents?: number;
+  paywallMessage?: string | null;
+  allowSavePayment?: boolean;
 }
 
 export type FontSize = 'small' | 'medium' | 'large';
@@ -63,7 +74,6 @@ export interface DirectStreamPageConfig {
   // Features
   enableFontSize?: boolean;
   fontSizeStorageKey?: string;
-  adminPassword?: string;
   
   // Callbacks
   onBootstrapLoaded?: (bootstrap: Bootstrap) => void;
@@ -79,18 +89,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [inputUrl, setInputUrl] = useState('');
-  const [password, setPassword] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [adminJwt, setAdminJwt] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   const ChatOverlayComponent = config.ChatOverlayComponent || FullscreenChatOverlay;
-  const adminPassword = config.adminPassword || 'admin2026';
-
   // Load font size preference
   useEffect(() => {
     if (!config.enableFontSize || !config.fontSizeStorageKey) return;
@@ -125,7 +135,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         config.onBootstrapLoaded?.(data);
         
         if (data.streamUrl) {
-          setInputUrl(data.streamUrl);
           initPlayer(data.streamUrl);
         } else {
           setStatus('offline');
@@ -213,42 +222,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   }
 
   // Save stream URL (admin)
-  async function handleSaveUrl() {
-    if (!inputUrl.trim()) {
-      setMessage('Please enter a stream URL');
-      return;
-    }
-
-    if (!password) {
-      setMessage('Please enter the admin password');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_URL}${config.updateStreamUrl}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ streamUrl: inputUrl.trim(), password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        const error = data.error || 'Failed to save stream URL';
-        setMessage(error);
-        return;
-      }
-
-      setMessage('✓ Stream URL saved! Reloading...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to save stream URL:', error);
-      setMessage('Failed to save stream URL. Please try again.');
-    }
-  }
-
   // Fullscreen management
   function toggleFullscreen() {
     const container = containerRef.current;
@@ -277,7 +250,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     };
   }, []);
 
-  // Keyboard shortcuts: F for fullscreen, C for chat overlay
+  // Keyboard shortcuts: F for fullscreen, C for chat overlay (in fullscreen), Escape to close chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only if not typing in an input
@@ -290,15 +263,28 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         toggleFullscreen();
       }
 
+      // C toggles chat in fullscreen mode (overlay)
       if ((e.key === 'c' || e.key === 'C') && isFullscreen && viewer.isUnlocked) {
         e.preventDefault();
         setIsChatOverlayVisible(!isChatOverlayVisible);
+      }
+
+      // C toggles chat in normal mode (corner peek)
+      if ((e.key === 'c' || e.key === 'C') && !isFullscreen && bootstrap?.chatEnabled) {
+        e.preventDefault();
+        setIsChatOpen(!isChatOpen);
+      }
+
+      // Escape closes chat
+      if (e.key === 'Escape' && isChatOpen) {
+        e.preventDefault();
+        setIsChatOpen(false);
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, isChatOverlayVisible, viewer.isUnlocked]);
+  }, [isFullscreen, isChatOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled]);
 
   return (
     <div className={`min-h-screen bg-black flex flex-col ${config.containerClassName || ''}`}>
@@ -306,24 +292,24 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className={`bg-gray-900 border-b border-gray-700 p-4 rounded-t-lg ${config.headerClassName || ''}`}>
+          <div className={`bg-card border-b border-border p-4 rounded-t-lg ${config.headerClassName || ''}`}>
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2">{config.title}</h1>
-                {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
+                {config.subtitle && <p className="text-muted-foreground text-sm">{config.subtitle}</p>}
               </div>
               <div className="flex items-center gap-3">
                 {config.enableFontSize && (
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-400 text-sm">Text:</span>
+                    <span className="text-muted-foreground text-sm">Text:</span>
                     {(['small', 'medium', 'large'] as FontSize[]).map((size) => (
                       <button
                         key={size}
                         onClick={() => handleFontSizeChange(size)}
-                        className={`px-3 py-1 rounded text-sm ${
+                        className={`px-3 py-1 rounded text-sm transition-colors ${
                           fontSize === size
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                         }`}
                       >
                         {size[0].toUpperCase()}
@@ -332,71 +318,85 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   </div>
                 )}
                 {!isEditing && (
-                  <button
+                  <Button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    size="sm"
                     data-testid="btn-edit-stream"
                   >
                     Edit Stream
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Edit Form */}
+          {/* Edit Form - Use AdminPanel */}
           {isEditing && (
-            <div className="bg-gray-900 border-b border-gray-700 p-4">
-              <div className="max-w-4xl mx-auto space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-white font-medium">Update Stream URL</h2>
+            <div className="bg-card border-b border-border p-4">
+              <div className="max-w-2xl mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-medium">Stream Settings</h2>
                   <button
                     onClick={() => {
                       setIsEditing(false);
                       setMessage('');
                     }}
-                    className="text-gray-400 hover:text-white text-sm"
+                    className="text-muted-foreground hover:text-white text-sm"
                     data-testid="btn-close-edit"
                   >
                     Close ✕
                   </button>
                 </div>
-
-                <input
-                  type="url"
-                  value={inputUrl}
-                  onChange={(e) => setInputUrl(e.target.value)}
-                  placeholder="https://stream.mux.com/PLAYBACK_ID.m3u8"
-                  className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700"
-                  data-testid="input-stream-url"
+                <AdminPanel
+                  slug={bootstrap?.slug || ''}
+                  initialSettings={{
+                    streamUrl: bootstrap?.streamUrl,
+                    chatEnabled: bootstrap?.chatEnabled,
+                    paywallEnabled: bootstrap?.paywallEnabled,
+                    priceInCents: bootstrap?.priceInCents,
+                    paywallMessage: bootstrap?.paywallMessage,
+                    allowSavePayment: bootstrap?.allowSavePayment,
+                  }}
+                  onAuthSuccess={(jwt) => {
+                    setAdminJwt(jwt);
+                    setIsAdmin(true);
+                  }}
                 />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Admin password"
-                  className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700"
-                  data-testid="input-admin-password"
-                />
+                
+                {/* Social Producer Panel */}
+                <div className="mt-6">
+                  <SocialProducerPanel
+                    slug={bootstrap?.slug || ''}
+                    isAdmin={isAdmin}
+                    adminJwt={adminJwt || undefined}
+                  />
+                </div>
 
-                {message && (
-                  <p
-                    className={`text-sm ${message.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}
-                    data-testid="message-update"
-                  >
-                    {message}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleSaveUrl}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  data-testid="btn-save-stream"
-                >
-                  Save Stream URL
-                </button>
+                {/* Viewer Analytics Panel */}
+                <div className="mt-6">
+                  <ViewerAnalyticsPanel slug={bootstrap?.slug || ''} />
+                </div>
               </div>
             </div>
+          )}
+
+          {/* Scoreboard Overlay (visible to all viewers) */}
+          <ScoreboardOverlay slug={bootstrap?.slug || ''} />
+
+          {/* Paywall Modal */}
+          {bootstrap?.paywallEnabled && (
+            <PaywallModal
+              slug={bootstrap.slug}
+              isOpen={showPaywall}
+              onClose={() => setShowPaywall(false)}
+              onSuccess={() => {
+                setShowPaywall(false);
+                // TODO: Mark user as paid and allow access
+              }}
+              priceInCents={bootstrap.priceInCents || 0}
+              paywallMessage={bootstrap.paywallMessage}
+              allowSavePayment={bootstrap.allowSavePayment}
+            />
           )}
 
           {/* Video Player Container */}
@@ -410,14 +410,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Stream Offline</p>
-                    <p className="text-sm text-gray-400 mb-4">No stream URL configured</p>
-                    <button
+                    <p className="text-sm text-muted-foreground mb-4">No stream URL configured</p>
+                    <Button
                       onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
                       data-testid="btn-set-stream"
                     >
                       Set Stream URL
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -426,19 +425,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Unable to Load Stream</p>
-                    <p className="text-sm text-gray-400 mb-4">Please check the stream URL and try again.</p>
-                    <button
+                    <p className="text-sm text-muted-foreground mb-4">Please check the stream URL and try again.</p>
+                    <Button
                       onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
                       data-testid="btn-update-stream"
                     >
                       Update Stream URL
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
 
-              {status === 'loading' && inputUrl && (
+              {status === 'loading' && bootstrap?.streamUrl && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Loading stream...</p>
@@ -467,16 +465,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             </div>
 
             {/* Footer */}
-            <div className="mt-4 text-center text-gray-500 text-xs">
+            <div className="mt-4 text-center text-muted-foreground text-xs">
               <p>
                 Powered by FieldView.Live • Share:{' '}
                 <strong>{config.sharePath}</strong>
               </p>
               {!isFullscreen && (
                 <p className="mt-2">
-                  💡 Press <kbd className="px-2 py-1 bg-gray-800 rounded text-gray-400">F</kbd> for fullscreen
-                  {viewer.isUnlocked && bootstrap?.chatEnabled && (
-                    <>, <kbd className="px-2 py-1 bg-gray-800 rounded text-gray-400">C</kbd> to toggle chat</>
+                  💡 Press <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">F</kbd> for fullscreen
+                  {bootstrap?.chatEnabled && (
+                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">C</kbd> to toggle chat</>
                   )}
                 </p>
               )}
@@ -487,27 +485,115 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           {children}
         </div>
 
-        {/* Sidebar Chat (Desktop) */}
+        {/* Corner Peek Chat - Glass Expansion */}
         {!isFullscreen && bootstrap?.chatEnabled && bootstrap.gameId && (
-          <div className="w-full lg:w-96 flex flex-col">
-            <div className="bg-gray-900 rounded-lg p-4 h-[600px] flex flex-col">
-              <h2 className="text-white font-bold text-lg mb-4">Live Chat</h2>
-              
-              {!viewer.isUnlocked ? (
-                <ViewerUnlockForm
-                  onUnlock={viewer.unlock}
-                  isLoading={viewer.isLoading}
-                  error={viewer.error}
-                  title="Join the conversation"
-                  description="Enter your info to chat with other viewers"
-                />
-              ) : (
-                <div className="flex-1 min-h-0">
-                  <GameChatPanel chat={chat} className="h-full" />
+          <>
+            {/* Backdrop */}
+            {isChatOpen && (
+              <div
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ease-standard"
+                onClick={() => setIsChatOpen(false)}
+                data-testid="chat-backdrop"
+                aria-hidden="true"
+              />
+            )}
+
+            {/* Floating Chat Badge (Collapsed) */}
+            {!isChatOpen && (
+              <button
+                onClick={() => setIsChatOpen(true)}
+                className="fixed bottom-6 right-6 z-50 w-14 h-14 glass border border-primary/20 rounded-full shadow-elevation-2 hover:shadow-elevation-3 hover:border-primary/30 transition-all duration-fast ease-standard flex items-center justify-center group"
+                data-testid="btn-open-chat"
+                aria-label="Open chat"
+              >
+                <svg
+                  className="w-6 h-6 text-primary group-hover:scale-110 transition-transform duration-fast"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                
+                {/* Activity indicator (shows if chat is connected and has messages) */}
+                {chat.isConnected && chat.messages.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center shadow-lg">
+                    {chat.messages.length > 9 ? '9+' : chat.messages.length}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Expanded Chat Panel */}
+            {isChatOpen && (
+              <div
+                className={`fixed bottom-6 right-6 z-50 w-[360px] h-[500px] glass border border-primary/20 rounded-lg shadow-elevation-3 flex flex-col transition-all duration-300 ease-standard origin-bottom-right ${
+                  isChatOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+                }`}
+                data-testid="chat-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Chat panel"
+              >
+                {/* Header */}
+                <div className="p-4 border-b border-primary/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-white font-bold text-base">Live Chat</h2>
+                    {chat.isConnected ? (
+                      <span className="flex items-center gap-1 text-success text-xs">
+                        <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+                        Live
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">Connecting...</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setIsChatOpen(false)}
+                    className="text-muted-foreground hover:text-white transition-colors p-1 rounded hover:bg-white/5"
+                    data-testid="btn-close-chat"
+                    aria-label="Close chat"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>
+
+                {/* Content */}
+                <div className="flex-1 min-h-0 p-4 overflow-hidden">
+                  {!viewer.isUnlocked ? (
+                    <ViewerUnlockForm
+                      onUnlock={viewer.unlock}
+                      isLoading={viewer.isLoading}
+                      error={viewer.error}
+                      title="Join the conversation"
+                      description="Enter your info to chat with other viewers"
+                    />
+                  ) : (
+                    <div className="h-full">
+                      <GameChatPanel chat={chat} className="h-full" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

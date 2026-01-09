@@ -8,8 +8,6 @@
 import { DirectStreamPageBase, type DirectStreamPageConfig } from '@/components/DirectStreamPageBase';
 import { TchsFullscreenChatOverlay } from '@/components/TchsFullscreenChatOverlay';
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_TCHS_ADMIN_PASSWORD || 'tchs2026';
-
 export default function DirectTchsPage() {
   const config: DirectStreamPageConfig = {
     // Data fetching
@@ -30,7 +28,6 @@ export default function DirectTchsPage() {
     // Features
     enableFontSize: true,
     fontSizeStorageKey: 'tchs_chat_font_size',
-    adminPassword: ADMIN_PASSWORD,
   };
 
   return <DirectStreamPageBase config={config} />;

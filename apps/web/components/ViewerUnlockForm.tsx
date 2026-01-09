@@ -98,7 +98,7 @@ export function ViewerUnlockForm({
   };
 
   return (
-    <Card className="max-w-md mx-auto" data-testid="card-viewer-unlock">
+    <Card className="max-w-md mx-auto glass border border-primary/20 shadow-elevation-2" data-testid="card-viewer-unlock">
       <CardHeader>
         <CardTitle className="text-lg sm:text-xl">{title}</CardTitle>
         {description && <CardDescription className="text-sm sm:text-base">{description}</CardDescription>}
@@ -182,7 +182,7 @@ export function ViewerUnlockForm({
             {error && (
               <div
                 data-testid="unlock-error"
-                className="bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 px-3 py-2 rounded text-sm sm:text-base leading-relaxed"
+                className="bg-destructive/10 text-destructive px-3 py-2 rounded text-sm sm:text-base leading-relaxed"
                 role="alert"
               >
                 {error}
@@ -199,7 +199,7 @@ export function ViewerUnlockForm({
               {isLoading ? 'Unlocking...' : 'Unlock Stream'}
             </Button>
 
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+            <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2">
               Your info is only used for chat display (shown as "First L.") and will be remembered on
               this device.
             </p>

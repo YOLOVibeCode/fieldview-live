@@ -3,13 +3,16 @@
  *
  * AES-256-GCM encryption for sensitive data (Square OAuth tokens).
  * Uses environment variable for encryption key.
+ * Also includes bcrypt password hashing for admin/producer passwords.
  */
 
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
+const BCRYPT_ROUNDS = 10;
 
 if (!ENCRYPTION_KEY && process.env.NODE_ENV === 'production') {
   throw new Error('ENCRYPTION_KEY environment variable is required in production');
@@ -77,5 +80,19 @@ export function decrypt(ciphertext: string): string {
   decrypted += decipher.final('utf8');
 
   return decrypted;
+}
+
+/**
+ * Hash a password using bcrypt
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+/**
+ * Compare a plaintext password with a hashed password
+ */
+export async function comparePassword(plaintext: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(plaintext, hash);
 }
 

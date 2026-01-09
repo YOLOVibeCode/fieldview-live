@@ -12,6 +12,7 @@ import { prisma } from '../lib/prisma';
 import { validateRequest } from '../middleware/validation';
 import { generateViewerToken, formatDisplayName } from '../lib/viewer-jwt';
 import { logger } from '../lib/logger';
+import { sendEmail, renderRegistrationEmail } from '../lib/email';
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ const UnlockViewerSchema = z.object({
   email: z.string().email(),
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
+  wantsReminders: z.boolean().optional().default(true),
 });
 
 /**
@@ -55,6 +57,11 @@ router.post(
 
         const gameId = gameIdLookup.id;
 
+        // Get DirectStream for email notifications
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug },
+        });
+
         // Upsert viewer identity
         const viewer = await prisma.viewerIdentity.upsert({
           where: { email: body.email.toLowerCase().trim() },
@@ -62,14 +69,40 @@ router.post(
             firstName: body.firstName,
             lastName: body.lastName,
             lastSeenAt: new Date(),
+            wantsReminders: body.wantsReminders ?? true,
           },
           create: {
             email: body.email.toLowerCase().trim(),
             firstName: body.firstName,
             lastName: body.lastName,
             lastSeenAt: new Date(),
+            wantsReminders: body.wantsReminders ?? true,
           },
         });
+
+        // Send registration confirmation email
+        if (directStream && viewer.wantsReminders) {
+          const streamUrl = `${process.env.WEB_URL || 'http://localhost:4300'}/direct/${slug}`;
+          
+          try {
+            const html = renderRegistrationEmail({
+              firstName: viewer.firstName || 'Viewer',
+              streamTitle: directStream.title,
+              streamUrl,
+              scheduledStartAt: directStream.scheduledStartAt || undefined,
+            });
+
+            // Send email asynchronously (don't block response)
+            void sendEmail({
+              to: viewer.email,
+              subject: `You're registered for ${directStream.title}`,
+              html,
+            });
+          } catch (emailError) {
+            // Log but don't fail the unlock request
+            logger.error({ emailError, viewerId: viewer.id }, 'Failed to send registration email');
+          }
+        }
 
         // Format display name for privacy
         const displayName = formatDisplayName(body.firstName, body.lastName);

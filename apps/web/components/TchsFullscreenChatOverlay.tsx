@@ -156,7 +156,7 @@ export function TchsFullscreenChatOverlay({
                 Live
               </span>
             ) : (
-              <span className="text-gray-400 text-sm">Connecting...</span>
+              <span className="text-muted-foreground text-sm">Connecting...</span>
             )}
           </div>
           <button
@@ -174,7 +174,7 @@ export function TchsFullscreenChatOverlay({
         {/* Error message */}
         {chat.error && (
           <div 
-            className="mx-4 mt-2 p-3 bg-red-900/30 backdrop-blur-md border border-red-600/30 text-red-300 rounded-lg text-sm"
+            className="mx-4 mt-2 p-3 bg-destructive/30 backdrop-blur-md border border-destructive/40 text-destructive rounded-lg text-sm"
             data-testid="chat-error"
             role="alert"
           >

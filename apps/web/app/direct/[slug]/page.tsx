@@ -36,7 +36,6 @@ export default function DirectStreamPage({ params }: DirectStreamPageProps) {
     sharePath: `fieldview.live/direct/${slug}/`,
     
     // Features
-    adminPassword: 'admin2026',
   };
 
   return <DirectStreamPageBase config={config} />;

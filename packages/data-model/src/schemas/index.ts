@@ -11,3 +11,6 @@ export * from './EventSchema';
 export * from './OrganizationMemberSchema';
 export * from './LinkPresetSchema';
 export * from './SubscriptionSchema';
+export * from './directStream';
+export * from './scoreboard';
+export * from './payment';

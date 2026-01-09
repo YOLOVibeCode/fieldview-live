@@ -76,6 +76,7 @@ model Game {
   streamSource StreamSource?
   purchases    Purchase[]
   chatMessages GameChatMessage[]
+  directStream DirectStream? // Optional direct stream linkage
   
   @@index([ownerAccountId])
   @@index([keywordCode])
@@ -122,6 +123,9 @@ model ViewerIdentity {
   createdAt       DateTime   @default(now())
   lastSeenAt      DateTime?
   
+  // Email notification preferences
+  wantsReminders  Boolean    @default(true)   // Opt-in for stream reminder emails
+  
   purchases       Purchase[]
   subscriptions  Subscription[]
   viewerSquareCustomers ViewerSquareCustomer[]
@@ -129,6 +133,7 @@ model ViewerIdentity {
   
   @@index([email])
   @@index([phoneE164])
+  @@index([lastSeenAt])  // For active viewer queries
 }
 
 // Per-owner Square customer mapping (required for marketplace Model A + saved cards correctness).
@@ -168,6 +173,12 @@ model Purchase {
   // Coupon discount
   couponCodeId            String?    @db.Uuid
   discountCents           Int        @default(0)
+  
+  // Saved payment info (for display only, no sensitive data)
+  savePaymentMethod       Boolean    @default(false)  // User opted to save
+  squareCardId            String?    // Square card_id reference
+  cardLastFour            String?    // Last 4 digits for display
+  cardBrand               String?    // Visa, Mastercard, etc.
 
   // Payout recipient tracking (for admin visibility)
   recipientOwnerAccountId String?    @db.Uuid
@@ -551,6 +562,87 @@ model CouponCode {
   @@index([code])
   @@index([status])
   @@index([ownerAccountId])
+}
+
+// Direct stream POC pages (e.g., /direct/tchs, /direct/slug)
+// Lightweight, no-signup streaming with optional paywall
+model DirectStream {
+  id                String    @id @default(uuid()) @db.Uuid
+  slug              String    @unique // URL slug (e.g., 'tchs', 'stormfc')
+  title             String    // Display title (e.g., "TCHS Live Stream")
+  
+  // Stream configuration
+  streamUrl         String?   // HLS manifest URL
+  
+  // Scheduling & Email reminders
+  scheduledStartAt  DateTime? // When stream is scheduled to start
+  reminderSentAt    DateTime? // Track when reminder email was sent
+  sendReminders     Boolean   @default(true)  // Enable/disable reminder emails
+  reminderMinutes   Int       @default(5)     // How many minutes before start
+  
+  // Paywall settings
+  paywallEnabled    Boolean   @default(false)
+  priceInCents      Int       @default(0)        // Store as cents (499 = $4.99)
+  paywallMessage    String?   @db.VarChar(1000) // Max 1000 chars - admin custom message
+  allowSavePayment  Boolean   @default(false)    // Allow viewers to save payment info
+  
+  // Admin authentication
+  adminPassword     String    // Bcrypt-hashed password for admin access
+  
+  // Feature flags
+  chatEnabled       Boolean   @default(true)
+  
+  // Chat association (optional Game linkage)
+  gameId            String?   @unique @db.Uuid
+  game              Game?     @relation(fields: [gameId], references: [id])
+  
+  // Social Producer Panel
+  scoreboard        GameScoreboard?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([slug])
+  @@index([scheduledStartAt]) // For email reminder cron jobs
+}
+
+// Social Producer Panel - Scoreboard Management
+model GameScoreboard {
+  id              String    @id @default(uuid()) @db.Uuid
+  directStreamId  String    @db.Uuid @unique
+  
+  // Team Information
+  homeTeamName    String    @default("Home")
+  awayTeamName    String    @default("Away")
+  homeJerseyColor String    @default("#1E40AF") // Tailwind blue-700
+  awayJerseyColor String    @default("#DC2626") // Tailwind red-600
+  
+  // Score Tracking
+  homeScore       Int       @default(0)
+  awayScore       Int       @default(0)
+  
+  // Game Clock (server-synced persistence)
+  clockMode       String    @default("stopped") // stopped | running | paused
+  clockSeconds    Int       @default(0)         // Current time when stopped/paused
+  clockStartedAt  DateTime? // Timestamp when clock started (for sync)
+  
+  // Display Settings
+  isVisible       Boolean   @default(true)
+  position        String    @default("top-left") // top-left | top-center | top-right
+  
+  // Access Control
+  producerPassword String?  // Hashed password (NULL = open editing for anyone)
+  
+  // Edit History
+  lastEditedBy    String?   // Viewer name or "Admin"
+  lastEditedAt    DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  directStream    DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  
+  @@index([directStreamId])
 }
 
 model CouponRedemption {

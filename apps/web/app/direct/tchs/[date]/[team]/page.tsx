@@ -10,8 +10,6 @@ import { DirectStreamPageBase, type DirectStreamPageConfig } from '@/components/
 import { TchsFullscreenChatOverlay } from '@/components/TchsFullscreenChatOverlay';
 import { buildTchsStreamKey } from '@/lib/tchs-stream-key';
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_TCHS_ADMIN_PASSWORD || 'tchs2026';
-
 interface DirectTchsTeamPageProps {
   params: {
     date: string;
@@ -47,7 +45,6 @@ export default function DirectTchsTeamPage({ params }: DirectTchsTeamPageProps) 
     // Features
     enableFontSize: true,
     fontSizeStorageKey: 'tchs_chat_font_size',
-    adminPassword: ADMIN_PASSWORD,
   };
 
   return <DirectStreamPageBase config={config} />;

@@ -8,10 +8,12 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
+import cron from 'node-cron';
 
 import { logger } from './lib/logger';
 import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
+import { sendStreamReminders } from './jobs/send-stream-reminders';
 import { createAdminRouter } from './routes/admin';
 import { createAdminCouponsRouter } from './routes/admin.coupons';
 import { createAdminPlatformRouter } from './routes/admin.platform';
@@ -41,6 +43,7 @@ import { createDirectViewerRouter } from './routes/public.direct-viewer';
 import { createPublicGameViewerRouter } from './routes/public.game-viewer';
 import { createPublicGameChatRouter } from './routes/public.game-chat';
 import { createPublicCouponsRouter } from './routes/public.coupons';
+import scoreboardRouter from './routes/scoreboard';
 import { createTestCleanupRouter } from './routes/test.cleanup';
 import { createTestStreamsRouter } from './routes/test.streams';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
@@ -127,6 +130,7 @@ app.use('/api/public/coupons', createPublicCouponsRouter());
 app.use('/api/streams', createStreamLinksRouter());
 app.use('/api/tchs', createTchsRouter());
 app.use('/api/direct', createDirectRouter());
+app.use('/api/direct', scoreboardRouter);
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
 
@@ -139,6 +143,18 @@ if (enableTestRoutes) {
 
 // Error handling (must be last)
 app.use(errorHandler);
+
+// Initialize cron jobs
+// Run stream reminder job every minute
+cron.schedule('* * * * *', async () => {
+  try {
+    await sendStreamReminders();
+  } catch (error) {
+    logger.error({ error }, 'Stream reminder cron job failed');
+  }
+});
+
+logger.info('Cron jobs initialized: stream reminders running every minute');
 
 // Start server
 if (require.main === module) {
