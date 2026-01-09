@@ -43,7 +43,7 @@ const directStreams = [
  * POST /api/admin/seed/direct-streams
  * Seed DirectStreams (idempotent)
  */
-router.post('/direct-streams', (req: Request, res: Response, next: NextFunction) => {
+router.post('/direct-streams', (_req: Request, res: Response, next: NextFunction) => {
   void (async () => {
     try {
       logger.info('Starting DirectStream seed...');
