@@ -1,0 +1,247 @@
+```
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    RAILWAY LOGS ACCESS - ARCHITECTURE                       ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                            USER / DEVELOPER                               │
+└────────────┬─────────────────────────────────────────────────────────────┘
+             │
+             │ Needs logs from Railway deployment
+             │
+             ▼
+    ┌────────────────────────────────────────────────┐
+    │          WHICH APPROACH TO USE?                │
+    └────┬───────────────────┬───────────────────┬───┘
+         │                   │                   │
+         │                   │                   │
+    ┌────▼─────┐      ┌──────▼──────┐     ┌─────▼──────┐
+    │ GRAPHQL  │      │  RAILWAY    │     │  RAILWAY   │
+    │   API    │      │     CLI     │     │ DASHBOARD  │
+    │   POC    │      │  (Wrapper)  │     │   (Web)    │
+    └────┬─────┘      └──────┬──────┘     └─────┬──────┘
+         │                   │                   │
+         │                   │                   │
+    ┌────▼─────────────────────────────────────────────────┐
+    │              WHAT CAN EACH DO?                       │
+    └──────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. GRAPHQL API POC (scripts/railway-logs-graphql.js)                     │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ✅ WORKS:                           ❌ DOESN'T WORK:                     │
+│  • Authentication (API Token)        • Log queries                       │
+│  • Project info                      • Real-time streaming               │
+│  • Service listing                   • Log filtering                     │
+│  • Deployment status                                                     │
+│  • Deployment history                                                    │
+│                                                                           │
+│  USE FOR:                            LIMITATION:                         │
+│  • Status checks                     • Railway GraphQL API v2            │
+│  • Health monitoring                 • No logs endpoint available        │
+│  • CI/CD automation                                                      │
+│  • Deployment alerts                                                     │
+│                                                                           │
+│  SETUP:                                                                  │
+│  export RAILWAY_API_TOKEN='rxxx_...'                                     │
+│  export RAILWAY_PROJECT_ID='xxxxxxxx-...'                                │
+│  node scripts/railway-logs-graphql.js                                    │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2. RAILWAY CLI WRAPPER (scripts/railway-logs.sh)                         │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ✅ FULL FEATURES:                                                        │
+│  • Real-time log streaming (tail)                                        │
+│  • Recent logs (last 100)                                                │
+│  • Error filtering                                                       │
+│  • Search functionality                                                  │
+│  • Export to file                                                        │
+│  • Multi-service support                                                 │
+│  • Colored output                                                        │
+│                                                                           │
+│  USE FOR:                                                                │
+│  • Development debugging                                                 │
+│  • Error investigation                                                   │
+│  • Log analysis                                                          │
+│  • Quick troubleshooting                                                 │
+│                                                                           │
+│  SETUP:                                                                  │
+│  railway login                        # One-time setup                   │
+│  ./scripts/railway-logs.sh tail api   # Start using                     │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3. RAILWAY DASHBOARD (Web UI)                                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ✅ FEATURES:                                                             │
+│  • Visual log viewer                                                     │
+│  • Deployment timeline                                                   │
+│  • Built-in filtering                                                    │
+│  • Download logs                                                         │
+│  • Service metrics                                                       │
+│  • Easy sharing                                                          │
+│                                                                           │
+│  USE FOR:                                                                │
+│  • Visual debugging                                                      │
+│  • Sharing with team                                                     │
+│  • Quick status checks                                                   │
+│  • Non-technical users                                                   │
+│                                                                           │
+│  ACCESS:                                                                 │
+│  https://railway.app → Project → Service → Logs                         │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      HYBRID APPROACH (RECOMMENDED)                        │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  FLOW:                                                                   │
+│                                                                           │
+│  1. Monitor deployments with GraphQL API                                 │
+│     ├─ Fast status checks (< 1s)                                         │
+│     ├─ Automated health checks                                           │
+│     └─ CI/CD integration                                                 │
+│                                                                           │
+│  2. If deployment FAILED or issues detected                              │
+│     ├─ Fetch logs via Railway CLI                                        │
+│     ├─ Filter for errors                                                 │
+│     └─ Send alerts with log snippets                                     │
+│                                                                           │
+│  3. For deep debugging                                                   │
+│     ├─ Use Railway CLI for real-time streaming                           │
+│     └─ Or use Dashboard for visual analysis                              │
+│                                                                           │
+│  EXAMPLE:                                                                │
+│  ```javascript                                                           │
+│  // Check status via GraphQL                                             │
+│  const deployment = await getLatestDeployment(serviceId);                │
+│                                                                           │
+│  if (deployment.status === 'FAILED') {                                   │
+│    // Get logs via CLI                                                   │
+│    exec('railway logs --service api | tail -50', (err, logs) => {       │
+│      sendAlert(`Deployment failed!\n\n${logs}`);                         │
+│    });                                                                   │
+│  }                                                                       │
+│  ```                                                                     │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         DECISION TREE                                     │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  What do you need?                                                       │
+│                                                                           │
+│  ┌─ LIVE LOGS NOW                                                        │
+│  │  └─► Use: ./scripts/railway-logs.sh tail api                         │
+│  │                                                                        │
+│  ┌─ CHECK DEPLOYMENT STATUS                                              │
+│  │  └─► Use: node scripts/railway-logs-graphql.js                       │
+│  │                                                                        │
+│  ┌─ DEBUG RECENT ERROR                                                   │
+│  │  └─► Use: ./scripts/railway-logs.sh errors api                       │
+│  │                                                                        │
+│  ┌─ SEARCH FOR SPECIFIC TEXT                                             │
+│  │  └─► Use: ./scripts/railway-logs.sh search api "keyword"             │
+│  │                                                                        │
+│  ┌─ EXPORT LOGS FOR ANALYSIS                                             │
+│  │  └─► Use: ./scripts/railway-logs.sh export api logs.txt              │
+│  │                                                                        │
+│  ┌─ AUTOMATED MONITORING (CI/CD)                                         │
+│  │  └─► Use: GraphQL API + CLI hybrid                                   │
+│  │                                                                        │
+│  └─ VISUAL DEBUGGING / SHARING                                           │
+│     └─► Use: Railway Dashboard (https://railway.app)                    │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     SETUP CHECKLIST                                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  FOR CLI APPROACH:                                                       │
+│  ☐ Install Railway CLI: npm install -g @railway/cli                     │
+│  ☐ Login: railway login                                                 │
+│  ☐ Make script executable: chmod +x scripts/railway-logs.sh             │
+│  ☐ Test: ./scripts/railway-logs.sh recent api                           │
+│                                                                           │
+│  FOR GRAPHQL APPROACH:                                                   │
+│  ☐ Get API token: https://railway.app/account/tokens                    │
+│  ☐ Get project ID: https://railway.app (from project URL)               │
+│  ☐ Set env vars: export RAILWAY_API_TOKEN='...'                         │
+│  ☐                export RAILWAY_PROJECT_ID='...'                        │
+│  ☐ Test: ./scripts/test-railway-graphql.sh                              │
+│  ☐ Run POC: node scripts/railway-logs-graphql.js                        │
+│                                                                           │
+│  FOR DASHBOARD:                                                          │
+│  ☐ Just visit: https://railway.app                                      │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     POC RESULTS SUMMARY                                   │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  QUESTION: Can we fetch Railway logs via GraphQL API?                    │
+│                                                                           │
+│  ANSWER: ❌ NO - Railway GraphQL API v2 does not expose logs             │
+│                                                                           │
+│  WHAT WE LEARNED:                                                        │
+│  ✅ GraphQL API works great for:                                         │
+│     • Deployment status                                                  │
+│     • Service health checks                                              │
+│     • Project metadata                                                   │
+│     • CI/CD automation                                                   │
+│                                                                           │
+│  ❌ GraphQL API cannot:                                                   │
+│     • Fetch log lines                                                    │
+│     • Stream logs in real-time                                           │
+│     • Replace Railway CLI for log access                                 │
+│                                                                           │
+│  RECOMMENDATION:                                                         │
+│  ✅ Use scripts/railway-logs.sh (Railway CLI wrapper)                    │
+│  ✅ Use GraphQL API for status monitoring                                │
+│  ✅ Combine both for best automation                                     │
+│                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                         QUICK REFERENCE                                     ║
+╠════════════════════════════════════════════════════════════════════════════╣
+║                                                                             ║
+║  # Test GraphQL connection                                                 ║
+║  ./scripts/test-railway-graphql.sh                                         ║
+║                                                                             ║
+║  # Run full GraphQL POC                                                    ║
+║  node scripts/railway-logs-graphql.js                                      ║
+║                                                                             ║
+║  # Get live API logs                                                       ║
+║  ./scripts/railway-logs.sh tail api                                        ║
+║                                                                             ║
+║  # Get recent errors                                                       ║
+║  ./scripts/railway-logs.sh errors api                                      ║
+║                                                                             ║
+║  # Search logs                                                             ║
+║  ./scripts/railway-logs.sh search api "prisma"                             ║
+║                                                                             ║
+║  # Export logs                                                             ║
+║  ./scripts/railway-logs.sh export api output.txt                           ║
+║                                                                             ║
+║  # Open dashboard                                                          ║
+║  open https://railway.app                                                  ║
+║                                                                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+POC Created: January 9, 2026
+Status: ✅ Complete & Documented
+Result: Use Railway CLI wrapper (scripts/railway-logs.sh)
+Future: Monitor Railway API for log query support
+```
+

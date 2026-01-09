@@ -4,21 +4,63 @@ Monetization platform for youth sports live streaming.
 
 ## 🚀 Deployment
 
-Choose your deployment speed:
+### ⚠️ BEFORE EVERY PUSH - Run Preflight Build
+
+```bash
+# MANDATORY: Simulates exactly what Railway does
+./scripts/preflight-build.sh
+
+# If it passes → safe to push
+# If it fails → FIX ERRORS before pushing
+```
+
+### Deployment Methods
 
 | Method | Time | Documentation |
 |--------|------|---------------|
+| **Preflight Build** | 3-5 min | **RUN THIS FIRST** - catches errors locally |
 | **Full Validation** | 30 min | Safe for features, migrations, releases |
 | **Quick Deploy** | 2 min | Fast for bug fixes, small API changes |
-| **Hotfix** | 30 sec | Emergency production fixes only |
 
 **📋 [Deployment Options - Complete Guide](./DEPLOYMENT_OPTIONS.md)** ← Start here
 
-**Quick commands:**
+### Quick Commands
+
 ```bash
-./scripts/railway-ready-check.sh  # Full validation (30 min)
+# 🔴 ALWAYS RUN FIRST (before any push)
+./scripts/preflight-build.sh
+
+# If build fails, debug with:
+./scripts/debug-railway-build.sh
+
+# Full validation (optional, takes 30 min)
+./scripts/railway-ready-check.sh
+
+# Quick deploy after preflight passes
 ./scripts/yolo-deploy.sh api      # Quick deploy API (2 min)
 ./scripts/yolo-deploy.sh web      # Quick deploy Web (2 min)
+```
+
+### Why Preflight Build?
+
+Railway builds fail when:
+- ❌ Prisma Client types not generated
+- ❌ TypeScript `any` type errors
+- ❌ Missing exports/imports
+
+The preflight build catches ALL of these locally **before** you push.
+
+### Debugging Failed Builds
+
+```bash
+# Complete debug workflow
+./scripts/debug-railway-build.sh
+
+# See all TypeScript errors
+pnpm --filter api type-check
+
+# Get Railway logs
+railway logs --service api | grep 'error'
 ```
 
 ## Architecture

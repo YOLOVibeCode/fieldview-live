@@ -471,7 +471,7 @@ router.post(
         if (!validation.success) {
           return res.status(400).json({ 
             error: 'Invalid request',
-            details: validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+            details: validation.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')
           });
         }
 

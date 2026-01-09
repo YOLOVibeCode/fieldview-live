@@ -15,6 +15,50 @@ Default: `ROLE: engineer STRICT=true` (read-only unless approved)
 
 ---
 
+## 🚀 TRIGGER PHRASES
+
+### "Deploy to Railway" / "Push to Railway" / "Deploy"
+
+When user says any of these, IMMEDIATELY execute this workflow:
+
+```bash
+# Step 1: Run preflight build (MANDATORY)
+./scripts/preflight-build.sh
+
+# Step 2: If preflight PASSES, commit and push
+git add -A
+git commit -m "<appropriate commit message>"
+git push origin main
+
+# Step 3: Monitor deployment
+echo "✅ Pushed to Railway. Monitor at: https://railway.app"
+```
+
+**If preflight FAILS:**
+1. Show the errors
+2. Run `./scripts/debug-railway-build.sh` to analyze
+3. Fix each TypeScript error
+4. Re-run preflight until it passes
+5. Then push
+
+**NEVER push without preflight passing first!**
+
+### "Debug Railway" / "Fix Railway build"
+
+When user says this, run:
+```bash
+./scripts/debug-railway-build.sh
+```
+
+### "Railway logs" / "Check Railway"
+
+When user says this, run:
+```bash
+./scripts/railway-logs.sh tail api
+```
+
+---
+
 ## Response Format
 - Code + 3-line max docstring
 - No explanation unless asked
@@ -290,4 +334,77 @@ Add to existing checklist:
 - [ ] ViewModels under 250 lines
 - [ ] No force unwraps in production code
 - [ ] Protocols before implementations
+
+---
+
+## 🚀 RAILWAY DEPLOYMENT (CRITICAL)
+
+### BEFORE EVERY PUSH TO MAIN
+
+**MANDATORY**: Run preflight build before pushing:
+
+```bash
+./scripts/preflight-build.sh
+```
+
+This script replicates EXACTLY what Railway does:
+1. ✅ Clean build artifacts
+2. ✅ Install dependencies (frozen lockfile)
+3. ✅ Generate Prisma Client
+4. ✅ Build data-model
+5. ✅ Build API (TypeScript strict)
+6. ✅ Build Web
+
+**If preflight passes → Railway will pass**
+**If preflight fails → FIX ERRORS before pushing**
+
+### Common Railway Build Failures
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `TS2305: Module has no exported member` | Prisma Client not generated | `pnpm exec prisma generate --schema=packages/data-model/prisma/schema.prisma` |
+| `TS7006: Parameter implicitly has 'any' type` | Missing type annotation | Add explicit type: `(param: TypeName) => ...` |
+| `TS2304: Cannot find name` | Missing import or undefined | Add import or define the variable |
+| `TS2322: Type not assignable` | Type mismatch | Fix the type or add type assertion |
+
+### Debugging Failed Builds
+
+```bash
+# 1. Debug workflow (fetches Railway logs + local check)
+./scripts/debug-railway-build.sh
+
+# 2. See all TypeScript errors
+pnpm --filter api type-check
+
+# 3. Get Railway logs directly
+railway logs --service api | grep 'error TS'
+
+# 4. Full preflight build
+./scripts/preflight-build.sh
+```
+
+### Pre-Push Hook
+
+A pre-push hook is installed at `.husky/pre-push` that:
+- Generates Prisma Client
+- Builds data-model
+- Type-checks API
+
+**To skip (EMERGENCY ONLY)**: `git push --no-verify`
+
+### Deployment Scripts
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `./scripts/preflight-build.sh` | Full Railway simulation | Before EVERY push |
+| `./scripts/debug-railway-build.sh` | Debug failed builds | After Railway fails |
+| `./scripts/railway-logs.sh tail api` | Live Railway logs | Monitor deployment |
+
+### Self-Check for Railway Deployment
+
+- [ ] `./scripts/preflight-build.sh` passes
+- [ ] No `TS7006` (implicit any) errors
+- [ ] No `TS2305` (missing exports) errors
+- [ ] Prisma schema is valid
+- [ ] All new Prisma fields have migrations
 
