@@ -110,10 +110,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [showPaywall, setShowPaywall] = useState(false);
 
   // Collapsible panel state (non-fullscreen mode)
+  // Use stable slug from config or bootstrap once loaded
+  const stableSlug = bootstrap?.slug || config.bootstrapUrl.split('/').pop() || 'default';
+  
   const scoreboardPanel = useCollapsiblePanel({
     edge: 'left',
     defaultCollapsed: false,
-    storageKey: `scoreboard-collapsed-${bootstrap?.slug || 'default'}`,
+    storageKey: `scoreboard-collapsed-${stableSlug}`,
   });
 
   const chatPanel = useCollapsiblePanel({
