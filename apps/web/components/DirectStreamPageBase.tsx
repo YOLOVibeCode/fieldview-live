@@ -324,7 +324,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled]);
+  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle]);
 
   return (
     <div className={`min-h-screen bg-black flex flex-col ${config.containerClassName || ''}`}>
