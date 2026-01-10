@@ -32,8 +32,70 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { Button } from '@/components/ui/button';
 import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import type { ChatMessage } from '@/hooks/useGameChat';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+
+// Simple chat message form component
+function ChatMessageForm({ chat }: { chat: { sendMessage: (text: string) => Promise<unknown>; isConnected: boolean } }) {
+  const [messageText, setMessageText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const MAX_MESSAGE_LENGTH = 240;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = messageText.trim();
+    if (!trimmed || isSending) return;
+
+    setIsSending(true);
+    try {
+      await chat.sendMessage(trimmed);
+      setMessageText('');
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const remainingChars = MAX_MESSAGE_LENGTH - messageText.length;
+  const canSend = messageText.trim().length > 0 && !isSending;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="flex gap-2">
+        <Input
+          value={messageText}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= MAX_MESSAGE_LENGTH) {
+              setMessageText(value);
+            }
+          }}
+          placeholder="Type a message..."
+          disabled={isSending || !chat.isConnected}
+          maxLength={MAX_MESSAGE_LENGTH}
+          data-testid="input-chat-message"
+          className="min-h-[44px] text-base flex-1 bg-background/80 border-outline text-white placeholder:text-white/50"
+          aria-label="Chat message input"
+        />
+        <Button
+          type="submit"
+          disabled={!canSend || !chat.isConnected}
+          data-testid="btn-send-message"
+          className="min-h-[44px] min-w-[80px] text-base font-medium"
+          aria-label="Send message"
+        >
+          Send
+        </Button>
+      </div>
+      <div className="text-xs text-muted-foreground text-right">
+        {remainingChars} character{remainingChars !== 1 ? 's' : ''} remaining
+      </div>
+    </form>
+  );
+}
 
 export interface Bootstrap {
   slug: string;
@@ -170,10 +232,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Chat integration
   const viewer = useViewerIdentity({ gameId: bootstrap?.gameId || null });
+  // Chat is always enabled to show messages, but sending requires unlock
   const chat = useGameChat({
     gameId: bootstrap?.gameId || null,
     viewerToken: viewer.token,
-    enabled: viewer.isUnlocked && bootstrap?.chatEnabled === true,
+    enabled: bootstrap?.chatEnabled === true, // Always enabled when chat is enabled
   });
 
   // Notify status changes
@@ -632,21 +695,57 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 min-h-0 p-4 overflow-hidden">
-                  {!viewer.isUnlocked ? (
-                    <ViewerUnlockForm
-                      onUnlock={viewer.unlock}
-                      isLoading={viewer.isLoading}
-                      error={viewer.error}
-                      title="Join the conversation"
-                      description="Enter your info to chat with other viewers"
-                    />
-                  ) : (
-                    <div className="h-full">
-                      <GameChatPanel chat={chat} className="h-full" />
-                    </div>
-                  )}
+                {/* Content - Always show messages, conditionally show input */}
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  {/* Messages - Always visible to all viewers */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
+                    {chat.error && (
+                      <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">
+                        {chat.error}
+                      </div>
+                    )}
+                    
+                    {chat.messages.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8 text-sm">
+                        No messages yet. Be the first to chat!
+                      </p>
+                    ) : (
+                      chat.messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className="p-3 bg-muted/50 rounded-lg"
+                          data-testid={`chat-msg-${msg.id}`}
+                        >
+                          <div className="text-xs font-semibold text-muted-foreground mb-1">
+                            {msg.displayName}
+                          </div>
+                          <div className="text-sm leading-relaxed break-words text-white">
+                            {msg.message}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Input area - Only for unlocked users */}
+                  <div className="border-t border-outline p-4 bg-background/50">
+                    {viewer.isUnlocked ? (
+                      <ChatMessageForm chat={chat} />
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground text-center">
+                          Register your email to send messages
+                        </p>
+                        <ViewerUnlockForm
+                          onUnlock={viewer.unlock}
+                          isLoading={viewer.isLoading}
+                          error={viewer.error}
+                          title=""
+                          description=""
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

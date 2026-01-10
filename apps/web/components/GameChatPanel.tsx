@@ -28,6 +28,8 @@ interface GameChatPanelProps {
   };
   className?: string;
   fontSize?: 'small' | 'medium' | 'large';
+  canSend?: boolean; // If false, messages are read-only
+  registrationPrompt?: React.ReactNode; // Shown when canSend is false
 }
 
 const MAX_MESSAGE_LENGTH = 240;
@@ -48,7 +50,7 @@ const FONT_SIZES = {
   },
 };
 
-export function GameChatPanel({ chat, className = '', fontSize = 'medium' }: GameChatPanelProps) {
+export function GameChatPanel({ chat, className = '', fontSize = 'medium', canSend: canSendMessages = true, registrationPrompt }: GameChatPanelProps) {
   const fontClasses = FONT_SIZES[fontSize];
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -144,32 +146,42 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium' }: Gam
         </div>
 
         {/* Message composer - Mobile optimized with 44px touch targets */}
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="flex gap-2">
-            <Input
-              value={messageText}
-              onChange={handleInputChange}
-              placeholder="Type a message..."
-              disabled={isSending || !chat.isConnected}
-              maxLength={MAX_MESSAGE_LENGTH}
-              data-testid="input-chat-message"
-              className="min-h-[44px] text-base flex-1"
-              aria-label="Chat message input"
-            />
-            <Button
-              type="submit"
-              disabled={!canSend || !chat.isConnected}
-              data-testid="btn-send-message"
-              className="min-h-[44px] min-w-[80px] sm:min-w-[100px] text-base font-medium active:scale-95 transition-transform"
-              aria-label="Send message"
-            >
-              Send
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground text-right">
-            {remainingChars} character{remainingChars !== 1 ? 's' : ''} remaining
-          </div>
-        </form>
+        {canSendMessages ? (
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={messageText}
+                onChange={handleInputChange}
+                placeholder="Type a message..."
+                disabled={isSending || !chat.isConnected}
+                maxLength={MAX_MESSAGE_LENGTH}
+                data-testid="input-chat-message"
+                className="min-h-[44px] text-base flex-1"
+                aria-label="Chat message input"
+              />
+              <Button
+                type="submit"
+                disabled={!canSend || !chat.isConnected}
+                data-testid="btn-send-message"
+                className="min-h-[44px] min-w-[80px] sm:min-w-[100px] text-base font-medium active:scale-95 transition-transform"
+                aria-label="Send message"
+              >
+                Send
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground text-right">
+              {remainingChars} character{remainingChars !== 1 ? 's' : ''} remaining
+            </div>
+          </form>
+        ) : (
+          registrationPrompt || (
+            <div className="p-4 bg-muted/50 rounded-lg border border-outline text-center">
+              <p className="text-sm text-muted-foreground mb-2">
+                Register your email to join the conversation
+              </p>
+            </div>
+          )
+        )}
       </CardContent>
     </Card>
   );
