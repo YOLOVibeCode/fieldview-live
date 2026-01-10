@@ -131,7 +131,7 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
         role="button"
         aria-label="Expand scoreboard"
       >
-        <div className="text-white/80 text-xs font-bold">←</div>
+        <div className="text-white/80 text-xs font-bold">→</div>
         <div className="text-2xl">📊</div>
         <div 
           className="text-white font-bold text-xs"

@@ -642,7 +642,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 role="button"
                 aria-label="Expand chat"
               >
-                <div className="text-white/80 text-xs font-bold">→</div>
+                <div className="text-white/80 text-xs font-bold">←</div>
                 <div className="text-2xl">💬</div>
                 {chat.messages.length > 0 && (
                   <div 
