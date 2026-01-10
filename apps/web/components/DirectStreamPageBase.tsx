@@ -34,6 +34,7 @@ import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
+import { hashSlugSync } from '@/lib/hashSlug';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -231,10 +232,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   }, [config.bootstrapUrl]);
 
   // Chat integration
-  const viewer = useViewerIdentity({ gameId: bootstrap?.gameId || null });
+  // Use real gameId if available, otherwise generate hash-based temporary gameId
+  const effectiveGameId = bootstrap?.gameId || (bootstrap?.slug ? hashSlugSync(bootstrap.slug) : null);
+  const viewer = useViewerIdentity({ gameId: effectiveGameId });
   // Chat is always enabled to show messages, but sending requires unlock
   const chat = useGameChat({
-    gameId: bootstrap?.gameId || null,
+    gameId: effectiveGameId,
     viewerToken: viewer.token,
     enabled: bootstrap?.chatEnabled === true, // Always enabled when chat is enabled
   });
@@ -617,7 +620,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         </div>
 
         {/* Collapsible Chat Panel - Right Edge */}
-        {!isFullscreen && bootstrap?.chatEnabled && bootstrap.gameId && (
+        {!isFullscreen && bootstrap?.chatEnabled && (
           <>
             {/* Collapsed: Right-edge tab */}
             {chatPanel.isCollapsed && (
@@ -673,7 +676,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 aria-label="Chat panel"
               >
                 {/* Header with collapse button */}
-                <div className="p-4 border-b border-outline flex items-center justify-between">
+                <div className="p-4 border-b border-outline flex items-center justify-between relative">
+                  {/* Collapse button - Top left */}
+                  <button
+                    onClick={chatPanel.toggle}
+                    className="absolute -left-10 top-2 w-8 h-8 bg-background/95 backdrop-blur-sm border border-outline rounded-l-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-background transition-colors"
+                    data-testid="btn-collapse-chat"
+                    aria-label="Collapse chat"
+                  >
+                    <span className="text-xs font-bold">→</span>
+                  </button>
+                  
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-base">Live Chat</h2>
                     {chat.isConnected ? (
@@ -685,14 +698,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       <span className="text-muted-foreground text-xs">Connecting...</span>
                     )}
                   </div>
-                  <button
-                    onClick={chatPanel.toggle}
-                    className="text-white/80 hover:text-white transition-colors p-1 rounded hover:bg-white/10"
-                    data-testid="btn-collapse-chat"
-                    aria-label="Collapse chat"
-                  >
-                    <span className="text-xs font-bold">→</span>
-                  </button>
                 </div>
 
                 {/* Content - Always show messages, conditionally show input */}

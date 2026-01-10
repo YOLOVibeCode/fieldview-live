@@ -161,11 +161,11 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
       aria-label="Game scoreboard"
     >
       <div className="bg-background/95 backdrop-blur-sm border-2 border-outline rounded-lg shadow-2xl overflow-hidden relative">
-        {/* Collapse button */}
+        {/* Collapse button - Top right */}
         {onToggle && (
           <button
             onClick={onToggle}
-            className="absolute -left-10 top-2 w-8 h-8 bg-background/95 backdrop-blur-sm border border-outline rounded-l-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-background transition-colors"
+            className="absolute -right-10 top-2 w-8 h-8 bg-background/95 backdrop-blur-sm border border-outline rounded-r-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-background transition-colors pointer-events-auto"
             data-testid="btn-collapse-scoreboard"
             aria-label="Collapse scoreboard"
           >
