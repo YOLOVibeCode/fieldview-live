@@ -177,14 +177,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   
   const scoreboardPanel = useCollapsiblePanel({
     edge: 'left',
-    defaultCollapsed: false,
+    defaultCollapsed: true, // Collapsed by default
     storageKey: `scoreboard-collapsed-${stableSlug}`,
   });
 
   const chatPanel = useCollapsiblePanel({
     edge: 'right',
-    defaultCollapsed: true,
-    storageKey: 'chat-collapsed',
+    defaultCollapsed: true, // Collapsed by default
+    storageKey: `chat-collapsed-${stableSlug}`, // Per-page storage
   });
 
   const ChatOverlayComponent = config.ChatOverlayComponent || FullscreenChatOverlay;
