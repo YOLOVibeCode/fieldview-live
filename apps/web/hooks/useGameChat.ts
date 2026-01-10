@@ -2,9 +2,9 @@
  * useGameChat Hook
  * 
  * Universal chat hook for any game/stream type.
- * Manages SSE connection, message sending, and state.
+ * Now uses pluggable transport layer for better testability.
  * 
- * Usage:
+ * ## Usage (Production)
  * ```tsx
  * const chat = useGameChat({
  *   gameId,
@@ -14,13 +14,23 @@
  * 
  * <GameChatPanel chat={chat} />
  * ```
+ * 
+ * ## Usage (Testing)
+ * ```tsx
+ * const mockTransport = new MockMessageTransport('Alice');
+ * const chat = useGameChat({
+ *   gameId,
+ *   viewerToken,
+ *   transport: mockTransport, // Inject mock for testing
+ * });
+ * ```
  */
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { IMessageTransport } from '@/lib/chat/IMessageTransport';
+import { SSEMessageTransport } from '@/lib/chat/SSEMessageTransport';
 
 export interface ChatMessage {
   id: string;
@@ -33,91 +43,82 @@ interface UseGameChatOptions {
   gameId: string | null;
   viewerToken: string | null;
   enabled?: boolean;
+  /** Optional transport injection for testing (defaults to SSEMessageTransport) */
+  transport?: IMessageTransport;
 }
 
-export function useGameChat({ gameId, viewerToken, enabled = true }: UseGameChatOptions) {
+export function useGameChat({ 
+  gameId, 
+  viewerToken, 
+  enabled = true,
+  transport: injectedTransport,
+}: UseGameChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  
+  // Use injected transport or create default SSE transport
+  // useMemo ensures we don't recreate transport on every render
+  const transport = useMemo(
+    () => injectedTransport || new SSEMessageTransport(),
+    [injectedTransport]
+  );
+  
+  // Track if we created the transport (so we know to clean it up)
+  const transportCreatedByUs = useRef(!injectedTransport);
 
-  // Connect to SSE stream
+  // Connect to chat via transport
   useEffect(() => {
     if (!enabled || !gameId || !viewerToken) {
       return;
     }
 
-    const url = `${API_URL}/api/public/games/${gameId}/chat/stream?token=${encodeURIComponent(viewerToken)}`;
-    
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
+    // Subscribe to transport events
+    const unsubscribers = [
+      transport.onSnapshot((snapshot) => {
+        setMessages(snapshot.messages);
+        console.log('[Chat] Received snapshot:', snapshot.messages.length, 'messages');
+      }),
+      
+      transport.onMessage((msg) => {
+        setMessages((prev) => [msg, ...prev]); // Newest first
+        console.log('[Chat] Received message:', msg.id);
+      }),
+      
+      transport.onConnectionChange((connected) => {
+        setIsConnected(connected);
+        if (connected) {
+          setError(null);
+        }
+      }),
+      
+      transport.onError((err) => {
+        console.error('[Chat] Transport error:', err);
+        setError(err.message);
+      }),
+    ];
 
-    eventSource.onopen = () => {
-      console.log('[Chat] Connected to SSE stream');
-      setIsConnected(true);
-      setError(null);
-    };
-
-    eventSource.addEventListener('chat_snapshot', (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        setMessages(data.messages || []);
-        console.log('[Chat] Received snapshot:', data.messages?.length || 0, 'messages');
-      } catch (err) {
-        console.error('[Chat] Failed to parse snapshot:', err);
-      }
+    // Connect
+    transport.connect(gameId, viewerToken).catch((err) => {
+      console.error('[Chat] Failed to connect:', err);
+      setError(err.message);
     });
 
-    eventSource.addEventListener('chat_message', (e) => {
-      try {
-        const newMessage: ChatMessage = JSON.parse(e.data);
-        setMessages((prev) => [newMessage, ...prev]); // Newest first
-        console.log('[Chat] Received message:', newMessage);
-      } catch (err) {
-        console.error('[Chat] Failed to parse message:', err);
-      }
-    });
-
-    eventSource.addEventListener('ping', () => {
-      // Keep-alive ping, no action needed
-    });
-
-    eventSource.onerror = () => {
-      console.error('[Chat] SSE connection error');
-      setIsConnected(false);
-      setError('Connection lost. Reconnecting...');
-      // EventSource will auto-reconnect
-    };
-
+    // Cleanup
     return () => {
-      console.log('[Chat] Disconnecting SSE stream');
-      eventSource.close();
-      eventSourceRef.current = null;
-      setIsConnected(false);
+      unsubscribers.forEach(unsub => unsub());
+      
+      // Only disconnect if we created the transport
+      // If it was injected, the owner is responsible for lifecycle
+      if (transportCreatedByUs.current) {
+        transport.disconnect();
+      }
     };
-  }, [enabled, gameId, viewerToken]);
+  }, [enabled, gameId, viewerToken, transport]);
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!gameId || !viewerToken) {
-      throw new Error('Not authenticated');
-    }
-
-    const response = await fetch(`${API_URL}/api/public/games/${gameId}/chat/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${viewerToken}`,
-      },
-      body: JSON.stringify({ message: text }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to send message' }));
-      throw new Error(errorData.error || `Failed to send message: ${response.status}`);
-    }
-
-    return await response.json();
-  }, [gameId, viewerToken]);
+    return transport.sendMessage(text);
+  }, [transport]);
 
   return {
     messages,

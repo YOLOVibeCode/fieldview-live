@@ -172,7 +172,9 @@ describe('ScoreEditModal', () => {
   });
 
   it('should show loading state when saving', async () => {
-    const slowSave = vi.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+    const slowSave = vi.fn(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
 
     render(
       <ScoreEditModal
