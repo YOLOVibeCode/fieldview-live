@@ -23,6 +23,8 @@ import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { GameChatPanel } from '@/components/GameChatPanel';
 import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
 import { FullscreenChatOverlay } from '@/components/FullscreenChatOverlay';
+import { FullscreenRegistrationOverlay } from '@/components/FullscreenRegistrationOverlay';
+import { MobileControlBar } from '@/components/MobileControlBar';
 import { AdminPanel } from '@/components/AdminPanel';
 import { SocialProducerPanel } from '@/components/SocialProducerPanel';
 import { ScoreboardOverlay } from '@/components/ScoreboardOverlay';
@@ -35,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
+import { isTouchDevice, isMobileViewport } from '@/lib/utils/device-detection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -171,6 +174,22 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+
+  // Mobile device detection
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
+
+  // Detect mobile on mount and window resize
+  useEffect(() => {
+    const checkDevice = () => {
+      setIsMobile(isMobileViewport());
+      setIsTouch(isTouchDevice());
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
 
   // Collapsible panel state (non-fullscreen mode)
   // Use a stable key derived from bootstrapUrl (constant from first render)
@@ -591,6 +610,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 />
               )}
 
+              {/* Fullscreen Registration Overlay (for unregistered users) */}
+              {!viewer.isUnlocked && bootstrap?.chatEnabled && isFullscreen && (
+                <FullscreenRegistrationOverlay
+                  viewer={viewer}
+                  isVisible={isChatOverlayVisible}
+                  onToggle={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
+                  position="right"
+                />
+              )}
+
               {/* Fullscreen Collapsible Scoreboard Overlay (left side) */}
               {isFullscreen && bootstrap?.scoreboardEnabled && (
                 <CollapsibleScoreboardOverlay
@@ -601,6 +630,35 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   isFullscreen={isFullscreen}
                 />
               )}
+
+              {/* Mobile Control Bar (touch devices only) */}
+              {isTouch && (
+                <MobileControlBar
+                  scoreboardEnabled={bootstrap?.scoreboardEnabled || false}
+                  homeScore={0} // TODO: Get from scoreboard API
+                  awayScore={0} // TODO: Get from scoreboard API
+                  onScoreboardToggle={() => {
+                    if (isFullscreen) {
+                      setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible);
+                    } else {
+                      scoreboardPanel.toggle();
+                    }
+                  }}
+                  chatEnabled={bootstrap?.chatEnabled || false}
+                  chatBadgeCount={chat.messages.length}
+                  onChatToggle={() => {
+                    if (isFullscreen) {
+                      setIsChatOverlayVisible(!isChatOverlayVisible);
+                    } else {
+                      chatPanel.toggle();
+                    }
+                  }}
+                  isFullscreen={isFullscreen}
+                  onFullscreenToggle={toggleFullscreen}
+                  autoHide={isFullscreen}
+                  autoHideDelay={4000}
+                />
+              )}
             </div>
 
             {/* Footer */}
@@ -609,7 +667,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 Powered by FieldView.Live • Share:{' '}
                 <strong>{config.sharePath}</strong>
               </p>
-              {!isFullscreen && (
+              {/* Keyboard shortcuts: Only show on non-touch devices */}
+              {!isFullscreen && !isTouch && (
                 <p className="mt-2">
                   💡 Press <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">F</kbd> for fullscreen
                   {bootstrap?.chatEnabled && (
@@ -618,6 +677,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   {bootstrap?.scoreboardEnabled && (
                     <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">S</kbd> to collapse/expand scoreboard</>
                   )}
+                </p>
+              )}
+              {/* Touch-friendly hint */}
+              {!isFullscreen && isTouch && (
+                <p className="mt-2">
+                  💡 Tap video for controls • Tap 📊 for score • Tap 💬 to chat
                 </p>
               )}
             </div>
