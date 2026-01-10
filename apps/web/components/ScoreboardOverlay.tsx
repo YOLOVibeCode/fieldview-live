@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { ScoreEditModal } from './ScoreEditModal';
 
 interface GameScoreboard {
   id: string;
@@ -23,9 +24,16 @@ interface ScoreboardOverlayProps {
   className?: string;
   isCollapsed?: boolean;
   onToggle?: () => void;
+  canEditScore?: boolean; // Whether user can tap to edit scores
 }
 
-export function ScoreboardOverlay({ slug, className, isCollapsed = false, onToggle }: ScoreboardOverlayProps) {
+export function ScoreboardOverlay({ 
+  slug, 
+  className, 
+  isCollapsed = false, 
+  onToggle,
+  canEditScore = false 
+}: ScoreboardOverlayProps) {
   const [scoreboard, setScoreboard] = useState<GameScoreboard | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -35,6 +43,9 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const scoreboardRef = useRef<HTMLDivElement>(null);
+  
+  // Score edit modal state
+  const [editingTeam, setEditingTeam] = useState<'home' | 'away' | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
   const storageKey = `scoreboard-position-${slug}`;
@@ -173,6 +184,39 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
     };
   }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove]);
 
+  // Handle score update
+  const handleScoreUpdate = async (team: 'home' | 'away', newScore: number) => {
+    if (!scoreboard) return;
+
+    try {
+      const updateData = team === 'home' 
+        ? { homeScore: newScore }
+        : { awayScore: newScore };
+
+      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update score');
+      }
+
+      const updated = await response.json();
+      setScoreboard(updated);
+    } catch (error) {
+      console.error('Failed to update score:', error);
+      throw error;
+    }
+  };
+
+  // Handle score tap/click
+  const handleScoreTap = (team: 'home' | 'away') => {
+    if (!canEditScore) return;
+    setEditingTeam(team);
+  };
+
   if (loading || !scoreboard || !scoreboard.isVisible) {
     return null;
   }
@@ -218,24 +262,25 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
 
   // Expanded state: Draggable scoreboard
   return (
-    <div
-      ref={scoreboardRef}
-      data-testid="scoreboard-overlay"
-      className={cn(
-        'fixed z-50 pointer-events-auto select-none',
-        isDragging ? 'cursor-grabbing' : 'cursor-grab',
-        isDragging && 'ring-2 ring-accent/50',
-        className
-      )}
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-      }}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
-      role="region"
-      aria-label="Game scoreboard (drag to move)"
-    >
+    <>
+      <div
+        ref={scoreboardRef}
+        data-testid="scoreboard-overlay"
+        className={cn(
+          'fixed z-50 pointer-events-auto select-none',
+          isDragging ? 'cursor-grabbing' : 'cursor-grab',
+          isDragging && 'ring-2 ring-accent/50',
+          className
+        )}
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+        }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        role="region"
+        aria-label="Game scoreboard (drag to move)"
+      >
       <div className="bg-background/95 backdrop-blur-md border-2 border-outline rounded-xl shadow-2xl overflow-hidden">
         {/* Header with drag handle and collapse button */}
         <div className="flex items-center justify-between px-3 py-1.5 bg-black/30 border-b border-outline/50">
@@ -268,20 +313,30 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
               background: `linear-gradient(135deg, ${scoreboard.homeJerseyColor}ee 0%, ${scoreboard.homeJerseyColor}99 100%)`,
             }}
           >
-            <div className="relative z-10 px-5 py-3 min-w-[140px]">
+            <div className="relative z-10 px-3 sm:px-4 md:px-5 py-2 sm:py-3 min-w-[100px] sm:min-w-[120px] md:min-w-[140px]">
               <div 
                 data-testid="scoreboard-home-team-name"
-                className="text-xs font-semibold text-white/90 uppercase tracking-wider drop-shadow-md mb-0.5"
+                className="text-[10px] sm:text-xs font-semibold text-white/90 uppercase tracking-wider drop-shadow-md mb-0.5"
               >
                 {scoreboard.homeTeamName}
               </div>
-              <div 
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleScoreTap('home');
+                }}
+                disabled={!canEditScore}
                 data-testid="scoreboard-home-score"
-                className="text-3xl font-bold text-white drop-shadow-lg tabular-nums"
-                aria-label={`Home team score: ${scoreboard.homeScore}`}
+                className={cn(
+                  'text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-lg tabular-nums',
+                  'w-full text-left',
+                  canEditScore && 'cursor-pointer hover:scale-110 active:scale-95 transition-transform',
+                  !canEditScore && 'cursor-default'
+                )}
+                aria-label={`Home team score: ${scoreboard.homeScore}${canEditScore ? '. Tap to edit' : ''}`}
               >
                 {scoreboard.homeScore}
-              </div>
+              </button>
             </div>
           </div>
 
@@ -296,20 +351,30 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
               background: `linear-gradient(135deg, ${scoreboard.awayJerseyColor}ee 0%, ${scoreboard.awayJerseyColor}99 100%)`,
             }}
           >
-            <div className="relative z-10 px-5 py-3 min-w-[140px]">
+            <div className="relative z-10 px-3 sm:px-4 md:px-5 py-2 sm:py-3 min-w-[100px] sm:min-w-[120px] md:min-w-[140px]">
               <div 
                 data-testid="scoreboard-away-team-name"
-                className="text-xs font-semibold text-white/90 uppercase tracking-wider drop-shadow-md mb-0.5"
+                className="text-[10px] sm:text-xs font-semibold text-white/90 uppercase tracking-wider drop-shadow-md mb-0.5"
               >
                 {scoreboard.awayTeamName}
               </div>
-              <div 
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleScoreTap('away');
+                }}
+                disabled={!canEditScore}
                 data-testid="scoreboard-away-score"
-                className="text-3xl font-bold text-white drop-shadow-lg tabular-nums"
-                aria-label={`Away team score: ${scoreboard.awayScore}`}
+                className={cn(
+                  'text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-lg tabular-nums',
+                  'w-full text-left',
+                  canEditScore && 'cursor-pointer hover:scale-110 active:scale-95 transition-transform',
+                  !canEditScore && 'cursor-default'
+                )}
+                aria-label={`Away team score: ${scoreboard.awayScore}${canEditScore ? '. Tap to edit' : ''}`}
               >
                 {scoreboard.awayScore}
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -343,5 +408,18 @@ export function ScoreboardOverlay({ slug, className, isCollapsed = false, onTogg
         </div>
       </div>
     </div>
+
+      {/* Score Edit Modal */}
+      {editingTeam && scoreboard && (
+        <ScoreEditModal
+          isOpen={true}
+          team={editingTeam}
+          currentScore={editingTeam === 'home' ? scoreboard.homeScore : scoreboard.awayScore}
+          teamName={editingTeam === 'home' ? scoreboard.homeTeamName : scoreboard.awayTeamName}
+          onSave={handleScoreUpdate}
+          onClose={() => setEditingTeam(null)}
+        />
+      )}
+    </>
   );
 }

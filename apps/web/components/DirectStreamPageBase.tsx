@@ -507,6 +507,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               slug={bootstrap?.slug || ''} 
               isCollapsed={scoreboardPanel.isCollapsed}
               onToggle={scoreboardPanel.toggle}
+              canEditScore={viewer.isUnlocked}
             />
           )}
 
