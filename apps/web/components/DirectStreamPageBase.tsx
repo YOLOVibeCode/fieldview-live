@@ -15,7 +15,7 @@
  * - Configurable theming and branding
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
 import Hls from 'hls.js';
 import { MessageCircle, X } from 'lucide-react';
 import { useGameChat } from '@/hooks/useGameChat';
@@ -173,19 +173,26 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [showPaywall, setShowPaywall] = useState(false);
 
   // Collapsible panel state (non-fullscreen mode)
-  // Use stable slug from config or bootstrap once loaded
-  const stableSlug = bootstrap?.slug || config.bootstrapUrl.split('/').pop() || 'default';
+  // Use a stable key derived from bootstrapUrl (constant from first render)
+  // This avoids the timing issue where bootstrap?.slug changes after load
+  const stableKey = useMemo(() => {
+    // Extract a stable identifier from the bootstrapUrl
+    // e.g., /api/public/direct/tchs/events/soccer-20260109-varsity/bootstrap -> tchs-soccer-20260109-varsity
+    // e.g., /api/direct/tchs/bootstrap -> tchs
+    const parts = config.bootstrapUrl.split('/').filter(p => p && p !== 'api' && p !== 'public' && p !== 'direct' && p !== 'events' && p !== 'bootstrap');
+    return parts.join('-') || 'default';
+  }, [config.bootstrapUrl]);
   
   const scoreboardPanel = useCollapsiblePanel({
     edge: 'left',
     defaultCollapsed: true, // Collapsed by default
-    storageKey: `scoreboard-collapsed-${stableSlug}`,
+    storageKey: `scoreboard-collapsed-${stableKey}`,
   });
 
   const chatPanel = useCollapsiblePanel({
     edge: 'right',
     defaultCollapsed: true, // Collapsed by default
-    storageKey: `chat-collapsed-${stableSlug}`, // Per-page storage
+    storageKey: `chat-collapsed-${stableKey}`, // Per-page storage
   });
 
   const ChatOverlayComponent = config.ChatOverlayComponent || FullscreenChatOverlay;
