@@ -37,8 +37,8 @@ export default function CompleteDemoPage() {
   const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const chatPanel = useCollapsiblePanel('demo-chat', false);
-  const scoreboardPanel = useCollapsiblePanel('demo-scoreboard', false);
+  const chatPanel = useCollapsiblePanel({ edge: 'right', defaultCollapsed: false, storageKey: 'demo-chat' });
+  const scoreboardPanel = useCollapsiblePanel({ edge: 'left', defaultCollapsed: false, storageKey: 'demo-scoreboard' });
 
   // Load demo using TCHS stream
   useEffect(() => {
