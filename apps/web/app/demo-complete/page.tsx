@@ -126,12 +126,42 @@ export default function CompleteDemoPage() {
   if (!viewer.isUnlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 p-4">
-        <div className="max-w-md w-full">
-          <div className="text-center mb-8">
+        <div className="max-w-md w-full space-y-6">
+          <div className="text-center">
             <div className="text-6xl mb-4">🎬</div>
             <h1 className="text-4xl font-bold text-white mb-2">Complete Feature Demo</h1>
             <p className="text-white/80">Test ALL features in one place!</p>
           </div>
+
+          {/* Demo Credentials Info Box */}
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">💡</div>
+              <div className="flex-1">
+                <h3 className="text-white font-semibold text-lg mb-2">Quick Test Credentials</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="bg-black/30 rounded-lg p-3 font-mono text-white/90">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-white/60">Email:</span>
+                      <span className="font-semibold">demo@test.com</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-white/60">First Name:</span>
+                      <span className="font-semibold">Demo</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-white/60">Last Name:</span>
+                      <span className="font-semibold">Tester</span>
+                    </div>
+                  </div>
+                  <p className="text-white/70 text-xs">
+                    ✨ Just copy these values into the form below, or use your own!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <ViewerUnlockForm
             onUnlock={viewer.unlock}
             isLoading={viewer.isLoading}
@@ -139,6 +169,14 @@ export default function CompleteDemoPage() {
             title="Register to Access Demo"
             description="Enter your email to test chat, scoreboard, and all features"
           />
+
+          {/* Multi-user Testing Tip */}
+          <div className="bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-lg p-3">
+            <p className="text-white text-xs text-center">
+              <strong>🚀 Pro Tip:</strong> Open this page in multiple browsers with different emails 
+              (demo1@test.com, demo2@test.com, etc.) to test real-time chat sync!
+            </p>
+          </div>
         </div>
       </div>
     );
