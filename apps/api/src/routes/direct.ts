@@ -118,17 +118,25 @@ router.get(
           // Hash a default admin password (admin2026)
           const defaultHashedPassword = await bcrypt.hash('admin2026', 10);
 
+          // Special configuration for e2e-test demo stream
+          const isE2ETest = key === 'e2e-test';
+
           // Create DirectStream record
           directStream = await prisma.directStream.create({
             data: {
               slug: key,
-              title: `Direct Stream: ${slug}`,
+              title: isE2ETest ? 'E2E Test Demo Stream' : `Direct Stream: ${slug}`,
               ownerAccountId: defaultOwner.id,  // 🆕 Required field
               adminPassword: defaultHashedPassword,
               gameId,
               chatEnabled: true,
               paywallEnabled: false,
               priceInCents: 0,
+              scoreboardEnabled: isE2ETest ? true : false, // Enable scoreboard for e2e-test
+              scoreboardHomeTeam: isE2ETest ? 'Demo Home' : null,
+              scoreboardAwayTeam: isE2ETest ? 'Demo Away' : null,
+              scoreboardHomeColor: isE2ETest ? '#3B82F6' : null,
+              scoreboardAwayColor: isE2ETest ? '#EF4444' : null,
             },
             include: { game: true },
           });

@@ -24,6 +24,7 @@ import { MobileControlBar } from '@/components/MobileControlBar';
 import { GameChatPanel } from '@/components/GameChatPanel';
 import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { isTouchDevice } from '@/lib/utils/device-detection';
+import { hashSlugSync } from '@/lib/hashSlug';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -39,26 +40,22 @@ export default function CompleteDemoPage() {
   const chatPanel = useCollapsiblePanel('demo-chat', false);
   const scoreboardPanel = useCollapsiblePanel('demo-scoreboard', false);
 
-  // Load test game
+  // Load demo using TCHS stream
   useEffect(() => {
-    async function loadTestGame() {
+    async function loadDemoGame() {
       try {
-        const response = await fetch(`${API_URL}/api/direct/e2e-test/bootstrap`);
-        const data = await response.json();
-        
-        if (data.gameId) {
-          setGameId(data.gameId);
-        } else {
-          setError('No game available for testing. Please ensure owner account and direct stream exist.');
-        }
+        // Use TCHS stream for demo - it has all features enabled
+        // This generates a consistent game ID based on the slug
+        const demoGameId = hashSlugSync('tchs');
+        setGameId(demoGameId);
+        setLoading(false);
       } catch (err) {
-        setError(`Failed to load test game: ${err}`);
-      } finally {
+        setError(`Failed to initialize demo: ${err}`);
         setLoading(false);
       }
     }
 
-    loadTestGame();
+    loadDemoGame();
   }, []);
 
   // Fullscreen API handlers
@@ -114,13 +111,11 @@ export default function CompleteDemoPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <div className="text-center space-y-4 max-w-2xl">
           <div className="text-6xl">⚠️</div>
-          <h1 className="text-3xl font-bold text-red-500">Test Setup Error</h1>
+          <h1 className="text-3xl font-bold text-red-500">Demo Initialization Error</h1>
           <p className="text-gray-300 text-lg">{error}</p>
           <div className="bg-gray-800 rounded-lg p-6 text-left">
-            <p className="text-white font-semibold mb-2">To fix this:</p>
-            <code className="block bg-black text-green-400 p-4 rounded font-mono text-sm">
-              cd apps/api && pnpm db:seed
-            </code>
+            <p className="text-white font-semibold mb-2">This demo uses the TCHS stream for testing.</p>
+            <p className="text-gray-400 text-sm">Make sure the TCHS stream is configured in the database.</p>
           </div>
         </div>
       </div>
