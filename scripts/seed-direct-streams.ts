@@ -32,10 +32,10 @@ const directStreams = [
     listed: true,
     sendReminders: true,
     reminderMinutes: 5,
-    scoreboardHomeTeam: null,
-    scoreboardAwayTeam: null,
-    scoreboardHomeColor: null,
-    scoreboardAwayColor: null,
+    scoreboardHomeTeam: 'Twin Cities',
+    scoreboardAwayTeam: 'Opponent',
+    scoreboardHomeColor: '#1E3A8A', // Dark blue
+    scoreboardAwayColor: '#DC2626', // Red
   },
   {
     slug: 'stormfc',
@@ -55,9 +55,9 @@ const directStreams = [
     sendReminders: true,
     reminderMinutes: 5,
     scoreboardHomeTeam: 'Storm FC',
-    scoreboardAwayTeam: null,
-    scoreboardHomeColor: '#1E3A8A', // Dark blue
-    scoreboardAwayColor: null,
+    scoreboardAwayTeam: 'Opponent',
+    scoreboardHomeColor: '#1E40AF', // Dark blue
+    scoreboardAwayColor: '#DC2626', // Red
   },
   // TCHS Sub-streams by sport
   {
@@ -78,9 +78,9 @@ const directStreams = [
     sendReminders: true,
     reminderMinutes: 5,
     scoreboardHomeTeam: 'TCHS',
-    scoreboardAwayTeam: null,
+    scoreboardAwayTeam: 'Opponent',
     scoreboardHomeColor: '#1E40AF', // Blue
-    scoreboardAwayColor: null,
+    scoreboardAwayColor: '#DC2626', // Red
   },
   {
     slug: 'tchs-basketball',
@@ -100,9 +100,9 @@ const directStreams = [
     sendReminders: true,
     reminderMinutes: 5,
     scoreboardHomeTeam: 'TCHS',
-    scoreboardAwayTeam: null,
+    scoreboardAwayTeam: 'Opponent',
     scoreboardHomeColor: '#1E40AF', // Blue
-    scoreboardAwayColor: null,
+    scoreboardAwayColor: '#DC2626', // Red
   },
   {
     slug: 'tchs-football',
@@ -122,9 +122,9 @@ const directStreams = [
     sendReminders: true,
     reminderMinutes: 5,
     scoreboardHomeTeam: 'TCHS',
-    scoreboardAwayTeam: null,
+    scoreboardAwayTeam: 'Opponent',
     scoreboardHomeColor: '#1E40AF', // Blue
-    scoreboardAwayColor: null,
+    scoreboardAwayColor: '#DC2626', // Red
   },
 ];
 

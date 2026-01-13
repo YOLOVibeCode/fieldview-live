@@ -5,21 +5,25 @@
  * 
  * Tests ALL features in one place:
  * - Chat (with email verification)
- * - Scoreboard (tap-to-edit)
- * - Collapsible panels
- * - Draggable panels in fullscreen
- * - Mobile responsive
+ * - Scoreboard (tap-to-edit with collapsible, draggable)
+ * - Fullscreen mode
+ * - Mobile responsive controls
  * - Translucent overlays
  * 
  * If it works here, it works everywhere!
+ * This uses the EXACT same components as DirectStreamPageBase.
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useGameChat } from '@/hooks/useGameChat';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
-import { CollapsibleScoreboard } from '@/components/CollapsibleScoreboard';
-import { CollapsibleChat } from '@/components/CollapsibleChat';
+import { FullscreenChatOverlay } from '@/components/FullscreenChatOverlay';
+import { CollapsibleScoreboardOverlay } from '@/components/CollapsibleScoreboardOverlay';
+import { MobileControlBar } from '@/components/MobileControlBar';
+import { GameChatPanel } from '@/components/GameChatPanel';
+import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
+import { isTouchDevice } from '@/lib/utils/device-detection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -28,9 +32,12 @@ export default function CompleteDemoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [homeScore, setHomeScore] = useState(0);
-  const [awayScore, setAwayScore] = useState(0);
+  const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
+  const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const chatPanel = useCollapsiblePanel('demo-chat', false);
+  const scoreboardPanel = useCollapsiblePanel('demo-scoreboard', false);
 
   // Load test game
   useEffect(() => {
@@ -42,7 +49,7 @@ export default function CompleteDemoPage() {
         if (data.gameId) {
           setGameId(data.gameId);
         } else {
-          setError('No game available for testing.');
+          setError('No game available for testing. Please ensure owner account and direct stream exist.');
         }
       } catch (err) {
         setError(`Failed to load test game: ${err}`);
@@ -57,37 +64,18 @@ export default function CompleteDemoPage() {
   // Fullscreen API handlers
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const newIsFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(newIsFullscreen);
+      
+      // Show scoreboard by default in fullscreen
+      if (newIsFullscreen) {
+        setIsScoreboardOverlayVisible(true);
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in input fields
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      switch (e.key.toLowerCase()) {
-        case 'f':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'escape':
-          if (isFullscreen) {
-            document.exitFullscreen();
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isFullscreen]);
 
   const toggleFullscreen = async () => {
     if (!containerRef.current) return;
@@ -109,35 +97,6 @@ export default function CompleteDemoPage() {
     viewerToken: viewer.token,
     enabled: viewer.isUnlocked && gameId !== null,
   });
-
-  // Score update handler
-  const handleScoreUpdate = async (team: 'home' | 'away', newScore: number) => {
-    if (!viewer.isUnlocked || !gameId) return;
-
-    try {
-      const response = await fetch(`${API_URL}/api/games/${gameId}/score`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${viewer.token}`,
-        },
-        body: JSON.stringify({
-          homeScore: team === 'home' ? newScore : homeScore,
-          awayScore: team === 'away' ? newScore : awayScore,
-        }),
-      });
-
-      if (response.ok) {
-        if (team === 'home') {
-          setHomeScore(newScore);
-        } else {
-          setAwayScore(newScore);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update score:', err);
-    }
-  };
 
   if (loading) {
     return (
@@ -201,58 +160,58 @@ export default function CompleteDemoPage() {
         <div className="relative w-full h-full bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 animate-gradient-xy">
           {/* Field overlay */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-8 p-8">
+            <div className="text-center space-y-8 p-4 md:p-8 max-w-5xl">
               <div className="space-y-4">
-                <h1 className="text-6xl md:text-8xl font-bold text-white drop-shadow-2xl">
-                  🏈 Demo Game
+                <h1 className="text-4xl md:text-6xl lg:text-8xl font-bold text-white drop-shadow-2xl">
+                  ⚽ Live Demo Game
                 </h1>
-                <p className="text-2xl md:text-3xl text-white/90 drop-shadow-lg">
+                <p className="text-xl md:text-2xl lg:text-3xl text-white/90 drop-shadow-lg">
                   Complete Feature Test
                 </p>
               </div>
 
-              <div className="bg-black/40 backdrop-blur-md rounded-2xl p-6 md:p-8 max-w-3xl mx-auto space-y-6">
+              <div className="bg-black/40 backdrop-blur-md rounded-2xl p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
                 {/* Features list */}
                 <div className="text-white space-y-4">
-                  <p className="text-xl font-semibold">✨ Testing All Features:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left text-sm md:text-base">
+                  <p className="text-lg md:text-xl font-semibold">✨ Testing All Features:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 text-left text-sm md:text-base">
                     <div className="bg-white/10 rounded-lg p-3">
                       <span className="font-semibold">💬 Chat</span>
-                      <p className="text-white/70 text-sm">Real-time messaging</p>
+                      <p className="text-white/70 text-xs md:text-sm">Real-time messaging</p>
                     </div>
                     <div className="bg-white/10 rounded-lg p-3">
                       <span className="font-semibold">📊 Scoreboard</span>
-                      <p className="text-white/70 text-sm">Tap to edit scores</p>
+                      <p className="text-white/70 text-xs md:text-sm">Tap-to-edit scores</p>
                     </div>
                     <div className="bg-white/10 rounded-lg p-3">
-                      <span className="font-semibold">🔽 Collapsible</span>
-                      <p className="text-white/70 text-sm">Hide to edges</p>
+                      <span className="font-semibold">🎯 Collapsible</span>
+                      <p className="text-white/70 text-xs md:text-sm">Hide/show panels</p>
                     </div>
                     <div className="bg-white/10 rounded-lg p-3">
-                      <span className="font-semibold">🎯 Draggable</span>
-                      <p className="text-white/70 text-sm">Move panels around</p>
+                      <span className="font-semibold">🖐️ Draggable</span>
+                      <p className="text-white/70 text-xs md:text-sm">Move panels around</p>
                     </div>
                     <div className="bg-white/10 rounded-lg p-3">
                       <span className="font-semibold">📱 Mobile</span>
-                      <p className="text-white/70 text-sm">Touch-friendly</p>
+                      <p className="text-white/70 text-xs md:text-sm">Touch-friendly controls</p>
                     </div>
                     <div className="bg-white/10 rounded-lg p-3">
-                      <span className="font-semibold">✨ Translucent</span>
-                      <p className="text-white/70 text-sm">See-through overlays</p>
+                      <span className="font-semibold">💎 Translucent</span>
+                      <p className="text-white/70 text-xs md:text-sm">See-through overlays</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Keyboard shortcuts */}
                 <div className="pt-4 border-t border-white/20">
-                  <p className="text-white font-semibold mb-3">⌨️ Keyboard Shortcuts:</p>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    <div className="bg-white/10 rounded-lg px-4 py-2">
-                      <kbd className="px-3 py-1 bg-purple-600 rounded text-white font-mono font-bold">F</kbd>
+                  <p className="text-white font-semibold mb-3 text-sm md:text-base">⌨️ Keyboard Shortcuts:</p>
+                  <div className="flex flex-wrap gap-2 md:gap-3 justify-center text-xs md:text-sm">
+                    <div className="bg-white/10 rounded-lg px-3 py-2">
+                      <kbd className="px-2 md:px-3 py-1 bg-purple-600 rounded text-white font-mono font-bold">F</kbd>
                       <span className="ml-2 text-white/90">Fullscreen</span>
                     </div>
-                    <div className="bg-white/10 rounded-lg px-4 py-2">
-                      <kbd className="px-3 py-1 bg-red-600 rounded text-white font-mono font-bold">ESC</kbd>
+                    <div className="bg-white/10 rounded-lg px-3 py-2">
+                      <kbd className="px-2 md:px-3 py-1 bg-red-600 rounded text-white font-mono font-bold">ESC</kbd>
                       <span className="ml-2 text-white/90">Exit</span>
                     </div>
                   </div>
@@ -262,37 +221,51 @@ export default function CompleteDemoPage() {
                 <div className="flex flex-wrap gap-3 justify-center pt-4">
                   <button
                     onClick={toggleFullscreen}
-                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors shadow-lg"
+                    className="px-4 md:px-6 py-2 md:py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors shadow-lg text-sm md:text-base"
                     data-testid="btn-toggle-fullscreen"
                   >
                     {isFullscreen ? '🗗 Exit Fullscreen' : '🗖 Go Fullscreen'}
                   </button>
+                  {!isFullscreen && (
+                    <>
+                      <button
+                        onClick={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
+                        className="px-4 md:px-6 py-2 md:py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg text-sm md:text-base"
+                        data-testid="btn-toggle-chat"
+                      >
+                        {isChatOverlayVisible ? '💬 Hide Chat' : '💬 Show Chat'}
+                      </button>
+                      <button
+                        onClick={() => setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible)}
+                        className="px-4 md:px-6 py-2 md:py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors shadow-lg text-sm md:text-base"
+                        data-testid="btn-toggle-scoreboard"
+                      >
+                        {isScoreboardOverlayVisible ? '📊 Hide Scoreboard' : '📊 Show Scoreboard'}
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Connection info */}
                 <div className="pt-4 border-t border-white/20">
-                  <div className="flex flex-wrap items-center justify-center gap-4 text-white/70 text-sm">
+                  <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 text-white/70 text-xs md:text-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                      <span>Game: {gameId?.slice(0, 8)}...</span>
+                      <span className="font-mono">{gameId?.slice(0, 8)}...</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                       <span>{chat.messages.length} messages</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                      <span>Score: {homeScore}-{awayScore}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Instructions */}
-              <div className="bg-blue-600/20 backdrop-blur-sm border-2 border-blue-400/50 rounded-xl p-4 max-w-2xl mx-auto">
-                <p className="text-white text-sm md:text-base">
+              <div className="bg-blue-600/20 backdrop-blur-sm border-2 border-blue-400/50 rounded-xl p-3 md:p-4">
+                <p className="text-white text-xs md:text-sm lg:text-base">
                   <strong>💡 Tip:</strong> Open this page in multiple browser windows or devices 
-                  to test real-time chat sync. Tap scores to edit them!
+                  to test real-time chat sync. In fullscreen, click scores to edit them!
                 </p>
               </div>
             </div>
@@ -300,71 +273,62 @@ export default function CompleteDemoPage() {
         </div>
       </div>
 
-      {/* Collapsible Scoreboard (top-left) */}
-      {isFullscreen && (
-        <CollapsibleScoreboard
-          homeTeam="Demo Home"
-          awayTeam="Demo Away"
-          homeScore={homeScore}
-          awayScore={awayScore}
-          homeColor="#3B82F6"
-          awayColor="#EF4444"
-          onScoreUpdate={handleScoreUpdate}
-          canEdit={viewer.isUnlocked}
+      {/* Fullscreen Scoreboard Overlay */}
+      {isFullscreen && isScoreboardOverlayVisible && gameId && (
+        <CollapsibleScoreboardOverlay
+          gameId={gameId}
+          isOpen={!scoreboardPanel.isCollapsed}
+          onToggle={scoreboardPanel.toggle}
+          viewerToken={viewer.token || ''}
         />
       )}
 
-      {/* Collapsible Chat (right side) */}
-      {isFullscreen && (
-        <CollapsibleChat
+      {/* Fullscreen Chat Overlay */}
+      {isFullscreen && isChatOverlayVisible && (
+        <FullscreenChatOverlay
           chat={chat}
-          viewerName={viewer.firstName || viewer.email || 'Viewer'}
+          isOpen={!chatPanel.isCollapsed}
+          onToggle={chatPanel.toggle}
+          viewerName={viewer.firstName || viewer.email || 'Anonymous'}
         />
       )}
 
-      {/* Desktop view (non-fullscreen) */}
-      {!isFullscreen && (
-        <div className="relative z-10 container mx-auto p-4 md:p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Scoreboard panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm rounded-lg p-6 space-y-4">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <span>📊</span> Scoreboard Demo
-              </h2>
-              <div className="bg-gray-900 rounded-lg p-6">
-                <CollapsibleScoreboard
-                  homeTeam="Demo Home"
-                  awayTeam="Demo Away"
-                  homeScore={homeScore}
-                  awayScore={awayScore}
-                  homeColor="#3B82F6"
-                  awayColor="#EF4444"
-                  onScoreUpdate={handleScoreUpdate}
-                  canEdit={viewer.isUnlocked}
-                />
+      {/* Desktop view - Side-by-side chat panel (non-fullscreen) */}
+      {!isFullscreen && isChatOverlayVisible && (
+        <div className="fixed right-4 top-4 bottom-4 w-80 md:w-96 z-30">
+          <div className="h-full bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700 shadow-2xl overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800/50">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <span>💬</span>
+                  <span>Live Chat</span>
+                  <span className="text-xs text-gray-400">({chat.messages.length})</span>
+                </h3>
+                <button
+                  onClick={() => setIsChatOverlayVisible(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  aria-label="Close chat"
+                >
+                  <span className="text-xl">×</span>
+                </button>
               </div>
-              <p className="text-white/70 text-sm">
-                Tap the scores to edit them. Updates are sent in real-time.
-              </p>
-            </div>
-
-            {/* Chat panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm rounded-lg p-6 space-y-4">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <span>💬</span> Chat Demo
-              </h2>
-              <div className="h-[500px]">
-                <CollapsibleChat
-                  chat={chat}
-                  viewerName={viewer.firstName || viewer.email || 'Viewer'}
-                />
+              <div className="flex-1 overflow-hidden">
+                <GameChatPanel chat={chat} className="h-full" />
               </div>
-              <p className="text-white/70 text-sm">
-                Messages sync in real-time. Open in multiple windows to test!
-              </p>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mobile Control Bar (fullscreen only) */}
+      {isFullscreen && isTouchDevice() && (
+        <MobileControlBar
+          onToggleFullscreen={toggleFullscreen}
+          onToggleChat={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
+          onToggleScoreboard={() => setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible)}
+          isChatVisible={isChatOverlayVisible}
+          isScoreboardVisible={isScoreboardOverlayVisible}
+        />
       )}
 
       <style jsx global>{`
@@ -384,4 +348,3 @@ export default function CompleteDemoPage() {
     </div>
   );
 }
-
