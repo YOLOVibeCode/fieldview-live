@@ -35,7 +35,12 @@ interface UnlockData {
   lastName: string;
 }
 
-export function useViewerIdentity({ gameId }: { gameId: string | null }) {
+interface UseViewerIdentityProps {
+  gameId: string | null;
+  slug?: string; // For direct streams
+}
+
+export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,8 +67,9 @@ export function useViewerIdentity({ gameId }: { gameId: string | null }) {
   }, [gameId]);
 
   const unlock = useCallback(async (data: UnlockData) => {
-    if (!gameId) {
-      setError('No game available');
+    // Require either gameId or slug to proceed
+    if (!gameId && !slug) {
+      setError('No game or stream available');
       return;
     }
 
@@ -71,7 +77,12 @@ export function useViewerIdentity({ gameId }: { gameId: string | null }) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/public/games/${gameId}/viewer/unlock`, {
+      // Use direct stream endpoint if slug is provided, otherwise use game endpoint
+      const endpoint = slug 
+        ? `${API_URL}/api/public/direct/${slug}/viewer/unlock`
+        : `${API_URL}/api/public/games/${gameId}/viewer/unlock`;
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -89,11 +100,11 @@ export function useViewerIdentity({ gameId }: { gameId: string | null }) {
         throw new Error('No viewer token received');
       }
 
-      // Save to localStorage
+      // Save to localStorage - use gameId if available, otherwise empty string
       const identity: ViewerIdentity = {
         ...data,
         viewerToken,
-        gameId,
+        gameId: gameId || '', // Allow empty string for slug-only streams
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
 
@@ -103,10 +114,12 @@ export function useViewerIdentity({ gameId }: { gameId: string | null }) {
       const message = err instanceof Error ? err.message : 'Failed to unlock stream';
       setError(message);
       console.error('Unlock error:', err);
+      // Re-throw to let the form handle it
+      throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [gameId]);
+  }, [gameId, slug]);
 
   return {
     isUnlocked,

@@ -53,13 +53,34 @@ interface ViewerUnlockFormProps {
 const STORAGE_KEY = 'fieldview_viewer_unlock_draft';
 
 function getSavedData(): Partial<UnlockFormValues> {
-  if (typeof window === 'undefined') return {};
+  if (typeof window === 'undefined') return {
+    email: '',
+    firstName: '',
+    lastName: '',
+  };
   
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Ensure all fields have string values (not undefined)
+      return {
+        email: parsed.email || '',
+        firstName: parsed.firstName || '',
+        lastName: parsed.lastName || '',
+      };
+    }
+    return {
+      email: '',
+      firstName: '',
+      lastName: '',
+    };
   } catch {
-    return {};
+    return {
+      email: '',
+      firstName: '',
+      lastName: '',
+    };
   }
 }
 
@@ -73,6 +94,10 @@ export function ViewerUnlockForm({
   const form = useForm<UnlockFormValues>({
     resolver: zodResolver(unlockSchema),
     defaultValues: getSavedData(),
+    mode: 'onChange', // Validate on change to catch issues early
+    resetOptions: {
+      keepDirtyValues: true, // Keep user input even after errors
+    },
   });
 
   // Auto-save to localStorage
@@ -93,7 +118,9 @@ export function ViewerUnlockForm({
         localStorage.removeItem(STORAGE_KEY);
       }
     } catch (err) {
-      // Error is handled by parent
+      // Error is handled by parent - do NOT reset the form
+      console.error('Registration error:', err);
+      // Form values should stay populated for retry
     }
   };
 
@@ -119,6 +146,8 @@ export function ViewerUnlockForm({
                   <FormControl>
                     <Input
                       data-testid="input-email"
+                      id="email"
+                      name="email"
                       type="email"
                       placeholder="you@example.com"
                       autoComplete="email"
@@ -143,6 +172,8 @@ export function ViewerUnlockForm({
                     <FormControl>
                       <Input
                         data-testid="input-first-name"
+                        id="firstName"
+                        name="firstName"
                         placeholder="John"
                         autoComplete="given-name"
                         className="min-h-[44px] text-base"
@@ -165,6 +196,8 @@ export function ViewerUnlockForm({
                     <FormControl>
                       <Input
                         data-testid="input-last-name"
+                        id="lastName"
+                        name="lastName"
                         placeholder="Doe"
                         autoComplete="family-name"
                         className="min-h-[44px] text-base"

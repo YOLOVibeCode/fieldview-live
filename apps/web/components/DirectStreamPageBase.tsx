@@ -260,7 +260,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Chat integration
   // Use real gameId if available, otherwise generate hash-based temporary gameId
   const effectiveGameId = bootstrap?.gameId || (bootstrap?.slug ? hashSlugSync(bootstrap.slug) : null);
-  const viewer = useViewerIdentity({ gameId: effectiveGameId });
+  const viewer = useViewerIdentity({ 
+    gameId: effectiveGameId,
+    slug: config.slug // Pass slug for direct stream endpoint
+  });
   // Chat is always enabled to show messages, but sending requires unlock
   const chat = useGameChat({
     gameId: effectiveGameId,
@@ -697,8 +700,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           <>
             {/* Collapsed: Right-edge tab */}
             {chatPanel.isCollapsed && (
-              <div
-                data-testid="chat-collapsed-tab"
+              <button
+                type="button"
+                data-testid="btn-expand-chat"
                 className={cn(
                   'fixed right-0 top-1/2 -translate-y-1/2 z-50',
                   'w-12 py-4',
@@ -712,7 +716,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   'flex flex-col items-center gap-2'
                 )}
                 onClick={chatPanel.toggle}
-                role="button"
                 aria-label="Expand chat"
               >
                 <div className="text-white/80 text-xs font-bold">←</div>
@@ -728,7 +731,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 {chat.isConnected && (
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 )}
-              </div>
+              </button>
             )}
 
             {/* Expanded Chat Panel */}

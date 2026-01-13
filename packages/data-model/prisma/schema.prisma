@@ -8,153 +8,156 @@ datasource db {
 }
 
 model OwnerAccount {
-  id                      String   @id @default(uuid()) @db.Uuid
-  type                    String   // 'owner' | 'association'
-  name                    String
-  status                  String   // 'active' | 'suspended' | 'pending_verification'
-  contactEmail            String
-  payoutProviderRef       String?  // Square merchant_id
-  squareAccessTokenEncrypted String?  // Encrypted Square OAuth access_token
+  id                          String    @id @default(uuid()) @db.Uuid
+  type                        String // 'owner' | 'association'
+  name                        String
+  status                      String // 'active' | 'suspended' | 'pending_verification'
+  contactEmail                String
+  payoutProviderRef           String? // Square merchant_id
+  squareAccessTokenEncrypted  String? // Encrypted Square OAuth access_token
   squareRefreshTokenEncrypted String? // Encrypted Square OAuth refresh_token
-  squareTokenExpiresAt    DateTime? // When access_token expires
-  squareLocationId        String?  // Owner (seller) Square location ID for marketplace payments
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-  
-  games                   Game[]
-  users                   OwnerUser[]
-  ledgerEntries           LedgerEntry[]
-  payouts                 Payout[]
-  organizations           Organization[]
-  viewerSquareCustomers   ViewerSquareCustomer[]
-  directStreams           DirectStream[]  // 🆕 Relation for DirectStream paywall revenue
-  
+  squareTokenExpiresAt        DateTime? // When access_token expires
+  squareLocationId            String? // Owner (seller) Square location ID for marketplace payments
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  games                 Game[]
+  users                 OwnerUser[]
+  ledgerEntries         LedgerEntry[]
+  payouts               Payout[]
+  organizations         Organization[]
+  viewerSquareCustomers ViewerSquareCustomer[]
+  directStreams         DirectStream[] // 🆕 Relation for DirectStream paywall revenue
+
   @@index([status])
   @@index([payoutProviderRef])
   @@index([squareLocationId])
 }
 
 model OwnerUser {
-  id            String       @id @default(uuid()) @db.Uuid
-  ownerAccountId String      @db.Uuid
-  email         String
-  passwordHash  String       // bcrypt hashed password
-  role          String       // 'owner_admin' | 'association_admin' | 'association_operator'
-  mfaEnabled    Boolean      @default(false)
-  mfaSecret     String?      // Encrypted TOTP secret
-  status        String       @default("active")
-  createdAt     DateTime     @default(now())
-  lastLoginAt   DateTime?
-  
-  ownerAccount OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+  id                  String    @id @default(uuid()) @db.Uuid
+  ownerAccountId      String    @db.Uuid
+  email               String
+  passwordHash        String // bcrypt hashed password
+  role                String // 'owner_admin' | 'association_admin' | 'association_operator'
+  mfaEnabled          Boolean   @default(false)
+  mfaSecret           String? // Encrypted TOTP secret
+  status              String    @default("active")
+  createdAt           DateTime  @default(now())
+  lastLoginAt         DateTime?
+  lastPasswordResetAt DateTime? // Track last password reset
+  passwordResetCount  Int       @default(0) // Track total resets for security monitoring
+
+  ownerAccount            OwnerAccount         @relation(fields: [ownerAccountId], references: [id])
   organizationMemberships OrganizationMember[]
-  
+
+  @@unique([email])
   @@index([ownerAccountId])
   @@index([email])
-  @@unique([email])
 }
 
 model Game {
-  id            String        @id @default(uuid()) @db.Uuid
-  ownerAccountId String      @db.Uuid
-  title         String
-  homeTeam      String
-  awayTeam      String
-  startsAt      DateTime
-  endsAt        DateTime?
-  state         String        @default("draft") // 'draft' | 'active' | 'live' | 'ended' | 'cancelled'
-  priceCents    Int
-  currency      String        @default("USD")
-  keywordCode   String        @unique
-  keywordStatus String        @default("active") // 'active' | 'disabled' | 'rotated'
-  qrUrl         String
-  streamSourceId String?      @db.Uuid
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  cancelledAt   DateTime?
-  
-  ownerAccount OwnerAccount  @relation(fields: [ownerAccountId], references: [id])
+  id             String    @id @default(uuid()) @db.Uuid
+  ownerAccountId String    @db.Uuid
+  title          String
+  homeTeam       String
+  awayTeam       String
+  startsAt       DateTime
+  endsAt         DateTime?
+  state          String    @default("draft") // 'draft' | 'active' | 'live' | 'ended' | 'cancelled'
+  priceCents     Int
+  currency       String    @default("USD")
+  keywordCode    String    @unique
+  keywordStatus  String    @default("active") // 'active' | 'disabled' | 'rotated'
+  qrUrl          String
+  streamSourceId String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  cancelledAt    DateTime?
+
+  ownerAccount OwnerAccount      @relation(fields: [ownerAccountId], references: [id])
   streamSource StreamSource?
   purchases    Purchase[]
   chatMessages GameChatMessage[]
   directStream DirectStream? // Optional direct stream linkage
-  
+
   @@index([ownerAccountId])
   @@index([keywordCode])
   @@index([state])
 }
 
 model StreamSource {
-  id                String   @id @default(uuid()) @db.Uuid
-  gameId            String   @db.Uuid @unique
-  type              String   // 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed'
-  protectionLevel   String   // 'strong' | 'moderate' | 'best_effort'
-  
+  id              String @id @default(uuid()) @db.Uuid
+  gameId          String @unique @db.Uuid
+  type            String // 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed'
+  protectionLevel String // 'strong' | 'moderate' | 'best_effort'
+
   // Mux-managed
-  muxAssetId        String?
-  muxPlaybackId     String?
-  
+  muxAssetId    String?
+  muxPlaybackId String?
+
   // BYO HLS
-  hlsManifestUrl    String?
-  
+  hlsManifestUrl String?
+
   // BYO RTMP
-  rtmpPublishUrl    String?
-  rtmpStreamKey     String?  // Encrypted
-  
+  rtmpPublishUrl String?
+  rtmpStreamKey  String? // Encrypted
+
   // External embed
-  externalEmbedUrl  String?
-  externalProvider  String?  // 'youtube' | 'twitch' | 'vimeo' | 'other'
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  game              Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  
+  externalEmbedUrl String?
+  externalProvider String? // 'youtube' | 'twitch' | 'vimeo' | 'other'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
   @@index([gameId])
 }
 
 model ViewerIdentity {
-  id              String     @id @default(uuid()) @db.Uuid
-  email           String     @unique
-  phoneE164       String?
-  firstName       String?    // For direct stream unlock + chat display
-  lastName        String?    // For direct stream unlock + chat display
-  smsOptOut       Boolean    @default(false)
-  optOutAt        DateTime?
-  createdAt       DateTime   @default(now())
-  lastSeenAt      DateTime?
-  
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String    @unique
+  phoneE164  String?
+  firstName  String? // For direct stream unlock + chat display
+  lastName   String? // For direct stream unlock + chat display
+  smsOptOut  Boolean   @default(false)
+  optOutAt   DateTime?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+
   // Email notification preferences
-  wantsReminders  Boolean    @default(true)   // Opt-in for stream reminder emails
-  
+  wantsReminders Boolean @default(true) // Opt-in for stream reminder emails
+
   // Email verification (for DirectStream access)
-  emailVerifiedAt DateTime?  // When email was verified
-  
-  purchases       Purchase[]
-  subscriptions  Subscription[]
-  viewerSquareCustomers ViewerSquareCustomer[]
-  chatMessages    GameChatMessage[]
+  emailVerifiedAt DateTime? // When email was verified
+
+  purchases                 Purchase[]
+  subscriptions             Subscription[]
+  viewerSquareCustomers     ViewerSquareCustomer[]
+  chatMessages              GameChatMessage[]
   directStreamRegistrations DirectStreamRegistration[]
-  emailVerificationTokens EmailVerificationToken[]
-  
+  emailVerificationTokens   EmailVerificationToken[]
+  viewerRefreshTokens       ViewerRefreshToken[] // 🆕 Refresh tokens for re-consent
+
   @@index([email])
   @@index([phoneE164])
-  @@index([lastSeenAt])  // For active viewer queries
+  @@index([lastSeenAt]) // For active viewer queries
   @@index([emailVerifiedAt]) // For verified viewer queries
 }
 
 // Per-owner Square customer mapping (required for marketplace Model A + saved cards correctness).
 // IMPORTANT: reference IDs only. No card data is stored in FieldView.
 model ViewerSquareCustomer {
-  id             String       @id @default(uuid()) @db.Uuid
-  ownerAccountId String       @db.Uuid
-  viewerId       String       @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
+  ownerAccountId   String   @db.Uuid
+  viewerId         String   @db.Uuid
   squareCustomerId String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  viewer         ViewerIdentity @relation(fields: [viewerId], references: [id])
+  ownerAccount OwnerAccount   @relation(fields: [ownerAccountId], references: [id])
+  viewer       ViewerIdentity @relation(fields: [viewerId], references: [id])
 
   @@unique([ownerAccountId, viewerId])
   @@index([ownerAccountId])
@@ -163,55 +166,55 @@ model ViewerSquareCustomer {
 }
 
 model Purchase {
-  id                      String     @id @default(uuid()) @db.Uuid
-  gameId                  String?    @db.Uuid  // Made optional
-  channelId               String?    @db.Uuid  // Added for watch-link purchases
-  eventId                 String?    @db.Uuid  // Added for event-scoped purchases
-  directStreamId          String?    @db.Uuid  // 🆕 For DirectStream paywall purchases
-  viewerId                String     @db.Uuid
-  amountCents             Int
-  currency                String     @default("USD")
-  platformFeeCents        Int
-  processorFeeCents       Int
-  ownerNetCents           Int
-  status                  String     // 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
-  paymentProviderPaymentId String?
+  id                        String  @id @default(uuid()) @db.Uuid
+  gameId                    String? @db.Uuid // Made optional
+  channelId                 String? @db.Uuid // Added for watch-link purchases
+  eventId                   String? @db.Uuid // Added for event-scoped purchases
+  directStreamId            String? @db.Uuid // 🆕 For DirectStream paywall purchases
+  viewerId                  String  @db.Uuid
+  amountCents               Int
+  currency                  String  @default("USD")
+  platformFeeCents          Int
+  processorFeeCents         Int
+  ownerNetCents             Int
+  status                    String // 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
+  paymentProviderPaymentId  String?
   paymentProviderCustomerId String?
 
   // Coupon discount
-  couponCodeId            String?    @db.Uuid
-  discountCents           Int        @default(0)
-  
+  couponCodeId  String? @db.Uuid
+  discountCents Int     @default(0)
+
   // Saved payment info (for display only, no sensitive data)
-  savePaymentMethod       Boolean    @default(false)  // User opted to save
-  squareCardId            String?    // Square card_id reference
-  cardLastFour            String?    // Last 4 digits for display
-  cardBrand               String?    // Visa, Mastercard, etc.
+  savePaymentMethod Boolean @default(false) // User opted to save
+  squareCardId      String? // Square card_id reference
+  cardLastFour      String? // Last 4 digits for display
+  cardBrand         String? // Visa, Mastercard, etc.
 
   // Payout recipient tracking (for admin visibility)
-  recipientOwnerAccountId String?    @db.Uuid
-  recipientType           String?    // 'personal' | 'organization'
-  recipientOrganizationId String?    @db.Uuid
+  recipientOwnerAccountId String? @db.Uuid
+  recipientType           String? // 'personal' | 'organization'
+  recipientOrganizationId String? @db.Uuid
 
-  createdAt               DateTime   @default(now())
-  paidAt                  DateTime?
-  failedAt                DateTime?
-  refundedAt              DateTime?
+  createdAt  DateTime  @default(now())
+  paidAt     DateTime?
+  failedAt   DateTime?
+  refundedAt DateTime?
 
-  game                    Game?       @relation(fields: [gameId], references: [id])
-  channel                 WatchChannel? @relation(fields: [channelId], references: [id])
-  event                   Event?       @relation(fields: [eventId], references: [id])
-  directStream            DirectStream? @relation(fields: [directStreamId], references: [id])  // 🆕
-  viewer                  ViewerIdentity @relation(fields: [viewerId], references: [id])
-  couponCode              CouponCode? @relation(fields: [couponCodeId], references: [id])
-  entitlement             Entitlement?
-  paymentAttempts         PaymentAttempt[]
-  refunds                 Refund[]
+  game            Game?            @relation(fields: [gameId], references: [id])
+  channel         WatchChannel?    @relation(fields: [channelId], references: [id])
+  event           Event?           @relation(fields: [eventId], references: [id])
+  directStream    DirectStream?    @relation(fields: [directStreamId], references: [id]) // 🆕
+  viewer          ViewerIdentity   @relation(fields: [viewerId], references: [id])
+  couponCode      CouponCode?      @relation(fields: [couponCodeId], references: [id])
+  entitlement     Entitlement?
+  paymentAttempts PaymentAttempt[]
+  refunds         Refund[]
 
   @@index([gameId])
   @@index([channelId])
   @@index([eventId])
-  @@index([directStreamId])  // 🆕
+  @@index([directStreamId]) // 🆕
   @@index([viewerId])
   @@index([status])
   @@index([recipientOwnerAccountId])
@@ -220,161 +223,164 @@ model Purchase {
 }
 
 model Entitlement {
-  id          String     @id @default(uuid()) @db.Uuid
-  purchaseId  String     @db.Uuid @unique
-  tokenId     String     @unique // Hash of token claims
-  validFrom   DateTime
-  validTo     DateTime
-  status      String     @default("active") // 'active' | 'expired' | 'revoked'
-  createdAt   DateTime   @default(now())
-  revokedAt   DateTime?
-  
-  purchase    Purchase   @relation(fields: [purchaseId], references: [id])
-  sessions    PlaybackSession[]
-  
+  id         String    @id @default(uuid()) @db.Uuid
+  purchaseId String    @unique @db.Uuid
+  tokenId    String    @unique // Hash of token claims
+  validFrom  DateTime
+  validTo    DateTime
+  status     String    @default("active") // 'active' | 'expired' | 'revoked'
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  purchase Purchase          @relation(fields: [purchaseId], references: [id])
+  sessions PlaybackSession[]
+
   @@index([purchaseId])
   @@index([tokenId])
 }
 
 model PlaybackSession {
-  id              String     @id @default(uuid()) @db.Uuid
-  entitlementId   String     @db.Uuid
-  startedAt       DateTime   @default(now())
-  endedAt         DateTime?
-  deviceHash      String?
-  ipHash          String?
-  userAgent       String?
-  state           String     @default("started") // 'started' | 'ended' | 'error'
-  
+  id            String    @id @default(uuid()) @db.Uuid
+  entitlementId String    @db.Uuid
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  deviceHash    String?
+  ipHash        String?
+  userAgent     String?
+  state         String    @default("started") // 'started' | 'ended' | 'error'
+
   // Telemetry summary
-  totalWatchMs    Int        @default(0)
-  totalBufferMs   Int        @default(0)
-  bufferEvents    Int        @default(0)
-  fatalErrors     Int        @default(0)
+  totalWatchMs     Int  @default(0)
+  totalBufferMs    Int  @default(0)
+  bufferEvents     Int  @default(0)
+  fatalErrors      Int  @default(0)
   startupLatencyMs Int?
-  
-  entitlement     Entitlement @relation(fields: [entitlementId], references: [id])
-  
+
+  entitlement Entitlement @relation(fields: [entitlementId], references: [id])
+
   @@index([entitlementId])
 }
 
 model Refund {
-  id              String     @id @default(uuid()) @db.Uuid
-  purchaseId      String     @db.Uuid
-  amountCents     Int
-  reasonCode      String     // 'buffer_ratio_high' | 'buffer_ratio_medium' | 'excessive_buffering' | 'fatal_error' | 'manual'
-  issuedBy        String     // 'auto' | 'admin' | 'superadmin'
-  ruleVersion     String     // Refund rule version applied
-  telemetrySummary Json      // JSON snapshot of telemetry inputs
-  createdAt       DateTime   @default(now())
-  processedAt     DateTime?
-  
-  purchase        Purchase   @relation(fields: [purchaseId], references: [id])
-  
+  id               String    @id @default(uuid()) @db.Uuid
+  purchaseId       String    @db.Uuid
+  amountCents      Int
+  reasonCode       String // 'buffer_ratio_high' | 'buffer_ratio_medium' | 'excessive_buffering' | 'fatal_error' | 'manual'
+  issuedBy         String // 'auto' | 'admin' | 'superadmin'
+  ruleVersion      String // Refund rule version applied
+  telemetrySummary Json // JSON snapshot of telemetry inputs
+  createdAt        DateTime  @default(now())
+  processedAt      DateTime?
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id])
+
   @@index([purchaseId])
 }
 
 model LedgerEntry {
-  id            String     @id @default(uuid()) @db.Uuid
-  ownerAccountId String    @db.Uuid
-  type          String     // 'charge' | 'platform_fee' | 'processor_fee' | 'refund' | 'payout'
-  amountCents   Int        // Positive for credits, negative for debits
-  currency      String     @default("USD")
-  referenceType String     // 'purchase' | 'refund' | 'payout'
-  referenceId   String?
-  description   String
-  createdAt     DateTime   @default(now())
-  
-  ownerAccount  OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  
+  id             String   @id @default(uuid()) @db.Uuid
+  ownerAccountId String   @db.Uuid
+  type           String // 'charge' | 'platform_fee' | 'processor_fee' | 'refund' | 'payout'
+  amountCents    Int // Positive for credits, negative for debits
+  currency       String   @default("USD")
+  referenceType  String // 'purchase' | 'refund' | 'payout'
+  referenceId    String?
+  description    String
+  createdAt      DateTime @default(now())
+
+  ownerAccount OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+
   @@index([ownerAccountId])
   @@index([referenceType, referenceId])
 }
 
 model GameChatMessage {
-  id          String     @id @default(uuid()) @db.Uuid
-  gameId      String     @db.Uuid
-  viewerId    String     @db.Uuid
-  displayName String     // e.g., "First L." for privacy
-  message     String     // 1-240 chars
-  createdAt   DateTime   @default(now())
-  
+  id          String   @id @default(uuid()) @db.Uuid
+  gameId      String   @db.Uuid
+  viewerId    String   @db.Uuid
+  displayName String // e.g., "First L." for privacy
+  message     String // 1-240 chars
+  createdAt   DateTime @default(now())
+
   // 🆕 Direct stream reference for chat preservation
-  directStreamId String?  @db.Uuid
-  
-  game        Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  viewer      ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
-  directStream DirectStream? @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
-  
+  directStreamId String? @db.Uuid
+
+  game         Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  viewer       ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  directStream DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
+
   @@index([gameId])
   @@index([viewerId])
   @@index([directStreamId])
 }
 
 model Payout {
-  id              String     @id @default(uuid()) @db.Uuid
-  ownerAccountId  String     @db.Uuid
-  amountCents     Int
-  currency         String     @default("USD")
-  status           String     // 'pending' | 'processing' | 'completed' | 'failed'
-  payoutProviderRef String?    // Square transfer ID
-  ledgerEntryIds   String[]   // Array of ledger entry IDs
-  createdAt        DateTime   @default(now())
-  processedAt      DateTime?
-  completedAt      DateTime?
-  
-  ownerAccount     OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  
+  id                String    @id @default(uuid()) @db.Uuid
+  ownerAccountId    String    @db.Uuid
+  amountCents       Int
+  currency          String    @default("USD")
+  status            String // 'pending' | 'processing' | 'completed' | 'failed'
+  payoutProviderRef String? // Square transfer ID
+  ledgerEntryIds    String[] // Array of ledger entry IDs
+  createdAt         DateTime  @default(now())
+  processedAt       DateTime?
+  completedAt       DateTime?
+
+  ownerAccount OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+
   @@index([ownerAccountId])
   @@index([status])
 }
 
 model SMSMessage {
-  id              String     @id @default(uuid()) @db.Uuid
-  direction       String     // 'inbound' | 'outbound'
-  phoneE164       String
-  keywordCode     String?
-  gameId          String?    @db.Uuid
-  messageBody     String
-  status          String     // 'sent' | 'delivered' | 'failed'
+  id                String    @id @default(uuid()) @db.Uuid
+  direction         String // 'inbound' | 'outbound'
+  phoneE164         String
+  keywordCode       String?
+  gameId            String?   @db.Uuid
+  messageBody       String
+  status            String // 'sent' | 'delivered' | 'failed'
   providerMessageId String?
-  createdAt       DateTime   @default(now())
-  deliveredAt     DateTime?
-  
+  createdAt         DateTime  @default(now())
+  deliveredAt       DateTime?
+
   @@index([phoneE164])
   @@index([keywordCode])
 }
 
 model AdminAccount {
-  id            String       @id @default(uuid()) @db.Uuid
-  email         String       @unique
-  passwordHash  String       // bcrypt hashed password
-  role          String       // 'support_admin' | 'super_admin'
-  mfaEnabled    Boolean      @default(false)
-  mfaSecret     String?      // Encrypted TOTP secret
-  status        String       @default("active") // 'active' | 'suspended'
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  lastLoginAt   DateTime?
-  
-  auditLogs     AdminAuditLog[]
-  
+  id                  String    @id @default(uuid()) @db.Uuid
+  email               String    @unique
+  passwordHash        String // bcrypt hashed password
+  role                String // 'support_admin' | 'super_admin'
+  mfaEnabled          Boolean   @default(false)
+  mfaSecret           String? // Encrypted TOTP secret
+  status              String    @default("active") // 'active' | 'suspended'
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  lastLoginAt         DateTime?
+  lastPasswordResetAt DateTime? // Track last password reset
+  passwordResetCount  Int       @default(0) // Track total resets for security monitoring
+  mfaResetRequired    Boolean   @default(false) // Force MFA re-setup after password reset
+
+  auditLogs AdminAuditLog[]
+
   @@index([email])
   @@index([status])
 }
 
 model AdminAuditLog {
-  id              String     @id @default(uuid()) @db.Uuid
-  adminUserId     String     @db.Uuid
-  actionType      String     // 'refund_create' | 'resend_sms' | 'keyword_disable' | 'view_audience' | etc.
-  targetType      String     // 'purchase' | 'game' | 'owner' | 'config' | 'viewer'
+  id              String   @id @default(uuid()) @db.Uuid
+  adminUserId     String   @db.Uuid
+  actionType      String // 'refund_create' | 'resend_sms' | 'keyword_disable' | 'view_audience' | etc.
+  targetType      String // 'purchase' | 'game' | 'owner' | 'config' | 'viewer'
   targetId        String?
   reason          String?
-  requestMetadata Json       // JSON snapshot (redacted)
-  createdAt       DateTime   @default(now())
-  
-  adminAccount    AdminAccount @relation(fields: [adminUserId], references: [id])
-  
+  requestMetadata Json // JSON snapshot (redacted)
+  createdAt       DateTime @default(now())
+
+  adminAccount AdminAccount @relation(fields: [adminUserId], references: [id])
+
   @@index([adminUserId])
   @@index([targetType, targetId])
   @@index([createdAt])
@@ -388,59 +394,59 @@ model Organization {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  channels       WatchChannel[]
-  members        OrganizationMember[]
-  events         Event[]
-  subscriptions  Subscription[]
+  ownerAccount  OwnerAccount         @relation(fields: [ownerAccountId], references: [id])
+  channels      WatchChannel[]
+  members       OrganizationMember[]
+  events        Event[]
+  subscriptions Subscription[]
 
   @@index([ownerAccountId])
   @@index([shortName])
 }
 
 model WatchChannel {
-  id               String   @id @default(uuid()) @db.Uuid
-  organizationId   String   @db.Uuid
+  id               String  @id @default(uuid()) @db.Uuid
+  organizationId   String  @db.Uuid
   teamSlug         String
   displayName      String
-  requireEventCode Boolean  @default(false)
+  requireEventCode Boolean @default(false)
 
   // Access control
-  accessMode       String   @default("public_free")  // 'public_free' | 'pay_per_view'
-  priceCents       Int?
-  currency         String?  @default("USD")
+  accessMode String  @default("public_free") // 'public_free' | 'pay_per_view'
+  priceCents Int?
+  currency   String? @default("USD")
 
   // Current stream mapping (not tied to a Game)
-  streamType       String   // 'mux_playback' | 'byo_hls' | 'external_embed'
+  streamType       String // 'mux_playback' | 'byo_hls' | 'external_embed'
   muxPlaybackId    String?
   hlsManifestUrl   String?
   externalEmbedUrl String?
-  externalProvider String?  // 'youtube' | 'twitch' | 'vimeo' | 'other'
+  externalProvider String? // 'youtube' | 'twitch' | 'vimeo' | 'other'
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  eventCodes       WatchEventCode[]
-  purchases        Purchase[]
-  events           Event[]
-  subscriptions    Subscription[]
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventCodes    WatchEventCode[]
+  purchases     Purchase[]
+  events        Event[]
+  subscriptions Subscription[]
 
   @@unique([organizationId, teamSlug])
   @@index([organizationId])
 }
 
 model WatchEventCode {
-  id          String   @id @default(uuid()) @db.Uuid
-  channelId   String   @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  channelId   String    @db.Uuid
   code        String
-  status      String   @default("active") // 'active' | 'disabled'
+  status      String    @default("active") // 'active' | 'disabled'
   boundIpHash String?
   boundAt     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  channel     WatchChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel WatchChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([channelId, code])
   @@index([channelId])
@@ -448,16 +454,16 @@ model WatchEventCode {
 }
 
 model PaymentAttempt {
-  id              String     @id @default(uuid()) @db.Uuid
-  purchaseId      String     @db.Uuid
-  status          String     // 'created' | 'succeeded' | 'failed'
-  failureReason   String?
-  providerResponse Json      // Provider-specific response
-  createdAt       DateTime   @default(now())
-  completedAt     DateTime?
-  
-  purchase        Purchase   @relation(fields: [purchaseId], references: [id])
-  
+  id               String    @id @default(uuid()) @db.Uuid
+  purchaseId       String    @db.Uuid
+  status           String // 'created' | 'succeeded' | 'failed'
+  failureReason    String?
+  providerResponse Json // Provider-specific response
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id])
+
   @@index([purchaseId])
 }
 
@@ -465,12 +471,12 @@ model OrganizationMember {
   id             String   @id @default(uuid()) @db.Uuid
   ownerUserId    String   @db.Uuid
   organizationId String   @db.Uuid
-  role           String   // 'org_admin' | 'team_manager' | 'coach'
+  role           String // 'org_admin' | 'team_manager' | 'coach'
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  ownerUser      OwnerUser    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerUser    OwnerUser    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([ownerUserId, organizationId])
   @@index([ownerUserId])
@@ -479,30 +485,32 @@ model OrganizationMember {
 }
 
 model Subscription {
-  id             String   @id @default(uuid()) @db.Uuid
-  viewerId       String   @db.Uuid
-  
-  // Subscription target (at least one must be set)
-  organizationId String?  @db.Uuid  // Subscribe to all events in org
-  channelId      String?  @db.Uuid  // Subscribe to all events in team/channel
-  eventId        String?  @db.Uuid  // Subscribe to specific event
-  
-  // Notification preferences
-  preference     String   @default("email") // 'email' | 'sms' | 'both'
-  confirmed      Boolean  @default(false)    // Email confirmation required
-  confirmedAt    DateTime?
-  
-  // Status
-  status         String   @default("active") // 'active' | 'unsubscribed' | 'bounced'
-  unsubscribedAt DateTime?
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id       String @id @default(uuid()) @db.Uuid
+  viewerId String @db.Uuid
 
-  viewer         ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
-  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  channel        WatchChannel?  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  event          Event?         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // Subscription target (at least one must be set)
+  organizationId String? @db.Uuid // Subscribe to all events in org
+  channelId      String? @db.Uuid // Subscribe to all events in team/channel
+  eventId        String? @db.Uuid // Subscribe to specific event
+
+  // Notification preferences
+  preference  String    @default("email") // 'email' | 'sms' | 'both'
+  confirmed   Boolean   @default(false) // Email confirmation required
+  confirmedAt DateTime?
+
+  // Status
+  status         String    @default("active") // 'active' | 'unsubscribed' | 'bounced'
+  unsubscribedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  viewer       ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel      WatchChannel?  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  event        Event?         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // Note: At least one target (organizationId, channelId, or eventId) must be set
+  // This is enforced at the application level via Zod schema validation
 
   @@index([viewerId])
   @@index([organizationId])
@@ -510,8 +518,6 @@ model Subscription {
   @@index([eventId])
   @@index([status])
   @@index([confirmed])
-  // Note: At least one target (organizationId, channelId, or eventId) must be set
-  // This is enforced at the application level via Zod schema validation
 }
 
 model Event {
@@ -519,32 +525,32 @@ model Event {
   organizationId String   @db.Uuid
   channelId      String   @db.Uuid
   startsAt       DateTime
-  urlKey         String   // Generated from startsAt (YYYYMMDDHHmm) + suffix if needed
+  urlKey         String // Generated from startsAt (YYYYMMDDHHmm) + suffix if needed
   canonicalPath  String   @unique // Rendered from preset/template (e.g., /StormFC/2010/202501301430)
   state          String   @default("scheduled") // 'scheduled' | 'live' | 'ended' | 'cancelled'
-  
+
   // Stream source (can inherit from channel or override)
-  streamType     String?  // 'mux_playback' | 'byo_hls' | 'external_embed'
-  muxPlaybackId  String?
-  hlsManifestUrl String?
+  streamType       String? // 'mux_playback' | 'byo_hls' | 'external_embed'
+  muxPlaybackId    String?
+  hlsManifestUrl   String?
   externalEmbedUrl String?
   externalProvider String? // 'youtube' | 'twitch' | 'vimeo' | 'other'
-  
-  // Pricing (inherit from channel or override)
-  accessMode     String?  // 'public_free' | 'pay_per_view'
-  priceCents     Int?
-  currency       String?  @default("USD")
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  cancelledAt   DateTime?
-  wentLiveAt     DateTime?
-  endedAt        DateTime?
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  channel        WatchChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  purchases      Purchase[]
-  subscriptions  Subscription[]
+  // Pricing (inherit from channel or override)
+  accessMode String? // 'public_free' | 'pay_per_view'
+  priceCents Int?
+  currency   String? @default("USD")
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cancelledAt DateTime?
+  wentLiveAt  DateTime?
+  endedAt     DateTime?
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel       WatchChannel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  purchases     Purchase[]
+  subscriptions Subscription[]
 
   @@unique([channelId, urlKey])
   @@index([organizationId])
@@ -555,24 +561,24 @@ model Event {
 }
 
 model CouponCode {
-  id                String     @id @default(uuid()) @db.Uuid
-  code              String     @unique
-  discountType      String     // 'percentage' | 'fixed_cents'
-  discountValue     Int        // 10 for 10%, or 500 for $5.00
-  ownerAccountId    String?    @db.Uuid   // null = global (any owner)
-  gameId            String?    @db.Uuid   // null = all games
-  maxUses           Int?                   // null = unlimited
-  usedCount         Int        @default(0)
-  maxUsesPerViewer  Int        @default(1)
-  minPurchaseCents  Int?
-  validFrom         DateTime   @default(now())
-  validTo           DateTime?
-  status            String     @default("active") // 'active' | 'disabled'
-  createdAt         DateTime   @default(now())
-  createdByAdminId  String     @db.Uuid
+  id               String    @id @default(uuid()) @db.Uuid
+  code             String    @unique
+  discountType     String // 'percentage' | 'fixed_cents'
+  discountValue    Int // 10 for 10%, or 500 for $5.00
+  ownerAccountId   String?   @db.Uuid // null = global (any owner)
+  gameId           String?   @db.Uuid // null = all games
+  maxUses          Int? // null = unlimited
+  usedCount        Int       @default(0)
+  maxUsesPerViewer Int       @default(1)
+  minPurchaseCents Int?
+  validFrom        DateTime  @default(now())
+  validTo          DateTime?
+  status           String    @default("active") // 'active' | 'disabled'
+  createdAt        DateTime  @default(now())
+  createdByAdminId String    @db.Uuid
 
-  redemptions       CouponRedemption[]
-  purchases         Purchase[]
+  redemptions CouponRedemption[]
+  purchases   Purchase[]
 
   @@index([code])
   @@index([status])
@@ -582,112 +588,113 @@ model CouponCode {
 // Direct stream POC pages (e.g., /direct/tchs, /direct/slug)
 // Lightweight, no-signup streaming with optional paywall
 model DirectStream {
-  id                String    @id @default(uuid()) @db.Uuid
-  slug              String    @unique // URL slug (e.g., 'tchs', 'stormfc')
-  title             String    // Display title (e.g., "TCHS Live Stream")
-  
+  id    String @id @default(uuid()) @db.Uuid
+  slug  String @unique // URL slug (e.g., 'tchs', 'stormfc')
+  title String // Display title (e.g., "TCHS Live Stream")
+
   // 🆕 PAYMENT RECIPIENT: Owner who receives paywall revenue
-  ownerAccountId    String    @db.Uuid
-  
+  ownerAccountId String @db.Uuid
+
   // Stream configuration
-  streamUrl         String?   // HLS manifest URL
-  
+  streamUrl String? // HLS manifest URL
+
   // Scheduling & Email reminders
-  scheduledStartAt  DateTime? // When stream is scheduled to start
-  reminderSentAt    DateTime? // Track when reminder email was sent
-  sendReminders     Boolean   @default(true)  // Enable/disable reminder emails
-  reminderMinutes   Int       @default(5)     // How many minutes before start
-  
+  scheduledStartAt DateTime? // When stream is scheduled to start
+  reminderSentAt   DateTime? // Track when reminder email was sent
+  sendReminders    Boolean   @default(true) // Enable/disable reminder emails
+  reminderMinutes  Int       @default(5) // How many minutes before start
+
   // Paywall settings
-  paywallEnabled    Boolean   @default(false)
-  priceInCents      Int       @default(0)        // Store as cents (499 = $4.99)
-  paywallMessage    String?   @db.VarChar(1000) // Max 1000 chars - admin custom message
-  allowSavePayment  Boolean   @default(false)    // Allow viewers to save payment info
-  
+  paywallEnabled   Boolean @default(false)
+  priceInCents     Int     @default(0) // Store as cents (499 = $4.99)
+  paywallMessage   String? @db.VarChar(1000) // Max 1000 chars - admin custom message
+  allowSavePayment Boolean @default(false) // Allow viewers to save payment info
+
   // Admin authentication
-  adminPassword     String    // Bcrypt-hashed password for admin access
-  
+  adminPassword String // Bcrypt-hashed password for admin access
+
   // Feature flags
-  chatEnabled       Boolean   @default(true)
-  scoreboardEnabled Boolean   @default(false)
-  
+  chatEnabled       Boolean @default(true)
+  scoreboardEnabled Boolean @default(false)
+
   // 🆕 Access control
-  allowAnonymousView       Boolean   @default(true)  // Allow anonymous page viewing
-  requireEmailVerification Boolean   @default(true)  // Require verified email for access/chat
-  listed                   Boolean   @default(true)  // Show in public listings
-  
+  allowAnonymousView       Boolean @default(true) // Allow anonymous page viewing
+  requireEmailVerification Boolean @default(true) // Require verified email for access/chat
+  listed                   Boolean @default(true) // Show in public listings
+
   // Scoreboard preferences (set by admin, used for initialization)
-  scoreboardHomeTeam    String?   // Custom home team name
-  scoreboardAwayTeam    String?   // Custom away team name
-  scoreboardHomeColor   String?   // Custom home jersey color (hex)
-  scoreboardAwayColor   String?   // Custom away jersey color (hex)
-  
+  scoreboardHomeTeam  String? // Custom home team name
+  scoreboardAwayTeam  String? // Custom away team name
+  scoreboardHomeColor String? // Custom home jersey color (hex)
+  scoreboardAwayColor String? // Custom away jersey color (hex)
+
   // Lifecycle management (soft delete with archival)
-  status            String    @default("active") // 'active' | 'archived' | 'deleted'
-  archivedAt        DateTime? // When stream was archived
-  deletedAt         DateTime? // When stream was soft-deleted
-  autoPurgeAt       DateTime? // Scheduled auto-purge (14 days from deletion)
-  
+  status      String    @default("active") // 'active' | 'archived' | 'deleted'
+  archivedAt  DateTime? // When stream was archived
+  deletedAt   DateTime? // When stream was soft-deleted
+  autoPurgeAt DateTime? // Scheduled auto-purge (14 days from deletion)
+
   // Chat association (optional Game linkage with SetNull on delete)
-  gameId            String?   @unique @db.Uuid
-  game              Game?     @relation(fields: [gameId], references: [id], onDelete: SetNull)
-  
+  gameId String? @unique @db.Uuid
+  game   Game?   @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
   // Relations
-  ownerAccount      OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  scoreboard        GameScoreboard?
-  chatMessages      GameChatMessage[]
-  purchases         Purchase[]
-  registrations     DirectStreamRegistration[]
-  verificationTokens EmailVerificationToken[]
-  events            DirectStreamEvent[] // 🆕 Sub-events under this parent stream
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
+  ownerAccount        OwnerAccount               @relation(fields: [ownerAccountId], references: [id])
+  scoreboard          GameScoreboard?
+  chatMessages        GameChatMessage[]
+  purchases           Purchase[]
+  registrations       DirectStreamRegistration[]
+  verificationTokens  EmailVerificationToken[]
+  viewerRefreshTokens ViewerRefreshToken[] // 🆕 Viewer refresh tokens for re-consent
+  events              DirectStreamEvent[] // 🆕 Sub-events under this parent stream
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([slug])
   @@index([scheduledStartAt]) // For email reminder cron jobs
-  @@index([ownerAccountId])   // 🆕 For payment queries
+  @@index([ownerAccountId]) // 🆕 For payment queries
 }
 
 // 🆕 Direct Stream Events (Sub-events under a DirectStream parent)
 // Example: /direct/tchs/soccer-varsity-2026-01-10
 model DirectStreamEvent {
-  id                String    @id @default(uuid()) @db.Uuid
-  directStreamId    String    @db.Uuid
-  eventSlug         String    // URL slug for this event (unique per parent)
-  title             String    // Event-specific title (e.g., "Varsity Soccer vs. Rival HS")
-  
+  id             String @id @default(uuid()) @db.Uuid
+  directStreamId String @db.Uuid
+  eventSlug      String // URL slug for this event (unique per parent)
+  title          String // Event-specific title (e.g., "Varsity Soccer vs. Rival HS")
+
   // Event-specific stream & scheduling
-  streamUrl         String?   // Override parent stream URL
-  scheduledStartAt  DateTime? // Event start time
-  reminderSentAt    DateTime? // Track when reminder was sent
-  
+  streamUrl        String? // Override parent stream URL
+  scheduledStartAt DateTime? // Event start time
+  reminderSentAt   DateTime? // Track when reminder was sent
+
   // Lifecycle
-  status            String    @default("active") // active | archived | deleted
-  
+  status String @default("active") // active | archived | deleted
+
   // Feature flag overrides (NULL = inherit from parent DirectStream)
-  chatEnabled               Boolean?
-  scoreboardEnabled         Boolean?
-  paywallEnabled            Boolean?
-  priceInCents              Int?
-  paywallMessage            String?
-  allowAnonymousView        Boolean?
-  requireEmailVerification  Boolean?
-  listed                    Boolean?  // Show in public listings
-  
+  chatEnabled              Boolean?
+  scoreboardEnabled        Boolean?
+  paywallEnabled           Boolean?
+  priceInCents             Int?
+  paywallMessage           String?
+  allowAnonymousView       Boolean?
+  requireEmailVerification Boolean?
+  listed                   Boolean? // Show in public listings
+
   // Scoreboard overrides (NULL = inherit from parent DirectStream)
-  scoreboardHomeTeam   String?
-  scoreboardAwayTeam   String?
-  scoreboardHomeColor  String?
-  scoreboardAwayColor  String?
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  directStream      DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  registrations     DirectStreamRegistration[]
+  scoreboardHomeTeam  String?
+  scoreboardAwayTeam  String?
+  scoreboardHomeColor String?
+  scoreboardAwayColor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  directStream       DirectStream               @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  registrations      DirectStreamRegistration[]
   verificationTokens EmailVerificationToken[]
-  
+
   @@unique([directStreamId, eventSlug]) // Ensure unique eventSlug per parent
   @@index([directStreamId])
   @@index([scheduledStartAt]) // For reminder cron + sorting
@@ -696,58 +703,58 @@ model DirectStreamEvent {
 
 // Social Producer Panel - Scoreboard Management
 model GameScoreboard {
-  id              String    @id @default(uuid()) @db.Uuid
-  directStreamId  String    @db.Uuid @unique
-  
+  id             String @id @default(uuid()) @db.Uuid
+  directStreamId String @unique @db.Uuid
+
   // Team Information
-  homeTeamName    String    @default("Home")
-  awayTeamName    String    @default("Away")
-  homeJerseyColor String    @default("#1E40AF") // Tailwind blue-700
-  awayJerseyColor String    @default("#DC2626") // Tailwind red-600
-  
+  homeTeamName    String @default("Home")
+  awayTeamName    String @default("Away")
+  homeJerseyColor String @default("#1E40AF") // Tailwind blue-700
+  awayJerseyColor String @default("#DC2626") // Tailwind red-600
+
   // Score Tracking
-  homeScore       Int       @default(0)
-  awayScore       Int       @default(0)
-  
+  homeScore Int @default(0)
+  awayScore Int @default(0)
+
   // Game Clock (server-synced persistence)
-  clockMode       String    @default("stopped") // stopped | running | paused
-  clockSeconds    Int       @default(0)         // Current time when stopped/paused
-  clockStartedAt  DateTime? // Timestamp when clock started (for sync)
-  
+  clockMode      String    @default("stopped") // stopped | running | paused
+  clockSeconds   Int       @default(0) // Current time when stopped/paused
+  clockStartedAt DateTime? // Timestamp when clock started (for sync)
+
   // Display Settings
-  isVisible       Boolean   @default(true)
-  position        String    @default("top-left") // top-left | top-center | top-right
-  
+  isVisible Boolean @default(true)
+  position  String  @default("top-left") // top-left | top-center | top-right
+
   // Access Control
-  producerPassword String?  // Hashed password (NULL = open editing for anyone)
-  
+  producerPassword String? // Hashed password (NULL = open editing for anyone)
+
   // Edit History
-  lastEditedBy    String?   // Viewer name or "Admin"
-  lastEditedAt    DateTime?
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  directStream    DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  
+  lastEditedBy String? // Viewer name or "Admin"
+  lastEditedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  directStream DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+
   @@index([directStreamId])
 }
 
 // DirectStream Registration - Viewer registration for stream access + chat
 model DirectStreamRegistration {
-  id                  String              @id @default(uuid()) @db.Uuid
-  directStreamId      String              @db.Uuid
-  directStreamEventId String?             @db.Uuid  // 🆕 Optional: event-specific registration
-  viewerIdentityId    String              @db.Uuid
-  registeredAt        DateTime            @default(now())
-  verifiedAt          DateTime?           // When email was verified
-  wantsReminders      Boolean             @default(false)
-  lastSeenAt          DateTime?           @updatedAt
-  
-  directStream        DirectStream        @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  directStreamEvent   DirectStreamEvent?  @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
-  viewerIdentity      ViewerIdentity      @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
-  
+  id                  String    @id @default(uuid()) @db.Uuid
+  directStreamId      String    @db.Uuid
+  directStreamEventId String?   @db.Uuid // 🆕 Optional: event-specific registration
+  viewerIdentityId    String    @db.Uuid
+  registeredAt        DateTime  @default(now())
+  verifiedAt          DateTime? // When email was verified
+  wantsReminders      Boolean   @default(false)
+  lastSeenAt          DateTime? @updatedAt
+
+  directStream      DirectStream       @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  directStreamEvent DirectStreamEvent? @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
+  viewerIdentity    ViewerIdentity     @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+
   @@unique([directStreamId, viewerIdentityId])
   @@index([directStreamId])
   @@index([directStreamEventId]) // 🆕 Index for event registrations
@@ -757,34 +764,73 @@ model DirectStreamRegistration {
 
 // Email Verification Tokens - For stream access verification
 model EmailVerificationToken {
-  id                  String              @id @default(uuid()) @db.Uuid
-  viewerIdentityId    String              @db.Uuid
-  directStreamId      String?             @db.Uuid  // Optional: stream-specific token
-  directStreamEventId String?             @db.Uuid  // 🆕 Optional: event-specific token
-  tokenHash           String              @unique @db.VarChar(64)  // SHA-256 hash of token
+  id                  String    @id @default(uuid()) @db.Uuid
+  viewerIdentityId    String    @db.Uuid
+  directStreamId      String?   @db.Uuid // Optional: stream-specific token
+  directStreamEventId String?   @db.Uuid // 🆕 Optional: event-specific token
+  tokenHash           String    @unique @db.VarChar(64) // SHA-256 hash of token
   expiresAt           DateTime
   usedAt              DateTime?
-  createdAt           DateTime            @default(now())
-  
-  viewerIdentity      ViewerIdentity      @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
-  directStream        DirectStream?       @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  directStreamEvent   DirectStreamEvent?  @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
-  
+  createdAt           DateTime  @default(now())
+
+  viewerIdentity    ViewerIdentity     @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  directStream      DirectStream?      @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  directStreamEvent DirectStreamEvent? @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
+
   @@index([viewerIdentityId, expiresAt])
   @@index([tokenHash])
 }
 
 model CouponRedemption {
-  id            String     @id @default(uuid()) @db.Uuid
-  couponId      String     @db.Uuid
-  purchaseId    String     @db.Uuid
-  viewerId      String     @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
+  couponId      String   @db.Uuid
+  purchaseId    String   @db.Uuid
+  viewerId      String   @db.Uuid
   discountCents Int
-  createdAt     DateTime   @default(now())
+  createdAt     DateTime @default(now())
 
-  coupon        CouponCode @relation(fields: [couponId], references: [id])
+  coupon CouponCode @relation(fields: [couponId], references: [id])
 
   @@unique([couponId, purchaseId])
   @@index([couponId])
   @@index([viewerId])
+}
+
+// Password Reset Tokens - For OwnerUser and AdminAccount password resets
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique @db.VarChar(64) // SHA-256 hash of raw token
+  userType  String // 'owner_user' | 'admin_account'
+  userId    String    @db.Uuid
+  email     String // Denormalized for quick lookup & rate limiting
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  ipAddress String? // For security logging
+  userAgent String? // For security logging
+
+  @@index([tokenHash])
+  @@index([email, userType])
+  @@index([userId, userType])
+  @@index([expiresAt])
+}
+
+// Viewer Refresh Tokens - For re-consent/refresh of expired viewer access
+model ViewerRefreshToken {
+  id               String    @id @default(uuid()) @db.Uuid
+  tokenHash        String    @unique @db.VarChar(64) // SHA-256 hash of raw token
+  viewerIdentityId String    @db.Uuid
+  directStreamId   String?   @db.Uuid // Optional: specific stream
+  gameId           String?   @db.Uuid // Optional: specific game
+  redirectUrl      String? // Where to send after verification
+  expiresAt        DateTime
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  viewerIdentity ViewerIdentity @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  directStream   DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
+
+  @@index([tokenHash])
+  @@index([viewerIdentityId])
+  @@index([expiresAt])
 }
