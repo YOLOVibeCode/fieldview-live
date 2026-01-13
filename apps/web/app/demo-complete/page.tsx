@@ -309,10 +309,13 @@ export default function CompleteDemoPage() {
       {/* Fullscreen Scoreboard Overlay */}
       {isFullscreen && isScoreboardOverlayVisible && gameId && (
         <CollapsibleScoreboardOverlay
-          gameId={gameId}
-          isOpen={!scoreboardPanel.isCollapsed}
-          onToggle={scoreboardPanel.toggle}
-          viewerToken={viewer.token || ''}
+          slug="tchs"
+          isVisible={isScoreboardOverlayVisible}
+          onToggle={() => setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible)}
+          position="left"
+          isFullscreen={isFullscreen}
+          canEditScore={viewer.isUnlocked}
+          viewerToken={viewer.token}
         />
       )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { ScoreEditModal } from '@/components/ScoreEditModal';
 
 /**
  * ISP: Segregated interfaces for scoreboard data and rendering
@@ -37,6 +38,8 @@ interface CollapsibleScoreboardOverlayProps {
   onToggle: () => void;
   position?: 'left' | 'right';
   isFullscreen: boolean;
+  canEditScore?: boolean;        // Enable tap-to-edit scores
+  viewerToken?: string | null;   // For authenticated score updates
 }
 
 interface Position {
@@ -50,6 +53,8 @@ export function CollapsibleScoreboardOverlay({
   onToggle,
   position = 'left',
   isFullscreen,
+  canEditScore = false,
+  viewerToken = null,
 }: CollapsibleScoreboardOverlayProps) {
   const [scoreboard, setScoreboard] = useState<GameScoreboard | null>(null);
   const [displayTime, setDisplayTime] = useState(0);
@@ -58,6 +63,9 @@ export function CollapsibleScoreboardOverlay({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
+  
+  // Score editing state
+  const [editingTeam, setEditingTeam] = useState<'home' | 'away' | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -231,6 +239,48 @@ export function CollapsibleScoreboardOverlay({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Handle score tap/click
+  const handleScoreTap = (team: 'home' | 'away') => {
+    if (!canEditScore) return;
+    setEditingTeam(team);
+  };
+
+  // Handle score update
+  const handleScoreUpdate = async (team: 'home' | 'away', newScore: number) => {
+    if (!scoreboard) return;
+
+    try {
+      const updateData = team === 'home' 
+        ? { homeScore: newScore }
+        : { awayScore: newScore };
+
+      const headers: HeadersInit = { 
+        'Content-Type': 'application/json',
+      };
+      
+      // Add auth header if viewer token is available
+      if (viewerToken) {
+        headers['Authorization'] = `Bearer ${viewerToken}`;
+      }
+
+      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update score');
+      }
+
+      const updated = await response.json();
+      setScoreboard(updated);
+    } catch (error) {
+      console.error('Failed to update score:', error);
+      throw error;
+    }
+  };
+
   const getScoreBadge = (): string => {
     if (!scoreboard) return '0-0';
     return `${scoreboard.homeScore}-${scoreboard.awayScore}`;
@@ -349,13 +399,19 @@ export function CollapsibleScoreboardOverlay({
               >
                 {scoreboard.homeTeamName}
               </div>
-              <div 
+              <button
                 data-testid="scoreboard-home-score"
-                className="text-5xl font-bold text-white drop-shadow-lg"
-                aria-label={`Home team score: ${scoreboard.homeScore}`}
+                className={cn(
+                  "text-5xl font-bold text-white drop-shadow-lg w-full",
+                  canEditScore && "cursor-pointer hover:scale-110 transition-transform active:scale-95"
+                )}
+                onClick={() => handleScoreTap('home')}
+                disabled={!canEditScore}
+                aria-label={`Home team score: ${scoreboard.homeScore}${canEditScore ? ' (tap to edit)' : ''}`}
+                type="button"
               >
                 {scoreboard.homeScore}
-              </div>
+              </button>
             </div>
           </div>
 
@@ -377,13 +433,19 @@ export function CollapsibleScoreboardOverlay({
               >
                 {scoreboard.awayTeamName}
               </div>
-              <div 
+              <button
                 data-testid="scoreboard-away-score"
-                className="text-5xl font-bold text-white drop-shadow-lg"
-                aria-label={`Away team score: ${scoreboard.awayScore}`}
+                className={cn(
+                  "text-5xl font-bold text-white drop-shadow-lg w-full",
+                  canEditScore && "cursor-pointer hover:scale-110 transition-transform active:scale-95"
+                )}
+                onClick={() => handleScoreTap('away')}
+                disabled={!canEditScore}
+                aria-label={`Away team score: ${scoreboard.awayScore}${canEditScore ? ' (tap to edit)' : ''}`}
+                type="button"
               >
                 {scoreboard.awayScore}
-              </div>
+              </button>
             </div>
           </div>
 
@@ -422,8 +484,23 @@ export function CollapsibleScoreboardOverlay({
         <div className="p-4 text-center text-white/40 text-xs">
           <p>Press <kbd className="px-2 py-1 bg-white/10 rounded">S</kbd> to toggle</p>
           <p className="mt-1">Drag header to reposition</p>
+          {canEditScore && (
+            <p className="mt-1 text-white/60">Tap scores to edit</p>
+          )}
         </div>
       </div>
+
+      {/* Score Edit Modal */}
+      {editingTeam && scoreboard && (
+        <ScoreEditModal
+          isOpen={true}
+          team={editingTeam}
+          currentScore={editingTeam === 'home' ? scoreboard.homeScore : scoreboard.awayScore}
+          teamName={editingTeam === 'home' ? scoreboard.homeTeamName : scoreboard.awayTeamName}
+          onSave={handleScoreUpdate}
+          onClose={() => setEditingTeam(null)}
+        />
+      )}
     </div>
   );
 }

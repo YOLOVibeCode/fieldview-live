@@ -631,6 +631,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   onToggle={() => setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible)}
                   position="left"
                   isFullscreen={isFullscreen}
+                  canEditScore={viewer.isUnlocked}
+                  viewerToken={viewer.token}
                 />
               )}
 
