@@ -246,6 +246,40 @@
 }
 
 /* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up var(--fv-duration-normal) var(--fv-ease-out);
+}
+
+.fv-sheet-enter {
+  animation: slide-up var(--fv-duration-normal) var(--fv-ease-out);
+}
+
+.fv-sheet-exit {
+  animation: slide-down var(--fv-duration-normal) var(--fv-ease-in);
+}
+
+/* ============================================
    PRINT STYLES
    ============================================ */
 
