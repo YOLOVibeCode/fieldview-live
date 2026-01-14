@@ -50,7 +50,8 @@ export default function CompleteDemoPage() {
         setGameId(demoGameId);
         setLoading(false);
       } catch (err) {
-        setError(`Failed to initialize demo: ${err}`);
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Failed to initialize demo: ${message}`);
         setLoading(false);
       }
     }
@@ -88,7 +89,7 @@ export default function CompleteDemoPage() {
     }
   };
 
-  const viewer = useViewerIdentity({ gameId });
+  const viewer = useViewerIdentity({ gameId, slug: 'tchs' });
   const chat = useGameChat({
     gameId,
     viewerToken: viewer.token,
