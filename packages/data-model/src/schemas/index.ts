@@ -19,3 +19,4 @@ export * from './directStreamRegistration';
 export * from './directStreamAdmin';
 export * from './directStreamEvent';
 export * from './authSchemas';
+export * from './dvrSchemas';

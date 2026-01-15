@@ -55,6 +55,9 @@ import { createTestCleanupRouter } from './routes/test.cleanup';
 import { createTestStreamsRouter } from './routes/test.streams';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
+import clipsRouter from './routes/clips.routes';
+import bookmarksRouter from './routes/bookmarks.routes';
+import recordingsRouter from './routes/recordings.routes';
 
 // Initialize Sentry error tracking (optional, requires SENTRY_DSN env var)
 initSentry();
@@ -144,6 +147,9 @@ app.use('/api/tchs', createTchsRouter());
 app.use('/api/direct', createDirectRouter());
 app.use('/api/direct', createDirectLifecycleRouter());
 app.use('/api/direct', scoreboardRouter);
+app.use('/api/clips', clipsRouter);
+app.use('/api/bookmarks', bookmarksRouter);
+app.use('/api/recordings', recordingsRouter);
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
 
@@ -186,3 +192,4 @@ if (require.main === module) {
 }
 
 export default app;
+export { app };
