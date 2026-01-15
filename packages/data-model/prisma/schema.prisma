@@ -80,6 +80,8 @@ model Game {
   purchases    Purchase[]
   chatMessages GameChatMessage[]
   directStream DirectStream? // Optional direct stream linkage
+  videoClips   VideoClip[] // DVR clips from this game
+  videoBookmarks VideoBookmark[] // Bookmarks from this game
 
   @@index([ownerAccountId])
   @@index([keywordCode])
@@ -139,6 +141,7 @@ model ViewerIdentity {
   directStreamRegistrations DirectStreamRegistration[]
   emailVerificationTokens   EmailVerificationToken[]
   viewerRefreshTokens       ViewerRefreshToken[] // 🆕 Refresh tokens for re-consent
+  videoBookmarks            VideoBookmark[] // DVR bookmarks by this viewer
 
   @@index([email])
   @@index([phoneE164])
@@ -647,6 +650,8 @@ model DirectStream {
   verificationTokens  EmailVerificationToken[]
   viewerRefreshTokens ViewerRefreshToken[] // 🆕 Viewer refresh tokens for re-consent
   events              DirectStreamEvent[] // 🆕 Sub-events under this parent stream
+  videoClips          VideoClip[] // DVR clips from this stream
+  videoBookmarks      VideoBookmark[] // Bookmarks from this stream
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -833,4 +838,70 @@ model ViewerRefreshToken {
   @@index([tokenHash])
   @@index([viewerIdentityId])
   @@index([expiresAt])
+}
+
+// VideoClip - Clips extracted from live streams or games
+model VideoClip {
+  id                 String    @id @default(uuid()) @db.Uuid
+  gameId             String?   @db.Uuid // Optional: link to game
+  directStreamId     String?   @db.Uuid // Optional: link to direct stream
+  directStreamSlug   String? // Denormalized for quick lookup
+  providerName       String // 'mux' | 'cloudflare' | 'mock'
+  providerClipId     String // Provider's unique clip ID
+  providerRecordingId String? // Provider's recording/stream ID
+  title              String
+  description        String?
+  startTimeSeconds   Int // Clip start time in recording
+  endTimeSeconds     Int // Clip end time in recording
+  durationSeconds    Int // Calculated duration
+  playbackUrl        String? // HLS or MP4 URL
+  thumbnailUrl       String? // Thumbnail URL
+  status             String // 'pending' | 'ready' | 'failed'
+  isPublic           Boolean   @default(false)
+  viewCount          Int       @default(0)
+  shareCount         Int       @default(0)
+  createdById        String?   @db.Uuid // ViewerIdentity or AdminAccount
+  createdByType      String? // 'viewer' | 'admin' | 'system'
+  expiresAt          DateTime? // Optional expiration
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  game          Game?         @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  directStream  DirectStream? @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
+  bookmarks     VideoBookmark[]
+
+  @@unique([providerName, providerClipId])
+  @@index([gameId])
+  @@index([directStreamId])
+  @@index([directStreamSlug])
+  @@index([status])
+  @@index([isPublic])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// VideoBookmark - User bookmarks for specific moments in live streams
+model VideoBookmark {
+  id               String    @id @default(uuid()) @db.Uuid
+  gameId           String?   @db.Uuid // Optional: link to game
+  directStreamId   String?   @db.Uuid // Optional: link to direct stream
+  clipId           String?   @db.Uuid // Optional: link to generated clip
+  viewerIdentityId String    @db.Uuid // Who created the bookmark
+  timestampSeconds Int // When the event happened
+  label            String // e.g., "Great Goal!", "Offside Call"
+  notes            String? // Optional additional notes
+  isShared         Boolean   @default(false) // Public or private
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  game           Game?          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  directStream   DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  clip           VideoClip?     @relation(fields: [clipId], references: [id], onDelete: SetNull)
+  viewerIdentity ViewerIdentity @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+  @@index([directStreamId])
+  @@index([viewerIdentityId])
+  @@index([clipId])
+  @@index([createdAt])
 }
