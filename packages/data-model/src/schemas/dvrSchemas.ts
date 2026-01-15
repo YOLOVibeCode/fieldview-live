@@ -10,24 +10,41 @@ import { z } from 'zod';
 // Clip Schemas
 // ========================================
 
+// Constants for clip validation
+export const CLIP_LIMITS = {
+  TITLE_MAX: 200,
+  DESCRIPTION_MAX: 1000,
+  BUFFER_SECONDS_MIN: 0,
+  BUFFER_SECONDS_MAX: 30, // 30 sec before + 30 sec after = 60 sec total clip
+  MAX_CLIP_DURATION: 60,  // Maximum clip length in seconds
+} as const;
+
 export const createClipSchema = z.object({
   gameId: z.string().uuid().optional(),
   directStreamId: z.string().uuid().optional(),
   directStreamSlug: z.string().optional(),
   providerName: z.enum(['mock', 'mux', 'cloudflare']),
   recordingId: z.string().min(1),
-  title: z.string().min(1).max(200),
-  description: z.string().max(1000).optional(),
+  title: z.string().min(1).max(CLIP_LIMITS.TITLE_MAX),
+  description: z.string().max(CLIP_LIMITS.DESCRIPTION_MAX).optional(),
   startTimeSeconds: z.number().int().min(0),
   endTimeSeconds: z.number().int().min(0),
   isPublic: z.boolean().optional(),
-});
+}).refine(
+  (data) => (data.endTimeSeconds - data.startTimeSeconds) <= CLIP_LIMITS.MAX_CLIP_DURATION,
+  { message: `Clip duration must be ${CLIP_LIMITS.MAX_CLIP_DURATION} seconds or less` }
+);
 
 export const createClipFromBookmarkSchema = z.object({
   bookmarkId: z.string().uuid(),
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).optional(),
-  bufferSeconds: z.number().int().min(0).max(60).optional(),
+  title: z.string().min(1).max(CLIP_LIMITS.TITLE_MAX).optional(),
+  description: z.string().max(CLIP_LIMITS.DESCRIPTION_MAX).optional(),
+  bufferSeconds: z.number()
+    .int()
+    .min(CLIP_LIMITS.BUFFER_SECONDS_MIN)
+    .max(CLIP_LIMITS.BUFFER_SECONDS_MAX, `Buffer must be ${CLIP_LIMITS.BUFFER_SECONDS_MAX} seconds or less`)
+    .optional()
+    .default(5),
   isPublic: z.boolean().optional(),
 });
 

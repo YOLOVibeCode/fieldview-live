@@ -866,8 +866,8 @@ model VideoClip {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  game          Game?         @relation(fields: [gameId], references: [id], onDelete: SetNull)
-  directStream  DirectStream? @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
+  game          Game?         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  directStream  DirectStream? @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
   bookmarks     VideoBookmark[]
 
   @@unique([providerName, providerClipId])
@@ -896,7 +896,7 @@ model VideoBookmark {
 
   game           Game?          @relation(fields: [gameId], references: [id], onDelete: Cascade)
   directStream   DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  clip           VideoClip?     @relation(fields: [clipId], references: [id], onDelete: SetNull)
+  clip           VideoClip?     @relation(fields: [clipId], references: [id], onDelete: Cascade)
   viewerIdentity ViewerIdentity @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
 
   @@index([gameId])

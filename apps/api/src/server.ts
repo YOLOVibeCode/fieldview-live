@@ -184,6 +184,10 @@ cron.schedule('0 3 * * *', async () => {
 
 logger.info('Cron jobs initialized: stream reminders (every minute), auto-purge (daily at 3 AM)');
 
+// Initialize cleanup jobs (DVR video cleanup)
+import { initializeCleanupJobs } from './jobs/cleanup';
+initializeCleanupJobs();
+
 // Start server
 if (require.main === module) {
   app.listen(PORT, () => {
