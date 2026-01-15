@@ -6,8 +6,8 @@
  */
 
 import cron from 'node-cron';
-import { prisma } from '../config/database';
-import { logger } from '../config/logger';
+import { prisma } from '../lib/prisma';
+import { logger } from '../lib/logger';
 
 const GAME_RETENTION_DAYS = 14;
 
@@ -25,7 +25,7 @@ export async function cleanupExpiredGames(): Promise<{
     // Count what will be deleted
     const gamesToDelete = await prisma.game.findMany({
       where: {
-        completedAt: {
+        endsAt: {  // Changed from completedAt to endsAt
           lt: cutoffDate,
         },
       },
@@ -53,7 +53,7 @@ export async function cleanupExpiredGames(): Promise<{
     // Delete games (cascade will handle clips and bookmarks)
     const deleteResult = await prisma.game.deleteMany({
       where: {
-        completedAt: {
+        endsAt: {  // Changed from completedAt to endsAt
           lt: cutoffDate,
         },
       },
@@ -71,7 +71,7 @@ export async function cleanupExpiredGames(): Promise<{
       bookmarksDeleted: bookmarksCount,
     };
   } catch (error) {
-    logger.error('Error during game cleanup', error);
+    logger.error({ error }, 'Error during game cleanup');
     throw error;
   }
 }
@@ -86,9 +86,9 @@ export function startGameCleanupJob(): void {
     logger.info('Running scheduled game cleanup job');
     try {
       const result = await cleanupExpiredGames();
-      logger.info('Scheduled cleanup completed', result);
+      logger.info({ result }, 'Scheduled cleanup completed');
     } catch (error) {
-      logger.error('Scheduled cleanup failed', error);
+      logger.error({ error }, 'Scheduled cleanup failed');
     }
   });
 
@@ -127,9 +127,9 @@ export function startClipCleanupJob(): void {
     logger.info('Running scheduled clip cleanup job');
     try {
       const count = await cleanupExpiredClips();
-      logger.info(`Scheduled clip cleanup completed: ${count} clips deleted`);
+      logger.info({ count }, 'Scheduled clip cleanup completed');
     } catch (error) {
-      logger.error('Scheduled clip cleanup failed', error);
+      logger.error({ error }, 'Scheduled clip cleanup failed');
     }
   });
 

@@ -15,7 +15,7 @@ import {
   createClipFromBookmarkSchema,
   listClipsSchema,
   clipIdSchema,
-} from '../../../packages/data-model/src/schemas/dvrSchemas';
+} from '@fieldview/data-model/src/schemas/dvrSchemas';
 
 const router = Router();
 const prisma = new PrismaClient();

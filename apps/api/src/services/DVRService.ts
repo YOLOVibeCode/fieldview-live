@@ -293,7 +293,7 @@ export class DVRService implements IDVRService {
     return {
       status: status.isRecording ? 'recording' : 'completed',
       durationSeconds: status.durationSeconds,
-      sizeBytes: status.sizeBytes,
+      sizeBytes: status.sizeBytes ?? 0,
     };
   }
 }
