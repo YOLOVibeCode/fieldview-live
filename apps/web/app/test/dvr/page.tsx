@@ -7,11 +7,11 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { BookmarkButton } from '@/components/dvr/BookmarkButton';
 import { BookmarksList } from '@/components/dvr/BookmarksList';
 
-export default function DVRTestPage() {
+function DVRTestPageContent() {
   const searchParams = useSearchParams();
   const gameId = searchParams.get('gameId') || undefined;
   const directStreamId = searchParams.get('directStreamId') || undefined;
@@ -132,6 +132,14 @@ export default function DVRTestPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DVRTestPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading DVR Test...</div>}>
+      <DVRTestPageContent />
+    </Suspense>
   );
 }
 
