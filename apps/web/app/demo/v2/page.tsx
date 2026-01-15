@@ -14,6 +14,7 @@ import { TouchButton, Badge } from '@/components/v2/primitives';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { useResponsive } from '@/hooks/v2/useResponsive';
 import { usePaywall } from '@/hooks/usePaywall';
+import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 
 // Dynamically import components that have issues with SSR
 const Scoreboard = dynamic(
@@ -51,6 +52,19 @@ export default function DemoV2Page() {
 
   // Responsive
   const { isMobile } = useResponsive();
+
+  // Collapsible Panels (for non-fullscreen)
+  const scoreboardPanel = useCollapsiblePanel({
+    edge: 'left',
+    defaultCollapsed: true,
+    storageKey: 'demo-v2-scoreboard-collapsed',
+  });
+
+  const chatPanel = useCollapsiblePanel({
+    edge: 'right',
+    defaultCollapsed: true,
+    storageKey: 'demo-v2-chat-collapsed',
+  });
 
   // Auth
   const [showAuth, setShowAuth] = useState(false);
@@ -385,55 +399,116 @@ export default function DemoV2Page() {
           {/* Scoreboard Overlay (Fullscreen) */}
           {isFullscreen && (
             <div className="absolute top-4 left-4 z-10">
-              <Scoreboard
-                homeTeam={scoreboardData.homeTeam}
-                awayTeam={scoreboardData.awayTeam}
-                period={scoreboardData.period}
-                timeRemaining={scoreboardData.timeRemaining}
-                onScoreChange={handleScoreChange}
-                compact
-              />
+              <div className="bg-black/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/10">
+                <Scoreboard
+                  homeTeam={scoreboardData.homeTeam}
+                  awayTeam={scoreboardData.awayTeam}
+                  period={scoreboardData.period}
+                  timeRemaining={scoreboardData.timeRemaining}
+                  onScoreChange={handleScoreChange}
+                  compact
+                />
+              </div>
             </div>
           )}
 
           {/* Chat Overlay (Fullscreen) */}
           {isFullscreen && (
             <div className="absolute top-4 right-4 bottom-20 w-80 z-10">
-              <Chat
-                messages={chatMessages}
-                onSend={handleSendMessage}
-                currentUserId="demo-user"
-                mode="floating"
-                title="Live Chat"
-              />
+              <div className="bg-black/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/10 h-full">
+                <Chat
+                  messages={chatMessages}
+                  onSend={handleSendMessage}
+                  currentUserId="demo-user"
+                  mode="floating"
+                  title="Live Chat"
+                />
+              </div>
             </div>
           )}
         </div>
 
-        {/* Scoreboard (Non-Fullscreen) */}
+        {/* Collapsible Scoreboard (Non-Fullscreen) */}
         {!isFullscreen && (
-          <div className="p-4">
-            <Scoreboard
-              homeTeam={scoreboardData.homeTeam}
-              awayTeam={scoreboardData.awayTeam}
-              period={scoreboardData.period}
-              timeRemaining={scoreboardData.timeRemaining}
-              onScoreChange={handleScoreChange}
-            />
+          <div
+            className={`fixed top-20 transition-all duration-300 z-20 ${
+              scoreboardPanel.collapsed ? '-left-80' : 'left-4'
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              {!scoreboardPanel.collapsed && (
+                <div className="bg-black/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/10">
+                  <Scoreboard
+                    homeTeam={scoreboardData.homeTeam}
+                    awayTeam={scoreboardData.awayTeam}
+                    period={scoreboardData.period}
+                    timeRemaining={scoreboardData.timeRemaining}
+                    onScoreChange={handleScoreChange}
+                    compact
+                  />
+                </div>
+              )}
+              <button
+                onClick={scoreboardPanel.toggle}
+                className="bg-black/80 backdrop-blur-sm hover:bg-black/90 text-white p-2 rounded-r-lg border border-l-0 border-white/10 transition-colors"
+                aria-label={scoreboardPanel.collapsed ? 'Expand scoreboard' : 'Collapse scoreboard'}
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d={scoreboardPanel.collapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7'}
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Chat (Non-Fullscreen) */}
+        {/* Collapsible Chat (Non-Fullscreen) */}
         {!isFullscreen && (
-          <div className="p-4">
-            <div className="h-[500px]">
-              <Chat
-                messages={chatMessages}
-                onSend={handleSendMessage}
-                currentUserId="demo-user"
-                mode="embedded"
-                title="Live Chat"
-              />
+          <div
+            className={`fixed top-20 bottom-4 transition-all duration-300 z-20 ${
+              chatPanel.collapsed ? '-right-96' : 'right-4'
+            }`}
+          >
+            <div className="flex items-start gap-2 h-full">
+              <button
+                onClick={chatPanel.toggle}
+                className="bg-black/80 backdrop-blur-sm hover:bg-black/90 text-white p-2 rounded-l-lg border border-r-0 border-white/10 transition-colors"
+                aria-label={chatPanel.collapsed ? 'Expand chat' : 'Collapse chat'}
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d={chatPanel.collapsed ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
+                  />
+                </svg>
+              </button>
+              {!chatPanel.collapsed && (
+                <div className="bg-black/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/10 h-full w-96">
+                  <Chat
+                    messages={chatMessages}
+                    onSend={handleSendMessage}
+                    currentUserId="demo-user"
+                    mode="floating"
+                    title="Live Chat"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
