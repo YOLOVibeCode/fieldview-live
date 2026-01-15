@@ -17,22 +17,22 @@ import { usePaywall } from '@/hooks/usePaywall';
 
 // Dynamically import components that have issues with SSR
 const Scoreboard = dynamic(
-  () => import('@/components/v2/scoreboard').then((mod) => ({ default: mod.Scoreboard })),
+  () => import('@/components/v2/scoreboard').then((mod) => mod.Scoreboard),
   { ssr: false }
 );
 
 const Chat = dynamic(
-  () => import('@/components/v2/chat').then((mod) => ({ default: mod.Chat })),
+  () => import('@/components/v2/chat').then((mod) => mod.Chat),
   { ssr: false }
 );
 
 const AuthModal = dynamic(
-  () => import('@/components/v2/auth').then((mod) => ({ default: mod.AuthModal })),
+  () => import('@/components/v2/auth').then((mod) => mod.AuthModal),
   { ssr: false }
 );
 
 const PaywallModal = dynamic(
-  () => import('@/components/v2/paywall').then((mod) => ({ default: mod.PaywallModal })),
+  () => import('@/components/v2/paywall').then((mod) => mod.PaywallModal),
   { ssr: false }
 );
 
@@ -77,21 +77,24 @@ export default function DemoV2Page() {
 
   // Auto-open paywall for demo (only once, if not bypassed/paid)
   useEffect(() => {
-    if (!paywall.isBypassed && !paywall.hasPaid && !paywall.showPaywall) {
-      console.log('[Demo] Auto-opening paywall after 2s...');
-      const timer = setTimeout(() => {
-        console.log('[Demo] Opening paywall now!');
-        paywall.openPaywall();
-      }, 2000);
-      return () => clearTimeout(timer);
-    } else {
+    // Skip if already showing or if bypassed or paid
+    if (paywall.showPaywall || paywall.isBypassed || paywall.hasPaid) {
       console.log('[Demo] Skipping auto-open:', {
+        showPaywall: paywall.showPaywall,
         isBypassed: paywall.isBypassed,
         hasPaid: paywall.hasPaid,
-        showPaywall: paywall.showPaywall,
       });
+      return;
     }
-  }, []); // Run only once on mount
+
+    console.log('[Demo] Auto-opening paywall after 2s...');
+    const timer = setTimeout(() => {
+      console.log('[Demo] Opening paywall now!');
+      paywall.openPaywall();
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [paywall.isBypassed, paywall.hasPaid]); // Re-run when bypass/paid status loads
 
   // Scoreboard state
   const [scoreboardData, setScoreboardData] = useState({
@@ -100,6 +103,59 @@ export default function DemoV2Page() {
     period: 'Q2',
     timeRemaining: '8:34',
   });
+
+  // Chat state (mock data for demo)
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    userName: string;
+    userId: string;
+    userColor: string;
+    message: string;
+    timestamp: Date;
+    isSystem?: boolean;
+  }>>([
+    {
+      id: '1',
+      userName: 'System',
+      userId: 'system',
+      userColor: '#10b981',
+      message: 'Welcome to the demo chat! 🎉',
+      timestamp: new Date(Date.now() - 300000), // 5 mins ago
+      isSystem: true,
+    },
+    {
+      id: '2',
+      userName: 'Alex',
+      userId: 'user-1',
+      userColor: '#3b82f6',
+      message: 'Great game so far!',
+      timestamp: new Date(Date.now() - 120000), // 2 mins ago
+    },
+    {
+      id: '3',
+      userName: 'Jamie',
+      userId: 'user-2',
+      userColor: '#8b5cf6',
+      message: 'Tigers are on fire! 🔥',
+      timestamp: new Date(Date.now() - 60000), // 1 min ago
+    },
+  ]);
+
+  // Handle sending a new chat message
+  const handleSendMessage = (message: string) => {
+    if (!message.trim()) return;
+    
+    const newMessage = {
+      id: Date.now().toString(),
+      userName: userEmail || 'Guest',
+      userId: 'demo-user',
+      userColor: '#ef4444',
+      message: message.trim(),
+      timestamp: new Date(),
+    };
+    
+    setChatMessages((prev) => [...prev, newMessage]);
+  };
 
   // Demo credentials display
   const demoCredentials = {
@@ -344,10 +400,11 @@ export default function DemoV2Page() {
           {isFullscreen && (
             <div className="absolute top-4 right-4 bottom-20 w-80 z-10">
               <Chat
-                gameId="demo-game-v2"
-                viewerIdentityId={userEmail || undefined}
-                onAuthRequired={handleAuthRequired}
-                compact
+                messages={chatMessages}
+                onSend={handleSendMessage}
+                currentUserId="demo-user"
+                mode="floating"
+                title="Live Chat"
               />
             </div>
           )}
@@ -371,9 +428,11 @@ export default function DemoV2Page() {
           <div className="p-4">
             <div className="h-[500px]">
               <Chat
-                gameId="demo-game-v2"
-                viewerIdentityId={userEmail || undefined}
-                onAuthRequired={handleAuthRequired}
+                messages={chatMessages}
+                onSend={handleSendMessage}
+                currentUserId="demo-user"
+                mode="embedded"
+                title="Live Chat"
               />
             </div>
           </div>
