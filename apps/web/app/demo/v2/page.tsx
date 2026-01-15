@@ -13,6 +13,7 @@ import { PageShell, Header } from '@/components/v2/layout';
 import { TouchButton, Badge } from '@/components/v2/primitives';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { useResponsive } from '@/hooks/v2/useResponsive';
+import { usePaywall } from '@/hooks/usePaywall';
 
 // Dynamically import components that have issues with SSR
 const Scoreboard = dynamic(
@@ -27,6 +28,11 @@ const Chat = dynamic(
 
 const AuthModal = dynamic(
   () => import('@/components/v2/auth').then((mod) => ({ default: mod.AuthModal })),
+  { ssr: false }
+);
+
+const PaywallModal = dynamic(
+  () => import('@/components/v2/paywall').then((mod) => ({ default: mod.PaywallModal })),
   { ssr: false }
 );
 
@@ -50,6 +56,26 @@ export default function DemoV2Page() {
   const [showAuth, setShowAuth] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Paywall (demo mode with bypass)
+  const paywall = usePaywall({
+    slug: 'demo-v2',
+    enabled: false, // Don't fetch from API, use local config
+    demoMode: true,
+    bypassCode: 'FIELDVIEW2026',
+  });
+
+  // Manually set demo paywall config
+  useEffect(() => {
+    // Simulate paywall configuration
+    if (!paywall.isBypassed && !paywall.hasPaid) {
+      // Show paywall after 2 seconds to let user see the page first
+      const timer = setTimeout(() => {
+        paywall.openPaywall();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [paywall.isBypassed, paywall.hasPaid]);
 
   // Scoreboard state
   const [scoreboardData, setScoreboardData] = useState({
@@ -496,6 +522,46 @@ export default function DemoV2Page() {
                 </div>
               </div>
             </div>
+
+            {/* Paywall Features */}
+            <div className="bg-fv-bg-elevated border border-fv-border rounded-xl p-6 hover:border-fv-primary/50 transition-colors">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-fv-text-primary mb-2">
+                    Paywall System
+                    <Badge variant="success" className="ml-2 text-xs">NEW</Badge>
+                  </h3>
+                  <ul className="space-y-1 text-sm text-fv-text-secondary">
+                    <li className="flex items-center gap-2">
+                      <span className="text-fv-primary">✓</span> Square payment integration
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-fv-primary">✓</span> Saved card support
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-fv-primary">✓</span> Demo bypass code
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-fv-primary">✓</span> Mobile-optimized
+                    </li>
+                  </ul>
+                  <TouchButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => paywall.openPaywall()}
+                    className="mt-3"
+                    data-testid="btn-demo-paywall"
+                  >
+                    Try Demo Paywall
+                  </TouchButton>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Tech Stack */}
@@ -553,11 +619,27 @@ export default function DemoV2Page() {
       {/* Auth Modal */}
       {showAuth && (
         <AuthModal
-          mode="register"
+          isOpen={showAuth}
           onClose={() => setShowAuth(false)}
-          onSuccess={(email) => handleAuthSuccess(email)}
-          onSwitchMode={() => {
-            // Toggle between login/register
+          onLogin={(data) => handleAuthSuccess(data.email)}
+          onRegister={(data) => handleAuthSuccess(data.email)}
+        />
+      )}
+
+      {/* V2 Paywall Modal (Demo Mode) */}
+      {paywall.showPaywall && (
+        <PaywallModal
+          slug="demo-v2"
+          isOpen={paywall.showPaywall}
+          onClose={paywall.closePaywall}
+          onSuccess={() => paywall.markAsPaid('demo-purchase-123')}
+          priceInCents={499}
+          paywallMessage="🎬 This is a demo paywall! Try the bypass code: FIELDVIEW2026"
+          allowSavePayment={false}
+          demoMode={true}
+          onDemoBypass={() => {
+            paywall.bypassPaywall('FIELDVIEW2026');
+            paywall.closePaywall();
           }}
         />
       )}
