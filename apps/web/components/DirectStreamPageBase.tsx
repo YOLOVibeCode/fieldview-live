@@ -38,6 +38,9 @@ import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
 import { isTouchDevice, isMobileViewport } from '@/lib/utils/device-detection';
+// v2 Video Components
+import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
+import { useFullscreen } from '@/hooks/v2/useFullscreen';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -169,11 +172,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
   const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+
+  // Video control state (v2)
+  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
+  const [volume, setVolume] = useState(1);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  // Fullscreen hook (v2)
+  const { isFullscreen, toggleFullscreen: toggleFullscreenV2, isSupported: isFullscreenSupported } = useFullscreen(containerRef.current);
 
   // Mobile device detection
   const [isMobile, setIsMobile] = useState(false);
@@ -341,35 +352,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     }
   }
 
-  // Save stream URL (admin)
-  // Fullscreen management
-  function toggleFullscreen() {
-    const container = containerRef.current;
-    if (!container) return;
-
-    if (!isFullscreen) {
-      if (container.requestFullscreen) {
-        container.requestFullscreen();
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-  }
-
-  // Fullscreen detection
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, []);
-
   // Keyboard shortcuts: F for fullscreen, C for chat overlay (in fullscreen), S for scoreboard, Escape to close chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -380,7 +362,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
-        toggleFullscreen();
+        toggleFullscreenV2(); // Use v2 hook
       }
 
       // C toggles chat in fullscreen mode (overlay)
@@ -422,7 +404,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle]);
+  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle, toggleFullscreenV2]);
 
   return (
     <div className={`min-h-screen bg-black flex flex-col ${config.containerClassName || ''}`}>
@@ -587,20 +569,77 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {status === 'loading' && bootstrap?.streamUrl && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/50">
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Loading stream...</p>
                   </div>
                 </div>
               )}
 
-              <video
+              {/* v2 Video Player */}
+              <VideoPlayer
                 ref={videoRef}
-                className="absolute inset-0 w-full h-full bg-black object-contain"
-                controls
+                src={bootstrap?.streamUrl || ''}
+                autoPlay
+                muted={isMuted}
                 playsInline
+                controls={false} // We'll use custom controls
+                onPlay={() => setStatus('playing')}
+                onPause={() => {}}
+                onTimeUpdate={(e) => {
+                  const video = e.currentTarget;
+                  setCurrentTime(video.currentTime);
+                }}
+                onLoadedMetadata={(e) => {
+                  const video = e.currentTarget;
+                  setDuration(video.duration);
+                  setStatus('playing');
+                }}
+                onError={() => setStatus('error')}
                 data-testid="video-player"
               />
+
+              {/* v2 Video Controls (outside video container, below it) */}
+              {bootstrap?.streamUrl && status !== 'offline' && status !== 'error' && (
+                <div className="absolute bottom-0 left-0 right-0 z-20">
+                  <VideoControls
+                    isPlaying={status === 'playing'}
+                    isMuted={isMuted}
+                    volume={volume}
+                    currentTime={currentTime}
+                    duration={duration}
+                    onPlayPause={() => {
+                      if (videoRef.current) {
+                        if (status === 'playing') {
+                          videoRef.current.pause();
+                          setStatus('loading');
+                        } else {
+                          videoRef.current.play();
+                          setStatus('playing');
+                        }
+                      }
+                    }}
+                    onMuteToggle={() => {
+                      if (videoRef.current) {
+                        videoRef.current.muted = !isMuted;
+                        setIsMuted(!isMuted);
+                      }
+                    }}
+                    onVolumeChange={(newVolume) => {
+                      if (videoRef.current) {
+                        videoRef.current.volume = newVolume;
+                        setVolume(newVolume);
+                      }
+                    }}
+                    onSeek={(time) => {
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = time;
+                      }
+                    }}
+                    onFullscreenToggle={toggleFullscreenV2}
+                  />
+                </div>
+              )}
 
               {/* Fullscreen Chat Overlay (right side) */}
               {viewer.isUnlocked && bootstrap?.chatEnabled && bootstrap.gameId && isFullscreen && (
@@ -659,7 +698,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     }
                   }}
                   isFullscreen={isFullscreen}
-                  onFullscreenToggle={toggleFullscreen}
+                  onFullscreenToggle={toggleFullscreenV2} // Use v2 hook
                   autoHide={isFullscreen}
                   autoHideDelay={4000}
                 />
