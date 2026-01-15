@@ -65,13 +65,31 @@ export default function DemoV2Page() {
     bypassCode: 'FIELDVIEW2026',
   });
 
+  // Debug: Log paywall state
+  useEffect(() => {
+    console.log('[Demo] Paywall state:', {
+      showPaywall: paywall.showPaywall,
+      isBypassed: paywall.isBypassed,
+      hasPaid: paywall.hasPaid,
+      isBlocked: paywall.isBlocked,
+    });
+  }, [paywall.showPaywall, paywall.isBypassed, paywall.hasPaid, paywall.isBlocked]);
+
   // Auto-open paywall for demo (only once, if not bypassed/paid)
   useEffect(() => {
     if (!paywall.isBypassed && !paywall.hasPaid && !paywall.showPaywall) {
+      console.log('[Demo] Auto-opening paywall after 2s...');
       const timer = setTimeout(() => {
+        console.log('[Demo] Opening paywall now!');
         paywall.openPaywall();
       }, 2000);
       return () => clearTimeout(timer);
+    } else {
+      console.log('[Demo] Skipping auto-open:', {
+        isBypassed: paywall.isBypassed,
+        hasPaid: paywall.hasPaid,
+        showPaywall: paywall.showPaywall,
+      });
     }
   }, []); // Run only once on mount
 
