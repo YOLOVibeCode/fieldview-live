@@ -50,19 +50,44 @@ export const clipIdSchema = z.object({
 // Bookmark Schemas
 // ========================================
 
+// Constants for bookmark validation
+export const BOOKMARK_LIMITS = {
+  LABEL_MIN: 1,
+  LABEL_MAX: 100,
+  NOTES_MAX: 500,
+  MAX_BOOKMARKS_PER_USER: 1000,
+  MAX_TIMESTAMP_SECONDS: 86400, // 24 hours
+} as const;
+
 export const createBookmarkSchema = z.object({
   gameId: z.string().uuid().optional(),
   directStreamId: z.string().uuid().optional(),
   viewerIdentityId: z.string().uuid(),
-  timestampSeconds: z.number().int().min(0),
-  label: z.string().min(1).max(200),
-  notes: z.string().max(1000).optional(),
+  timestampSeconds: z.number().int().min(0).max(BOOKMARK_LIMITS.MAX_TIMESTAMP_SECONDS),
+  label: z.string()
+    .trim()
+    .min(BOOKMARK_LIMITS.LABEL_MIN, 'Label is required')
+    .max(BOOKMARK_LIMITS.LABEL_MAX, `Label must be ${BOOKMARK_LIMITS.LABEL_MAX} characters or less`),
+  notes: z.string()
+    .trim()
+    .max(BOOKMARK_LIMITS.NOTES_MAX, `Notes must be ${BOOKMARK_LIMITS.NOTES_MAX} characters or less`)
+    .optional(),
   isShared: z.boolean().optional(),
-});
+}).refine(
+  (data) => data.gameId || data.directStreamId,
+  { message: 'Either gameId or directStreamId must be provided' }
+);
 
 export const updateBookmarkSchema = z.object({
-  label: z.string().min(1).max(200).optional(),
-  notes: z.string().max(1000).optional(),
+  label: z.string()
+    .trim()
+    .min(BOOKMARK_LIMITS.LABEL_MIN, 'Label is required')
+    .max(BOOKMARK_LIMITS.LABEL_MAX, `Label must be ${BOOKMARK_LIMITS.LABEL_MAX} characters or less`)
+    .optional(),
+  notes: z.string()
+    .trim()
+    .max(BOOKMARK_LIMITS.NOTES_MAX, `Notes must be ${BOOKMARK_LIMITS.NOTES_MAX} characters or less`)
+    .optional(),
   isShared: z.boolean().optional(),
 });
 

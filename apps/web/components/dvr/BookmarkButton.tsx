@@ -9,6 +9,12 @@
 import { useState } from 'react';
 import { useCreateBookmark } from '@/lib/hooks/useDVR';
 
+// Import validation constants from data-model
+const BOOKMARK_LIMITS = {
+  LABEL_MAX: 100,
+  NOTES_MAX: 500,
+} as const;
+
 interface BookmarkButtonProps {
   gameId?: string;
   directStreamId?: string;
@@ -106,9 +112,14 @@ export function BookmarkButton({
 
             <form data-testid="form-bookmark" onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label htmlFor="bookmark-label" className="block text-gray-300 mb-2">
-                  Label *
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="bookmark-label" className="block text-gray-300">
+                    Label *
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {label.length}/{BOOKMARK_LIMITS.LABEL_MAX}
+                  </span>
+                </div>
                 <input
                   id="bookmark-label"
                   data-testid="input-bookmark-label"
@@ -117,15 +128,24 @@ export function BookmarkButton({
                   onChange={(e) => setLabel(e.target.value)}
                   className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700 focus:border-amber-500 focus:outline-none"
                   placeholder="e.g., Amazing goal"
-                  maxLength={200}
+                  maxLength={BOOKMARK_LIMITS.LABEL_MAX}
                   required
+                  aria-describedby="label-hint"
                 />
+                <p id="label-hint" className="text-xs text-gray-500 mt-1">
+                  Short, descriptive title for this moment
+                </p>
               </div>
 
               <div className="mb-4">
-                <label htmlFor="bookmark-notes" className="block text-gray-300 mb-2">
-                  Notes (optional)
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="bookmark-notes" className="block text-gray-300">
+                    Notes (optional)
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {notes.length}/{BOOKMARK_LIMITS.NOTES_MAX}
+                  </span>
+                </div>
                 <textarea
                   id="bookmark-notes"
                   data-testid="input-bookmark-notes"
@@ -134,8 +154,12 @@ export function BookmarkButton({
                   className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700 focus:border-amber-500 focus:outline-none"
                   placeholder="Add details about this moment..."
                   rows={3}
-                  maxLength={1000}
+                  maxLength={BOOKMARK_LIMITS.NOTES_MAX}
+                  aria-describedby="notes-hint"
                 />
+                <p id="notes-hint" className="text-xs text-gray-500 mt-1">
+                  Additional details to help you remember this moment
+                </p>
               </div>
 
               <div className="mb-6">
