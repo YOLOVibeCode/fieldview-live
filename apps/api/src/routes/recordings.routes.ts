@@ -13,7 +13,7 @@ import { MockDVRService } from '@fieldview/dvr-service';
 import {
   startRecordingSchema,
   recordingIdSchema,
-} from '@fieldview/data-model/src/schemas/dvrSchemas';
+} from '@fieldview/data-model';
 
 const router = Router();
 const prisma = new PrismaClient();
