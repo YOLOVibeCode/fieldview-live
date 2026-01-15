@@ -16,3 +16,6 @@ export type { RegisterFormProps, RegisterFormData } from './RegisterForm';
 export { AuthModal } from './AuthModal';
 export type { AuthModalProps, AuthMode } from './AuthModal';
 
+export { ViewerAuthModal } from './ViewerAuthModal';
+export type { ViewerAuthModalProps } from './ViewerAuthModal';
+

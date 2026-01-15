@@ -45,6 +45,7 @@ import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
 import { Scoreboard } from '@/components/v2/scoreboard';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
+import { ViewerAuthModal } from '@/components/v2/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -180,6 +181,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showViewerAuthModal, setShowViewerAuthModal] = useState(false);
 
   // Video control state (v2)
   const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
@@ -279,6 +281,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     gameId: effectiveGameId,
     slug: config.slug // Pass slug for direct stream endpoint
   });
+
+  // Handler for viewer registration via v2 modal
+  const handleViewerRegister = (email: string, name: string) => {
+    viewer.unlock(email, name);
+    setShowViewerAuthModal(false);
+  };
+
   // Chat is always enabled to show messages, but sending requires unlock
   const chat = useGameChat({
     gameId: effectiveGameId,
@@ -955,19 +964,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         )}
                       </div>
 
-                      {/* Registration form for unregistered users */}
+                      {/* Registration prompt for unregistered users */}
                       <div className="border-t border-outline p-4 bg-background/50">
-                        <div className="space-y-3">
-                          <p className="text-sm text-muted-foreground text-center">
+                        <div className="space-y-3 text-center">
+                          <p className="text-sm text-muted-foreground">
                             Register your email to send messages
                           </p>
-                          <ViewerUnlockForm
-                            onUnlock={viewer.unlock}
-                            isLoading={viewer.isLoading}
-                            error={viewer.error}
-                            title=""
-                            description=""
-                          />
+                          <Button
+                            onClick={() => setShowViewerAuthModal(true)}
+                            data-testid="btn-open-viewer-auth"
+                            className="w-full"
+                          >
+                            Register to Chat
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -977,6 +986,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             )}
           </>
         )}
+
+        {/* v2 Viewer Auth Modal */}
+        <ViewerAuthModal
+          isOpen={showViewerAuthModal}
+          onClose={() => setShowViewerAuthModal(false)}
+          onRegister={handleViewerRegister}
+          isLoading={viewer.isLoading}
+          error={viewer.error}
+          title="Join the Chat"
+          description="Register your email to start chatting"
+        />
       </div>
     </div>
   );
