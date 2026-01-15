@@ -19,6 +19,7 @@ import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
 import Hls from 'hls.js';
 import { MessageCircle, X } from 'lucide-react';
 import { useGameChat } from '@/hooks/useGameChat';
+import { useGameChatV2 } from '@/hooks/useGameChatV2';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { GameChatPanel } from '@/components/GameChatPanel';
 import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
@@ -38,9 +39,10 @@ import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
 import { isTouchDevice, isMobileViewport } from '@/lib/utils/device-detection';
-// v2 Video Components
+// v2 Components
 import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
+import { Chat } from '@/components/v2/chat';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -280,6 +282,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     gameId: effectiveGameId,
     viewerToken: viewer.token,
     enabled: bootstrap?.chatEnabled === true, // Always enabled when chat is enabled
+  });
+
+  // v2 Chat hook (adapter for v2 Chat component)
+  const chatV2 = useGameChatV2({
+    gameId: effectiveGameId,
+    viewerToken: viewer.token,
+    enabled: bootstrap?.chatEnabled === true,
+    currentUserId: viewer.token || undefined,
   });
 
   // Notify status changes
@@ -819,55 +829,69 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
                 {/* Content - Always show messages, conditionally show input */}
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  {/* Messages - Always visible to all viewers */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
-                    {chat.error && (
-                      <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">
-                        {chat.error}
+                  {/* v2 Chat Component */}
+                  {viewer.isUnlocked ? (
+                    <Chat
+                      messages={chatV2.messages}
+                      onSend={chatV2.sendMessage}
+                      currentUserId={chatV2.currentUserId}
+                      mode="embedded"
+                      title=""
+                      isLoading={chatV2.isLoading}
+                      disabled={!chatV2.isConnected}
+                      emptyMessage="No messages yet. Be the first to chat!"
+                      className="h-full"
+                      data-testid="chat-panel-v2"
+                    />
+                  ) : (
+                    <div className="flex-1 flex flex-col">
+                      {/* Show messages to unregistered users (read-only) */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
+                        {chat.error && (
+                          <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">
+                            {chat.error}
+                          </div>
+                        )}
+                        
+                        {chat.messages.length === 0 ? (
+                          <p className="text-center text-muted-foreground py-8 text-sm">
+                            No messages yet. Be the first to chat!
+                          </p>
+                        ) : (
+                          chat.messages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className="p-3 bg-muted/50 rounded-lg"
+                              data-testid={`chat-msg-${msg.id}`}
+                            >
+                              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                                {msg.displayName}
+                              </div>
+                              <div className="text-sm leading-relaxed break-words text-white">
+                                {msg.message}
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    )}
-                    
-                    {chat.messages.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-8 text-sm">
-                        No messages yet. Be the first to chat!
-                      </p>
-                    ) : (
-                      chat.messages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className="p-3 bg-muted/50 rounded-lg"
-                          data-testid={`chat-msg-${msg.id}`}
-                        >
-                          <div className="text-xs font-semibold text-muted-foreground mb-1">
-                            {msg.displayName}
-                          </div>
-                          <div className="text-sm leading-relaxed break-words text-white">
-                            {msg.message}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
 
-                  {/* Input area - Only for unlocked users */}
-                  <div className="border-t border-outline p-4 bg-background/50">
-                    {viewer.isUnlocked ? (
-                      <ChatMessageForm chat={chat} />
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm text-muted-foreground text-center">
-                          Register your email to send messages
-                        </p>
-                        <ViewerUnlockForm
-                          onUnlock={viewer.unlock}
-                          isLoading={viewer.isLoading}
-                          error={viewer.error}
-                          title=""
-                          description=""
-                        />
+                      {/* Registration form for unregistered users */}
+                      <div className="border-t border-outline p-4 bg-background/50">
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground text-center">
+                            Register your email to send messages
+                          </p>
+                          <ViewerUnlockForm
+                            onUnlock={viewer.unlock}
+                            isLoading={viewer.isLoading}
+                            error={viewer.error}
+                            title=""
+                            description=""
+                          />
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
