@@ -332,11 +332,11 @@ export class CloudflareDVRService implements IDVRService {
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { success?: boolean; errors?: Array<{ message: string }>; result?: any };
 
     if (!data.success) {
       const errorMessage = data.errors
-        ? data.errors.map((e: any) => e.message).join(', ')
+        ? data.errors.map((e) => e.message).join(', ')
         : 'Unknown error';
       throw new Error(errorMessage);
     }

@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@fieldview/data-model": "workspace:*",
+    "@fieldview/dvr-service": "workspace:*",
     "@mux/mux-node": "^12.8.1",
     "@prisma/client": "^6.0.0",
     "@sendgrid/mail": "^8.1.6",

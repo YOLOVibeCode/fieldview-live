@@ -29,7 +29,7 @@ export class DVRProviderFactory {
   static createProvider(config: DVRProviderConfig): IDVRService {
     switch (config.provider) {
       case 'mock':
-        return new MockDVRService(config);
+        return new MockDVRService();
 
       case 'mux':
         if (!config.credentials.tokenId || !config.credentials.tokenSecret) {

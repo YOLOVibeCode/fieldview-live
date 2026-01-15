@@ -24,7 +24,7 @@ import {
   ClipMetadata,
   ThumbnailResult,
   SpriteSheetResult,
-} from '../interfaces';
+} from '../../interfaces';
 
 export class MockDVRService implements IDVRService {
   private recordings = new Map<string, RecordingSession>();
