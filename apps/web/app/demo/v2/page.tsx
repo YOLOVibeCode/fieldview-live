@@ -65,17 +65,15 @@ export default function DemoV2Page() {
     bypassCode: 'FIELDVIEW2026',
   });
 
-  // Manually set demo paywall config
+  // Auto-open paywall for demo (only once, if not bypassed/paid)
   useEffect(() => {
-    // Simulate paywall configuration
-    if (!paywall.isBypassed && !paywall.hasPaid) {
-      // Show paywall after 2 seconds to let user see the page first
+    if (!paywall.isBypassed && !paywall.hasPaid && !paywall.showPaywall) {
       const timer = setTimeout(() => {
         paywall.openPaywall();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [paywall.isBypassed, paywall.hasPaid]);
+  }, []); // Run only once on mount
 
   // Scoreboard state
   const [scoreboardData, setScoreboardData] = useState({
