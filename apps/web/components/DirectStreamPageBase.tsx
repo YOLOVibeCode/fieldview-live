@@ -43,6 +43,8 @@ import { isTouchDevice, isMobileViewport } from '@/lib/utils/device-detection';
 import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
+import { Scoreboard } from '@/components/v2/scoreboard';
+import { useScoreboardData } from '@/hooks/useScoreboardData';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -292,6 +294,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     currentUserId: viewer.token || undefined,
   });
 
+  // v2 Scoreboard hook (data fetching for v2 Scoreboard component)
+  const scoreboardData = useScoreboardData({
+    slug: bootstrap?.slug || null,
+    enabled: bootstrap?.scoreboardEnabled === true,
+    viewerToken: viewer.token,
+  });
+
   // Notify status changes
   useEffect(() => {
     config.onStreamStatusChange?.(status);
@@ -517,12 +526,83 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
           {/* Scoreboard Overlay (non-fullscreen - collapsible to left edge) */}
           {!isFullscreen && bootstrap?.scoreboardEnabled && (
-            <ScoreboardOverlay 
-              slug={bootstrap?.slug || ''} 
-              isCollapsed={scoreboardPanel.isCollapsed}
-              onToggle={scoreboardPanel.toggle}
-              canEditScore={viewer.isUnlocked}
-            />
+            <>
+              {/* Collapsed: Left-edge tab */}
+              {scoreboardPanel.isCollapsed && (
+                <button
+                  type="button"
+                  data-testid="btn-expand-scoreboard"
+                  className={cn(
+                    'fixed left-0 top-1/2 -translate-y-1/2 z-40',
+                    'w-12 py-4',
+                    'bg-background/95 backdrop-blur-sm',
+                    'border-r-2 border-outline',
+                    'rounded-r-lg',
+                    'shadow-xl',
+                    'cursor-pointer pointer-events-auto',
+                    'hover:bg-background hover:w-14',
+                    'transition-all duration-200',
+                    'flex flex-col items-center gap-2'
+                  )}
+                  onClick={scoreboardPanel.toggle}
+                  aria-label="Expand scoreboard"
+                >
+                  <div className="text-white/80 text-xs font-bold">→</div>
+                  <div className="text-2xl">📊</div>
+                </button>
+              )}
+
+              {/* Expanded Scoreboard Panel */}
+              {!scoreboardPanel.isCollapsed && (
+                <div
+                  className={cn(
+                    'fixed left-0 top-1/2 -translate-y-1/2 z-40',
+                    'w-[320px]',
+                    'bg-background/95 backdrop-blur-sm',
+                    'border-r-2 border-outline',
+                    'rounded-r-lg shadow-xl',
+                    'transition-transform duration-300 ease-in-out',
+                    'p-4'
+                  )}
+                  data-testid="scoreboard-panel"
+                  role="dialog"
+                  aria-modal="false"
+                  aria-label="Scoreboard panel"
+                >
+                  {/* Header with collapse button */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-white">Scoreboard</h3>
+                    <button
+                      type="button"
+                      className="text-white/70 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
+                      onClick={scoreboardPanel.toggle}
+                      aria-label="Collapse scoreboard"
+                      data-testid="btn-collapse-scoreboard"
+                    >
+                      <div className="text-lg">←</div>
+                    </button>
+                  </div>
+
+                  {/* v2 Scoreboard Component */}
+                  <Scoreboard
+                    homeTeam={scoreboardData.homeTeam}
+                    awayTeam={scoreboardData.awayTeam}
+                    period={scoreboardData.period}
+                    time={scoreboardData.time}
+                    mode="sidebar"
+                    editable={viewer.isUnlocked}
+                    onScoreUpdate={scoreboardData.updateScore}
+                    data-testid="scoreboard-v2"
+                  />
+
+                  {scoreboardData.error && (
+                    <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm">
+                      {scoreboardData.error}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {/* Paywall Modal */}
