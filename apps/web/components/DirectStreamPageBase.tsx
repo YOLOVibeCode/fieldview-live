@@ -440,8 +440,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           // Don't set error status for autoplay blocks - stream is loaded, just paused
         });
       });
-      video.addEventListener('error', () => {
-        setStatus('error');
+      video.addEventListener('error', (e) => {
+        // Only set error for actual media errors, not playback issues
+        const mediaError = (e.target as HTMLVideoElement)?.error;
+        if (mediaError && mediaError.code !== MediaError.MEDIA_ERR_ABORTED) {
+          console.error('Video error:', mediaError);
+          setStatus('error');
+        }
       });
     } else {
       setStatus('error');
