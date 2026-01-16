@@ -27,6 +27,11 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
+// Legacy components (needed for Admin Panel)
+import { AdminPanel } from '@/components/AdminPanel';
+import { SocialProducerPanel } from '@/components/SocialProducerPanel';
+import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
+import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
 import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
