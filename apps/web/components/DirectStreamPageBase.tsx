@@ -400,11 +400,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch((err) => {
-          console.error('Play failed:', err);
-          setStatus('error');
-        });
         setStatus('playing');
+        video.play().catch((err) => {
+          console.debug('Autoplay blocked (user interaction required):', err);
+          // Don't set error status for autoplay blocks - stream is loaded, just paused
+        });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -434,11 +434,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       // Native HLS support (Safari)
       video.src = url;
       video.addEventListener('loadedmetadata', () => {
-        video.play().catch((err) => {
-          console.error('Play failed:', err);
-          setStatus('error');
-        });
         setStatus('playing');
+        video.play().catch((err) => {
+          console.debug('Autoplay blocked (user interaction required):', err);
+          // Don't set error status for autoplay blocks - stream is loaded, just paused
+        });
       });
       video.addEventListener('error', () => {
         setStatus('error');
