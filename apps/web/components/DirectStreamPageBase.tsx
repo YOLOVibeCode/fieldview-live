@@ -498,33 +498,35 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle, toggleFullscreenV2]);
 
   return (
-    <div className={`min-h-screen bg-black flex flex-col ${config.containerClassName || ''}`}>
+    <div className={`min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex flex-col ${config.containerClassName || ''}`}>
       <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full gap-4 p-4">
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className={`bg-card border-b border-border p-4 rounded-t-lg ${config.headerClassName || ''}`}>
+          {/* Header - Enhanced with gradient and backdrop blur */}
+          <div className={`bg-black/60 backdrop-blur-md border-b border-white/10 p-4 rounded-t-lg shadow-2xl ${config.headerClassName || ''}`}>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2">{config.title}</h1>
-                {config.subtitle && <p className="text-muted-foreground text-sm">{config.subtitle}</p>}
+                <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight">{config.title}</h1>
+                {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 {config.enableFontSize && (
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-sm">Text:</span>
+                    <span className="text-gray-400 text-sm hidden md:inline">Text:</span>
                     {(['small', 'medium', 'large'] as FontSize[]).map((size) => (
-                      <button
+                      <TouchButton
                         key={size}
                         onClick={() => handleFontSizeChange(size)}
-                        className={`px-3 py-1 rounded text-sm transition-colors ${
+                        size="sm"
+                        variant={fontSize === size ? 'primary' : 'secondary'}
+                        className={`transition-all ${
                           fontSize === size
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                            ? 'ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20'
+                            : 'hover:border-white/40'
                         }`}
                       >
                         {size[0].toUpperCase()}
-                      </button>
+                      </TouchButton>
                     ))}
                   </div>
                 )}
@@ -533,6 +535,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     onClick={() => setIsEditing(true)}
                     size="sm"
                     variant="secondary"
+                    className="shadow-lg border border-white/20 hover:border-white/40 transition-all"
                     data-testid="btn-open-admin-panel"
                   >
                     Admin Panel
@@ -600,7 +603,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           {/* Scoreboard Overlay (non-fullscreen - collapsible to left edge) */}
           {!isFullscreen && bootstrap?.scoreboardEnabled && (
             <>
-              {/* Collapsed: Left-edge tab */}
+              {/* Collapsed: Left-edge tab - Enhanced with glow */}
               {scoreboardPanel.isCollapsed && (
               <button
                 type="button"
@@ -608,32 +611,35 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 className={cn(
                   'fixed left-0 top-1/2 -translate-y-1/2 z-30',
                   'w-12 py-4',
-                  'bg-background/95 backdrop-blur-sm',
-                  'border-r-2 border-outline',
+                  'bg-black/80 backdrop-blur-md',
+                  'border-r-2 border-white/20',
                   'rounded-r-lg',
-                  'shadow-xl',
+                  'shadow-2xl shadow-blue-500/10',
                   'cursor-pointer pointer-events-auto',
-                  'hover:bg-background hover:w-14',
-                  'transition-all duration-200',
-                  'flex flex-col items-center gap-2'
+                  'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-blue-500/30',
+                  'transition-all duration-300',
+                  'flex flex-col items-center gap-2',
+                  'group'
                 )}
                 onClick={scoreboardPanel.toggle}
                 aria-label="Expand scoreboard"
               >
-                  <div className="text-white/80 text-xs font-bold">→</div>
-                  <div className="text-2xl">📊</div>
-                </button>
+                  <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">→</div>
+                  <div className="text-2xl group-hover:scale-110 transition-transform">📊</div>
+                  {/* Optional badge for active state */}
+                  <div className="absolute -right-1 top-4 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              </button>
               )}
 
-              {/* Expanded Scoreboard Panel */}
+              {/* Expanded Scoreboard Panel - Enhanced with depth */}
               {!scoreboardPanel.isCollapsed && (
               <div
                 className={cn(
                   'fixed left-0 top-1/2 -translate-y-1/2 z-30',
                   'w-[320px]',
-                  'bg-background/95 backdrop-blur-sm',
-                  'border-r-2 border-outline',
-                  'rounded-r-lg shadow-xl',
+                  'bg-black/90 backdrop-blur-md',
+                  'border-r-2 border-white/20',
+                  'rounded-r-lg shadow-2xl shadow-blue-500/10',
                   'transition-transform duration-300 ease-in-out',
                   'p-4'
                 )}
@@ -694,21 +700,32 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             />
           )}
 
-          {/* Video Player Container */}
+          {/* Video Player Container - Enhanced with shadow */}
           <div className="flex-1 flex flex-col items-center justify-center">
             <div
               ref={containerRef}
-              className="relative w-full aspect-video bg-black rounded-lg overflow-hidden"
+              className="relative w-full aspect-video bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden shadow-2xl border border-white/10"
               style={{ minHeight: '400px' }}
             >
               {status === 'offline' && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
-                  <div className="text-center text-white">
-                    <p className="text-xl mb-2">Stream Offline</p>
-                    <p className="text-sm text-muted-foreground mb-4">No stream URL configured</p>
+                  <div className="text-center text-white max-w-md mx-auto px-4">
+                    {/* Animated icon */}
+                    <div className="mb-6 relative">
+                      <div className="w-20 h-20 mx-auto bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
+                        <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      {/* Subtle glow effect */}
+                      <div className="absolute inset-0 w-20 h-20 mx-auto bg-blue-500/10 rounded-full blur-xl animate-pulse" />
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-bold mb-3 tracking-tight">Stream Offline</h2>
+                    <p className="text-gray-400 text-sm md:text-base mb-6">No stream URL configured yet</p>
                     <TouchButton
                       onClick={() => setIsEditing(true)}
                       variant="primary"
+                      className="shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-shadow"
                       data-testid="btn-set-stream"
                     >
                       Open Admin Panel
@@ -719,12 +736,23 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
               {status === 'error' && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
-                  <div className="text-center text-white">
-                    <p className="text-xl mb-2">Unable to Load Stream</p>
-                    <p className="text-sm text-muted-foreground mb-4">Please check the stream URL and try again.</p>
+                  <div className="text-center text-white max-w-md mx-auto px-4">
+                    {/* Animated error icon */}
+                    <div className="mb-6 relative">
+                      <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-900/50 to-red-950/50 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
+                        <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      {/* Subtle glow effect */}
+                      <div className="absolute inset-0 w-20 h-20 mx-auto bg-red-500/10 rounded-full blur-xl animate-pulse" />
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-bold mb-3 tracking-tight">Unable to Load Stream</h2>
+                    <p className="text-gray-400 text-sm md:text-base mb-6">Please check the stream URL and try again</p>
                     <TouchButton
                       onClick={() => setIsEditing(true)}
                       variant="primary"
+                      className="shadow-2xl shadow-red-500/20 hover:shadow-red-500/40 transition-shadow"
                       data-testid="btn-update-stream"
                     >
                       Open Admin Panel
@@ -734,9 +762,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {status === 'loading' && bootstrap?.streamUrl && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/50">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm">
                   <div className="text-center text-white">
-                    <p className="text-xl mb-2">Loading stream...</p>
+                    {/* Animated loading spinner */}
+                    <div className="mb-6">
+                      <div className="w-16 h-16 mx-auto border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-bold mb-2 tracking-tight">Loading stream...</h2>
+                    <p className="text-gray-400 text-sm animate-pulse">Please wait</p>
                   </div>
                 </div>
               )}
@@ -844,7 +877,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         {/* Collapsible Chat Panel - Right Edge */}
         {!isFullscreen && bootstrap?.chatEnabled && (
           <>
-            {/* Collapsed: Right-edge tab */}
+            {/* Collapsed: Right-edge tab - Enhanced with glow */}
             {chatPanel.isCollapsed && (
               <button
                 type="button"
@@ -852,43 +885,44 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 className={cn(
                   'fixed right-0 top-1/2 -translate-y-1/2 z-30',
                   'w-12 py-4',
-                  'bg-background/95 backdrop-blur-sm',
-                  'border-l-2 border-outline',
+                  'bg-black/80 backdrop-blur-md',
+                  'border-l-2 border-white/20',
                   'rounded-l-lg',
-                  'shadow-xl',
+                  'shadow-2xl shadow-green-500/10',
                   'cursor-pointer pointer-events-auto',
-                  'hover:bg-background hover:w-14',
-                  'transition-all duration-200',
-                  'flex flex-col items-center gap-2'
+                  'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-green-500/30',
+                  'transition-all duration-300',
+                  'flex flex-col items-center gap-2',
+                  'group'
                 )}
                 onClick={chatPanel.toggle}
                 aria-label="Expand chat"
               >
-                <div className="text-white/80 text-xs font-bold">←</div>
-                <div className="text-2xl">💬</div>
+                <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">←</div>
+                <div className="text-2xl group-hover:scale-110 transition-transform">💬</div>
                 {chat.messages.length > 0 && (
                   <Badge 
                     count={chat.messages.length}
                     max={9}
-                    variant="accent"
+                    color="error"
                     data-testid="chat-collapsed-badge"
                   />
                 )}
                 {chat.isConnected && (
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <div className="absolute -left-1 top-4 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 )}
               </button>
             )}
 
-            {/* Expanded Chat Panel */}
+            {/* Expanded Chat Panel - Enhanced with depth */}
             {!chatPanel.isCollapsed && (
               <div
                 className={cn(
                   'fixed right-0 top-1/2 -translate-y-1/2 z-30',
                   'w-[360px] max-h-[80vh]',
-                  'bg-background/95 backdrop-blur-sm',
-                  'border-l-2 border-outline',
-                  'rounded-l-lg shadow-xl',
+                  'bg-black/90 backdrop-blur-md',
+                  'border-l-2 border-white/20',
+                  'rounded-l-lg shadow-2xl shadow-green-500/10',
                   'flex flex-col',
                   'transition-transform duration-300 ease-in-out'
                 )}
