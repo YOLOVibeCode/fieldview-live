@@ -559,9 +559,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   <Button
                     onClick={() => setIsEditing(true)}
                     size="sm"
-                    data-testid="btn-edit-stream"
+                    data-testid="btn-open-admin-panel"
                   >
-                    Edit Stream
+                    Admin Panel
                   </Button>
                 )}
               </div>
