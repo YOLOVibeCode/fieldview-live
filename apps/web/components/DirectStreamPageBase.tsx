@@ -627,24 +627,24 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             <>
               {/* Collapsed: Left-edge tab */}
               {scoreboardPanel.isCollapsed && (
-                <button
-                  type="button"
-                  data-testid="btn-expand-scoreboard"
-                  className={cn(
-                    'fixed left-0 top-1/2 -translate-y-1/2 z-40',
-                    'w-12 py-4',
-                    'bg-background/95 backdrop-blur-sm',
-                    'border-r-2 border-outline',
-                    'rounded-r-lg',
-                    'shadow-xl',
-                    'cursor-pointer pointer-events-auto',
-                    'hover:bg-background hover:w-14',
-                    'transition-all duration-200',
-                    'flex flex-col items-center gap-2'
-                  )}
-                  onClick={scoreboardPanel.toggle}
-                  aria-label="Expand scoreboard"
-                >
+              <button
+                type="button"
+                data-testid="btn-expand-scoreboard"
+                className={cn(
+                  'fixed left-0 top-1/2 -translate-y-1/2 z-30',
+                  'w-12 py-4',
+                  'bg-background/95 backdrop-blur-sm',
+                  'border-r-2 border-outline',
+                  'rounded-r-lg',
+                  'shadow-xl',
+                  'cursor-pointer pointer-events-auto',
+                  'hover:bg-background hover:w-14',
+                  'transition-all duration-200',
+                  'flex flex-col items-center gap-2'
+                )}
+                onClick={scoreboardPanel.toggle}
+                aria-label="Expand scoreboard"
+              >
                   <div className="text-white/80 text-xs font-bold">→</div>
                   <div className="text-2xl">📊</div>
                 </button>
@@ -652,21 +652,21 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
               {/* Expanded Scoreboard Panel */}
               {!scoreboardPanel.isCollapsed && (
-                <div
-                  className={cn(
-                    'fixed left-0 top-1/2 -translate-y-1/2 z-40',
-                    'w-[320px]',
-                    'bg-background/95 backdrop-blur-sm',
-                    'border-r-2 border-outline',
-                    'rounded-r-lg shadow-xl',
-                    'transition-transform duration-300 ease-in-out',
-                    'p-4'
-                  )}
-                  data-testid="scoreboard-panel"
-                  role="dialog"
-                  aria-modal="false"
-                  aria-label="Scoreboard panel"
-                >
+              <div
+                className={cn(
+                  'fixed left-0 top-1/2 -translate-y-1/2 z-30',
+                  'w-[320px]',
+                  'bg-background/95 backdrop-blur-sm',
+                  'border-r-2 border-outline',
+                  'rounded-r-lg shadow-xl',
+                  'transition-transform duration-300 ease-in-out',
+                  'p-4'
+                )}
+                data-testid="scoreboard-panel"
+                role="dialog"
+                aria-modal="false"
+                aria-label="Scoreboard panel"
+              >
                   {/* Header with collapse button */}
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-white">Scoreboard</h3>
@@ -933,7 +933,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 type="button"
                 data-testid="btn-expand-chat"
                 className={cn(
-                  'fixed right-0 top-1/2 -translate-y-1/2 z-50',
+                  'fixed right-0 top-1/2 -translate-y-1/2 z-30',
                   'w-12 py-4',
                   'bg-background/95 backdrop-blur-sm',
                   'border-l-2 border-outline',
@@ -967,7 +967,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             {!chatPanel.isCollapsed && (
               <div
                 className={cn(
-                  'fixed right-0 top-1/2 -translate-y-1/2 z-50',
+                  'fixed right-0 top-1/2 -translate-y-1/2 z-30',
                   'w-[360px] max-h-[80vh]',
                   'bg-background/95 backdrop-blur-sm',
                   'border-l-2 border-outline',
