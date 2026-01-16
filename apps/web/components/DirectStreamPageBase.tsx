@@ -33,7 +33,8 @@ import { ScoreboardOverlay } from '@/components/ScoreboardOverlay';
 import { CollapsibleScoreboardOverlay } from '@/components/CollapsibleScoreboardOverlay';
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
-import { Button } from '@/components/ui/button';
+// Keeping legacy Button import for backward compatibility in some components
+import { Button as LegacyButton } from '@/components/ui/button';
 import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,8 @@ import { Chat } from '@/components/v2/chat';
 import { Scoreboard } from '@/components/v2/scoreboard';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
+import { TouchButton, Badge, BottomSheet } from '@/components/v2/primitives';
+import { useResponsive } from '@/hooks/v2/useResponsive';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -93,15 +96,16 @@ function ChatMessageForm({ chat }: { chat: { sendMessage: (text: string) => Prom
           className="min-h-[44px] text-base flex-1 bg-background/80 border-outline text-white placeholder:text-white/50"
           aria-label="Chat message input"
         />
-        <Button
+        <TouchButton
           type="submit"
           disabled={!canSend || !chat.isConnected}
           data-testid="btn-send-message"
           className="min-h-[44px] min-w-[80px] text-base font-medium"
+          variant="primary"
           aria-label="Send message"
         >
           Send
-        </Button>
+        </TouchButton>
       </div>
       <div className="text-xs text-muted-foreground text-right">
         {remainingChars} character{remainingChars !== 1 ? 's' : ''} remaining
@@ -194,21 +198,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Fullscreen hook (v2)
   const { isFullscreen, toggleFullscreen: toggleFullscreenV2, isSupported: isFullscreenSupported } = useFullscreen(containerRef.current);
 
-  // Mobile device detection
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTouch, setIsTouch] = useState(false);
-
-  // Detect mobile on mount and window resize
-  useEffect(() => {
-    const checkDevice = () => {
-      setIsMobile(isMobileViewport());
-      setIsTouch(isTouchDevice());
-    };
-
-    checkDevice();
-    window.addEventListener('resize', checkDevice);
-    return () => window.removeEventListener('resize', checkDevice);
-  }, []);
+  // v2 Responsive hook (replaces manual detection)
+  const { isMobile, isTouch, breakpoint } = useResponsive();
 
   // Collapsible panel state (non-fullscreen mode)
   // Use a stable key derived from bootstrapUrl (constant from first render)
@@ -556,13 +547,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   </div>
                 )}
                 {!isEditing && (
-                  <Button
+                  <TouchButton
                     onClick={() => setIsEditing(true)}
                     size="sm"
+                    variant="secondary"
                     data-testid="btn-open-admin-panel"
                   >
                     Admin Panel
-                  </Button>
+                  </TouchButton>
                 )}
               </div>
             </div>
@@ -732,12 +724,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Stream Offline</p>
                     <p className="text-sm text-muted-foreground mb-4">No stream URL configured</p>
-                    <Button
+                    <TouchButton
                       onClick={() => setIsEditing(true)}
+                      variant="primary"
                       data-testid="btn-set-stream"
                     >
                       Open Admin Panel
-                    </Button>
+                    </TouchButton>
                   </div>
                 </div>
               )}
@@ -747,12 +740,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Unable to Load Stream</p>
                     <p className="text-sm text-muted-foreground mb-4">Please check the stream URL and try again.</p>
-                    <Button
+                    <TouchButton
                       onClick={() => setIsEditing(true)}
+                      variant="primary"
                       data-testid="btn-update-stream"
                     >
                       Open Admin Panel
-                    </Button>
+                    </TouchButton>
                   </div>
                 </div>
               )}
@@ -951,12 +945,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <div className="text-white/80 text-xs font-bold">←</div>
                 <div className="text-2xl">💬</div>
                 {chat.messages.length > 0 && (
-                  <div 
-                    className="text-white font-bold text-xs bg-accent/80 px-2 py-0.5 rounded-full"
+                  <Badge 
+                    count={chat.messages.length}
+                    max={9}
+                    variant="accent"
                     data-testid="chat-collapsed-badge"
-                  >
-                    {chat.messages.length > 9 ? '9+' : chat.messages.length}
-                  </div>
+                  />
                 )}
                 {chat.isConnected && (
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -1061,13 +1055,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                             <p className="text-sm text-muted-foreground">
                               Register your email to send messages
                             </p>
-                            <Button
+                            <TouchButton
                               onClick={() => setShowInlineRegistration(true)}
+                              variant="primary"
                               data-testid="btn-open-inline-registration"
                               className="w-full"
                             >
                               Register to Chat
-                            </Button>
+                            </TouchButton>
                           </div>
                         ) : (
                           <div className="space-y-3">
@@ -1135,14 +1130,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                   defaultValue={globalAuth.viewerIdentity?.email || ''}
                                 />
                               </div>
-                              <Button
+                              <TouchButton
                                 type="submit"
                                 disabled={viewer.isLoading || globalAuth.isAutoRegistering}
+                                variant="primary"
                                 className="w-full"
                                 data-testid="btn-submit-inline-registration"
                               >
                                 {viewer.isLoading || globalAuth.isAutoRegistering ? 'Registering...' : 'Register'}
-                              </Button>
+                              </TouchButton>
                               {(viewer.error || globalAuth.autoRegisterError) && (
                                 <p className="text-xs text-destructive text-center" role="alert">
                                   {viewer.error || globalAuth.autoRegisterError}
