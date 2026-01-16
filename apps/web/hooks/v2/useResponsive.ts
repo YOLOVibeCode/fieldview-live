@@ -92,53 +92,32 @@ function checkTouchSupport(): boolean {
  * Provides computed layout decisions based on screen size
  */
 export function useResponsive(): ResponsiveState {
+  // Track if component is mounted to avoid hydration mismatches
+  const [mounted, setMounted] = useState(false);
+  
   const [state, setState] = useState<ResponsiveState>(() => {
-    // SSR-safe initialization
-    if (typeof window === 'undefined') {
-      return {
-        isMobile: true,
-        isTablet: false,
-        isDesktop: false,
-        isTouch: true,
-        breakpoint: 'sm',
-        orientation: 'portrait',
-        width: 375,
-        height: 667,
-        showBottomNav: true,
-        showSidePanel: false,
-        scoreboardPosition: 'floating',
-        chatPosition: 'bottom-sheet',
-      };
-    }
-    
-    // Client-side initialization
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const breakpoint = getBreakpoint(width);
-    const orientation = getOrientation(width, height);
-    const isTouch = checkTouchSupport();
-    
-    const isMobile = breakpoint === 'xs' || breakpoint === 'sm';
-    const isTablet = breakpoint === 'md';
-    const isDesktop = breakpoint === 'lg' || breakpoint === 'xl';
-    
+    // SSR-safe initialization - always return mobile defaults
+    // This will match server-rendered content
     return {
-      isMobile,
-      isTablet,
-      isDesktop,
-      isTouch,
-      breakpoint,
-      orientation,
-      width,
-      height,
-      showBottomNav: isMobile,
-      showSidePanel: isDesktop,
-      scoreboardPosition: isMobile ? 'floating' : 'sidebar',
-      chatPosition: isMobile ? 'bottom-sheet' : 'sidebar',
+      isMobile: true,
+      isTablet: false,
+      isDesktop: false,
+      isTouch: true,
+      breakpoint: 'sm',
+      orientation: 'portrait',
+      width: 375,
+      height: 667,
+      showBottomNav: true,
+      showSidePanel: false,
+      scoreboardPosition: 'floating',
+      chatPosition: 'bottom-sheet',
     };
   });
   
   useEffect(() => {
+    // Mark as mounted on first client render
+    setMounted(true);
+    
     // Skip on server
     if (typeof window === 'undefined') return;
     
@@ -175,7 +154,7 @@ export function useResponsive(): ResponsiveState {
     // Update on orientation change
     window.addEventListener('orientationchange', updateState);
     
-    // Initial update
+    // Initial update (after mount)
     updateState();
     
     return () => {
@@ -184,6 +163,7 @@ export function useResponsive(): ResponsiveState {
     };
   }, []);
   
+  // Return default state until mounted (avoids hydration mismatch)
   return state;
 }
 
