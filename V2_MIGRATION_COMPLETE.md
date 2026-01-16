@@ -73,10 +73,11 @@ We've successfully migrated `DirectStreamPageBase` to use the **v2 design system
 - Admin panel access
 - Inline registration flow
 - Badge notifications
+- Hydration (no errors)
 
-### ⚠️ Known Issues
-- Minor hydration warning (non-breaking, page functions normally)
-- To be addressed in future optimization pass
+### ✅ Issues Fixed
+- ~~Minor hydration warning (non-breaking, page functions normally)~~ **FIXED**
+- **Hydration errors resolved** by ensuring SSR-safe `useResponsive` hook initialization
 
 ---
 
@@ -91,7 +92,12 @@ We've successfully migrated `DirectStreamPageBase` to use the **v2 design system
 2. **`apps/web/app/layout.tsx`**
    - Added v2 tokens import (`@/styles/v2/tokens.css`)
 
-3. **`apps/web/components/DirectStreamPageV2.tsx`** (created but not used yet)
+3. **`apps/web/hooks/v2/useResponsive.ts`**
+   - Fixed hydration errors by ensuring SSR-safe initialization
+   - Always starts with mobile defaults, updates after mount
+   - Prevents server/client HTML mismatch
+
+4. **`apps/web/components/DirectStreamPageV2.tsx`** (created but not used yet)
    - Future wrapper for additional v2 enhancements
 
 ---
