@@ -27,6 +27,7 @@ interface ViewerIdentity {
   lastName: string;
   viewerToken: string;
   gameId: string;
+  viewerId?: string; // Add viewerId (viewerIdentityId from API)
 }
 
 interface UnlockData {
@@ -43,6 +44,7 @@ interface UseViewerIdentityProps {
 export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(null); // Add viewerId state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +60,7 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
         // Check if it's for the same game
         if (identity.gameId === gameId && identity.viewerToken) {
           setToken(identity.viewerToken);
+          setViewerId(identity.viewerId || null);
           setIsUnlocked(true);
         }
       }
@@ -95,6 +98,7 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
 
       const result = await response.json();
       const viewerToken = result.viewerToken;
+      const viewerIdFromApi = result.viewer?.id; // Extract viewerId from response
 
       if (!viewerToken) {
         throw new Error('No viewer token received');
@@ -105,10 +109,12 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
         ...data,
         viewerToken,
         gameId: gameId || '', // Allow empty string for slug-only streams
+        viewerId: viewerIdFromApi, // Save viewerId
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
 
       setToken(viewerToken);
+      setViewerId(viewerIdFromApi || null);
       setIsUnlocked(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to unlock stream';
@@ -124,6 +130,7 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
   return {
     isUnlocked,
     token,
+    viewerId, // Export viewerId
     isLoading,
     error,
     unlock,

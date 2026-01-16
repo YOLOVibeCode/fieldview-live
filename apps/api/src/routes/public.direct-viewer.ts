@@ -13,6 +13,8 @@ import { validateRequest } from '../middleware/validation';
 import { generateViewerToken, formatDisplayName } from '../lib/viewer-jwt';
 import { logger } from '../lib/logger';
 import { sendEmail, renderRegistrationEmail } from '../lib/email';
+import { createAutoRegistrationService } from '../services/auto-registration.implementations';
+import type { AutoRegisterRequest, AutoRegisterResponse } from '../services/auto-registration.interfaces';
 
 const router = express.Router();
 
@@ -21,6 +23,11 @@ const UnlockViewerSchema = z.object({
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
   wantsReminders: z.boolean().optional().default(true),
+});
+
+const AutoRegisterSchema = z.object({
+  directStreamSlug: z.string().min(1),
+  viewerIdentityId: z.string().min(1),
 });
 
 /**
@@ -131,6 +138,78 @@ router.post(
         });
       } catch (error) {
         next(error);
+      }
+    })();
+  }
+);
+
+/**
+ * POST /api/public/direct/viewer/auto-register
+ *
+ * Auto-register an existing viewer for a new direct stream.
+ * Used for cross-stream authentication - if a viewer is already registered
+ * on one stream, they can be automatically registered on other streams.
+ */
+router.post(
+  '/direct/viewer/auto-register',
+  validateRequest({ body: AutoRegisterSchema }),
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const body = req.body as AutoRegisterRequest;
+
+        // Create auto-registration service
+        const autoRegService = createAutoRegistrationService(prisma);
+
+        // Auto-register viewer
+        const result = await autoRegService.autoRegister(
+          body.directStreamSlug,
+          body.viewerIdentityId
+        );
+
+        // Format response
+        const response: AutoRegisterResponse = {
+          registration: {
+            id: result.registration.id,
+            directStreamId: result.registration.directStreamId,
+            viewerIdentityId: result.registration.viewerIdentityId,
+            registeredAt: result.registration.registeredAt.toISOString(),
+            accessToken: null, // No longer storing access tokens in DB
+            viewerIdentity: {
+              id: result.registration.viewerIdentity.id,
+              email: result.registration.viewerIdentity.email,
+              firstName: result.registration.viewerIdentity.firstName,
+              lastName: result.registration.viewerIdentity.lastName,
+            },
+          },
+          isNewRegistration: result.isNewRegistration,
+        };
+
+        logger.info(
+          {
+            streamSlug: body.directStreamSlug,
+            viewerIdentityId: body.viewerIdentityId,
+            isNewRegistration: result.isNewRegistration,
+          },
+          'Viewer auto-registered for stream'
+        );
+
+        // Return 201 for new registration, 200 for existing
+        res.status(result.isNewRegistration ? 201 : 200).json(response);
+      } catch (error) {
+        // Handle specific errors
+        if (error instanceof Error) {
+          if (error.message.includes('Stream not found')) {
+            return res.status(404).json({ error: error.message });
+          }
+          if (error.message.includes('Viewer identity not found')) {
+            return res.status(404).json({ error: error.message });
+          }
+        }
+
+        // Log and return generic error
+        logger.error({ error, body: req.body }, 'Auto-registration failed');
+        res.status(500).json({ error: 'Auto-registration failed' });
       }
     })();
   }

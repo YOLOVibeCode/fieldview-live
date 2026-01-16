@@ -25,11 +25,13 @@ import { BottomSheet, TouchButton } from '@/components/v2/primitives';
 export interface ViewerAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onRegister: (email: string, name: string) => void;
+  onRegister: (email: string, name: string) => void | Promise<void>;
   isLoading?: boolean;
   error?: string | null;
   title?: string;
   description?: string;
+  defaultEmail?: string; // Pre-fill email from global auth
+  defaultName?: string; // Pre-fill name from global auth
 }
 
 /**
@@ -45,9 +47,11 @@ export function ViewerAuthModal({
   error = null,
   title = 'Join the Chat',
   description = 'Register your email to start chatting',
+  defaultEmail = '',
+  defaultName = '',
 }: ViewerAuthModalProps) {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [email, setEmail] = useState(defaultEmail);
+  const [name, setName] = useState(defaultName);
   const [emailError, setEmailError] = useState('');
   const [nameError, setNameError] = useState('');
 
@@ -82,14 +86,15 @@ export function ViewerAuthModal({
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const isEmailValid = validateEmail(email);
     const isNameValid = validateName(name);
     
     if (isEmailValid && isNameValid) {
-      onRegister(email.trim(), name.trim());
+      // Call onRegister (can be async or sync)
+      await Promise.resolve(onRegister(email.trim(), name.trim()));
     }
   };
 

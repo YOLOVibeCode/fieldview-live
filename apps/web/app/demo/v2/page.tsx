@@ -282,33 +282,33 @@ export default function DemoV2Page() {
       <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
         {/* Success Message - Authenticated! */}
         {isAuthenticated && (
-          <div className="m-4 relative overflow-hidden">
+          <div className="m-2 md:m-4 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent animate-pulse" />
-            <div className="relative bg-fv-bg-elevated border-2 border-green-500/30 rounded-xl p-5">
-              <div className="flex items-start gap-4">
+            <div className="relative bg-fv-bg-elevated border-2 border-green-500/30 rounded-lg md:rounded-xl p-3 md:p-5">
+              <div className="flex items-start gap-2 md:gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 md:w-6 md:h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-bold text-green-500 mb-2">
+                  <h3 className="text-xs md:text-sm font-bold text-green-500 mb-1 md:mb-2">
                     ✅ You're In! All Features Unlocked
                   </h3>
-                  <p className="text-xs text-fv-text-secondary mb-3">
+                  <p className="text-[10px] md:text-xs text-fv-text-secondary mb-2 md:mb-3">
                     Logged in as <span className="font-mono text-fv-primary">{userEmail}</span>
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full border border-green-500/20">
-                      💬 Chat Enabled
+                  <div className="flex flex-wrap gap-1 md:gap-2">
+                    <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-green-500/10 text-green-500 text-[10px] md:text-xs font-medium rounded-full border border-green-500/20">
+                      💬 Chat
                     </span>
-                    <span className="px-2 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full border border-green-500/20">
-                      🎯 Score Editing
+                    <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-green-500/10 text-green-500 text-[10px] md:text-xs font-medium rounded-full border border-green-500/20">
+                      🎯 Score
                     </span>
-                    <span className="px-2 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full border border-green-500/20">
-                      📹 Fullscreen Mode
+                    <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-green-500/10 text-green-500 text-[10px] md:text-xs font-medium rounded-full border border-green-500/20">
+                      📹 Fullscreen
                     </span>
                   </div>
                 </div>
@@ -317,41 +317,41 @@ export default function DemoV2Page() {
           </div>
         )}
 
-        {/* Demo Credentials Box - ENHANCED! */}
+        {/* Demo Credentials Box - COMPRESSED for Mobile! */}
         {!isAuthenticated && (
-          <div className="m-4 relative overflow-hidden">
+          <div className="m-2 md:m-4 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-fv-primary/5 to-transparent" />
-            <div className="relative bg-fv-bg-elevated border-2 border-fv-primary/30 rounded-xl p-5 shadow-lg">
-              <div className="flex items-start gap-4">
+            <div className="relative bg-fv-bg-elevated border-2 border-fv-primary/30 rounded-lg md:rounded-xl p-3 md:p-5 shadow-lg">
+              <div className="flex items-start gap-2 md:gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 md:w-6 md:h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-sm font-bold text-fv-text-primary">
-                      🎯 Quick Start Demo
+                  <div className="flex items-center gap-1 md:gap-2 mb-2 md:mb-3">
+                    <h3 className="text-xs md:text-sm font-bold text-fv-text-primary">
+                      🎯 Quick Start
                     </h3>
-                    <span className="px-2 py-0.5 bg-fv-primary/20 text-fv-primary text-xs font-semibold rounded-full">
+                    <span className="px-1.5 md:px-2 py-0.5 bg-fv-primary/20 text-fv-primary text-[10px] md:text-xs font-semibold rounded-full">
                       NEW
                     </span>
                   </div>
-                  <div className="bg-fv-bg-secondary rounded-lg p-3 mb-3 border border-fv-border/50">
-                    <div className="space-y-2 text-xs font-mono">
-                      <div className="flex items-center gap-2">
+                  <div className="bg-fv-bg-secondary rounded-md md:rounded-lg p-2 md:p-3 mb-2 md:mb-3 border border-fv-border/50">
+                    <div className="space-y-1 md:space-y-2 text-[10px] md:text-xs font-mono">
+                      <div className="flex items-center gap-1 md:gap-2">
                         <span className="text-fv-text-tertiary">Email:</span>
-                        <span className="text-fv-primary font-semibold">{demoCredentials.email}</span>
+                        <span className="text-fv-primary font-semibold truncate">{demoCredentials.email}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-fv-text-tertiary">Password:</span>
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <span className="text-fv-text-tertiary">Pass:</span>
                         <span className="text-fv-primary font-semibold">{demoCredentials.password}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2 text-xs text-fv-text-secondary">
+                  <div className="hidden md:flex items-start gap-2 text-xs text-fv-text-secondary">
                     <svg className="w-4 h-4 text-fv-primary flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
@@ -432,11 +432,11 @@ export default function DemoV2Page() {
         {!isFullscreen && (
           <div
             className={`fixed top-20 transition-all duration-300 z-20 ${
-              scoreboardPanel.collapsed ? '-left-80' : 'left-4'
+              scoreboardPanel.isCollapsed ? '-left-80' : 'left-4'
             }`}
           >
             <div className="flex items-start gap-2">
-              {!scoreboardPanel.collapsed && (
+              {!scoreboardPanel.isCollapsed && (
                 <div className="bg-black/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/10">
                   <Scoreboard
                     homeTeam={scoreboardData.homeTeam}
@@ -451,7 +451,7 @@ export default function DemoV2Page() {
               <button
                 onClick={scoreboardPanel.toggle}
                 className="bg-black/80 backdrop-blur-sm hover:bg-black/90 text-white p-2 rounded-r-lg border border-l-0 border-white/10 transition-colors"
-                aria-label={scoreboardPanel.collapsed ? 'Expand scoreboard' : 'Collapse scoreboard'}
+                aria-label={scoreboardPanel.isCollapsed ? 'Expand scoreboard' : 'Collapse scoreboard'}
               >
                 <svg
                   className="w-5 h-5"
@@ -463,7 +463,7 @@ export default function DemoV2Page() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d={scoreboardPanel.collapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7'}
+                    d={scoreboardPanel.isCollapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7'}
                   />
                 </svg>
               </button>
@@ -475,14 +475,14 @@ export default function DemoV2Page() {
         {!isFullscreen && (
           <div
             className={`fixed top-20 bottom-4 transition-all duration-300 z-20 ${
-              chatPanel.collapsed ? '-right-96' : 'right-4'
+              chatPanel.isCollapsed ? '-right-96' : 'right-4'
             }`}
           >
             <div className="flex items-start gap-2 h-full">
               <button
                 onClick={chatPanel.toggle}
                 className="bg-black/80 backdrop-blur-sm hover:bg-black/90 text-white p-2 rounded-l-lg border border-r-0 border-white/10 transition-colors"
-                aria-label={chatPanel.collapsed ? 'Expand chat' : 'Collapse chat'}
+                aria-label={chatPanel.isCollapsed ? 'Expand chat' : 'Collapse chat'}
               >
                 <svg
                   className="w-5 h-5"
@@ -494,11 +494,11 @@ export default function DemoV2Page() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d={chatPanel.collapsed ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
+                    d={chatPanel.isCollapsed ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
                   />
                 </svg>
               </button>
-              {!chatPanel.collapsed && (
+              {!chatPanel.isCollapsed && (
                 <div className="bg-black/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/10 h-full w-96">
                   <Chat
                     messages={chatMessages}
@@ -514,74 +514,74 @@ export default function DemoV2Page() {
         )}
 
         {/* Component Showcase - BELLS & WHISTLES! 🎉 */}
-        <div className="p-4 space-y-6">
+        <div className="p-2 md:p-4 space-y-3 md:space-y-6">
           {/* Hero Section */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-fv-primary/20 via-fv-bg-elevated to-fv-bg-elevated border border-fv-primary/30 rounded-2xl p-8">
+          <div className="relative overflow-hidden bg-gradient-to-br from-fv-primary/20 via-fv-bg-elevated to-fv-bg-elevated border border-fv-primary/30 rounded-xl md:rounded-2xl p-4 md:p-8">
             {/* Animated background gradient */}
             <div className="absolute inset-0 bg-gradient-to-r from-fv-primary/10 to-transparent animate-pulse opacity-50" />
             
             <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-fv-primary rounded-xl flex items-center justify-center">
-                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-fv-primary rounded-lg md:rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 md:w-7 md:h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-fv-text-primary">
+                  <h2 className="text-xl md:text-2xl font-bold text-fv-text-primary">
                     v2 Component Library
                   </h2>
-                  <p className="text-sm text-fv-text-secondary">
+                  <p className="text-xs md:text-sm text-fv-text-secondary">
                     Mobile-first • Accessible • Production-ready
                   </p>
                 </div>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-lg p-4 border border-fv-border/50">
-                  <div className="text-3xl font-bold text-fv-primary mb-1">25</div>
-                  <div className="text-xs text-fv-text-secondary">Components</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mt-4 md:mt-6">
+                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-md md:rounded-lg p-2 md:p-4 border border-fv-border/50">
+                  <div className="text-2xl md:text-3xl font-bold text-fv-primary mb-0.5 md:mb-1">25</div>
+                  <div className="text-[10px] md:text-xs text-fv-text-secondary">Components</div>
                 </div>
-                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-lg p-4 border border-fv-border/50">
-                  <div className="text-3xl font-bold text-fv-primary mb-1">239</div>
-                  <div className="text-xs text-fv-text-secondary">Unit Tests</div>
+                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-md md:rounded-lg p-2 md:p-4 border border-fv-border/50">
+                  <div className="text-2xl md:text-3xl font-bold text-fv-primary mb-0.5 md:mb-1">239</div>
+                  <div className="text-[10px] md:text-xs text-fv-text-secondary">Unit Tests</div>
                 </div>
-                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-lg p-4 border border-fv-border/50">
-                  <div className="text-3xl font-bold text-fv-primary mb-1">100%</div>
-                  <div className="text-xs text-fv-text-secondary">Coverage</div>
+                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-md md:rounded-lg p-2 md:p-4 border border-fv-border/50">
+                  <div className="text-2xl md:text-3xl font-bold text-fv-primary mb-0.5 md:mb-1">100%</div>
+                  <div className="text-[10px] md:text-xs text-fv-text-secondary">Coverage</div>
                 </div>
-                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-lg p-4 border border-fv-border/50">
-                  <div className="text-3xl font-bold text-fv-primary mb-1">0</div>
-                  <div className="text-xs text-fv-text-secondary">Errors</div>
+                <div className="bg-fv-bg-primary/50 backdrop-blur-sm rounded-md md:rounded-lg p-2 md:p-4 border border-fv-border/50">
+                  <div className="text-2xl md:text-3xl font-bold text-fv-primary mb-0.5 md:mb-1">0</div>
+                  <div className="text-[10px] md:text-xs text-fv-text-secondary">Errors</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Feature Cards */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-3 md:gap-4">
             {/* Video Features */}
-            <div className="bg-fv-bg-elevated border border-fv-border rounded-xl p-6 hover:border-fv-primary/50 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-fv-bg-elevated border border-fv-border rounded-lg md:rounded-xl p-3 md:p-6 hover:border-fv-primary/50 transition-colors">
+              <div className="flex items-start gap-2 md:gap-4">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-fv-primary/20 rounded-md md:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 md:w-6 md:h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-fv-text-primary mb-2">Video Player</h3>
-                  <ul className="space-y-1 text-sm text-fv-text-secondary">
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> HTML5 with HLS support
+                  <h3 className="text-sm md:text-base font-semibold text-fv-text-primary mb-1 md:mb-2">Video Player</h3>
+                  <ul className="space-y-0.5 md:space-y-1 text-xs md:text-sm text-fv-text-secondary">
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> <span className="hidden md:inline">HTML5 with HLS support</span><span className="md:hidden">HLS support</span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Custom controls
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Fullscreen API
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Touch-optimized
                     </li>
                   </ul>
@@ -590,27 +590,27 @@ export default function DemoV2Page() {
             </div>
 
             {/* Scoreboard Features */}
-            <div className="bg-fv-bg-elevated border border-fv-border rounded-xl p-6 hover:border-fv-primary/50 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-fv-bg-elevated border border-fv-border rounded-lg md:rounded-xl p-3 md:p-6 hover:border-fv-primary/50 transition-colors">
+              <div className="flex items-start gap-2 md:gap-4">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-fv-primary/20 rounded-md md:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 md:w-6 md:h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-fv-text-primary mb-2">Live Scoreboard</h3>
-                  <ul className="space-y-1 text-sm text-fv-text-secondary">
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Tap-to-edit scores
+                  <h3 className="text-sm md:text-base font-semibold text-fv-text-primary mb-1 md:mb-2">Live Scoreboard</h3>
+                  <ul className="space-y-0.5 md:space-y-1 text-xs md:text-sm text-fv-text-secondary">
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> Tap-to-edit<span className="hidden md:inline"> scores</span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Real-time updates
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Game clock
                     </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Fullscreen overlay
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> Fullscreen<span className="hidden md:inline"> overlay</span>
                     </li>
                   </ul>
                 </div>
@@ -618,26 +618,26 @@ export default function DemoV2Page() {
             </div>
 
             {/* Chat Features */}
-            <div className="bg-fv-bg-elevated border border-fv-border rounded-xl p-6 hover:border-fv-primary/50 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-fv-bg-elevated border border-fv-border rounded-lg md:rounded-xl p-3 md:p-6 hover:border-fv-primary/50 transition-colors">
+              <div className="flex items-start gap-2 md:gap-4">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-fv-primary/20 rounded-md md:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 md:w-6 md:h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-fv-text-primary mb-2">Real-time Chat</h3>
-                  <ul className="space-y-1 text-sm text-fv-text-secondary">
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Server-Sent Events
+                  <h3 className="text-sm md:text-base font-semibold text-fv-text-primary mb-1 md:mb-2">Real-time Chat</h3>
+                  <ul className="space-y-0.5 md:space-y-1 text-xs md:text-sm text-fv-text-secondary">
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> <span className="hidden md:inline">Server-Sent Events</span><span className="md:hidden">SSE</span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Auto-scroll
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Authentication
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Compact mode
                     </li>
                   </ul>
@@ -646,26 +646,26 @@ export default function DemoV2Page() {
             </div>
 
             {/* Mobile Features */}
-            <div className="bg-fv-bg-elevated border border-fv-border rounded-xl p-6 hover:border-fv-primary/50 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-fv-bg-elevated border border-fv-border rounded-lg md:rounded-xl p-3 md:p-6 hover:border-fv-primary/50 transition-colors">
+              <div className="flex items-start gap-2 md:gap-4">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-fv-primary/20 rounded-md md:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 md:w-6 md:h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-fv-text-primary mb-2">Mobile-First</h3>
-                  <ul className="space-y-1 text-sm text-fv-text-secondary">
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> 44px+ touch targets
+                  <h3 className="text-sm md:text-base font-semibold text-fv-text-primary mb-1 md:mb-2">Mobile-First</h3>
+                  <ul className="space-y-0.5 md:space-y-1 text-xs md:text-sm text-fv-text-secondary">
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> 44px+ <span className="hidden md:inline">touch targets</span><span className="md:hidden">targets</span>
                     </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Responsive design
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> Responsive<span className="hidden md:inline"> design</span>
                     </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Safe area support
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> Safe area<span className="hidden md:inline"> support</span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> WCAG 2.1 AA
                     </li>
                   </ul>
@@ -674,29 +674,29 @@ export default function DemoV2Page() {
             </div>
 
             {/* Paywall Features */}
-            <div className="bg-fv-bg-elevated border border-fv-border rounded-xl p-6 hover:border-fv-primary/50 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-fv-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-fv-bg-elevated border border-fv-border rounded-lg md:rounded-xl p-3 md:p-6 hover:border-fv-primary/50 transition-colors">
+              <div className="flex items-start gap-2 md:gap-4">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-fv-primary/20 rounded-md md:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 md:w-6 md:h-6 text-fv-primary" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-fv-text-primary mb-2">
-                    Paywall System
-                    <Badge variant="success" className="ml-2 text-xs">NEW</Badge>
+                  <h3 className="text-sm md:text-base font-semibold text-fv-text-primary mb-1 md:mb-2">
+                    Paywall<span className="hidden md:inline"> System</span>
+                    <Badge variant="success" className="ml-1 md:ml-2 text-[10px] md:text-xs">NEW</Badge>
                   </h3>
-                  <ul className="space-y-1 text-sm text-fv-text-secondary">
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Square payment integration
+                  <ul className="space-y-0.5 md:space-y-1 text-xs md:text-sm text-fv-text-secondary">
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> <span className="hidden md:inline">Square payment integration</span><span className="md:hidden">Square pay</span>
                     </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Saved card support
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> Saved card<span className="hidden md:inline"> support</span>
                     </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-fv-primary">✓</span> Demo bypass code
+                    <li className="flex items-center gap-1 md:gap-2">
+                      <span className="text-fv-primary">✓</span> <span className="hidden md:inline">Demo bypass code</span><span className="md:hidden">Bypass code</span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-1 md:gap-2">
                       <span className="text-fv-primary">✓</span> Mobile-optimized
                     </li>
                   </ul>
@@ -704,7 +704,7 @@ export default function DemoV2Page() {
                     variant="secondary"
                     size="sm"
                     onClick={() => paywall.openPaywall()}
-                    className="mt-3"
+                    className="mt-2 md:mt-3"
                     data-testid="btn-demo-paywall"
                   >
                     Try Demo Paywall

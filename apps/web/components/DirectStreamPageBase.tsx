@@ -21,6 +21,7 @@ import { MessageCircle, X } from 'lucide-react';
 import { useGameChat } from '@/hooks/useGameChat';
 import { useGameChatV2 } from '@/hooks/useGameChatV2';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
+import { useGlobalViewerAuth } from '@/hooks/useGlobalViewerAuth';
 import { GameChatPanel } from '@/components/GameChatPanel';
 import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
 import { FullscreenChatOverlay } from '@/components/FullscreenChatOverlay';
@@ -279,13 +280,101 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const effectiveGameId = bootstrap?.gameId || (bootstrap?.slug ? hashSlugSync(bootstrap.slug) : null);
   const viewer = useViewerIdentity({ 
     gameId: effectiveGameId,
-    slug: config.slug // Pass slug for direct stream endpoint
+    slug: bootstrap?.slug // Use bootstrap.slug, not config.slug
   });
 
+  // Global viewer authentication for cross-stream support
+  const globalAuth = useGlobalViewerAuth();
+
+  // Auto-register if globally authenticated and no paywall
+  useEffect(() => {
+    // Skip if:
+    // - Not bootstrapped yet
+    // - No global auth
+    // - Already unlocked locally
+    // - Paywall is enabled
+    // - Still loading global auth
+    if (
+      !bootstrap ||
+      !globalAuth.isAuthenticated ||
+      viewer.isUnlocked ||
+      bootstrap.paywallEnabled ||
+      globalAuth.isLoading
+    ) {
+      return;
+    }
+
+    const autoRegister = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/public/direct/viewer/auto-register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            directStreamSlug: bootstrap.slug,
+            viewerIdentityId: globalAuth.viewerIdentityId,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('Auto-registration failed:', response.status);
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Auto-registration completed, now unlock the viewer locally
+        // This will call the unlock API which generates a viewer token
+        if (data.registration?.viewerIdentity) {
+          viewer.unlock({
+            email: data.registration.viewerIdentity.email,
+            firstName: data.registration.viewerIdentity.firstName || '',
+            lastName: data.registration.viewerIdentity.lastName || '',
+          }).catch(() => {
+            // If unlock fails, log it but don't fail the auto-registration
+            console.log('Auto-registration completed, but local unlock skipped');
+          });
+        }
+
+        console.log('[DirectStreamPageBase] Auto-registered viewer for stream:', {
+          slug: bootstrap.slug,
+          isNewRegistration: data.isNewRegistration,
+        });
+      } catch (error) {
+        console.error('[DirectStreamPageBase] Auto-registration error:', error);
+      }
+    };
+
+    void autoRegister();
+  }, [bootstrap, globalAuth.isAuthenticated, globalAuth.viewerIdentityId, globalAuth.isLoading, viewer.isUnlocked, API_URL]);
+
   // Handler for viewer registration via v2 modal
-  const handleViewerRegister = (email: string, name: string) => {
-    viewer.unlock(email, name);
-    setShowViewerAuthModal(false);
+  const handleViewerRegister = async (email: string, name: string) => {
+    // Parse name into firstName and lastName
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    try {
+      // Unlock the viewer locally (calls the unlock API)
+      await viewer.unlock({ email, firstName, lastName });
+      
+      // After successful unlock, save to global auth for cross-stream access
+      if (viewer.viewerId) {
+        globalAuth.setViewerAuth({
+          viewerIdentityId: viewer.viewerId,
+          email,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          // registeredAt is auto-added by setViewerAuth
+        });
+      }
+      
+      setShowViewerAuthModal(false);
+    } catch (error) {
+      console.error('Viewer registration failed:', error);
+      // Don't close modal on error
+      throw error; // Re-throw so the form can handle it
+    }
   };
 
   // Chat is always enabled to show messages, but sending requires unlock
@@ -996,6 +1085,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           error={viewer.error}
           title="Join the Chat"
           description="Register your email to start chatting"
+          defaultEmail={globalAuth.viewerEmail || ''}
+          defaultName={globalAuth.viewerName || ''}
         />
       </div>
     </div>

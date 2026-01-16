@@ -1,0 +1,54 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - heading "FieldView.Live" [level=1] [ref=e6]
+        - paragraph [ref=e7]: Protective streaming for youth sports — free or paid
+      - generic [ref=e8]:
+        - paragraph [ref=e9]:
+          - text: FieldView.Live helps stream owners share a single stable link for a team or event. You can keep streams
+          - strong [ref=e10]: free
+          - text: or enable a
+          - strong [ref=e11]: pay-per-view
+          - text: paywall for fundraising and monetization.
+        - paragraph [ref=e12]:
+          - text: Payments are processed securely by Square; FieldView.Live does
+          - strong [ref=e13]: not
+          - text: store card numbers or CVVs.
+      - generic [ref=e14]:
+        - link "Owner Login" [ref=e15] [cursor=pointer]:
+          - /url: /owners/login
+        - link "Get Started" [ref=e16] [cursor=pointer]:
+          - /url: /owners/register
+        - link "View Demo Stream" [ref=e17] [cursor=pointer]:
+          - /url: /watch/STORMFC/2010
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: 📺
+          - heading "Live Streaming" [level=3] [ref=e21]
+          - paragraph [ref=e22]: High-quality streams for youth sports events
+        - generic [ref=e23]:
+          - generic [ref=e24]: 💳
+          - heading "Easy Payments" [level=3] [ref=e25]
+          - paragraph [ref=e26]: Apple Pay, Google Pay, and saved cards
+        - generic [ref=e27]:
+          - generic [ref=e28]: 🔗
+          - heading "Stable Links" [level=3] [ref=e29]
+          - paragraph [ref=e30]: Share once, use for every game
+      - generic [ref=e32]:
+        - link "Direct Stream Link (POC)" [ref=e33] [cursor=pointer]:
+          - /url: /direct/StormFC
+        - link "TCHS Stream (Direct)" [ref=e34] [cursor=pointer]:
+          - /url: /direct/tchs
+  - contentinfo [ref=e35]:
+    - generic [ref=e36]:
+      - paragraph [ref=e37]: © 2026 FieldView.Live. All rights reserved.
+      - generic [ref=e38]:
+        - link "Owner Portal" [ref=e39] [cursor=pointer]:
+          - /url: /owners/login
+        - link "Admin" [ref=e40] [cursor=pointer]:
+          - /url: /console
+```
