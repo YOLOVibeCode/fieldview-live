@@ -183,6 +183,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showViewerAuthModal, setShowViewerAuthModal] = useState(false);
+  const [showInlineRegistration, setShowInlineRegistration] = useState(false);
 
   // Video control state (v2)
   const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
@@ -1055,18 +1056,104 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
                       {/* Registration prompt for unregistered users */}
                       <div className="border-t border-outline p-4 bg-background/50">
-                        <div className="space-y-3 text-center">
-                          <p className="text-sm text-muted-foreground">
-                            Register your email to send messages
-                          </p>
-                          <Button
-                            onClick={() => setShowViewerAuthModal(true)}
-                            data-testid="btn-open-viewer-auth"
-                            className="w-full"
-                          >
-                            Register to Chat
-                          </Button>
-                        </div>
+                        {!showInlineRegistration ? (
+                          <div className="space-y-3 text-center">
+                            <p className="text-sm text-muted-foreground">
+                              Register your email to send messages
+                            </p>
+                            <Button
+                              onClick={() => setShowInlineRegistration(true)}
+                              data-testid="btn-open-inline-registration"
+                              className="w-full"
+                            >
+                              Register to Chat
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {/* Inline Registration Form */}
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-semibold text-white">Join the Chat</h3>
+                              <button
+                                onClick={() => setShowInlineRegistration(false)}
+                                className="text-muted-foreground hover:text-white transition-colors"
+                                data-testid="btn-cancel-inline-registration"
+                                aria-label="Cancel registration"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Register your email to start chatting
+                            </p>
+                            <form
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const displayName = formData.get('displayName') as string;
+                                const email = formData.get('email') as string;
+                                
+                                if (!displayName || !email) return;
+                                
+                                await handleViewerRegister({
+                                  displayName,
+                                  email,
+                                  firstName: displayName.split(' ')[0] || displayName,
+                                  lastName: displayName.split(' ').slice(1).join(' ') || '',
+                                });
+                                
+                                // Close form on success
+                                setShowInlineRegistration(false);
+                              }}
+                              className="space-y-3"
+                            >
+                              <div>
+                                <label htmlFor="inline-displayName" className="sr-only">Display Name</label>
+                                <Input
+                                  id="inline-displayName"
+                                  name="displayName"
+                                  type="text"
+                                  placeholder="Your name"
+                                  required
+                                  className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
+                                  data-testid="input-inline-displayName"
+                                  defaultValue={globalAuth.viewerIdentity?.firstName && globalAuth.viewerIdentity?.lastName 
+                                    ? `${globalAuth.viewerIdentity.firstName} ${globalAuth.viewerIdentity.lastName}` 
+                                    : globalAuth.viewerIdentity?.firstName || ''}
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="inline-email" className="sr-only">Email Address</label>
+                                <Input
+                                  id="inline-email"
+                                  name="email"
+                                  type="email"
+                                  placeholder="you@example.com"
+                                  required
+                                  className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
+                                  data-testid="input-inline-email"
+                                  defaultValue={globalAuth.viewerIdentity?.email || ''}
+                                />
+                              </div>
+                              <Button
+                                type="submit"
+                                disabled={viewer.isLoading || globalAuth.isAutoRegistering}
+                                className="w-full"
+                                data-testid="btn-submit-inline-registration"
+                              >
+                                {viewer.isLoading || globalAuth.isAutoRegistering ? 'Registering...' : 'Register'}
+                              </Button>
+                              {(viewer.error || globalAuth.autoRegisterError) && (
+                                <p className="text-xs text-destructive text-center" role="alert">
+                                  {viewer.error || globalAuth.autoRegisterError}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground text-center">
+                                We'll send you a secure link to verify your email. No password required!
+                              </p>
+                            </form>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
