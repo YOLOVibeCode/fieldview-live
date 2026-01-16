@@ -22,25 +22,11 @@ import { useGameChat } from '@/hooks/useGameChat';
 import { useGameChatV2 } from '@/hooks/useGameChatV2';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { useGlobalViewerAuth } from '@/hooks/useGlobalViewerAuth';
-import { GameChatPanel } from '@/components/GameChatPanel';
-import { ViewerUnlockForm } from '@/components/ViewerUnlockForm';
-import { FullscreenChatOverlay } from '@/components/FullscreenChatOverlay';
-import { FullscreenRegistrationOverlay } from '@/components/FullscreenRegistrationOverlay';
-import { MobileControlBar } from '@/components/MobileControlBar';
-import { AdminPanel } from '@/components/AdminPanel';
-import { SocialProducerPanel } from '@/components/SocialProducerPanel';
-import { ScoreboardOverlay } from '@/components/ScoreboardOverlay';
-import { CollapsibleScoreboardOverlay } from '@/components/CollapsibleScoreboardOverlay';
-import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
-import { PaywallModal } from '@/components/PaywallModal';
-// Keeping legacy Button import for backward compatibility in some components
-import { Button as LegacyButton } from '@/components/ui/button';
 import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
-import { isTouchDevice, isMobileViewport } from '@/lib/utils/device-detection';
 // v2 Components
 import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
@@ -155,9 +141,6 @@ export interface DirectStreamPageConfig {
   headerClassName?: string;
   containerClassName?: string;
   
-  // Components
-  ChatOverlayComponent?: React.ComponentType<ChatOverlayProps>;
-  
   // Features
   enableFontSize?: boolean;
   fontSizeStorageKey?: string;
@@ -224,7 +207,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     storageKey: `chat-collapsed-${stableKey}`, // Per-page storage
   });
 
-  const ChatOverlayComponent = config.ChatOverlayComponent || FullscreenChatOverlay;
   // Load font size preference
   useEffect(() => {
     if (!config.enableFontSize || !config.fontSizeStorageKey) return;
@@ -824,68 +806,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* Fullscreen Chat Overlay (right side) */}
-              {viewer.isUnlocked && bootstrap?.chatEnabled && bootstrap.gameId && isFullscreen && (
-                <ChatOverlayComponent
-                  chat={chat}
-                  isVisible={isChatOverlayVisible}
-                  onToggle={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
-                  position="right"
-                  fontSize={config.enableFontSize ? fontSize : undefined}
-                />
-              )}
-
-              {/* Fullscreen Registration Overlay (for unregistered users) */}
-              {!viewer.isUnlocked && bootstrap?.chatEnabled && isFullscreen && (
-                <FullscreenRegistrationOverlay
-                  viewer={viewer}
-                  isVisible={isChatOverlayVisible}
-                  onToggle={() => setIsChatOverlayVisible(!isChatOverlayVisible)}
-                  position="right"
-                />
-              )}
-
-              {/* Fullscreen Collapsible Scoreboard Overlay (left side) */}
-              {isFullscreen && bootstrap?.scoreboardEnabled && (
-                <CollapsibleScoreboardOverlay
-                  slug={bootstrap.slug}
-                  isVisible={isScoreboardOverlayVisible}
-                  onToggle={() => setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible)}
-                  position="left"
-                  isFullscreen={isFullscreen}
-                  canEditScore={viewer.isUnlocked}
-                  viewerToken={viewer.token}
-                />
-              )}
-
-              {/* Mobile Control Bar (touch devices only) */}
-              {isTouch && (
-                <MobileControlBar
-                  scoreboardEnabled={bootstrap?.scoreboardEnabled || false}
-                  homeScore={0} // TODO: Get from scoreboard API
-                  awayScore={0} // TODO: Get from scoreboard API
-                  onScoreboardToggle={() => {
-                    if (isFullscreen) {
-                      setIsScoreboardOverlayVisible(!isScoreboardOverlayVisible);
-                    } else {
-                      scoreboardPanel.toggle();
-                    }
-                  }}
-                  chatEnabled={bootstrap?.chatEnabled || false}
-                  chatBadgeCount={chat.messages.length}
-                  onChatToggle={() => {
-                    if (isFullscreen) {
-                      setIsChatOverlayVisible(!isChatOverlayVisible);
-                    } else {
-                      chatPanel.toggle();
-                    }
-                  }}
-                  isFullscreen={isFullscreen}
-                  onFullscreenToggle={toggleFullscreenV2} // Use v2 hook
-                  autoHide={isFullscreen}
-                  autoHideDelay={4000}
-                />
-              )}
+              {/* v2 Panels work in both normal and fullscreen modes */}
+              {/* Legacy fullscreen overlays deprecated - removed MobileControlBar, FullscreenChatOverlay, CollapsibleScoreboardOverlay */}
             </div>
 
             {/* Footer */}
