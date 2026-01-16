@@ -728,7 +728,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               style={{ minHeight: '400px' }}
             >
               {status === 'offline' && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center z-20">
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Stream Offline</p>
                     <p className="text-sm text-muted-foreground mb-4">No stream URL configured</p>
@@ -736,14 +736,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       onClick={() => setIsEditing(true)}
                       data-testid="btn-set-stream"
                     >
-                      Set Stream URL
+                      Open Admin Panel
                     </Button>
                   </div>
                 </div>
               )}
 
               {status === 'error' && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center z-20">
                   <div className="text-center text-white">
                     <p className="text-xl mb-2">Unable to Load Stream</p>
                     <p className="text-sm text-muted-foreground mb-4">Please check the stream URL and try again.</p>
@@ -751,7 +751,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       onClick={() => setIsEditing(true)}
                       data-testid="btn-update-stream"
                     >
-                      Update Stream URL
+                      Open Admin Panel
                     </Button>
                   </div>
                 </div>
