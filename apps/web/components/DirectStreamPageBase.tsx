@@ -903,7 +903,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               {/* v2 Video Player */}
               <VideoPlayer
                 ref={videoRef}
-                src={bootstrap?.streamUrl || ''}
+                src="" // Empty - HLS.js manages source. Safari fallback sets src directly in initPlayer
                 autoPlay
                 muted={isMuted}
                 playsInline
