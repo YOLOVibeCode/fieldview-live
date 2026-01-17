@@ -231,27 +231,56 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Load bootstrap data
   useEffect(() => {
-    fetch(`${API_URL}${config.bootstrapUrl}`)
+    const fullUrl = `${API_URL}${config.bootstrapUrl}`;
+    console.log('[DirectStream] 🚀 Fetching bootstrap from:', fullUrl);
+    setStatus('loading');
+    
+    fetch(fullUrl)
       .then((res) => {
+        console.log('[DirectStream] 📡 Bootstrap response:', {
+          status: res.status,
+          statusText: res.statusText,
+          ok: res.ok,
+          url: res.url
+        });
+        
         if (res.status === 404) {
+          console.warn('[DirectStream] 404: Stream not found');
           setStatus('offline');
           return null;
         }
         return res.json();
       })
       .then((data: Bootstrap | null) => {
-        if (!data) return;
+        if (!data) {
+          console.log('[DirectStream] No bootstrap data returned');
+          return;
+        }
+        
+        console.log('[DirectStream] ✅ Bootstrap loaded:', {
+          slug: data.slug,
+          streamUrl: data.streamUrl,
+          title: data.title,
+          paywallEnabled: data.paywallEnabled,
+          chatEnabled: data.chatEnabled,
+          scoreboardEnabled: data.scoreboardEnabled
+        });
         
         setBootstrap(data);
         config.onBootstrapLoaded?.(data);
         
         if (data.streamUrl) {
+          console.log('[DirectStream] ▶️ Initializing player with streamUrl');
           initPlayer(data.streamUrl);
         } else {
+          console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
           setStatus('offline');
         }
       })
-      .catch(() => setStatus('offline'));
+      .catch((err) => {
+        console.error('[DirectStream] ❌ Bootstrap fetch error:', err);
+        setStatus('offline');
+      });
   }, [config.bootstrapUrl]);
 
   // Chat integration
@@ -385,45 +414,102 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // HLS player initialization
   function initPlayer(url: string) {
+    console.log('[DirectStream] 🎬 initPlayer called', { url, timestamp: new Date().toISOString() });
+    
     const video = videoRef.current;
-    if (!video) return;
+    if (!video) {
+      console.error('[DirectStream] ❌ No video ref available');
+      return;
+    }
+
+    console.log('[DirectStream] 📹 Video element state:', {
+      readyState: video.readyState,
+      networkState: video.networkState,
+      paused: video.paused,
+      muted: video.muted,
+      src: video.src
+    });
 
     setStatus('loading');
+    console.log('[DirectStream] 🔄 Status set to: loading');
     
     // Ensure video is muted for autoplay to work
     video.muted = isMuted;
+    console.log('[DirectStream] 🔇 Video muted:', isMuted);
 
     if (Hls.isSupported()) {
+      console.log('[DirectStream] ✅ HLS.js supported, initializing...');
+      
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+        debug: false,
       });
 
+      console.log('[DirectStream] 📡 Loading source:', url);
       hls.loadSource(url);
       hls.attachMedia(video);
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        console.log('[DirectStream] ✅ MANIFEST_PARSED', { 
+          levels: data.levels?.length,
+          firstLevel: data.firstLevel,
+          video: data.video,
+          audio: data.audio
+        });
         setStatus('playing');
+        console.log('[DirectStream] 🔄 Status set to: playing');
+        
         // Autoplay will work because video is muted
-        video.play().catch((err) => {
-          console.debug('Autoplay blocked (user interaction required):', err);
-          // Don't set error status for autoplay blocks - stream is loaded, just paused
+        video.play()
+          .then(() => {
+            console.log('[DirectStream] ▶️ Video.play() succeeded');
+          })
+          .catch((err) => {
+            console.log('[DirectStream] ⏸️ Autoplay blocked (user interaction required):', err.name, err.message);
+            // Don't set error status for autoplay blocks - stream is loaded, just paused
+          });
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+        console.log('[DirectStream] 📊 Level loaded:', {
+          level: data.level,
+          details: data.details?.live ? 'LIVE' : 'VOD'
         });
       });
 
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        console.log('[DirectStream] 🎞️ First fragment loaded:', {
+          sn: data.frag.sn,
+          duration: data.frag.duration,
+          level: data.frag.level
+        });
+        // Only log first fragment to avoid spam
+        hls.off(Hls.Events.FRAG_LOADED);
+      });
+
       hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error('[DirectStream] ⚠️ HLS Error:', {
+          type: data.type,
+          details: data.details,
+          fatal: data.fatal,
+          url: data.url,
+          response: data.response,
+          reason: data.reason
+        });
+        
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.error('Network error, trying to recover...');
+              console.error('[DirectStream] 🌐 Network error, trying to recover...');
               hls.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
-              console.error('Media error, trying to recover...');
+              console.error('[DirectStream] 🎥 Media error, trying to recover...');
               hls.recoverMediaError();
               break;
             default:
-              console.error('Fatal error, cannot recover');
+              console.error('[DirectStream] ❌ Fatal error, cannot recover');
               hls.destroy();
               setStatus('error');
               break;
@@ -432,28 +518,48 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       });
 
       return () => {
+        console.log('[DirectStream] 🧹 Destroying HLS instance');
         hls.destroy();
       };
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      console.log('[DirectStream] 🍎 Native HLS support (Safari)');
+      
       // Native HLS support (Safari)
       video.src = url;
       video.addEventListener('loadedmetadata', () => {
+        console.log('[DirectStream] ✅ Native HLS loadedmetadata');
         setStatus('playing');
+        
         // Autoplay will work because video is muted
-        video.play().catch((err) => {
-          console.debug('Autoplay blocked (user interaction required):', err);
-          // Don't set error status for autoplay blocks - stream is loaded, just paused
-        });
+        video.play()
+          .then(() => {
+            console.log('[DirectStream] ▶️ Native video.play() succeeded');
+          })
+          .catch((err) => {
+            console.log('[DirectStream] ⏸️ Native autoplay blocked:', err.name, err.message);
+            // Don't set error status for autoplay blocks - stream is loaded, just paused
+          });
       });
+      
       video.addEventListener('error', (e) => {
         // Only set error for actual media errors, not playback issues
         const mediaError = (e.target as HTMLVideoElement)?.error;
+        console.error('[DirectStream] ❌ Native video error:', {
+          code: mediaError?.code,
+          message: mediaError?.message,
+          MEDIA_ERR_ABORTED: mediaError?.code === MediaError.MEDIA_ERR_ABORTED,
+          MEDIA_ERR_NETWORK: mediaError?.code === MediaError.MEDIA_ERR_NETWORK,
+          MEDIA_ERR_DECODE: mediaError?.code === MediaError.MEDIA_ERR_DECODE,
+          MEDIA_ERR_SRC_NOT_SUPPORTED: mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+        });
+        
         if (mediaError && mediaError.code !== MediaError.MEDIA_ERR_ABORTED) {
-          console.error('Video error:', mediaError);
+          console.error('[DirectStream] ❌ Setting error status');
           setStatus('error');
         }
       });
     } else {
+      console.error('[DirectStream] ❌ HLS not supported in this browser');
       setStatus('error');
     }
   }
