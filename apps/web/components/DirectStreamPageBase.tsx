@@ -808,7 +808,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   setDuration(video.duration);
                   setStatus('playing');
                 }}
-                onError={() => setStatus('error')}
                 data-testid="video-player"
               />
 
