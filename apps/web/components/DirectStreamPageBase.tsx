@@ -433,16 +433,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     setStatus('loading');
     console.log('[DirectStream] 🔄 Status set to: loading');
     
-    // Clear any existing src attribute - HLS.js will manage the source
-    video.removeAttribute('src');
-    video.load(); // Reset the video element
-    
     // Ensure video is muted for autoplay to work
     video.muted = isMuted;
     console.log('[DirectStream] 🔇 Video muted:', isMuted);
 
     if (Hls.isSupported()) {
       console.log('[DirectStream] ✅ HLS.js supported, initializing...');
+      
+      // Clear src BEFORE creating HLS instance
+      video.removeAttribute('src');
+      video.load(); // Reset the video element
+      console.log('[DirectStream] 🧹 Cleared video src attribute for HLS.js');
       
       const hls = new Hls({
         enableWorker: true,
