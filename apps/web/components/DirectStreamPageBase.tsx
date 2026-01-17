@@ -389,6 +389,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     if (!video) return;
 
     setStatus('loading');
+    
+    // Ensure video is muted for autoplay to work
+    video.muted = isMuted;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -401,6 +404,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setStatus('playing');
+        // Autoplay will work because video is muted
         video.play().catch((err) => {
           console.debug('Autoplay blocked (user interaction required):', err);
           // Don't set error status for autoplay blocks - stream is loaded, just paused
@@ -435,6 +439,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       video.src = url;
       video.addEventListener('loadedmetadata', () => {
         setStatus('playing');
+        // Autoplay will work because video is muted
         video.play().catch((err) => {
           console.debug('Autoplay blocked (user interaction required):', err);
           // Don't set error status for autoplay blocks - stream is loaded, just paused
