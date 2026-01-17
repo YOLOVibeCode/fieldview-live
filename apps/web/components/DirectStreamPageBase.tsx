@@ -443,7 +443,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        debug: false,
+        debug: true, // TEMP: Enable debug logging to diagnose production issue
       });
 
       console.log('[DirectStream] 📡 Loading source:', url);
