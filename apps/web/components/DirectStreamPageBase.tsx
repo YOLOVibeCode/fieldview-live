@@ -1171,12 +1171,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                 
                                 if (!displayName || !email) return;
                                 
-                                await handleViewerRegister({
-                                  displayName,
-                                  email,
-                                  firstName: displayName.split(' ')[0] || displayName,
-                                  lastName: displayName.split(' ').slice(1).join(' ') || '',
-                                });
+                                // Call handleViewerRegister with correct signature: (email, name)
+                                await handleViewerRegister(email, displayName);
                                 
                                 // Close form on success
                                 setShowInlineRegistration(false);
