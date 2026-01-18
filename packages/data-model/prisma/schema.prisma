@@ -389,6 +389,17 @@ model AdminAccount {
   @@index([status])
 }
 
+model EarlyAccessSignup {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String?
+  source    String?  // 'veo' | 'organic'
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([source])
+}
+
 model AdminAuditLog {
   id              String   @id @default(uuid()) @db.Uuid
   adminUserId     String   @db.Uuid

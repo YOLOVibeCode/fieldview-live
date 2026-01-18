@@ -50,6 +50,7 @@ import { createPublicGameViewerRouter } from './routes/public.game-viewer';
 import { createPublicGameChatRouter } from './routes/public.game-chat';
 import { createPublicCouponsRouter } from './routes/public.coupons';
 import { createPublicDirectStreamEventsRouter } from './routes/public.direct-stream-events';
+import { createEarlyAccessRouter } from './routes/early-access';
 import scoreboardRouter from './routes/scoreboard';
 import { createTestCleanupRouter } from './routes/test.cleanup';
 import { createTestStreamsRouter } from './routes/test.streams';
@@ -141,6 +142,7 @@ app.use('/api/public', createPublicGameViewerRouter());
 app.use('/api/public', createPublicGameChatRouter());
 app.use('/api/public/direct', createPublicDirectStreamEventsRouter());
 app.use('/api/public/coupons', createPublicCouponsRouter());
+app.use('/api/early-access', createEarlyAccessRouter());
 // Note: Subscription routes are mounted at /api/public, so routes defined as '/subscriptions' become /api/public/subscriptions
 app.use('/api/streams', createStreamLinksRouter());
 app.use('/api/tchs', createTchsRouter());

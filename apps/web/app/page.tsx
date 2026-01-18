@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { WelcomeModal } from '@/components/v2/WelcomeModal';
+import { ComingSoonModal } from '@/components/v2/ComingSoonModal';
 import { useWelcomeModal } from '@/hooks/useWelcomeModal';
 
 function HomePageContent() {
@@ -11,8 +11,8 @@ function HomePageContent() {
 
   return (
     <>
-      {/* Welcome Modal */}
-      <WelcomeModal
+      {/* Coming Soon Modal */}
+      <ComingSoonModal
         isOpen={isOpen}
         onClose={closeModal}
         onDontShowAgain={dontShowAgain}
