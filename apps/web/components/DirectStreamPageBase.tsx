@@ -42,6 +42,8 @@ import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
 import { TouchButton, Badge, BottomSheet } from '@/components/v2/primitives';
 import { useResponsive } from '@/hooks/v2/useResponsive';
+// Debug component
+import { ChatDebugPanel } from '@/components/ChatDebugPanel';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -1328,6 +1330,24 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           description="Register your email to start chatting"
           defaultEmail={globalAuth.viewerEmail || ''}
           defaultName={globalAuth.viewerName || ''}
+        />
+
+        {/* Debug Panel - shows in dev or with ?debug=true */}
+        <ChatDebugPanel
+          bootstrap={bootstrap}
+          viewer={{
+            isUnlocked: viewer.isUnlocked,
+            token: viewer.token,
+            viewerId: viewer.viewerId,
+            isLoading: viewer.isLoading,
+            error: viewer.error,
+          }}
+          chat={{
+            isConnected: chat.isConnected,
+            messages: chat.messages,
+            error: chat.error || null,
+          }}
+          effectiveGameId={effectiveGameId}
         />
       </div>
     </div>
