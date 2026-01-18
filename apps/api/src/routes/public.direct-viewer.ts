@@ -31,10 +31,65 @@ const AutoRegisterSchema = z.object({
 });
 
 /**
+ * Ensures a Game record exists for a DirectStream.
+ * Creates one automatically if missing (resilient design).
+ * 
+ * @param slug - DirectStream slug
+ * @param directStream - DirectStream record (must include ownerAccountId)
+ * @returns Game ID (existing or newly created)
+ */
+async function ensureGameForDirectStream(
+  slug: string,
+  directStream: { id: string; title: string; ownerAccountId: string; scheduledStartAt: Date | null; priceInCents: number }
+): Promise<string> {
+  const gameTitle = `Direct Stream: ${slug}`;
+  
+  // Try to find existing Game
+  const existingGame = await prisma.game.findFirst({
+    where: { title: gameTitle },
+    select: { id: true },
+  });
+
+  if (existingGame) {
+    return existingGame.id;
+  }
+
+  // Auto-create Game record (resilient fallback)
+  logger.warn({ slug, directStreamId: directStream.id }, 'Game record missing for DirectStream - auto-creating');
+
+  // Generate unique keyword code using slug + timestamp
+  const keywordCode = `DIRECT-${slug.toUpperCase()}-${Date.now()}`;
+
+  const newGame = await prisma.game.create({
+    data: {
+      ownerAccountId: directStream.ownerAccountId,
+      title: gameTitle,
+      homeTeam: directStream.title || slug,
+      awayTeam: 'TBD',
+      startsAt: directStream.scheduledStartAt || new Date(),
+      priceCents: directStream.priceInCents || 0,
+      currency: 'USD',
+      keywordCode,
+      qrUrl: `https://fieldview.live/direct/${slug}`,
+      state: 'active',
+    },
+  });
+
+  logger.info(
+    { slug, gameId: newGame.id, directStreamId: directStream.id },
+    'Game record auto-created for DirectStream'
+  );
+
+  return newGame.id;
+}
+
+/**
  * POST /api/public/direct/:slug/viewer/unlock
  *
  * Unlock a direct stream for a viewer by creating/updating their identity.
  * Returns a viewer JWT token scoped to the gameId for chat + stream access.
+ * 
+ * Resilient design: Auto-creates Game record if missing.
  */
 router.post(
   '/direct/:slug/viewer/unlock',
@@ -49,23 +104,27 @@ router.post(
 
         const body = req.body as z.infer<typeof UnlockViewerSchema>;
 
-        // Get gameId from slug (requires bootstrap call first or lookup)
-        // For now, lookup the gameId from the direct mapping or create it
-        const gameIdLookup = await prisma.game.findFirst({
-          where: {
-            title: `Direct Stream: ${slug}`,
+        // Get DirectStream first (needed for email notifications AND Game auto-creation)
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug },
+          select: {
+            id: true,
+            title: true,
+            ownerAccountId: true,
+            scheduledStartAt: true,
+            priceInCents: true,
           },
-          select: { id: true },
         });
 
-        if (!gameIdLookup) {
-          throw new BadRequestError('Game not found for this stream. Please refresh the page.');
+        if (!directStream) {
+          throw new BadRequestError('Stream not found. Please check the URL.');
         }
 
-        const gameId = gameIdLookup.id;
+        // Ensure Game exists (resilient - creates if missing)
+        const gameId = await ensureGameForDirectStream(slug, directStream);
 
-        // Get DirectStream for email notifications
-        const directStream = await prisma.directStream.findUnique({
+        // Get full DirectStream for email (with all fields)
+        const directStreamFull = await prisma.directStream.findUnique({
           where: { slug },
         });
 
@@ -88,21 +147,21 @@ router.post(
         });
 
         // Send registration confirmation email
-        if (directStream && viewer.wantsReminders) {
+        if (directStreamFull && viewer.wantsReminders) {
           const streamUrl = `${process.env.WEB_URL || 'http://localhost:4300'}/direct/${slug}`;
           
           try {
             const html = renderRegistrationEmail({
               firstName: viewer.firstName || 'Viewer',
-              streamTitle: directStream.title,
+              streamTitle: directStreamFull.title,
               streamUrl,
-              scheduledStartAt: directStream.scheduledStartAt || undefined,
+              scheduledStartAt: directStreamFull.scheduledStartAt || undefined,
             });
 
             // Send email asynchronously (don't block response)
             void sendEmail({
               to: viewer.email,
-              subject: `You're registered for ${directStream.title}`,
+              subject: `You're registered for ${directStreamFull.title}`,
               html,
             });
           } catch (emailError) {
