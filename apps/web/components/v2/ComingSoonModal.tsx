@@ -60,9 +60,9 @@ export function ComingSoonModal({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop with Gaussian Blur */}
       <div
-        className="fixed inset-0 bg-black/50 z-[var(--fv-z-modal)] animate-fade-in"
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-[var(--fv-z-modal)] animate-fade-in"
         onClick={handleClose}
         data-testid="modal-backdrop"
       />
