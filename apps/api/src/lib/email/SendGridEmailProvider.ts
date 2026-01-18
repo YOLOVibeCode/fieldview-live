@@ -28,23 +28,35 @@ export class SendGridEmailProvider implements IEmailProvider {
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
-    if (!SENDGRID_API_KEY) {
-      throw new Error('SENDGRID_API_KEY is not configured');
-    }
+    try {
+      if (!SENDGRID_API_KEY) {
+        throw new Error('SENDGRID_API_KEY is not configured');
+      }
 
-    const sgMail = await this.getClient();
-    if (!sgMail) {
-      throw new Error('Failed to initialize SendGrid client');
+      const sgMail = await this.getClient();
+      if (!sgMail) {
+        throw new Error('Failed to initialize SendGrid client');
+      }
+      
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      await sgMail.send({
+        from: options.from || SENDGRID_FROM_EMAIL,
+        to: options.to,
+        subject: options.subject,
+        text: options.text || undefined,
+        html: options.html || undefined,
+      });
+    } catch (error) {
+      // Log detailed SendGrid error
+      console.error('SendGrid send error:', {
+        error: error instanceof Error ? error.message : String(error),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        response: (error as any)?.response?.body,
+        to: options.to,
+        subject: options.subject,
+      });
+      throw error;
     }
-    
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    await sgMail.send({
-      from: options.from || SENDGRID_FROM_EMAIL,
-      to: options.to,
-      subject: options.subject,
-      text: options.text || undefined,
-      html: options.html || undefined,
-    });
   }
 }
 
