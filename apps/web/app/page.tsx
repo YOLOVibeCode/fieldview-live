@@ -1,8 +1,25 @@
-import Link from 'next/link';
+'use client';
 
-export default function HomePage() {
+import Link from 'next/link';
+import { Suspense } from 'react';
+
+import { WelcomeModal } from '@/components/v2/WelcomeModal';
+import { useWelcomeModal } from '@/hooks/useWelcomeModal';
+
+function HomePageContent() {
+  const { isOpen, closeModal, dontShowAgain, isVeoReferral } = useWelcomeModal();
+
   return (
-    <div className="min-h-screen flex flex-col" data-testid="container-home">
+    <>
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={isOpen}
+        onClose={closeModal}
+        onDontShowAgain={dontShowAgain}
+        isVeoReferral={isVeoReferral}
+      />
+
+      <div className="min-h-screen flex flex-col" data-testid="container-home">
       {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24 gradient-primary">
         <div className="text-center max-w-3xl mx-auto space-y-6 sm:space-y-8">
@@ -116,5 +133,14 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+    </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomePageContent />
+    </Suspense>
   );
 }

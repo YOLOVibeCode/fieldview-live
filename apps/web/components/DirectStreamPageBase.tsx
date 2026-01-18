@@ -23,6 +23,7 @@ import { useGameChatV2 } from '@/hooks/useGameChatV2';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { useGlobalViewerAuth } from '@/hooks/useGlobalViewerAuth';
 import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
+import { usePaywall } from '@/hooks/usePaywall';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
@@ -173,7 +174,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
   const [showViewerAuthModal, setShowViewerAuthModal] = useState(false);
   const [showInlineRegistration, setShowInlineRegistration] = useState(false);
 
@@ -188,6 +188,20 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // v2 Responsive hook (replaces manual detection)
   const { isMobile, isTouch, breakpoint } = useResponsive();
+
+  // Paywall hook - manages paywall state based on bootstrap
+  const paywall = usePaywall({
+    slug: bootstrap?.slug || config.slug || '',
+    enabled: false, // We use bootstrap data directly, not API fetch
+    demoMode: false,
+  });
+
+  // Track if paywall check is complete
+  const [paywallChecked, setPaywallChecked] = useState(false);
+  
+  // Compute isBlocked based on bootstrap and paywall state
+  // This overrides the hook's internal calculation since we have bootstrap data
+  const isPaywallBlocked = bootstrap?.paywallEnabled && !paywall.hasPaid;
 
   // Collapsible panel state (non-fullscreen mode)
   // Use a stable key derived from bootstrapUrl (constant from first render)
@@ -269,12 +283,37 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         setBootstrap(data);
         config.onBootstrapLoaded?.(data);
         
-        if (data.streamUrl) {
-          console.log('[DirectStream] ▶️ Initializing player with streamUrl');
-          initPlayer(data.streamUrl);
+        // Check paywall status before initializing player
+        if (data.paywallEnabled) {
+          // Check if user has already paid (localStorage)
+          const storageKey = `paywall_${data.slug}`;
+          const stored = localStorage.getItem(storageKey);
+          const hasPaid = stored ? JSON.parse(stored).hasPaid : false;
+          
+          if (hasPaid) {
+            console.log('[DirectStream] ✅ User already paid, initializing player');
+            setPaywallChecked(true);
+            if (data.streamUrl) {
+              initPlayer(data.streamUrl);
+            } else {
+              setStatus('offline');
+            }
+          } else {
+            console.log('[DirectStream] 🔒 Paywall enabled, showing paywall modal');
+            setPaywallChecked(true);
+            paywall.openPaywall();
+            setStatus('loading'); // Keep loading until payment
+          }
         } else {
-          console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
-          setStatus('offline');
+          // No paywall - proceed normally
+          setPaywallChecked(true);
+          if (data.streamUrl) {
+            console.log('[DirectStream] ▶️ Initializing player with streamUrl');
+            initPlayer(data.streamUrl);
+          } else {
+            console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
+            setStatus('offline');
+          }
         }
       })
       .catch((err) => {
@@ -814,11 +853,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           {bootstrap?.paywallEnabled && (
             <PaywallModal
               slug={bootstrap.slug}
-              isOpen={showPaywall}
-              onClose={() => setShowPaywall(false)}
+              isOpen={paywall.showPaywall}
+              onClose={paywall.closePaywall}
               onSuccess={() => {
-                setShowPaywall(false);
-                // TODO: Mark user as paid and allow access
+                // Mark as paid in localStorage and close modal
+                paywall.markAsPaid(bootstrap.slug);
+                
+                // Initialize player after successful payment
+                if (bootstrap.streamUrl) {
+                  console.log('[DirectStream] 💳 Payment successful, initializing player');
+                  initPlayer(bootstrap.streamUrl);
+                }
               }}
               priceInCents={bootstrap.priceInCents || 0}
               paywallMessage={bootstrap.paywallMessage}
@@ -833,6 +878,42 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               className="relative w-full aspect-video bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden shadow-2xl border border-white/10"
               style={{ minHeight: '400px' }}
             >
+              {/* Paywall Blocker Overlay */}
+              {isPaywallBlocked && paywallChecked && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm"
+                  data-testid="paywall-blocker"
+                >
+                  <div className="text-center text-white max-w-md mx-auto px-4">
+                    {/* Lock icon */}
+                    <div className="mb-6 relative">
+                      <div className="w-20 h-20 mx-auto bg-gradient-to-br from-amber-600/20 to-amber-900/20 rounded-full flex items-center justify-center shadow-2xl border border-amber-500/30">
+                        <svg className="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      {/* Subtle glow effect */}
+                      <div className="absolute inset-0 w-20 h-20 mx-auto bg-amber-500/10 rounded-full blur-xl" />
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-bold mb-3 tracking-tight">Premium Stream</h2>
+                    <p className="text-gray-400 text-sm md:text-base mb-2">
+                      {bootstrap.paywallMessage || 'This stream requires payment to watch.'}
+                    </p>
+                    <p className="text-xl font-bold text-amber-400 mb-6">
+                      ${((bootstrap.priceInCents || 0) / 100).toFixed(2)}
+                    </p>
+                    <TouchButton
+                      onClick={paywall.openPaywall}
+                      variant="primary"
+                      className="bg-amber-500 hover:bg-amber-600 shadow-2xl shadow-amber-500/20 hover:shadow-amber-500/40 transition-shadow"
+                      data-testid="btn-unlock-stream"
+                    >
+                      Unlock Stream
+                    </TouchButton>
+                  </div>
+                </div>
+              )}
+
               {status === 'offline' && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
                   <div className="text-center text-white max-w-md mx-auto px-4">

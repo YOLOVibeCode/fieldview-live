@@ -1,12 +1,12 @@
 # Scripts Index
 
-> 🔧 Auto-generated index of all project scripts. Last updated: 1/12/2026
+> 🔧 Auto-generated index of all project scripts. Last updated: 1/16/2026
 
 ## 📊 Overview
 
-- **Total Scripts**: 42
+- **Total Scripts**: 61
 - **Categories**: 7
-- **Executable**: 34 scripts
+- **Executable**: 40 scripts
 
 ## 📑 Table of Contents
 
@@ -156,6 +156,16 @@ Direct Stream UX Test Execution Script
 
 *Language: bash • ✓ Executable*
 
+### [`test-dvr.sh`](test-dvr.sh)
+DVR Test Runner - Local & Production
+
+**Usage:**
+```bash
+./test-dvr.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
 ### [`test-integrations-local.sh`](test-integrations-local.sh)
 Loads env vars from common local files, then tests external integrations.
 
@@ -302,6 +312,14 @@ Validate service name
 
 *Scripts for database operations, migrations, and seeding*
 
+### [`seed-direct-streams-jan16.ts`](seed-direct-streams-jan16.ts)
+**Usage:**
+```bash
+node seed-direct-streams-jan16.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
 ### [`seed-direct-streams.ts`](seed-direct-streams.ts)
 Seed data for existing DirectStreams
 
@@ -332,6 +350,26 @@ Run seed script as Railway job (from within Railway environment)
 
 *Language: bash • ✓ Executable*
 
+### [`seed-soccer-events-local.ts`](seed-soccer-events-local.ts)
+Find the TCHS direct stream
+
+**Usage:**
+```bash
+node seed-soccer-events-local.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`update-varsity-direct-db.js`](update-varsity-direct-db.js)
+Get DATABASE_URL from Railway environment
+
+**Usage:**
+```bash
+node update-varsity-direct-db.js [arguments]
+```
+
+*Language: javascript • ✗ Not executable • ⚠️ Requires arguments*
+
 ## 🔄 CI/CD Scripts
 
 *Scripts used in CI/CD pipelines*
@@ -359,6 +397,14 @@ node add-tchs-soccer-games-20260112.js
 ```
 
 *Language: javascript • ✗ Not executable*
+
+### [`check-local-events.ts`](check-local-events.ts)
+**Usage:**
+```bash
+node check-local-events.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`check-square-env.sh`](check-square-env.sh)
 Check Square environment variables setup
@@ -390,6 +436,54 @@ node create-sample-event.ts
 
 *Language: typescript • ✗ Not executable*
 
+### [`enable-stream-features.ts`](enable-stream-features.ts)
+**Usage:**
+```bash
+node enable-stream-features.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`fix-stream-url-direct.js`](fix-stream-url-direct.js)
+Quick fix for stream URL typo
+
+**Usage:**
+```bash
+node fix-stream-url-direct.js
+```
+
+*Language: javascript • ✗ Not executable*
+
+### [`fix-stream-url-simple.js`](fix-stream-url-simple.js)
+Find the parent stream
+
+**Usage:**
+```bash
+node fix-stream-url-simple.js
+```
+
+*Language: javascript • ✗ Not executable*
+
+### [`fix-streamurl-typo-job.sh`](fix-streamurl-typo-job.sh)
+Fix Stream URL Typo (run as Railway job)
+
+**Usage:**
+```bash
+./fix-streamurl-typo-job.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`fix-streamurl-typo.ts`](fix-streamurl-typo.ts)
+Fix DirectStream parent streams
+
+**Usage:**
+```bash
+node fix-streamurl-typo.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
 ### [`get-rtmp-credentials.sh`](get-rtmp-credentials.sh)
 Get RTMP Credentials for a Game
 
@@ -399,6 +493,16 @@ Get RTMP Credentials for a Game
 ```
 
 *Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`list-events.ts`](list-events.ts)
+Check for DATABASE_URL env var, if not use production
+
+**Usage:**
+```bash
+node list-events.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`railway-logs-graphql.js`](railway-logs-graphql.js)
 Configuration
@@ -444,6 +548,86 @@ Quick E2E Test Demo
 **Usage:**
 ```bash
 ./show-e2e-flow.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`update-jv-stream-url.ts`](update-jv-stream-url.ts)
+Find the parent stream
+
+**Usage:**
+```bash
+node update-jv-stream-url.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`update-soccer-event-dates.ts`](update-soccer-event-dates.ts)
+Load .env from apps/api
+
+**Usage:**
+```bash
+node update-soccer-event-dates.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`update-tchs-events-jan13.ts`](update-tchs-events-jan13.ts)
+Find the TCHS stream
+
+**Usage:**
+```bash
+node update-tchs-events-jan13.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`update-varsity-job.sh`](update-varsity-job.sh)
+Update Varsity Stream URL - Railway Job Wrapper
+
+**Usage:**
+```bash
+./update-varsity-job.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`update-varsity-railway-job.sh`](update-varsity-railway-job.sh)
+Railway Job: Update Varsity Stream URL
+
+**Usage:**
+```bash
+./update-varsity-railway-job.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`update-varsity-stream-url-simple.js`](update-varsity-stream-url-simple.js)
+Find the parent stream
+
+**Usage:**
+```bash
+node update-varsity-stream-url-simple.js
+```
+
+*Language: javascript • ✗ Not executable*
+
+### [`update-varsity-stream-url.ts`](update-varsity-stream-url.ts)
+Find the parent stream
+
+**Usage:**
+```bash
+node update-varsity-stream-url.ts
+```
+
+*Language: typescript • ✓ Executable*
+
+### [`update-varsity-via-api.sh`](update-varsity-via-api.sh)
+Update Varsity Stream URL via Admin API
+
+**Usage:**
+```bash
+./update-varsity-via-api.sh
 ```
 
 *Language: bash • ✓ Executable*

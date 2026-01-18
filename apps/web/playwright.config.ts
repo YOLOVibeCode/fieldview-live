@@ -1,7 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  // Support both local e2e tests and root-level tests
   testDir: './__tests__/e2e',
+  testMatch: ['**/*.spec.ts', '../../tests/e2e/**/*.spec.ts'],
   fullyParallel: false, // Run tests sequentially for chat (avoid conflicts)
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

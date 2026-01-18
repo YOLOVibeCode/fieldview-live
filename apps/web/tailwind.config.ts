@@ -100,12 +100,22 @@ const config: Config = {
           from: { transform: 'translateY(10px)', opacity: '0' },
           to: { transform: 'translateY(0)', opacity: '1' },
         },
+        'slide-up-full': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+        'slide-down-full': {
+          from: { transform: 'translateY(0)' },
+          to: { transform: 'translateY(100%)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.15s ease-out',
         'accordion-up': 'accordion-up 0.15s ease-out',
         'fade-in': 'fade-in 0.2s ease-out',
         'slide-up': 'slide-up 0.2s ease-out',
+        'slide-up-full': 'slide-up-full 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+        'slide-down-full': 'slide-down-full 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
       },
     },
   },

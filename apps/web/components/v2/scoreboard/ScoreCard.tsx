@@ -32,6 +32,10 @@ export interface ScoreCardProps {
   losing?: boolean;
   variant?: 'default' | 'compact' | 'large';
   onTap?: () => void;
+  // 🆕 Viewer editing with +/- buttons
+  showIncrementButtons?: boolean;   // Show +/- buttons
+  onIncrement?: () => void;         // +1 score
+  onDecrement?: () => void;         // -1 score
   className?: string;
   'data-testid'?: string;
 }
@@ -51,6 +55,9 @@ export function ScoreCard({
   losing = false,
   variant = 'default',
   onTap,
+  showIncrementButtons = false,
+  onIncrement,
+  onDecrement,
   className,
   'data-testid': dataTestId,
 }: ScoreCardProps) {
@@ -59,15 +66,15 @@ export function ScoreCard({
       data-testid={dataTestId || 'score-card'}
       className={cn(
         // Base styles
-        'flex flex-col items-center justify-center',
+        'flex items-center justify-center gap-2',
         'rounded-xl',
         'border-2',
         'transition-all duration-[var(--fv-duration-normal)]',
         
         // Variant sizes
-        variant === 'compact' && 'compact p-3 min-w-[80px]',
-        variant === 'default' && 'p-4 min-w-[100px]',
-        variant === 'large' && 'large p-6 min-w-[120px]',
+        variant === 'compact' && 'compact p-3',
+        variant === 'default' && 'p-4',
+        variant === 'large' && 'large p-6',
         
         // States
         winning && 'winning ring-2 ring-[var(--fv-color-success)] ring-offset-2',
@@ -84,29 +91,82 @@ export function ScoreCard({
       }}
       aria-label={`${teamName}: ${score} points${editable ? ', tap to edit' : ''}`}
     >
-      {/* Team Name / Abbreviation */}
-      <div className="text-xs font-semibold text-[var(--fv-color-text-secondary)] uppercase tracking-wide mb-1">
-        {abbreviation || teamName}
-      </div>
+      {/* Decrement Button */}
+      {showIncrementButtons && onDecrement && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDecrement();
+          }}
+          className={cn(
+            'flex items-center justify-center',
+            'w-11 h-11', // 44px minimum touch target
+            'rounded-lg',
+            'bg-[var(--fv-color-bg-tertiary)]',
+            'hover:bg-[var(--fv-color-bg-secondary)]',
+            'active:scale-95',
+            'transition-all',
+            'text-[var(--fv-color-text-primary)]',
+            'font-bold text-xl'
+          )}
+          aria-label={`Decrease ${teamName} score`}
+          data-testid="score-decrement-button"
+        >
+          −
+        </button>
+      )}
       
-      {/* Score */}
-      <div
-        className={cn(
-          'font-bold text-[var(--fv-color-text-primary)]',
-          variant === 'compact' && 'text-3xl',
-          variant === 'default' && 'text-4xl',
-          variant === 'large' && 'text-5xl',
-        )}
-        style={{ color }}
-      >
-        {score}
-      </div>
-      
-      {/* Edit Indicator */}
-      {editable && (
-        <div className="text-[10px] text-[var(--fv-color-text-muted)] mt-1">
-          Tap to edit
+      {/* Score Display */}
+      <div className="flex flex-col items-center justify-center min-w-[80px]">
+        {/* Team Name / Abbreviation */}
+        <div className="text-xs font-semibold text-[var(--fv-color-text-secondary)] uppercase tracking-wide mb-1">
+          {abbreviation || teamName}
         </div>
+        
+        {/* Score */}
+        <div
+          className={cn(
+            'font-bold text-[var(--fv-color-text-primary)]',
+            variant === 'compact' && 'text-3xl',
+            variant === 'default' && 'text-4xl',
+            variant === 'large' && 'text-5xl',
+          )}
+          style={{ color }}
+        >
+          {score}
+        </div>
+        
+        {/* Edit Indicator */}
+        {editable && !showIncrementButtons && (
+          <div className="text-[10px] text-[var(--fv-color-text-muted)] mt-1">
+            Tap to edit
+          </div>
+        )}
+      </div>
+      
+      {/* Increment Button */}
+      {showIncrementButtons && onIncrement && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onIncrement();
+          }}
+          className={cn(
+            'flex items-center justify-center',
+            'w-11 h-11', // 44px minimum touch target
+            'rounded-lg',
+            'bg-[var(--fv-color-bg-tertiary)]',
+            'hover:bg-[var(--fv-color-bg-secondary)]',
+            'active:scale-95',
+            'transition-all',
+            'text-[var(--fv-color-text-primary)]',
+            'font-bold text-xl'
+          )}
+          aria-label={`Increase ${teamName} score`}
+          data-testid="score-increment-button"
+        >
+          +
+        </button>
       )}
     </div>
   );

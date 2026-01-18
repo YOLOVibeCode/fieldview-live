@@ -21,6 +21,16 @@ model OwnerAccount {
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 
+  // Freemium tracking
+  freeGamesUsed      Int       @default(0)
+  subscriptionTier   String?   // 'free' | 'pro' | null
+  subscriptionEndsAt DateTime?
+
+  // Abuse tracking
+  abuseWarnings   Int      @default(0)
+  isSuspended     Boolean  @default(false)
+  suspendedReason String?
+
   games                 Game[]
   users                 OwnerUser[]
   ledgerEntries         LedgerEntry[]
@@ -28,6 +38,7 @@ model OwnerAccount {
   organizations         Organization[]
   viewerSquareCustomers ViewerSquareCustomer[]
   directStreams         DirectStream[] // 🆕 Relation for DirectStream paywall revenue
+  deviceFingerprints    OwnerAccountFingerprint[] // 🆕 For abuse detection
 
   @@index([status])
   @@index([payoutProviderRef])
@@ -198,6 +209,12 @@ model Purchase {
   recipientOwnerAccountId String? @db.Uuid
   recipientType           String? // 'personal' | 'organization'
   recipientOrganizationId String? @db.Uuid
+
+  // IP locking for unique stream access
+  lockedIpAddress String?   // First IP to access stream
+  lockedAt        DateTime? // When IP was locked
+  lastAccessedAt  DateTime? // Track activity
+  lastAccessedIp  String?   // Last IP to access
 
   createdAt  DateTime  @default(now())
   paidAt     DateTime?
@@ -620,6 +637,10 @@ model DirectStream {
   chatEnabled       Boolean @default(true)
   scoreboardEnabled Boolean @default(false)
 
+  // 🆕 Viewer scoreboard editing permissions
+  allowViewerScoreEdit Boolean @default(false) // Viewers can edit scores
+  allowViewerNameEdit  Boolean @default(false) // Viewers can edit team names
+
   // 🆕 Access control
   allowAnonymousView       Boolean @default(true) // Allow anonymous page viewing
   requireEmailVerification Boolean @default(true) // Require verified email for access/chat
@@ -686,6 +707,10 @@ model DirectStreamEvent {
   allowAnonymousView       Boolean?
   requireEmailVerification Boolean?
   listed                   Boolean? // Show in public listings
+
+  // 🆕 Viewer scoreboard editing permission overrides
+  allowViewerScoreEdit Boolean? // Viewers can edit scores (NULL = inherit)
+  allowViewerNameEdit  Boolean? // Viewers can edit team names (NULL = inherit)
 
   // Scoreboard overrides (NULL = inherit from parent DirectStream)
   scoreboardHomeTeam  String?
@@ -904,4 +929,48 @@ model VideoBookmark {
   @@index([viewerIdentityId])
   @@index([clipId])
   @@index([createdAt])
+}
+
+// ===========================================
+// FREEMIUM & ABUSE DETECTION MODELS
+// ===========================================
+
+// DeviceFingerprint - Tracks browser fingerprints for abuse detection
+model DeviceFingerprint {
+  id              String   @id @default(uuid()) @db.Uuid
+  fingerprintHash String   @unique // SHA-256 of browser fingerprint data
+  ipAddresses     String[] @default([]) // Array of IPs seen from this device
+
+  // Abuse tracking
+  abuseScore      Int      @default(0) // 0-100 suspicion score
+  warningsShown   Int      @default(0) // Times warning was displayed
+  oneTimePassUsed Boolean  @default(false) // Compassionate pass consumed
+  flaggedAt       DateTime?
+  flagReason      String?
+
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  // Linked accounts
+  ownerAccounts OwnerAccountFingerprint[]
+
+  @@index([fingerprintHash])
+  @@index([lastSeenAt])
+}
+
+// OwnerAccountFingerprint - Junction table linking accounts to device fingerprints
+model OwnerAccountFingerprint {
+  id                  String @id @default(uuid()) @db.Uuid
+  ownerAccountId      String @db.Uuid
+  deviceFingerprintId String @db.Uuid
+
+  registeredAt   DateTime @default(now())
+  registrationIp String // IP at time of registration
+
+  ownerAccount      OwnerAccount      @relation(fields: [ownerAccountId], references: [id], onDelete: Cascade)
+  deviceFingerprint DeviceFingerprint @relation(fields: [deviceFingerprintId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerAccountId, deviceFingerprintId])
+  @@index([deviceFingerprintId])
+  @@index([ownerAccountId])
 }

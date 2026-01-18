@@ -9,7 +9,9 @@
 import type { OwnerAccount, OwnerUser } from '@prisma/client';
 
 import { BadRequestError, UnauthorizedError } from '../lib/errors';
+import { sendEmail, renderOwnerWelcomeEmail } from '../lib/email';
 import { generateToken, verifyToken } from '../lib/jwt';
+import { logger } from '../lib/logger';
 import { hashPassword, verifyPassword } from '../lib/password';
 import type {
   IOwnerAccountWriter,
@@ -78,6 +80,10 @@ export class OwnerAuthService implements IOwnerAuthReader, IOwnerAuthWriter {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
+    // Send welcome email asynchronously (don't block registration)
+    const dashboardUrl = `${process.env.WEB_URL || 'http://localhost:4300'}/owners/dashboard`;
+    void this.sendWelcomeEmail(data.name, data.email, data.type, dashboardUrl);
+
     return {
       account,
       token: {
@@ -85,6 +91,36 @@ export class OwnerAuthService implements IOwnerAuthReader, IOwnerAuthWriter {
         expiresAt,
       },
     };
+  }
+
+  /**
+   * Send welcome email to newly registered owner
+   */
+  private async sendWelcomeEmail(
+    name: string,
+    email: string,
+    accountType: 'individual' | 'association',
+    dashboardUrl: string
+  ): Promise<void> {
+    try {
+      const html = renderOwnerWelcomeEmail({
+        name,
+        email,
+        accountType,
+        dashboardUrl,
+      });
+
+      await sendEmail({
+        to: email,
+        subject: 'Welcome to FieldView.Live! 🎉',
+        html,
+      });
+
+      logger.info({ email }, 'Welcome email sent to new owner');
+    } catch (error) {
+      // Log but don't fail registration if email fails
+      logger.error({ error, email }, 'Failed to send welcome email');
+    }
   }
 
   async login(data: OwnerLoginData): Promise<{ account: OwnerAccount; token: AuthToken }> {

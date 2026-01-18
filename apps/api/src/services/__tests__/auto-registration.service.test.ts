@@ -50,6 +50,8 @@ describe('AutoRegistrationService (TDD)', () => {
     adminPassword: 'hashed-password',
     chatEnabled: true,
     scoreboardEnabled: true,
+    allowViewerScoreEdit: false,
+    allowViewerNameEdit: false,
     allowAnonymousView: true,
     requireEmailVerification: true,
     listed: true,

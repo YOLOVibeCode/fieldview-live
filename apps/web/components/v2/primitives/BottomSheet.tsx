@@ -54,21 +54,15 @@ export function BottomSheet({
   const [isDragging, setIsDragging] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [startY, setStartY] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   
   // Lock body scroll when open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      setIsAnimating(true);
-      
-      // Remove animation class after animation completes
-      const timer = setTimeout(() => setIsAnimating(false), 300);
       
       return () => {
         document.body.style.overflow = '';
-        clearTimeout(timer);
       };
     }
   }, [isOpen]);
@@ -155,8 +149,7 @@ export function BottomSheet({
           'fv-safe-area-bottom',
           'overflow-hidden',
           'flex flex-col',
-          isAnimating && (isOpen ? 'fv-sheet-enter' : 'fv-sheet-exit'),
-          'animate-slide-up'
+          'animate-slide-up-full'
         )}
         style={{
           height: `${snapHeight}vh`,

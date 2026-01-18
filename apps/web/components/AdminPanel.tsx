@@ -33,6 +33,9 @@ interface AdminPanelProps {
     awayTeamName?: string;
     homeJerseyColor?: string;
     awayJerseyColor?: string;
+    // 🆕 Viewer editing permissions
+    allowViewerScoreEdit?: boolean;
+    allowViewerNameEdit?: boolean;
   };
   onAuthSuccess?: (token: string) => void;
 }
@@ -59,6 +62,9 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const [awayTeamName, setAwayTeamName] = useState(initialSettings?.awayTeamName || '');
   const [homeJerseyColor, setHomeJerseyColor] = useState(initialSettings?.homeJerseyColor || '#003366');
   const [awayJerseyColor, setAwayJerseyColor] = useState(initialSettings?.awayJerseyColor || '#CC0000');
+  // 🆕 Viewer editing permissions
+  const [allowViewerScoreEdit, setAllowViewerScoreEdit] = useState(initialSettings?.allowViewerScoreEdit ?? false);
+  const [allowViewerNameEdit, setAllowViewerNameEdit] = useState(initialSettings?.allowViewerNameEdit ?? false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -132,6 +138,9 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           priceInCents,
           paywallMessage: paywallMessage || null,
           allowSavePayment,
+          // 🆕 Viewer editing permissions
+          allowViewerScoreEdit,
+          allowViewerNameEdit,
         }),
       });
 
@@ -417,6 +426,55 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
               <p className="text-xs text-muted-foreground">
                 💡 <strong>Tip:</strong> If you don't set team names/colors, the Social Producer Panel will use defaults (Home/Away, Navy/Red). Anyone can customize them later!
               </p>
+
+              {/* 🆕 Viewer Editing Permissions */}
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="allow-viewer-score-edit" className="text-sm font-medium">
+                      Allow Viewers to Edit Scores
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Registered viewers can tap +/− buttons to adjust scores
+                    </p>
+                  </div>
+                  <input
+                    id="allow-viewer-score-edit"
+                    name="allow-viewer-score-edit"
+                    type="checkbox"
+                    checked={allowViewerScoreEdit}
+                    onChange={(e) => setAllowViewerScoreEdit(e.target.checked)}
+                    className="w-5 h-5"
+                    data-testid="allow-viewer-score-edit-checkbox"
+                    aria-label="Allow viewers to edit scores"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="allow-viewer-name-edit" className="text-sm font-medium">
+                      Allow Viewers to Edit Team Names
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Registered viewers can click team names to edit
+                    </p>
+                  </div>
+                  <input
+                    id="allow-viewer-name-edit"
+                    name="allow-viewer-name-edit"
+                    type="checkbox"
+                    checked={allowViewerNameEdit}
+                    onChange={(e) => setAllowViewerNameEdit(e.target.checked)}
+                    className="w-5 h-5"
+                    data-testid="allow-viewer-name-edit-checkbox"
+                    aria-label="Allow viewers to edit team names"
+                  />
+                </div>
+
+                <p className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/30 p-2 rounded">
+                  🎉 <strong>Social Editing:</strong> These features allow your audience to participate! Great for community streams.
+                </p>
+              </div>
             </>
           )}
         </div>

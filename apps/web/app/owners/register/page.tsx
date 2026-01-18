@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AbuseDetectedModal, type AbuseMessage } from '@/components/v2/AbuseDetectedModal';
+import { generateFingerprint } from '@/lib/fingerprint';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -22,10 +24,30 @@ const RegisterSchema = z.object({
 
 type RegisterValues = z.infer<typeof RegisterSchema>;
 
+interface AbuseCheckResult {
+  allowed: boolean;
+  linkedAccountCount: number;
+  abuseDetected: boolean;
+  oneTimePassAvailable: boolean;
+  message: AbuseMessage | 'none';
+}
+
 export default function OwnerRegisterPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  
+  // Abuse detection state
+  const [abuseModalOpen, setAbuseModalOpen] = useState(false);
+  const [abuseResult, setAbuseResult] = useState<AbuseCheckResult | null>(null);
+  const [pendingRegistration, setPendingRegistration] = useState<RegisterValues | null>(null);
+  const [abusePassAccepted, setAbusePassAccepted] = useState(false);
+
+  // Generate fingerprint on mount
+  useEffect(() => {
+    generateFingerprint().then(setFingerprint);
+  }, []);
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(RegisterSchema),
@@ -37,26 +59,92 @@ export default function OwnerRegisterPage() {
     },
   });
 
+  /**
+   * Check for abuse before registration
+   */
+  async function checkAbuse(email: string): Promise<AbuseCheckResult | null> {
+    if (!fingerprint) return null;
+
+    try {
+      const response = await fetch(`${API_URL}/api/owners/check-abuse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fingerprintHash: fingerprint,
+          email,
+        }),
+      });
+
+      if (!response.ok) {
+        // If endpoint doesn't exist yet, allow registration
+        return null;
+      }
+
+      return (await response.json()) as AbuseCheckResult;
+    } catch {
+      // Allow registration if check fails
+      return null;
+    }
+  }
+
+  /**
+   * Execute registration API call
+   */
+  async function executeRegistration(values: RegisterValues, useOneTimePass: boolean = false) {
+    const response = await fetch(`${API_URL}/api/owners/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...values,
+        fingerprintHash: fingerprint,
+        useOneTimePass,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      throw new Error(body?.error?.message || 'Registration failed.');
+    }
+
+    const data = (await response.json()) as { token: { token: string; expiresAt: string } };
+    localStorage.setItem('owner_token', data.token.token);
+    localStorage.setItem('owner_token_expires', data.token.expiresAt);
+    router.push('/owners/dashboard');
+  }
+
+  /**
+   * Handle form submission
+   */
   async function onSubmit(values: RegisterValues) {
     setError(null);
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/owners/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
+      // Skip abuse check if pass already accepted
+      if (!abusePassAccepted) {
+        const abuse = await checkAbuse(values.email);
 
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-        throw new Error(body?.error?.message || 'Registration failed.');
+        if (abuse && abuse.abuseDetected) {
+          // Show abuse modal
+          setAbuseResult(abuse);
+          setPendingRegistration(values);
+          setAbuseModalOpen(true);
+          setLoading(false);
+          return;
+        }
+
+        // Show warning for first duplicate (but allow)
+        if (abuse && abuse.message === 'first_warning') {
+          setAbuseResult(abuse);
+          setPendingRegistration(values);
+          setAbuseModalOpen(true);
+          setLoading(false);
+          return;
+        }
       }
 
-      const data = (await response.json()) as { token: { token: string; expiresAt: string } };
-      localStorage.setItem('owner_token', data.token.token);
-      localStorage.setItem('owner_token_expires', data.token.expiresAt);
-      router.push('/owners/dashboard');
+      // Proceed with registration
+      await executeRegistration(values, abusePassAccepted);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -64,9 +152,41 @@ export default function OwnerRegisterPage() {
     }
   }
 
+  /**
+   * Handle one-time pass acceptance
+   */
+  async function handleAcceptPass() {
+    setAbuseModalOpen(false);
+    setAbusePassAccepted(true);
+
+    if (pendingRegistration) {
+      setLoading(true);
+      try {
+        await executeRegistration(pendingRegistration, true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Registration failed');
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 gradient-primary">
-      <Card className="w-full max-w-md shadow-lg" data-testid="card-owner-register">
+    <>
+      {/* Abuse Detection Modal */}
+      {abuseResult && (
+        <AbuseDetectedModal
+          isOpen={abuseModalOpen}
+          onClose={() => setAbuseModalOpen(false)}
+          onAcceptPass={handleAcceptPass}
+          message={abuseResult.message as AbuseMessage}
+          linkedAccountCount={abuseResult.linkedAccountCount}
+          oneTimePassAvailable={abuseResult.oneTimePassAvailable}
+        />
+      )}
+
+      <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 gradient-primary">
+        <Card className="w-full max-w-md shadow-lg" data-testid="card-owner-register">
         <CardHeader className="space-y-1 text-center pb-4">
           <div className="mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
             <svg className="w-6 h-6 sm:w-7 sm:h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -171,6 +291,7 @@ export default function OwnerRegisterPage() {
         </CardFooter>
       </Card>
     </div>
+    </>
   );
 }
 

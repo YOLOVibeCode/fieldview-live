@@ -112,6 +112,10 @@ export class DirectStreamEventRepository implements IDirectStreamEventReader, ID
       scoreboardHomeColor: event.scoreboardHomeColor ?? parent.scoreboardHomeColor,
       scoreboardAwayColor: event.scoreboardAwayColor ?? parent.scoreboardAwayColor,
       
+      // 🆕 Viewer editing permissions
+      allowViewerScoreEdit: event.allowViewerScoreEdit ?? parent.allowViewerScoreEdit,
+      allowViewerNameEdit: event.allowViewerNameEdit ?? parent.allowViewerNameEdit,
+      
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
     };

@@ -157,6 +157,9 @@ router.get(
           scoreboardAwayTeam: directStream.scoreboardAwayTeam,
           scoreboardHomeColor: directStream.scoreboardHomeColor,
           scoreboardAwayColor: directStream.scoreboardAwayColor,
+          // 🆕 Viewer editing permissions
+          allowViewerScoreEdit: directStream.allowViewerScoreEdit,
+          allowViewerNameEdit: directStream.allowViewerNameEdit,
         });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
@@ -258,6 +261,9 @@ router.post(
           scoreboardAwayTeam: z.string().max(50).optional().nullable(),
           scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
           scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+          // 🆕 Viewer editing permissions
+          allowViewerScoreEdit: z.boolean().optional(),
+          allowViewerNameEdit: z.boolean().optional(),
         });
         
         const parsed = schema.safeParse(req.body);
@@ -316,6 +322,13 @@ router.post(
         if (body.scoreboardAwayColor !== undefined) {
           updateData.scoreboardAwayColor = body.scoreboardAwayColor;
         }
+        // 🆕 Viewer editing permissions
+        if (body.allowViewerScoreEdit !== undefined) {
+          updateData.allowViewerScoreEdit = body.allowViewerScoreEdit;
+        }
+        if (body.allowViewerNameEdit !== undefined) {
+          updateData.allowViewerNameEdit = body.allowViewerNameEdit;
+        }
 
         // Update in database
         const updated = await prisma.directStream.update({
@@ -339,6 +352,9 @@ router.post(
             scoreboardAwayTeam: updated.scoreboardAwayTeam,
             scoreboardHomeColor: updated.scoreboardHomeColor,
             scoreboardAwayColor: updated.scoreboardAwayColor,
+            // 🆕 Viewer editing permissions
+            allowViewerScoreEdit: updated.allowViewerScoreEdit,
+            allowViewerNameEdit: updated.allowViewerNameEdit,
           },
         });
       } catch (error) {

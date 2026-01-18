@@ -159,7 +159,32 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
         return res.status(500).json({ error: 'No owner account found. Please create one first.' });
       }
 
-      // Create DirectStream
+      // 🆕 Auto-create Game record for DirectStream (required for viewer registration/chat)
+      const gameTitle = `Direct Stream: ${data.slug}`;
+      let game = await prisma.game.findFirst({
+        where: { title: gameTitle },
+        select: { id: true },
+      });
+
+      if (!game) {
+        game = await prisma.game.create({
+          data: {
+            ownerAccountId: defaultOwner.id,
+            title: gameTitle,
+            homeTeam: data.title || data.slug,
+            awayTeam: 'TBD',
+            startsAt: data.scheduledStartAt ? new Date(data.scheduledStartAt) : new Date(),
+            priceCents: data.priceInCents || 0,
+            currency: 'USD',
+            keywordCode: `DIRECT-${data.slug.toUpperCase()}-${Date.now()}`,
+            qrUrl: '',
+            state: 'active',
+          },
+        });
+        logger.info({ gameId: game.id, slug: data.slug }, 'Game auto-created for DirectStream');
+      }
+
+      // Create DirectStream with Game link
       const stream = await prisma.directStream.create({
         data: {
           slug: data.slug,
@@ -179,10 +204,14 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
           sendReminders: data.sendReminders,
           reminderMinutes: data.reminderMinutes,
           ownerAccountId: defaultOwner.id,
+          gameId: game.id, // 🆕 Link to auto-created Game
         },
         include: {
           ownerAccount: {
             select: { id: true, name: true, contactEmail: true },
+          },
+          game: {
+            select: { id: true, title: true },
           },
         },
       });
@@ -200,6 +229,7 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
           paywallEnabled: stream.paywallEnabled,
           priceInCents: stream.priceInCents,
           ownerAccount: stream.ownerAccount,
+          game: stream.game, // 🆕 Include linked Game info
           createdAt: stream.createdAt,
         },
       });

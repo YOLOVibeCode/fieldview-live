@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { ScoreEditModal } from '@/components/ScoreEditModal';
+import { MinimalScoreboard } from '@/components/v2/scoreboard/MinimalScoreboard';
 
 /**
  * ISP: Segregated interfaces for scoreboard data and rendering
@@ -291,36 +292,28 @@ export function CollapsibleScoreboardOverlay({
     return null;
   }
 
-  // Collapsed: Minimized toggle button
+  // Collapsed: Use MinimalScoreboard component
   if (!isVisible) {
     return (
-      <button
-        onClick={onToggle}
-        className={`
-          fixed ${position === 'left' ? 'left-4' : 'right-4'} bottom-4
-          z-50
-          bg-accent/90 backdrop-blur-md
-          text-white
-          px-4 py-2 rounded-full
-          font-medium text-sm
-          shadow-xl
-          hover:scale-105 active:scale-95
-          transition-all duration-200
-          flex items-center gap-2
-          border border-accent/30
-        `}
-        data-testid="btn-toggle-scoreboard"
-        aria-label="Toggle scoreboard overlay"
+      <div
+        className={cn(
+          'fixed z-50',
+          position === 'left' ? 'left-4' : 'right-4',
+          'bottom-4'
+        )}
+        data-testid="minimal-scoreboard-container"
       >
-        <span className="text-lg">📊</span>
-        <span className="hidden sm:inline">Score</span>
-        <span 
-          className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold"
-          data-testid="scoreboard-score-badge"
-        >
-          {getScoreBadge()}
-        </span>
-      </button>
+        <MinimalScoreboard
+          homeTeamName={scoreboard.homeTeamName}
+          awayTeamName={scoreboard.awayTeamName}
+          homeScore={scoreboard.homeScore}
+          awayScore={scoreboard.awayScore}
+          homeColor={scoreboard.homeJerseyColor}
+          awayColor={scoreboard.awayJerseyColor}
+          onExpand={onToggle}
+          position={position}
+        />
+      </div>
     );
   }
 

@@ -92,8 +92,12 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to unlock' }));
-        throw new Error(errorData.error || `Unlock failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: { message: 'Failed to unlock' } }));
+        // Handle both string errors and structured error objects
+        const errorMessage = typeof errorData.error === 'string' 
+          ? errorData.error 
+          : errorData.error?.message || `Unlock failed: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

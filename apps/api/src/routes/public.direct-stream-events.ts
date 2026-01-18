@@ -63,6 +63,9 @@ router.get(
           scoreboardAwayTeam: config.scoreboardAwayTeam,
           scoreboardHomeColor: config.scoreboardHomeColor,
           scoreboardAwayColor: config.scoreboardAwayColor,
+          // 🆕 Viewer editing permissions
+          allowViewerScoreEdit: config.allowViewerScoreEdit,
+          allowViewerNameEdit: config.allowViewerNameEdit,
         };
         
         res.json(bootstrap);

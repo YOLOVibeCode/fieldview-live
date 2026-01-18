@@ -1,41 +1,103 @@
-# FieldView.Live Specifications
+# Documentation Index
 
-This directory contains the MVP-focused product and system specifications for FieldView.Live.
+Welcome to the D-Vibe documentation! All project documentation has been organized here for easy navigation.
 
-## Table of contents
-1. [00-overview.md](./00-overview.md)
-2. [01-personas-and-roles.md](./01-personas-and-roles.md)
-3. [02-user-flows.md](./02-user-flows.md)
-4. [03-functional-requirements.md](./03-functional-requirements.md)
-5. [04-data-model.md](./04-data-model.md)
-6. [05-api-spec-outline.md](./05-api-spec-outline.md)
-7. [06-nonfunctional-and-compliance.md](./06-nonfunctional-and-compliance.md)
-8. [07-refund-and-quality-rules.md](./07-refund-and-quality-rules.md)
-9. [08-admin-and-superadmin.md](./08-admin-and-superadmin.md)
-10. [Implementation Plan](./implementation-plan/README.md) - Detailed implementation guide
+**📍 You are here:** `documents/`  
+**🏠 Main README:** [`../README.md`](../README.md)
 
-## How to read / use these specs
-- Start with **scope + glossary**: [00-overview.md](./00-overview.md)
-- Understand **who can do what**: [01-personas-and-roles.md](./01-personas-and-roles.md)
-- Follow the **end-to-end experiences** (viewer → owner → admin): [02-user-flows.md](./02-user-flows.md)
-- Treat **functional requirements** as the build contract: [03-functional-requirements.md](./03-functional-requirements.md)
-- Use the **data model** to guide schema and invariants: [04-data-model.md](./04-data-model.md)
-- Use the **API outline** as OpenAPI-ready inventory: [05-api-spec-outline.md](./05-api-spec-outline.md)
-- Use **NFR/compliance** for hard constraints: [06-nonfunctional-and-compliance.md](./06-nonfunctional-and-compliance.md)
-- Use **refund rules** for deterministic, auditable behavior: [07-refund-and-quality-rules.md](./07-refund-and-quality-rules.md)
-- Use **internal tooling spec** for support ops: [08-admin-and-superadmin.md](./08-admin-and-superadmin.md)
-- Follow the **implementation plan** for build execution: [implementation-plan/README.md](./implementation-plan/README.md)
+---
 
-## Conventions
-- **Scope tags** (used throughout):
-  - **Core**: required for MVP
-  - **Owner-only**: for individual camera-owner customers
-  - **Association-only**: for associations/leagues operating multiple fields/teams
-  - **Post-MVP**: explicitly deferred
-- **Terminology**:
-  - **Keyword / text code**: short code a viewer texts (e.g., `EAGLES22`).
-  - **Payment link**: URL used to complete checkout.
-  - **Watch link**: URL that boots the player after entitlement validation.
-  - **Entitlement token**: signed, expiring token granting watch access.
-- **Determinism**:
-  - Refund decisions must be reproducible from stored telemetry summaries + the versioned rule set.
+## 📚 Documentation Categories
+
+### Features & Demos
+
+- [COMPLETE DEMO TEST REPORT](./COMPLETE_DEMO_TEST_REPORT.md)
+- [DEMO PAGE IMPLEMENTATION REPORT](./DEMO_PAGE_IMPLEMENTATION_REPORT.md)
+- [DEMO PAGE STATUS](./DEMO_PAGE_STATUS.md)
+- [DEMO PAGE V2 SHOWCASE](./DEMO_PAGE_V2_SHOWCASE.md)
+- [V2 DEMO COLLAPSIBLE SUCCESS](./V2_DEMO_COLLAPSIBLE_SUCCESS.md)
+- [V2 DEMO MOBILE COMPRESSION ANALYSIS](./V2_DEMO_MOBILE_COMPRESSION_ANALYSIS.md)
+- [V2 DEMO MOBILE COMPRESSION COMPLETE](./V2_DEMO_MOBILE_COMPRESSION_COMPLETE.md)
+- [V2 DEMO OVERLAY FIX ANALYSIS](./V2_DEMO_OVERLAY_FIX_ANALYSIS.md)
+
+### Other Documentation
+
+- [BOOKMARK VALIDATION COMPLETE](./BOOKMARK_VALIDATION_COMPLETE.md)
+- [BUG FIX OBJECT OBJECT](./BUG_FIX_OBJECT_OBJECT.md)
+- [CHAT UX BROWSER MCP TEST REPORT](./CHAT_UX_BROWSER_MCP_TEST_REPORT.md)
+- [CROSS STREAM AUTH FINAL COMPLETE](./CROSS_STREAM_AUTH_FINAL_COMPLETE.md)
+- [CROSS STREAM AUTH IMPLEMENTATION](./CROSS_STREAM_AUTH_IMPLEMENTATION.md)
+- [CROSS STREAM AUTH PHASE1 2 COMPLETE](./CROSS_STREAM_AUTH_PHASE1_2_COMPLETE.md)
+- [CROSS STREAM AUTH PHASE3 COMPLETE](./CROSS_STREAM_AUTH_PHASE3_COMPLETE.md)
+- [CROSS STREAM AUTH PHASE4 COMPLETE](./CROSS_STREAM_AUTH_PHASE4_COMPLETE.md)
+- [CROSS STREAM AUTH SUMMARY](./CROSS_STREAM_AUTH_SUMMARY.md)
+- [DATABASE MIGRATION COMPLETE](./DATABASE_MIGRATION_COMPLETE.md)
+- [DEPLOYMENT STATUS JAN17 2026](./DEPLOYMENT_STATUS_JAN17_2026.md)
+- [DEPLOYMENT SUCCESS JAN16 2026](./DEPLOYMENT_SUCCESS_JAN16_2026.md)
+- [DEPLOYMENT SUMMARY 20260111](./DEPLOYMENT_SUMMARY_20260111.md)
+- [DIRECTSTREAM V2 UPGRADE PLAN](./DIRECTSTREAM_V2_UPGRADE_PLAN.md)
+- [DVR CLIP LIMITS CLEANUP COMPLETE](./DVR_CLIP_LIMITS_CLEANUP_COMPLETE.md)
+- [DVR IMPLEMENTATION COMPLETE](./DVR_IMPLEMENTATION_COMPLETE.md)
+- [DVR SERVICE COMPLETE](./DVR_SERVICE_COMPLETE.md)
+- [DVR TESTING GUIDE](./DVR_TESTING_GUIDE.md)
+- [DVR TESTING SUMMARY](./DVR_TESTING_SUMMARY.md)
+- [DVR TEST REPORT COMPLETE](./DVR_TEST_REPORT_COMPLETE.md)
+- [EMAIL TESTING GUIDE MAILPIT](./EMAIL_TESTING_GUIDE_MAILPIT.md)
+- [FINAL SUCCESS SUMMARY](./FINAL_SUCCESS_SUMMARY.md)
+- [IMPLEMENTATION PLAN V2](./IMPLEMENTATION_PLAN_V2.md)
+- [IMPLEMENTATION SUMMARY](./IMPLEMENTATION_SUMMARY.md)
+- [INLINE CHAT REGISTRATION UX IMPROVEMENT](./INLINE_CHAT_REGISTRATION_UX_IMPROVEMENT.md)
+- [ISSUE ANALYSIS](./ISSUE_ANALYSIS.md)
+- [LOCAL DEV ACTION PLAN](./LOCAL_DEV_ACTION_PLAN.md)
+- [LOCAL DEV ENVIRONMENT ANALYSIS](./LOCAL_DEV_ENVIRONMENT_ANALYSIS.md)
+- [LOCAL DEV ISSUE FLOWCHART](./LOCAL_DEV_ISSUE_FLOWCHART.md)
+- [MANUAL TEST GUIDE](./MANUAL_TEST_GUIDE.md)
+- [NUCLEAR RESET COMPLETE](./NUCLEAR_RESET_COMPLETE.md)
+- [PAYWALL MODAL FIX COMPLETE](./PAYWALL_MODAL_FIX_COMPLETE.md)
+- [PHASE 0 COMPLETE](./PHASE_0_COMPLETE.md)
+- [PHASE 1 COMPLETE](./PHASE_1_COMPLETE.md)
+- [PHASE 2 COMPLETE](./PHASE_2_COMPLETE.md)
+- [PHASE 3 COMPLETE](./PHASE_3_COMPLETE.md)
+- [PHASE 4 COMPLETE](./PHASE_4_COMPLETE.md)
+- [PHASE 5 COMPLETE](./PHASE_5_COMPLETE.md)
+- [PHASE 8.5 COMPLETE](./PHASE_8.5_COMPLETE.md)
+- [PHASE 8.6 FINAL REPORT](./PHASE_8.6_FINAL_REPORT.md)
+- [PHASE 8.6 TEST REPORT](./PHASE_8.6_TEST_REPORT.md)
+- [PHASE 8 COMPLETE](./PHASE_8_COMPLETE.md)
+- [PHASE 8 NEXT SESSION HANDOFF](./PHASE_8_NEXT_SESSION_HANDOFF.md)
+- [PHASE 8 PLAN](./PHASE_8_PLAN.md)
+- [PHASE 8 REVISED STRATEGY](./PHASE_8_REVISED_STRATEGY.md)
+- [PHASE 8 STEP 1 ANALYSIS](./PHASE_8_STEP_1_ANALYSIS.md)
+- [PRODUCTION FIX SUCCESS REPORT](./PRODUCTION_FIX_SUCCESS_REPORT.md)
+- [PRODUCTION TEST REPORT](./PRODUCTION_TEST_REPORT.md)
+- [RAILWAY BUILD FIX SUCCESS](./RAILWAY_BUILD_FIX_SUCCESS.md)
+- [RAILWAY DEPLOYMENT SUMMARY](./RAILWAY_DEPLOYMENT_SUMMARY.md)
+- [REGISTRATION FIX JAN17 2026](./REGISTRATION_FIX_JAN17_2026.md)
+- [SCOREBOARD TAP TO EDIT IMPLEMENTATION](./SCOREBOARD_TAP_TO_EDIT_IMPLEMENTATION.md)
+- [SECOND OPINION REPORT](./SECOND_OPINION_REPORT.md)
+- [SEED JAN16 2026 COMPLETE](./SEED_JAN16_2026_COMPLETE.md)
+- [SESSION 1 COMPLETE](./SESSION_1_COMPLETE.md)
+- [SOCCER EVENTS UPDATED](./SOCCER_EVENTS_UPDATED.md)
+- [STREAM AUTOPLAY FIX JAN16 2026](./STREAM_AUTOPLAY_FIX_JAN16_2026.md)
+- [STREAM FIX REPORT JAN16 2026](./STREAM_FIX_REPORT_JAN16_2026.md)
+- [STREAM FIX SUCCESS JAN17 2026](./STREAM_FIX_SUCCESS_JAN17_2026.md)
+- [V2 FULL DEPRECATION PLAN](./V2_FULL_DEPRECATION_PLAN.md)
+- [V2 IMPLEMENTATION STATUS](./V2_IMPLEMENTATION_STATUS.md)
+- [V2 MIGRATION COMPLETE](./V2_MIGRATION_COMPLETE.md)
+- [V2 PROGRESS REPORT](./V2_PROGRESS_REPORT.md)
+- [V2 STATUS ANALYSIS](./V2_STATUS_ANALYSIS.md)
+- [V2 VISUAL POLISH COMPLETE](./V2_VISUAL_POLISH_COMPLETE.md)
+- [Z INDEX FIX AUTH MODAL](./Z_INDEX_FIX_AUTH_MODAL.md)
+
+---
+
+## 📊 Quick Stats
+
+- **Total Documents:** 74
+- **Organized by:** D-Vibe Auto Mode
+- **Last Updated:** 2026-01-17
+
+---
+
+**Tip:** Use your IDE's file search or `grep` to find specific topics across all documentation.
+

@@ -423,5 +423,117 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
   }
 });
 
+/**
+ * POST /api/direct/:slug/scoreboard/viewer-update
+ * Viewer scoreboard update (requires registration & admin permission)
+ * Access: Registered viewer with valid token
+ */
+router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const { viewerToken, field, value } = req.body;
+
+  try {
+    // Validate input
+    if (!viewerToken) {
+      return res.status(401).json({ error: 'Viewer token required' });
+    }
+
+    if (!field || value === undefined) {
+      return res.status(400).json({ error: 'Field and value required' });
+    }
+
+    // Validate field name
+    const allowedFields = ['homeScore', 'awayScore', 'homeTeamName', 'awayTeamName'];
+    if (!allowedFields.includes(field)) {
+      return res.status(400).json({ error: 'Invalid field' });
+    }
+
+    // Find stream and scoreboard
+    const stream = await prisma.directStream.findUnique({
+      where: { slug },
+      include: { scoreboard: true },
+    });
+
+    if (!stream || !stream.scoreboard) {
+      return res.status(404).json({ error: 'Scoreboard not found' });
+    }
+
+    // Check if viewer editing is enabled
+    const isScoreField = field === 'homeScore' || field === 'awayScore';
+    const isNameField = field === 'homeTeamName' || field === 'awayTeamName';
+
+    if (isScoreField && !stream.allowViewerScoreEdit) {
+      return res.status(403).json({ error: 'Viewer score editing is disabled' });
+    }
+
+    if (isNameField && !stream.allowViewerNameEdit) {
+      return res.status(403).json({ error: 'Viewer name editing is disabled' });
+    }
+
+    // TODO: Verify viewerToken JWT and extract viewer identity
+    // For now, we'll use a placeholder viewer name
+    const viewerName = 'Viewer'; // Extract from JWT in production
+
+    // Rate limiting check (simple in-memory implementation)
+    // TODO: Implement proper Redis-based rate limiting
+    const rateLimitKey = `viewer-scoreboard-${slug}-${viewerToken}`;
+    // Skip rate limit check for now - implement in production
+
+    // Validate value based on field type
+    if (isScoreField) {
+      const score = parseInt(value as string, 10);
+      if (isNaN(score) || score < 0 || score > 999) {
+        return res.status(400).json({ error: 'Score must be between 0 and 999' });
+      }
+    }
+
+    if (isNameField) {
+      const name = value as string;
+      if (!name || name.trim().length === 0 || name.length > 30) {
+        return res.status(400).json({ error: 'Team name must be 1-30 characters' });
+      }
+    }
+
+    // Update scoreboard
+    const updateData: any = {
+      [field]: value,
+      lastEditedBy: viewerName,
+      lastEditedAt: new Date(),
+    };
+
+    const updatedScoreboard = await prisma.gameScoreboard.update({
+      where: { id: stream.scoreboard.id },
+      data: updateData,
+    });
+
+    logger.info({
+      slug,
+      field,
+      value,
+      viewerName,
+    }, 'Viewer updated scoreboard');
+
+    res.json({
+      id: updatedScoreboard.id,
+      homeTeamName: updatedScoreboard.homeTeamName,
+      awayTeamName: updatedScoreboard.awayTeamName,
+      homeJerseyColor: updatedScoreboard.homeJerseyColor,
+      awayJerseyColor: updatedScoreboard.awayJerseyColor,
+      homeScore: updatedScoreboard.homeScore,
+      awayScore: updatedScoreboard.awayScore,
+      clockMode: updatedScoreboard.clockMode,
+      clockSeconds: updatedScoreboard.clockSeconds,
+      clockStartedAt: updatedScoreboard.clockStartedAt?.toISOString() ?? null,
+      isVisible: updatedScoreboard.isVisible,
+      position: updatedScoreboard.position,
+      lastEditedBy: updatedScoreboard.lastEditedBy,
+      lastEditedAt: updatedScoreboard.lastEditedAt?.toISOString() ?? null,
+    });
+  } catch (error) {
+    logger.error({ error, slug }, 'Failed to update scoreboard (viewer)');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
 

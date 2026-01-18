@@ -92,7 +92,32 @@ router.post('/direct-streams', (_req: Request, res: Response, next: NextFunction
             updated++;
             logger.info({ slug: streamData.slug }, 'DirectStream updated');
           } else {
-            // Create new stream
+            // 🆕 Auto-create Game record for DirectStream (required for viewer registration/chat)
+            const gameTitle = `Direct Stream: ${streamData.slug}`;
+            let game = await prisma.game.findFirst({
+              where: { title: gameTitle },
+              select: { id: true },
+            });
+
+            if (!game) {
+              game = await prisma.game.create({
+                data: {
+                  ownerAccountId: defaultOwner.id,
+                  title: gameTitle,
+                  homeTeam: streamData.title || streamData.slug,
+                  awayTeam: 'TBD',
+                  startsAt: streamData.scheduledStartAt ? new Date(streamData.scheduledStartAt) : new Date(),
+                  priceCents: streamData.priceInCents || 0,
+                  currency: 'USD',
+                  keywordCode: `DIRECT-${streamData.slug.toUpperCase()}-${Date.now()}`,
+                  qrUrl: '',
+                  state: 'active',
+                },
+              });
+              logger.info({ gameId: game.id, slug: streamData.slug }, 'Game auto-created for DirectStream');
+            }
+
+            // Create new stream with Game link
             await prisma.directStream.create({
               data: {
                 slug: streamData.slug,
@@ -116,6 +141,7 @@ router.post('/direct-streams', (_req: Request, res: Response, next: NextFunction
                 scoreboardHomeColor: streamData.scoreboardHomeColor,
                 scoreboardAwayColor: streamData.scoreboardAwayColor,
                 ownerAccountId: defaultOwner.id,
+                gameId: game.id, // 🆕 Link to auto-created Game
               },
             });
             results.push({ slug: streamData.slug, action: 'created' });
