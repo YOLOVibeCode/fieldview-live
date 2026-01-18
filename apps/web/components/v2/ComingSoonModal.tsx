@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { BottomSheet } from './primitives/BottomSheet';
 import { TouchButton } from './primitives/TouchButton';
-import { Input } from './primitives/Input';
+import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api-client';
 
 export interface ComingSoonModalProps {
