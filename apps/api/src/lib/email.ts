@@ -1,39 +1,21 @@
 /**
  * Email Service
  * Handles email sending for notifications and reminders
+ * 
+ * Uses the email provider factory to automatically select
+ * SendGrid (production) or Mailpit (development) based on EMAIL_PROVIDER env var.
  */
 
 import { logger } from './logger';
+import { getEmailProvider as getProvider } from './email/index';
 import type { IEmailProvider } from './email/IEmailProvider';
 
-let nodemailerInstance: typeof import('nodemailer') | null = null;
-
-async function getTransporter() {
-  if (!nodemailerInstance) {
-    nodemailerInstance = await import('nodemailer');
-  }
-
-  return nodemailerInstance.createTransport({
-    host: process.env.SMTP_HOST || 'localhost',
-    port: parseInt(process.env.SMTP_PORT || '4305'), // Mailpit default
-    secure: false,
-    auth: process.env.SMTP_USER ? {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    } : undefined,
-  } as any);
-}
-
 /**
- * Get email provider (for legacy compatibility)
- * Returns an IEmailProvider implementation
+ * Get email provider (uses factory pattern)
+ * Returns SendGrid in production, Mailpit in development
  */
 export function getEmailProvider(): IEmailProvider {
-  return {
-    sendEmail: async (options) => {
-      await sendEmail(options);
-    },
-  };
+  return getProvider();
 }
 
 export interface EmailOptions {
@@ -45,18 +27,20 @@ export interface EmailOptions {
 }
 
 /**
- * Send an email
+ * Send an email using the configured provider
+ * - Production: SendGrid (EMAIL_PROVIDER=sendgrid)
+ * - Development: Mailpit (EMAIL_PROVIDER=mailpit or unset)
  */
 export async function sendEmail({ to, subject, html, text, from }: EmailOptions): Promise<void> {
   try {
-    const transporter = await getTransporter();
+    const provider = getProvider();
     
-    await transporter.sendMail({
-      from: from || process.env.EMAIL_FROM || 'notifications@fieldview.live',
+    await provider.sendEmail({
       to,
       subject,
       html,
       text,
+      from,
     });
 
     logger.info({ to, subject }, 'Email sent successfully');
