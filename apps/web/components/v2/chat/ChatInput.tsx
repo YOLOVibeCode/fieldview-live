@@ -91,6 +91,7 @@ export function ChatInput({
         disabled={disabled || isLoading}
         maxLength={maxLength}
         aria-label="Message input"
+        data-testid="input-chat-message"
         className={cn(
           'flex-1 h-10 px-4 rounded-full',
           'bg-[var(--fv-color-bg-elevated)]',
@@ -111,6 +112,7 @@ export function ChatInput({
         variant="primary"
         size="icon"
         aria-label="Send message"
+        data-testid="btn-send-message"
         haptic
       >
         {!isLoading && <Icon name="chevron-right" size="md" />}

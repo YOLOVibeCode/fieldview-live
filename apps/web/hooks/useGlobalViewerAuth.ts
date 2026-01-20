@@ -100,7 +100,7 @@ export function useGlobalViewerAuth(): UseGlobalViewerAuthReturn {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Set viewer auth
+  // Set viewer auth - preserve existing per-stream fields
   const setViewerAuth = useCallback((newIdentity: Omit<GlobalViewerIdentity, 'registeredAt'>) => {
     const fullIdentity: GlobalViewerIdentity = {
       ...newIdentity,
@@ -111,7 +111,26 @@ export function useGlobalViewerAuth(): UseGlobalViewerAuthReturn {
 
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(fullIdentity));
+        // Preserve existing per-stream fields (viewerToken, gameId) if they exist
+        let existingPerStreamFields: Record<string, unknown> = {};
+        try {
+          const existing = localStorage.getItem(STORAGE_KEY);
+          if (existing) {
+            const parsed = JSON.parse(existing);
+            existingPerStreamFields = {
+              viewerToken: parsed.viewerToken,
+              gameId: parsed.gameId,
+              viewerId: parsed.viewerId,
+            };
+          }
+        } catch {
+          // Ignore parse errors
+        }
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          ...existingPerStreamFields,
+          ...fullIdentity,
+        }));
       } catch (error) {
         console.error('[useGlobalViewerAuth] Failed to save to localStorage:', error);
       }

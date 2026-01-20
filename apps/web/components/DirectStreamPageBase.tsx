@@ -290,16 +290,56 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           // Check if user has already paid (localStorage)
           const storageKey = `paywall_${data.slug}`;
           const stored = localStorage.getItem(storageKey);
-          const hasPaid = stored ? JSON.parse(stored).hasPaid : false;
+          const localHasPaid = stored ? JSON.parse(stored).hasPaid : false;
           
-          if (hasPaid) {
-            console.log('[DirectStream] ✅ User already paid, initializing player');
-            setPaywallChecked(true);
-            if (data.streamUrl) {
-              initPlayer(data.streamUrl);
-            } else {
-              setStatus('offline');
-            }
+          if (localHasPaid) {
+            console.log('[DirectStream] 💳 localStorage says paid, verifying with server...');
+            
+            // CRITICAL SECURITY: Verify with server before granting access
+            // Get viewer identity from global auth or local viewer state
+            const viewerId = globalAuth.viewerIdentityId || viewer.viewerId;
+            const email = globalAuth.viewerEmail || viewer.email;
+            
+            // Build query params
+            const params = new URLSearchParams();
+            if (viewerId) params.append('viewerId', viewerId);
+            else if (email) params.append('email', email);
+            
+            // Verify access with server
+            fetch(`${API_URL}/api/direct/${data.slug}/verify-access?${params.toString()}`)
+              .then(res => res.json())
+              .then(verifyResult => {
+                if (verifyResult.hasAccess) {
+                  console.log('[DirectStream] ✅ Server verified access, initializing player');
+                  console.log('[DirectStream] 📝 Reason:', verifyResult.reason);
+                  if (verifyResult.entitlement) {
+                    console.log('[DirectStream] 🎫 Entitlement expires:', verifyResult.entitlement.expiresAt);
+                  }
+                  setPaywallChecked(true);
+                  if (data.streamUrl) {
+                    initPlayer(data.streamUrl);
+                  } else {
+                    setStatus('offline');
+                  }
+                } else {
+                  // Server says no access - localStorage is invalid
+                  console.warn('[DirectStream] ⚠️ Server denied access:', verifyResult.reason);
+                  console.warn('[DirectStream] 🧹 Clearing invalid localStorage state');
+                  localStorage.removeItem(storageKey);
+                  setPaywallChecked(true);
+                  paywall.openPaywall();
+                  setStatus('loading');
+                }
+              })
+              .catch(err => {
+                console.error('[DirectStream] ❌ Verification failed:', err);
+                console.warn('[DirectStream] 🧹 Clearing localStorage due to verification error');
+                // On error, be conservative: require payment
+                localStorage.removeItem(storageKey);
+                setPaywallChecked(true);
+                paywall.openPaywall();
+                setStatus('loading');
+              });
           } else {
             console.log('[DirectStream] 🔒 Paywall enabled, showing paywall modal');
             setPaywallChecked(true);
@@ -374,14 +414,29 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         // Auto-registration completed, now unlock the viewer locally
         // This will call the unlock API which generates a viewer token
         if (data.registration?.viewerIdentity) {
-          viewer.unlock({
-            email: data.registration.viewerIdentity.email,
-            firstName: data.registration.viewerIdentity.firstName || '',
-            lastName: data.registration.viewerIdentity.lastName || '',
-          }).catch(() => {
+          const viewerIdentity = data.registration.viewerIdentity;
+          
+          // Unlock and set global auth
+          try {
+            const result = await viewer.unlock({
+              email: viewerIdentity.email,
+              firstName: viewerIdentity.firstName || '',
+              lastName: viewerIdentity.lastName || '',
+            });
+            
+            // Update global auth with the viewerId for future cross-stream access
+            if (result?.viewerId) {
+              globalAuth.setViewerAuth({
+                viewerIdentityId: result.viewerId,
+                email: viewerIdentity.email,
+                firstName: viewerIdentity.firstName || undefined,
+                lastName: viewerIdentity.lastName || undefined,
+              });
+            }
+          } catch {
             // If unlock fails, log it but don't fail the auto-registration
-            console.log('Auto-registration completed, but local unlock skipped');
-          });
+            console.log('[DirectStreamPageBase] Auto-registration completed, but local unlock failed');
+          }
         }
 
         console.log('[DirectStreamPageBase] Auto-registered viewer for stream:', {
@@ -404,13 +459,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     const lastName = nameParts.slice(1).join(' ') || '';
 
     try {
-      // Unlock the viewer locally (calls the unlock API)
-      await viewer.unlock({ email, firstName, lastName });
+      // Unlock the viewer locally (calls the unlock API) - returns viewerId immediately
+      const result = await viewer.unlock({ email, firstName, lastName });
       
       // After successful unlock, save to global auth for cross-stream access
-      if (viewer.viewerId) {
+      // Use the returned viewerId instead of viewer.viewerId (which is async state)
+      if (result?.viewerId) {
         globalAuth.setViewerAuth({
-          viewerIdentityId: viewer.viewerId,
+          viewerIdentityId: result.viewerId,
           email,
           firstName: firstName || undefined,
           lastName: lastName || undefined,
@@ -1089,7 +1145,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             {chatPanel.isCollapsed && (
               <button
                 type="button"
-                data-testid="btn-expand-chat"
+                data-testid="chat-collapsed-tab"
                 className={cn(
                   'fixed right-0 top-1/2 -translate-y-1/2 z-30',
                   'w-12 py-4',
@@ -1222,7 +1278,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                             <TouchButton
                               onClick={() => setShowInlineRegistration(true)}
                               variant="primary"
-                              data-testid="btn-open-inline-registration"
+                              data-testid="btn-open-viewer-auth"
                               className="w-full"
                             >
                               Register to Chat
@@ -1261,6 +1317,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                 setShowInlineRegistration(false);
                               }}
                               className="space-y-3"
+                              data-testid="form-viewer-register"
                             >
                               <div>
                                 <label htmlFor="inline-displayName" className="sr-only">Display Name</label>
@@ -1271,7 +1328,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                   placeholder="Your name"
                                   required
                                   className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
-                                  data-testid="input-inline-displayName"
+                                  data-testid="input-name"
                                   defaultValue={globalAuth.viewerIdentity?.firstName && globalAuth.viewerIdentity?.lastName 
                                     ? `${globalAuth.viewerIdentity.firstName} ${globalAuth.viewerIdentity.lastName}` 
                                     : globalAuth.viewerIdentity?.firstName || ''}
@@ -1286,7 +1343,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                   placeholder="you@example.com"
                                   required
                                   className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
-                                  data-testid="input-inline-email"
+                                  data-testid="input-email"
                                   defaultValue={globalAuth.viewerIdentity?.email || ''}
                                 />
                               </div>
@@ -1295,7 +1352,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                 disabled={viewer.isLoading || globalAuth.isAutoRegistering}
                                 variant="primary"
                                 className="w-full"
-                                data-testid="btn-submit-inline-registration"
+                                data-testid="btn-submit-viewer-register"
                               >
                                 {viewer.isLoading || globalAuth.isAutoRegistering ? 'Registering...' : 'Register'}
                               </TouchButton>

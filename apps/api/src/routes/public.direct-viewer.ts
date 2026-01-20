@@ -75,9 +75,15 @@ async function ensureGameForDirectStream(
     },
   });
 
+  // Link the Game back to the DirectStream so bootstrap returns the correct gameId
+  await prisma.directStream.update({
+    where: { id: directStream.id },
+    data: { gameId: newGame.id },
+  });
+
   logger.info(
     { slug, gameId: newGame.id, directStreamId: directStream.id },
-    'Game record auto-created for DirectStream'
+    'Game record auto-created and linked to DirectStream'
   );
 
   return newGame.id;

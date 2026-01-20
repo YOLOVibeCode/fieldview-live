@@ -27,7 +27,10 @@ interface ViewerIdentity {
   lastName: string;
   viewerToken: string;
   gameId: string;
-  viewerId?: string; // Add viewerId (viewerIdentityId from API)
+  viewerId?: string; // viewerIdentityId from API
+  // Global auth fields (preserved for cross-stream auth)
+  viewerIdentityId?: string;
+  registeredAt?: string;
 }
 
 interface UnlockData {
@@ -69,7 +72,7 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
     }
   }, [gameId]);
 
-  const unlock = useCallback(async (data: UnlockData) => {
+  const unlock = useCallback(async (data: UnlockData): Promise<{ viewerId: string | null; viewerToken: string } | void> => {
     // Require either gameId or slug to proceed
     if (!gameId && !slug) {
       setError('No game or stream available');
@@ -108,18 +111,39 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
         throw new Error('No viewer token received');
       }
 
-      // Save to localStorage - use gameId if available, otherwise empty string
+      // Preserve existing global auth fields from localStorage
+      let existingGlobalFields: { viewerIdentityId?: string; registeredAt?: string } = {};
+      try {
+        const existing = localStorage.getItem(STORAGE_KEY);
+        if (existing) {
+          const parsed = JSON.parse(existing);
+          existingGlobalFields = {
+            viewerIdentityId: parsed.viewerIdentityId,
+            registeredAt: parsed.registeredAt,
+          };
+        }
+      } catch {
+        // Ignore parse errors
+      }
+
+      // Save to localStorage - preserve global fields for cross-stream auth
       const identity: ViewerIdentity = {
         ...data,
         viewerToken,
         gameId: gameId || '', // Allow empty string for slug-only streams
         viewerId: viewerIdFromApi, // Save viewerId
+        // Preserve or set viewerIdentityId (for cross-stream auth)
+        viewerIdentityId: viewerIdFromApi || existingGlobalFields.viewerIdentityId,
+        registeredAt: existingGlobalFields.registeredAt || new Date().toISOString(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
 
       setToken(viewerToken);
       setViewerId(viewerIdFromApi || null);
       setIsUnlocked(true);
+      
+      // Return the values for immediate use
+      return { viewerId: viewerIdFromApi || null, viewerToken };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to unlock stream';
       setError(message);

@@ -76,6 +76,24 @@ router.get(
           });
         }
 
+        // AUTO-HEAL: If DirectStream exists but has no gameId, try to link an existing Game
+        if (directStream && !directStream.gameId) {
+          const existingGame = await prisma.game.findFirst({
+            where: { title: `Direct Stream: ${slug}` },
+            select: { id: true },
+          });
+
+          if (existingGame) {
+            // Link the existing Game to the DirectStream
+            directStream = await prisma.directStream.update({
+              where: { slug: key },
+              data: { gameId: existingGame.id },
+              include: { game: true },
+            });
+            logger.info({ slug, gameId: existingGame.id }, 'Auto-linked existing Game to DirectStream');
+          }
+        }
+
         // If not found, create a placeholder
         if (!directStream) {
           // Get default owner account for new streams
@@ -484,15 +502,21 @@ router.post(
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
+        console.log('[CHECKOUT] Route hit! slug:', req.params.slug);
+        console.log('[CHECKOUT] Body:', JSON.stringify(req.body, null, 2));
+        
         const { slug } = req.params;
         
         if (!slug) {
+          console.log('[CHECKOUT] ERROR: No slug');
           return res.status(400).json({ error: 'Slug is required' });
         }
         
         // Validate request body
+        console.log('[CHECKOUT] Validating request body...');
         const validation = DirectStreamCheckoutSchema.safeParse(req.body);
         if (!validation.success) {
+          console.log('[CHECKOUT] Validation failed:', validation.error);
           return res.status(400).json({ 
             error: 'Invalid request',
             details: validation.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')
@@ -500,9 +524,11 @@ router.post(
         }
 
         const { email, firstName, lastName, phone, returnUrl } = validation.data;
+        console.log('[CHECKOUT] Validation passed. Getting payment service...');
 
         // Get payment service
         const paymentService = getPaymentService();
+        console.log('[CHECKOUT] Payment service obtained. Creating checkout...');
 
         // Create checkout session
         const result = await paymentService.createDirectStreamCheckout(
@@ -514,6 +540,8 @@ router.post(
           returnUrl
         );
 
+        console.log('[CHECKOUT] Checkout created successfully:', result.purchaseId);
+
         logger.info({ 
           slug, 
           email, 
@@ -522,8 +550,17 @@ router.post(
 
         res.json(result);
       } catch (error: any) {
+        // Enhanced error logging for debugging
+        console.error('[CHECKOUT ERROR] Full error:', error);
+        console.error('[CHECKOUT ERROR] Error stack:', error.stack);
+        console.error('[CHECKOUT ERROR] Error name:', error.name);
+        console.error('[CHECKOUT ERROR] Error message:', error.message);
+        
         logger.error({ 
           error, 
+          errorName: error.name,
+          errorMessage: error.message,
+          errorStack: error.stack,
           slug: req.params.slug,
           email: req.body?.email
         }, 'Failed to create checkout session');
@@ -793,6 +830,129 @@ router.post(
         res.json({ success: true });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to update heartbeat');
+        next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/direct/:slug/verify-access - Verify viewer has paid access to stream
+router.get(
+  '/:slug/verify-access',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        const { viewerId, email } = req.query as { viewerId?: string; email?: string };
+
+        logger.info({ slug, viewerId, email }, 'Verifying stream access');
+
+        // 1. Find DirectStream
+        const stream = await prisma.directStream.findUnique({
+          where: { slug },
+          select: {
+            id: true,
+            gameId: true,
+            paywallEnabled: true,
+            ownerAccountId: true,
+          },
+        });
+
+        if (!stream) {
+          return res.status(404).json({
+            error: 'Stream not found',
+            hasAccess: false,
+            reason: 'stream_not_found',
+          });
+        }
+
+        // 2. If paywall not enabled, allow access
+        if (!stream.paywallEnabled) {
+          logger.info({ slug }, 'Stream has no paywall, access granted');
+          return res.json({
+            hasAccess: true,
+            reason: 'no_paywall',
+          });
+        }
+
+        // 3. Find viewer
+        let viewer = null;
+        if (viewerId) {
+          viewer = await prisma.viewerIdentity.findUnique({
+            where: { id: viewerId },
+            select: { id: true, email: true },
+          });
+        } else if (email) {
+          viewer = await prisma.viewerIdentity.findUnique({
+            where: { email },
+            select: { id: true, email: true },
+          });
+        }
+
+        if (!viewer) {
+          logger.info({ slug, viewerId, email }, 'Viewer not found, access denied');
+          return res.json({
+            hasAccess: false,
+            reason: 'viewer_not_found',
+          });
+        }
+
+        // 4. Check for valid entitlement
+        // Entitlement must be:
+        // - For this viewer (through purchase)
+        // - For this direct stream
+        // - Not expired (validTo >= now)
+        const entitlement = await prisma.entitlement.findFirst({
+          where: {
+            purchase: {
+              viewerId: viewer.id,
+              directStreamId: stream.id,
+            },
+            status: 'active',
+            validTo: { gte: new Date() }, // Not expired
+          },
+          select: {
+            id: true,
+            validFrom: true,
+            validTo: true,
+            tokenId: true,
+          },
+          orderBy: { validFrom: 'desc' }, // Most recent first
+        });
+
+        if (entitlement) {
+          logger.info({
+            slug,
+            viewerId: viewer.id,
+            entitlementId: entitlement.id,
+          }, 'Valid entitlement found, access granted');
+          
+          return res.json({
+            hasAccess: true,
+            reason: 'valid_entitlement',
+            entitlement: {
+              id: entitlement.id,
+              validFrom: entitlement.validFrom,
+              validTo: entitlement.validTo,
+              tokenId: entitlement.tokenId,
+            },
+          });
+        }
+
+        // 5. No valid entitlement found
+        logger.info({
+          slug,
+          viewerId: viewer.id,
+          gameId: stream.gameId,
+        }, 'No valid entitlement found, access denied');
+        
+        return res.json({
+          hasAccess: false,
+          reason: 'no_entitlement',
+        });
+
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Verify access failed');
         next(error);
       }
     })();
