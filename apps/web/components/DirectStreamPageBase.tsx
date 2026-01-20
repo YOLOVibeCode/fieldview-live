@@ -972,7 +972,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {status === 'offline' && (
+              {status === 'offline' && !isEditing && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
                   <div className="text-center text-white max-w-md mx-auto px-4">
                     {/* Animated icon */}
@@ -999,7 +999,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {status === 'error' && (
+              {status === 'error' && !isEditing && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
                   <div className="text-center text-white max-w-md mx-auto px-4">
                     {/* Animated error icon */}
