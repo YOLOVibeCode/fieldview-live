@@ -47,8 +47,12 @@ import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
 import { TouchButton, Badge, BottomSheet } from '@/components/v2/primitives';
 import { useResponsive } from '@/hooks/v2/useResponsive';
-// Debug component
+// Debug components
 import { ChatDebugPanel } from '@/components/ChatDebugPanel';
+import { ConnectionDebugPanel } from '@/components/debug/ConnectionDebugPanel';
+import { useStreamDebug } from '@/hooks/useStreamDebug';
+import { useApiHealth } from '@/hooks/useApiHealth';
+import { initDebugTools } from '@/lib/debug/init';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -171,6 +175,7 @@ interface DirectStreamPageBaseProps {
 export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [streamConfig, setStreamConfig] = useState<DirectStreamStreamConfig | null>(null);
   const [streamMessage, setStreamMessage] = useState<string>('');
@@ -204,6 +209,61 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     enabled: false, // We use bootstrap data directly, not API fetch
     demoMode: false,
   });
+
+  // Debug hooks
+  const streamDebug = useStreamDebug(hlsRef.current, videoRef.current, streamConfig?.url || null);
+  const apiHealth = useApiHealth(bootstrap?.slug || null);
+  
+  // Initialize debug tools on mount
+  useEffect(() => {
+    initDebugTools();
+  }, []);
+
+  // Track metrics
+  const [metrics, setMetrics] = useState({
+    pageLoadTime: typeof window !== 'undefined' ? performance.now() : 0,
+    bootstrapFetchTime: undefined as number | undefined,
+    streamConnectTime: undefined as number | undefined,
+    chatConnectTime: undefined as number | undefined,
+    totalActiveTime: 0,
+    timestamp: new Date(),
+  });
+
+  // Track bootstrap fetch time
+  useEffect(() => {
+    if (bootstrap) {
+      const fetchTime = performance.now() - metrics.pageLoadTime;
+      setMetrics(prev => ({ ...prev, bootstrapFetchTime: fetchTime }));
+    }
+  }, [bootstrap]);
+
+  // Track stream connect time
+  useEffect(() => {
+    if (status === 'playing' && !metrics.streamConnectTime) {
+      const connectTime = performance.now() - metrics.pageLoadTime;
+      setMetrics(prev => ({ ...prev, streamConnectTime: connectTime }));
+    }
+  }, [status]);
+
+  // Track chat connect time
+  useEffect(() => {
+    if (chat.isConnected && !metrics.chatConnectTime) {
+      const connectTime = performance.now() - metrics.pageLoadTime;
+      setMetrics(prev => ({ ...prev, chatConnectTime: connectTime }));
+    }
+  }, [chat.isConnected]);
+
+  // Update total active time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMetrics(prev => ({
+        ...prev,
+        totalActiveTime: performance.now() - prev.pageLoadTime,
+        timestamp: new Date(),
+      }));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Track if paywall check is complete
   const [paywallChecked, setPaywallChecked] = useState(false);
@@ -599,6 +659,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         lowLatencyMode: true,
         debug: true, // TEMP: Enable debug logging to diagnose production issue
       });
+
+      // Store HLS instance for debug hook (before loadSource)
+      hlsRef.current = hls;
 
       console.log('[DirectStream] 📡 Loading source:', url);
       hls.loadSource(url);
@@ -1528,7 +1591,31 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           defaultName={globalAuth.viewerName || ''}
         />
 
-        {/* Debug Panel - shows in dev or with ?debug=true */}
+        {/* Connection Debug Panel - shows in dev or with ?debug=true */}
+        <ConnectionDebugPanel
+          stream={streamDebug}
+          api={apiHealth.health}
+          chat={{
+            isConnected: chat.isConnected,
+            messages: chat.messages,
+            error: chat.error || null,
+            transport: 'SSE',
+            gameId: effectiveGameId || undefined,
+          }}
+          viewer={{
+            isUnlocked: viewer.isUnlocked,
+            token: viewer.token,
+            viewerId: viewer.viewerId,
+            isLoading: viewer.isLoading,
+            error: viewer.error,
+          }}
+          effectiveGameId={effectiveGameId}
+          metrics={metrics}
+          slug={bootstrap?.slug}
+          onCheckEndpoint={apiHealth.checkEndpoint}
+        />
+        
+        {/* Legacy ChatDebugPanel - keep for backward compatibility */}
         <ChatDebugPanel
           bootstrap={bootstrap}
           viewer={{
