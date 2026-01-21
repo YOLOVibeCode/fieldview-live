@@ -11,6 +11,11 @@ import {
   GetPaymentMethodsQuerySchema,
   DirectStreamCheckoutSchema  // 🆕
 } from '@fieldview/data-model';
+// 🆕 ISP: Import decoupled schemas
+import { 
+  DirectStreamSettingsUpdateSchema,
+  getStreamStatus 
+} from '@fieldview/data-model/src/schemas/directStreamBootstrap';
 // 🆕 Payment service dependencies
 import { PaymentService } from '../services/PaymentService';
 import { GameRepository } from '../repositories/implementations/GameRepository';
@@ -160,7 +165,34 @@ router.get(
           });
         }
 
+        // ISP: Segregate page config from stream config
+        const pageConfig = {
+          slug: directStream.slug,
+          title: directStream.title,
+          gameId: directStream.gameId,
+          chatEnabled: directStream.chatEnabled,
+          scoreboardEnabled: directStream.scoreboardEnabled,
+          paywallEnabled: directStream.paywallEnabled,
+          priceInCents: directStream.priceInCents,
+          paywallMessage: directStream.paywallMessage,
+          allowSavePayment: directStream.allowSavePayment,
+          scoreboardHomeTeam: directStream.scoreboardHomeTeam,
+          scoreboardAwayTeam: directStream.scoreboardAwayTeam,
+          scoreboardHomeColor: directStream.scoreboardHomeColor,
+          scoreboardAwayColor: directStream.scoreboardAwayColor,
+          allowViewerScoreEdit: directStream.allowViewerScoreEdit,
+          allowViewerNameEdit: directStream.allowViewerNameEdit,
+        };
+
+        // Get stream status (null if not configured)
+        const streamConfig = getStreamStatus(directStream.streamUrl);
+
         return res.json({
+          // ISP: New decoupled structure
+          page: pageConfig,
+          stream: streamConfig,
+          
+          // Backward compatibility: flat fields for old clients
           slug: directStream.slug,
           gameId: directStream.gameId,
           streamUrl: directStream.streamUrl,
@@ -175,7 +207,6 @@ router.get(
           scoreboardAwayTeam: directStream.scoreboardAwayTeam,
           scoreboardHomeColor: directStream.scoreboardHomeColor,
           scoreboardAwayColor: directStream.scoreboardAwayColor,
-          // 🆕 Viewer editing permissions
           allowViewerScoreEdit: directStream.allowViewerScoreEdit,
           allowViewerNameEdit: directStream.allowViewerNameEdit,
         });
@@ -266,25 +297,8 @@ router.post(
           return res.status(400).json({ error: 'Slug is required' });
         }
 
-        // Validate request body (password no longer required)
-        const schema = z.object({
-          streamUrl: z.string().url().optional().nullable(),
-          chatEnabled: z.boolean().optional(),
-          paywallEnabled: z.boolean().optional(),
-          priceInCents: z.number().int().min(0).max(99999).optional(),
-          paywallMessage: z.string().max(1000).optional().nullable(),
-          allowSavePayment: z.boolean().optional(),
-          scoreboardEnabled: z.boolean().optional(),
-          scoreboardHomeTeam: z.string().max(50).optional().nullable(),
-          scoreboardAwayTeam: z.string().max(50).optional().nullable(),
-          scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
-          scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
-          // 🆕 Viewer editing permissions
-          allowViewerScoreEdit: z.boolean().optional(),
-          allowViewerNameEdit: z.boolean().optional(),
-        });
-        
-        const parsed = schema.safeParse(req.body);
+        // ISP: Use decoupled settings schema
+        const parsed = DirectStreamSettingsUpdateSchema.safeParse(req.body);
         if (!parsed.success) {
           return res.status(400).json({ 
             error: 'Invalid request', 
@@ -307,8 +321,24 @@ router.post(
         // Build update data (ISP: only update provided fields)
         const updateData: any = {};
         
+        // Fault-tolerant stream URL validation
         if (body.streamUrl !== undefined) {
-          updateData.streamUrl = body.streamUrl;
+          if (body.streamUrl === null || body.streamUrl === '') {
+            // Allow clearing stream URL
+            updateData.streamUrl = null;
+            logger.info({ slug }, 'Stream URL cleared by admin');
+          } else {
+            // Validate URL format (non-blocking)
+            try {
+              new URL(body.streamUrl);
+              updateData.streamUrl = body.streamUrl;
+              logger.info({ slug, streamUrl: body.streamUrl }, 'Stream URL updated');
+            } catch {
+              // Invalid URL: log warning but don't fail entire update
+              logger.warn({ slug, streamUrl: body.streamUrl }, 'Invalid stream URL format, skipping URL update');
+              // Don't add to updateData - other settings will still save
+            }
+          }
         }
         if (body.paywallEnabled !== undefined) {
           updateData.paywallEnabled = body.paywallEnabled;

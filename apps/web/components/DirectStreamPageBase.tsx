@@ -28,6 +28,11 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
+import type { 
+  DirectStreamBootstrapResponse,
+  DirectStreamStreamConfig 
+} from '@/lib/types/directStream';
+import { getStreamStatusMessage, isStreamPlayable } from '@/lib/types/directStream';
 // Legacy components (needed for Admin Panel)
 import { AdminPanel } from '@/components/AdminPanel';
 import { SocialProducerPanel } from '@/components/SocialProducerPanel';
@@ -167,6 +172,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  const [streamConfig, setStreamConfig] = useState<DirectStreamStreamConfig | null>(null);
+  const [streamMessage, setStreamMessage] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
   const [message, setMessage] = useState('');
@@ -267,26 +274,54 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         }
         return res.json();
       })
-      .then((data: Bootstrap | null) => {
+      .then((data: DirectStreamBootstrapResponse | null) => {
         if (!data) {
           console.log('[DirectStream] No bootstrap data returned');
           return;
         }
         
         console.log('[DirectStream] ✅ Bootstrap loaded:', {
-          slug: data.slug,
-          streamUrl: data.streamUrl,
-          title: data.title,
-          paywallEnabled: data.paywallEnabled,
-          chatEnabled: data.chatEnabled,
-          scoreboardEnabled: data.scoreboardEnabled
+          slug: data.page?.slug || data.slug,
+          streamStatus: data.stream?.status || 'not configured',
+          streamUrl: data.stream?.url || null,
+          title: data.page?.title || data.title,
+          paywallEnabled: data.page?.paywallEnabled || data.paywallEnabled,
+          chatEnabled: data.page?.chatEnabled || data.chatEnabled,
+          scoreboardEnabled: data.page?.scoreboardEnabled || data.scoreboardEnabled
         });
         
-        setBootstrap(data);
-        config.onBootstrapLoaded?.(data);
+        // ISP: Extract page config and stream config
+        const pageConfig = data.page || data;  // Backward compatibility
+        const stream = data.stream || null;
+        
+        // Store page config (with backward compatibility for flat structure)
+        const bootstrapData: Bootstrap = {
+          slug: pageConfig.slug,
+          title: pageConfig.title,
+          gameId: pageConfig.gameId,
+          streamUrl: stream?.url || null,
+          chatEnabled: pageConfig.chatEnabled,
+          scoreboardEnabled: pageConfig.scoreboardEnabled,
+          paywallEnabled: pageConfig.paywallEnabled,
+          priceInCents: pageConfig.priceInCents,
+          paywallMessage: pageConfig.paywallMessage,
+          allowSavePayment: pageConfig.allowSavePayment,
+          scoreboardHomeTeam: pageConfig.scoreboardHomeTeam,
+          scoreboardAwayTeam: pageConfig.scoreboardAwayTeam,
+          scoreboardHomeColor: pageConfig.scoreboardHomeColor,
+          scoreboardAwayColor: pageConfig.scoreboardAwayColor,
+          allowViewerScoreEdit: pageConfig.allowViewerScoreEdit,
+          allowViewerNameEdit: pageConfig.allowViewerNameEdit,
+        };
+        
+        setBootstrap(bootstrapData);
+        setStreamConfig(stream);
+        setStreamMessage(getStreamStatusMessage(stream));
+        
+        config.onBootstrapLoaded?.(bootstrapData);
         
         // Check paywall status before initializing player
-        if (data.paywallEnabled) {
+        if (pageConfig.paywallEnabled) {
           // Check if user has already paid (localStorage)
           const storageKey = `paywall_${data.slug}`;
           const stored = localStorage.getItem(storageKey);
@@ -306,7 +341,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             else if (email) params.append('email', email);
             
             // Verify access with server
-            fetch(`${API_URL}/api/direct/${data.slug}/verify-access?${params.toString()}`)
+            const verifySlug = (pageConfig as any).slug || data.slug;
+            fetch(`${API_URL}/api/direct/${verifySlug}/verify-access?${params.toString()}`)
               .then(res => res.json())
               .then(verifyResult => {
                 if (verifyResult.hasAccess) {
@@ -316,9 +352,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     console.log('[DirectStream] 🎫 Entitlement expires:', verifyResult.entitlement.expiresAt);
                   }
                   setPaywallChecked(true);
-                  if (data.streamUrl) {
-                    initPlayer(data.streamUrl);
+                  
+                  // ISP: Check if stream is playable
+                  if (stream && isStreamPlayable(stream)) {
+                    console.log('[DirectStream] ▶️ Stream is playable, initializing player');
+                    initPlayer(stream.url!);
                   } else {
+                    console.warn('[DirectStream] ⚠️ Stream not playable:', stream?.status || 'not configured');
                     setStatus('offline');
                   }
                 } else {
@@ -349,11 +389,23 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         } else {
           // No paywall - proceed normally
           setPaywallChecked(true);
-          if (data.streamUrl) {
-            console.log('[DirectStream] ▶️ Initializing player with streamUrl');
-            initPlayer(data.streamUrl);
+          
+          // ISP: Check if stream is playable
+          if (stream && isStreamPlayable(stream)) {
+            console.log('[DirectStream] ▶️ Stream is live, initializing player');
+            initPlayer(stream.url!);
+          } else if (stream?.status === 'offline') {
+            console.log('[DirectStream] 📡 Stream is offline');
+            setStatus('offline');
+          } else if (stream?.status === 'scheduled') {
+            console.log('[DirectStream] ⏰ Stream is scheduled');
+            setStatus('offline');
+          } else if (stream?.status === 'error') {
+            console.log('[DirectStream] ❌ Stream error:', stream.errorMessage);
+            setStatus('error');
           } else {
-            console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
+            // No stream configured
+            console.log('[DirectStream] 🔧 No stream configured');
             setStatus('offline');
           }
         }
@@ -1039,30 +1091,92 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* v2 Video Player */}
-              <VideoPlayer
-                ref={videoRef}
-                src="" // Empty - HLS.js manages source. Safari fallback sets src directly in initPlayer
-                autoPlay
-                muted={isMuted}
-                playsInline
-                controls={false} // We'll use custom controls
-                onPlay={() => setStatus('playing')}
-                onPause={() => {}}
-                onTimeUpdate={(e) => {
-                  const video = e.currentTarget;
-                  setCurrentTime(video.currentTime);
-                }}
-                onLoadedMetadata={(e) => {
-                  const video = e.currentTarget;
-                  setDuration(video.duration);
-                  setStatus('playing');
-                }}
-                data-testid="video-player"
-              />
+              {/* v2 Video Player or Stream Placeholder */}
+              {status === 'playing' && (
+                <VideoPlayer
+                  ref={videoRef}
+                  src="" // Empty - HLS.js manages source. Safari fallback sets src directly in initPlayer
+                  autoPlay
+                  muted={isMuted}
+                  playsInline
+                  controls={false} // We'll use custom controls
+                  onPlay={() => setStatus('playing')}
+                  onPause={() => {}}
+                  onTimeUpdate={(e) => {
+                    const video = e.currentTarget;
+                    setCurrentTime(video.currentTime);
+                  }}
+                  onLoadedMetadata={(e) => {
+                    const video = e.currentTarget;
+                    setDuration(video.duration);
+                    setStatus('playing');
+                  }}
+                  data-testid="video-player"
+                />
+              )}
+              
+              {/* Stream Placeholder (when offline/error/not configured) */}
+              {(status === 'offline' || status === 'error' || status === 'loading') && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900"
+                  data-testid="stream-placeholder"
+                >
+                  <div className="text-center p-8 max-w-md">
+                    <div className="mb-6">
+                      {status === 'loading' && (
+                        <div className="w-20 h-20 mx-auto rounded-full bg-gray-800/50 flex items-center justify-center">
+                          <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                        </div>
+                      )}
+                      {status === 'offline' && !streamConfig && (
+                        <div className="w-20 h-20 mx-auto rounded-full bg-blue-900/20 flex items-center justify-center">
+                          <svg className="w-10 h-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      {status === 'offline' && streamConfig && (
+                        <div className="w-20 h-20 mx-auto rounded-full bg-gray-800 flex items-center justify-center">
+                          <svg className="w-10 h-10 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                        </div>
+                      )}
+                      {status === 'error' && (
+                        <div className="w-20 h-20 mx-auto rounded-full bg-red-900/20 flex items-center justify-center">
+                          <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <h3 className="text-xl font-semibold text-white mb-3">
+                      {status === 'loading' && 'Loading Stream...'}
+                      {status === 'offline' && !streamConfig && 'No Stream Configured'}
+                      {status === 'offline' && streamConfig && 'Stream Offline'}
+                      {status === 'error' && 'Stream Error'}
+                    </h3>
+                    
+                    <p className="text-gray-400 mb-6 text-sm">
+                      {streamMessage || (status === 'loading' ? 'Please wait...' : 'Stream is currently unavailable')}
+                    </p>
+                    
+                    {isAdmin && status !== 'loading' && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg"
+                        data-testid="btn-configure-stream"
+                      >
+                        Configure Stream
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* v2 Video Controls (outside video container, below it) */}
-              {bootstrap?.streamUrl && status !== 'offline' && status !== 'error' && (
+              {status === 'playing' && (
                 <div className="absolute bottom-0 left-0 right-0 z-20">
                   <VideoControls
                     isPlaying={status === 'playing'}

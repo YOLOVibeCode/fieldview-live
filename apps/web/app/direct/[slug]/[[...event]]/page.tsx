@@ -22,6 +22,11 @@ export default function DirectStreamEventPage({ params }: DirectStreamEventPageP
   const slug = params.slug || '';
   const eventSegments = params.event || [];
   
+  // Reconstruct the full slug (handles slugs with slashes like "tchs/soccer-20260120-jv2")
+  const fullSlug = eventSegments.length > 0 
+    ? `${slug}/${eventSegments.join('/')}`
+    : slug;
+  
   // Enforce lowercase URLs for consistency
   const hasUppercase = slug !== slug.toLowerCase() || eventSegments.some(seg => seg !== seg.toLowerCase());
   if (hasUppercase) {
@@ -38,7 +43,7 @@ export default function DirectStreamEventPage({ params }: DirectStreamEventPageP
     return notFound(); // 404 for deep nesting
   }
   
-  // CASE 1: No event segments → Parent stream
+  // CASE 1: No event segments → Simple stream (e.g., /direct/stormfc)
   if (eventSegments.length === 0) {
     const displayName = slug
       .split(/(?=[A-Z])/)
@@ -48,8 +53,8 @@ export default function DirectStreamEventPage({ params }: DirectStreamEventPageP
     const mainTitle = slug.replace(/^\w/, (c) => c.toUpperCase());
     
     const config: DirectStreamPageConfig = {
-      bootstrapUrl: `/api/direct/${slug}/bootstrap`,
-      updateStreamUrl: `/api/direct/${slug}`,
+      bootstrapUrl: `/api/direct/${encodeURIComponent(fullSlug)}/bootstrap`,
+      updateStreamUrl: `/api/direct/${encodeURIComponent(fullSlug)}`,
       title: `${mainTitle} Live Stream`,
       subtitle: displayName,
       sharePath: `fieldview.live/direct/${slug}/`,
@@ -58,26 +63,22 @@ export default function DirectStreamEventPage({ params }: DirectStreamEventPageP
     return <DirectStreamPageBase config={config} />;
   }
   
-  // CASE 2: Event page
+  // CASE 2: One event segment → Could be event OR composite slug (e.g., /direct/tchs/soccer-20260120-jv2)
+  // Try as composite slug first, fallback to event hierarchy
   const eventSlug = eventSegments[0];
   
   // Format display names
-  const displayName = slug
-    .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-  
-  const eventDisplayName = eventSlug
-    .split(/[-_]/)
+  const displayName = fullSlug
+    .split(/[-_/]/)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
   
   const config: DirectStreamPageConfig = {
-    // Event-specific bootstrap endpoint
-    bootstrapUrl: `/api/public/direct/${slug}/events/${eventSlug}/bootstrap`,
-    updateStreamUrl: `/api/direct/${slug}`,
-    title: `${displayName} - ${eventDisplayName}`,
-    subtitle: eventDisplayName,
+    // Try composite slug first (e.g., "tchs/soccer-20260120-jv2")
+    bootstrapUrl: `/api/direct/${encodeURIComponent(fullSlug)}/bootstrap`,
+    updateStreamUrl: `/api/direct/${encodeURIComponent(fullSlug)}`,
+    title: displayName,
+    subtitle: displayName,
     sharePath: `fieldview.live/direct/${slug}/${eventSlug}`,
   };
 

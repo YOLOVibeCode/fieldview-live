@@ -203,5 +203,114 @@ describe('DirectStream Admin Settings API (JWT)', () => {
       expect(res.body.settings.paywallEnabled).toBe(true);
       expect(res.body.settings.priceInCents).toBe(999);
     });
+
+    // 🆕 Stream-page decoupling: Settings save without stream URL
+    it('should save settings without stream URL (decoupled)', async () => {
+      const res = await request
+        .post(`/api/direct/${testSlug}/settings`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          chatEnabled: true,
+          scoreboardEnabled: true,
+          paywallEnabled: false,
+          // streamUrl intentionally omitted
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.settings.chatEnabled).toBe(true);
+      expect(res.body.settings.scoreboardEnabled).toBe(true);
+      // Stream URL should remain unchanged
+      expect(res.body.settings.streamUrl).toBe('https://stream.mux.com/test123.m3u8');
+    });
+
+    // 🆕 Stream-page decoupling: Invalid URL doesn't block other settings
+    it('should save other settings when stream URL is invalid (fault-tolerant)', async () => {
+      const res = await request
+        .post(`/api/direct/${testSlug}/settings`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          streamUrl: 'not-a-valid-url', // Invalid URL
+          chatEnabled: true,
+          scoreboardEnabled: true,
+        });
+
+      // Should still succeed
+      expect(res.status).toBe(200);
+      
+      // Other settings should be saved
+      expect(res.body.settings.chatEnabled).toBe(true);
+      expect(res.body.settings.scoreboardEnabled).toBe(true);
+      
+      // Invalid URL should be skipped (original URL preserved)
+      expect(res.body.settings.streamUrl).toBe('https://stream.mux.com/test123.m3u8');
+    });
+
+    // 🆕 Stream-page decoupling: Can clear stream URL
+    it('should allow clearing stream URL', async () => {
+      const res = await request
+        .post(`/api/direct/${testSlug}/settings`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          streamUrl: null,
+          chatEnabled: true,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.settings.streamUrl).toBeNull();
+      expect(res.body.settings.chatEnabled).toBe(true);
+    });
+  });
+
+  // 🆕 Stream-page decoupling: Bootstrap endpoint tests
+  describe('GET /api/direct/:slug/bootstrap', () => {
+    it('should return decoupled page and stream structure', async () => {
+      const res = await request.get(`/api/direct/${testSlug}/bootstrap`);
+
+      expect(res.status).toBe(200);
+      
+      // New decoupled structure
+      expect(res.body).toHaveProperty('page');
+      expect(res.body).toHaveProperty('stream');
+      
+      // Page config
+      expect(res.body.page).toHaveProperty('slug', testSlug);
+      expect(res.body.page).toHaveProperty('chatEnabled');
+      expect(res.body.page).toHaveProperty('scoreboardEnabled');
+      
+      // Stream config (should not be null since we have a stream URL)
+      expect(res.body.stream).not.toBeNull();
+      expect(res.body.stream).toHaveProperty('status');
+      expect(res.body.stream).toHaveProperty('url');
+      
+      // Backward compatibility
+      expect(res.body).toHaveProperty('slug', testSlug);
+      expect(res.body).toHaveProperty('streamUrl');
+    });
+
+    it('should return null stream when stream URL not configured', async () => {
+      // Create stream without URL
+      const noStreamSlug = `test-no-stream-${Date.now()}`;
+      await prisma.directStream.create({
+        data: {
+          slug: noStreamSlug,
+          title: 'Test No Stream',
+          adminPassword: hashedPassword,
+          streamUrl: null, // No stream configured
+          chatEnabled: true,
+        },
+      });
+
+      const res = await request.get(`/api/direct/${noStreamSlug}/bootstrap`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.page).toHaveProperty('slug', noStreamSlug);
+      expect(res.body.stream).toBeNull(); // Key test: stream is null
+      
+      // Backward compat: flat field also null
+      expect(res.body.streamUrl).toBeNull();
+      
+      // Cleanup
+      await prisma.directStream.delete({ where: { slug: noStreamSlug } });
+    });
   });
 });
