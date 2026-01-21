@@ -41,6 +41,12 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelProps) {
+  console.log('[AdminPanel] 🎬 Component mounted/rendered', {
+    slug,
+    hasInitialSettings: !!initialSettings,
+    initialStreamUrl: initialSettings?.streamUrl || null
+  });
+  
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [password, setPassword] = useState('');
@@ -72,12 +78,26 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[AdminPanel] 🔐 Unlock attempt started', {
+      slug,
+      passwordLength: password.length,
+      hasPassword: password.length > 0
+    });
+    
     setIsUnlocking(true);
     setUnlockError('');
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/unlock-admin`, {
+      const url = `${apiUrl}/api/direct/${slug}/unlock-admin`;
+      
+      console.log('[AdminPanel] 📡 Sending unlock request', {
+        url,
+        method: 'POST',
+        hasPassword: !!password
+      });
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,9 +105,26 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         body: JSON.stringify({ password }),
       });
 
+      console.log('[AdminPanel] 📥 Unlock response received', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       const data = await response.json();
+      
+      console.log('[AdminPanel] 📦 Unlock response data', {
+        hasToken: !!data.token,
+        hasError: !!data.error,
+        error: data.error
+      });
 
       if (!response.ok) {
+        console.error('[AdminPanel] ❌ Unlock failed', {
+          status: response.status,
+          error: data.error,
+          data
+        });
         throw new Error(data.error || 'Failed to unlock admin panel');
       }
 
@@ -96,17 +133,39 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
       setIsUnlocked(true);
       setPassword(''); // Clear password from state for security
       
+      console.log('[AdminPanel] ✅ Admin panel unlocked successfully');
+      
       // Notify parent component
       onAuthSuccess?.(data.token);
     } catch (error) {
-      setUnlockError(error instanceof Error ? error.message : 'Failed to unlock admin panel');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to unlock admin panel';
+      console.error('[AdminPanel] ❌ Unlock error caught', {
+        error,
+        errorMessage,
+        errorType: error?.constructor?.name
+      });
+      setUnlockError(errorMessage);
     } finally {
       setIsUnlocking(false);
+      console.log('[AdminPanel] 🏁 Unlock attempt finished', {
+        isUnlocked,
+        hasError: !!unlockError
+      });
     }
   };
 
   const handleSave = async () => {
+    console.log('[AdminPanel] 💾 Save settings attempt started', {
+      slug,
+      hasToken: !!adminToken,
+      streamUrl: streamUrl || null,
+      chatEnabled,
+      scoreboardEnabled,
+      paywallEnabled
+    });
+    
     if (!adminToken) {
+      console.error('[AdminPanel] ❌ No admin token - not authenticated');
       setSaveError('Not authenticated');
       return;
     }
@@ -120,44 +179,78 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
       const priceInCents = Math.round(parseFloat(price) * 100);
       
       if (isNaN(priceInCents) || priceInCents < 0) {
+        console.error('[AdminPanel] ❌ Invalid price format', { price, priceInCents });
         setSaveError('Invalid price format');
         return;
       }
 
+      const payload = {
+        streamUrl: streamUrl || null,
+        chatEnabled,
+        paywallEnabled,
+        priceInCents,
+        paywallMessage: paywallMessage || null,
+        allowSavePayment,
+        allowViewerScoreEdit,
+        allowViewerNameEdit,
+      };
+
+      console.log('[AdminPanel] 📤 Sending settings update', {
+        payload,
+        streamUrlProvided: !!streamUrl,
+        streamUrlLength: streamUrl?.length || 0
+      });
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/settings`, {
+      const url = `${apiUrl}/api/direct/${slug}/settings`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`,
         },
-        body: JSON.stringify({
-          streamUrl: streamUrl || null,
-          chatEnabled,
-          paywallEnabled,
-          priceInCents,
-          paywallMessage: paywallMessage || null,
-          allowSavePayment,
-          // 🆕 Viewer editing permissions
-          allowViewerScoreEdit,
-          allowViewerNameEdit,
-        }),
+        body: JSON.stringify(payload),
+      });
+
+      console.log('[AdminPanel] 📥 Settings response received', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
       });
 
       const data = await response.json();
+      
+      console.log('[AdminPanel] 📦 Settings response data', {
+        success: data.success,
+        hasError: !!data.error,
+        error: data.error,
+        streamUrlSaved: data.settings?.streamUrl
+      });
 
       if (!response.ok) {
         if (response.status === 401) {
+          console.error('[AdminPanel] ❌ Token expired (401)', { data });
           // Token expired or invalid, require re-authentication
           setIsUnlocked(false);
           setAdminToken(null);
           setUnlockError('Session expired. Please log in again.');
         }
+        console.error('[AdminPanel] ❌ Settings save failed', {
+          status: response.status,
+          error: data.error,
+          details: data.details
+        });
         throw new Error(data.error || 'Failed to save settings');
       }
 
       // If scoreboard is enabled, initialize it with custom values
       if (scoreboardEnabled) {
+        console.log('[AdminPanel] 📊 Setting up scoreboard', {
+          homeTeam: homeTeamName || 'Home',
+          awayTeam: awayTeamName || 'Away'
+        });
+        
         const scoreboardResponse = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard/setup`, {
           method: 'POST',
           headers: {
@@ -182,18 +275,32 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         if (!scoreboardResponse.ok) {
           const scoreboardData = await scoreboardResponse.json();
           // Don't fail the whole save, just warn
-          console.warn('Failed to setup scoreboard:', scoreboardData);
+          console.warn('[AdminPanel] ⚠️ Failed to setup scoreboard:', scoreboardData);
+        } else {
+          console.log('[AdminPanel] ✅ Scoreboard setup successful');
         }
       }
 
+      console.log('[AdminPanel] ✅ Settings saved successfully');
       setSaveSuccess(true);
       setTimeout(() => {
+        console.log('[AdminPanel] 🔄 Reloading page to show new settings');
         window.location.reload(); // Refresh to show new settings
       }, 1000);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save settings');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save settings';
+      console.error('[AdminPanel] ❌ Save settings error', {
+        error,
+        errorMessage,
+        errorType: error?.constructor?.name
+      });
+      setSaveError(errorMessage);
     } finally {
       setIsSaving(false);
+      console.log('[AdminPanel] 🏁 Save settings finished', {
+        saveSuccess,
+        saveError
+      });
     }
   };
 
@@ -245,6 +352,15 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                 className="text-sm text-destructive bg-destructive/10 border border-destructive/30 px-3 py-2 rounded" 
                 role="alert"
                 data-testid="unlock-error-message"
+                ref={(el) => {
+                  if (el) {
+                    console.error('[AdminPanel] 🔴 RED ERROR DISPLAYED:', {
+                      type: 'unlock',
+                      message: unlockError,
+                      timestamp: new Date().toISOString()
+                    });
+                  }
+                }}
               >
                 {unlockError}
               </div>
@@ -255,6 +371,13 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
               className="w-full"
               disabled={isUnlocking || !password}
               data-testid="unlock-admin-button"
+              onClick={() => {
+                console.log('[AdminPanel] 🖱️  Unlock button clicked', {
+                  passwordLength: password.length,
+                  isUnlocking,
+                  buttonDisabled: isUnlocking || !password
+                });
+              }}
             >
               {isUnlocking ? 'Unlocking...' : 'Unlock Admin Panel'}
             </Button>
@@ -571,6 +694,15 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
               className="text-sm text-destructive bg-destructive/10 border border-destructive/30 px-3 py-2 rounded" 
               role="alert"
               data-testid="save-error-message"
+              ref={(el) => {
+                if (el) {
+                  console.error('[AdminPanel] 🔴 RED ERROR DISPLAYED:', {
+                    type: 'save',
+                    message: saveError,
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              }}
             >
               {saveError}
             </div>
@@ -580,13 +712,29 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
             <div 
               className="text-sm text-success bg-success/10 border border-success/30 px-3 py-2 rounded"
               data-testid="save-success-message"
+              ref={(el) => {
+                if (el) {
+                  console.log('[AdminPanel] ✅ GREEN SUCCESS DISPLAYED:', {
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              }}
             >
               Settings saved successfully! Refreshing...
             </div>
           )}
 
           <Button
-            onClick={handleSave}
+            onClick={() => {
+              console.log('[AdminPanel] 🖱️  Save Settings button clicked', {
+                hasToken: !!adminToken,
+                isSaving,
+                streamUrl: streamUrl || null,
+                chatEnabled,
+                scoreboardEnabled
+              });
+              handleSave();
+            }}
             disabled={isSaving}
             className="w-full"
             data-testid="save-settings-button"

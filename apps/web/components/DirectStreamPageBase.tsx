@@ -950,7 +950,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   />
 
                   {scoreboardData.error && (
-                    <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm">
+                    <div 
+                      className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm"
+                      role="alert"
+                      ref={(el) => {
+                        if (el) {
+                          console.error('[DirectStream] 🔴 RED ERROR DISPLAYED (Scoreboard):', {
+                            type: 'scoreboard',
+                            message: scoreboardData.error,
+                            timestamp: new Date().toISOString()
+                          });
+                        }
+                      }}
+                    >
                       {scoreboardData.error}
                     </div>
                   )}
@@ -1355,7 +1367,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       {/* Show messages to unregistered users (read-only) */}
                       <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
                         {chat.error && (
-                          <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">
+                          <div 
+                            className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" 
+                            role="alert"
+                            ref={(el) => {
+                              if (el) {
+                                console.error('[DirectStream] 🔴 RED ERROR DISPLAYED (Chat):', {
+                                  type: 'chat',
+                                  message: chat.error,
+                                  timestamp: new Date().toISOString()
+                                });
+                              }
+                            }}
+                          >
                             {chat.error}
                           </div>
                         )}
