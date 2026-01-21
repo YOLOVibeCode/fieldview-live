@@ -304,6 +304,7 @@ router.post(
         // ISP: Use decoupled settings schema
         const parsed = DirectStreamSettingsUpdateSchema.safeParse(req.body);
         if (!parsed.success) {
+          logger.warn({ errors: parsed.error.errors, body: req.body }, 'Settings validation failed');
           return res.status(400).json({ 
             error: 'Invalid request', 
             details: parsed.error.errors 
@@ -312,6 +313,8 @@ router.post(
 
         const body = parsed.data;
         const key = slug.toLowerCase();
+        
+        logger.info({ slug, body }, 'Settings update request validated');
 
         // Find existing DirectStream
         const existingStream = await prisma.directStream.findUnique({
@@ -383,12 +386,14 @@ router.post(
         }
 
         // Update in database
+        logger.info({ slug, updateData }, 'About to update database');
+        
         const updated = await prisma.directStream.update({
           where: { slug: key },
           data: updateData,
         });
 
-        logger.info({ slug, updates: Object.keys(updateData) }, 'Direct stream settings updated');
+        logger.info({ slug, updates: Object.keys(updateData) }, 'Direct stream settings updated successfully');
 
         return res.json({
           success: true,
@@ -413,7 +418,12 @@ router.post(
         if (error instanceof z.ZodError) {
           return res.status(400).json({ error: 'Invalid request', details: error.errors });
         }
-        logger.error({ error, slug: req.params.slug }, 'Failed to update settings');
+        logger.error({ 
+          error, 
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          slug: req.params.slug 
+        }, 'Failed to update settings');
         next(error);
       }
     })();

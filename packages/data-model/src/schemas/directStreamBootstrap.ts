@@ -93,7 +93,8 @@ export const DirectStreamBootstrapResponseSchema = z.object({
  */
 export const DirectStreamSettingsUpdateSchema = z.object({
   // Stream settings (optional, can be omitted)
-  streamUrl: z.string().url().nullable().optional(),
+  // NOTE: Accept any string, validation happens in route handler (fault-tolerant)
+  streamUrl: z.string().nullable().optional(),
   
   // Page settings (all optional)
   chatEnabled: z.boolean().optional(),

@@ -5,6 +5,8 @@
     "module": "CommonJS",
     "target": "ES2022",
     "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
