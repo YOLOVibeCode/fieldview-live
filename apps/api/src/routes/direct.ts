@@ -9,13 +9,10 @@ import { validateAdminToken } from '../middleware/admin-jwt';
 import { 
   SavePaymentMethodSchema, 
   GetPaymentMethodsQuerySchema,
-  DirectStreamCheckoutSchema  // 🆕
-} from '@fieldview/data-model';
-// 🆕 ISP: Import decoupled schemas
-import { 
+  DirectStreamCheckoutSchema,
   DirectStreamSettingsUpdateSchema,
   getStreamStatus 
-} from '@fieldview/data-model/src/schemas/directStreamBootstrap';
+} from '@fieldview/data-model';
 // 🆕 Payment service dependencies
 import { PaymentService } from '../services/PaymentService';
 import { GameRepository } from '../repositories/implementations/GameRepository';

@@ -12,6 +12,7 @@ export * from './OrganizationMemberSchema';
 export * from './LinkPresetSchema';
 export * from './SubscriptionSchema';
 export * from './directStream';
+export * from './directStreamBootstrap';
 export * from './scoreboard';
 export * from './payment';
 export * from './directStreamCheckout';
