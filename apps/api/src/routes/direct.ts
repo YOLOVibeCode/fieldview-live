@@ -182,7 +182,14 @@ router.get(
         };
 
         // Get stream status (null if not configured)
-        const streamConfig = getStreamStatus(directStream.streamUrl);
+        // Defensive: wrap in try-catch to prevent crashes
+        let streamConfig = null;
+        try {
+          streamConfig = getStreamStatus(directStream.streamUrl);
+        } catch (error) {
+          logger.error({ error, streamUrl: directStream.streamUrl }, 'getStreamStatus failed, returning null');
+          streamConfig = null;
+        }
 
         return res.json({
           // ISP: New decoupled structure
