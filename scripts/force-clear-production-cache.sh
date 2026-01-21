@@ -64,9 +64,9 @@ redeploy_service() {
     # Navigate to service directory
     cd "apps/$service"
     
-    # Force redeploy with no cache
-    echo -e "${YELLOW}Triggering fresh deployment (no cache)...${NC}"
-    railway up --detach --no-cache 2>&1 | tee /tmp/railway-redeploy-$service.log
+    # Force redeploy (Railway will detect git push and rebuild)
+    echo -e "${YELLOW}Triggering fresh deployment...${NC}"
+    railway up --detach 2>&1 | tee /tmp/railway-redeploy-$service.log
     
     if [ ${PIPESTATUS[0]} -eq 0 ]; then
         echo -e "${GREEN}✅ $service redeployment triggered${NC}"
