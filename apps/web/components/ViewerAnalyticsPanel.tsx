@@ -51,16 +51,35 @@ export function ViewerAnalyticsPanel({ slug }: ViewerAnalyticsPanelProps) {
     try {
       const response = await fetch(`${apiUrl}/api/direct/${slug}/viewers/active`);
       
+      // Handle 404 gracefully - no viewers is not an error
+      if (response.status === 404) {
+        console.log('[ViewerAnalytics] No stream found, showing empty state');
+        setViewers([]);
+        setTotalActive(0);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      
       if (!response.ok) {
-        throw new Error('Failed to load viewers');
+        // Only show error for actual errors (5xx, network errors), not missing data
+        throw new Error(`Failed to load viewers: ${response.statusText}`);
       }
 
       const data = await response.json();
-      setViewers(data.viewers);
-      setTotalActive(data.totalActive);
+      setViewers(data.viewers || []);
+      setTotalActive(data.totalActive || 0);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      // Only set error for real errors, not missing data
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      // Don't show error for network issues that might be transient
+      if (errorMessage.includes('Failed to fetch')) {
+        console.warn('[ViewerAnalytics] Network error, will retry:', errorMessage);
+        setError(null); // Don't show red error for network issues
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -107,7 +126,8 @@ export function ViewerAnalyticsPanel({ slug }: ViewerAnalyticsPanelProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {error && (
+        {/* Only show error for critical failures, not missing data */}
+        {error && error.includes('500') && (
           <p data-testid="error-viewer-analytics" className="text-destructive text-sm mb-4" role="alert">
             {error}
           </p>

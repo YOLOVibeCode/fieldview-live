@@ -113,12 +113,20 @@ export function useScoreboardData({
       });
 
       if (!response.ok) {
-        // If scoreboard doesn't exist, use defaults
+        // If scoreboard doesn't exist (404), that's OK - use defaults, don't set error
         if (response.status === 404) {
           console.log(`[Scoreboard] No data for ${slug}, using defaults`);
+          setError(null); // Explicitly clear error for 404
           return;
         }
-        throw new Error(`Failed to fetch scoreboard: ${response.statusText}`);
+        // Only set error for actual errors (5xx), not missing data
+        if (response.status >= 500) {
+          throw new Error(`Failed to fetch scoreboard: ${response.statusText}`);
+        }
+        // For other non-OK statuses (like 403), don't show error either
+        console.log(`[Scoreboard] Non-critical response ${response.status} for ${slug}, using defaults`);
+        setError(null);
+        return;
       }
 
       const data: ApiScoreboardResponse = await response.json();

@@ -52,19 +52,37 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
       setLoading(true);
       const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`);
       
+      // Handle 404 gracefully - no scoreboard is not an error
+      if (response.status === 404) {
+        console.log('[SocialProducerPanel] No scoreboard found, showing empty state');
+        setScoreboard(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      
       if (!response.ok) {
-        throw new Error('Failed to load scoreboard');
+        // Only show error for actual errors (5xx), not missing data
+        throw new Error(`Failed to load scoreboard: ${response.statusText}`);
       }
 
       const data = await response.json();
       setScoreboard(data);
+      setError(null);
       
       // Check if panel is publicly accessible
       if (data.editMode === 'public') {
         setIsLocked(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      // Only set error for real errors, not missing data or network issues
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (errorMessage.includes('Failed to fetch')) {
+        console.warn('[SocialProducerPanel] Network error, will retry:', errorMessage);
+        setError(null); // Don't show red error for network issues
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -221,7 +239,20 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
     );
   }
 
-  if (error && !scoreboard) {
+  // Don't show error if scoreboard simply doesn't exist - that's OK
+  // Show empty state instead
+  if (!scoreboard && !error) {
+    return (
+      <Card data-testid="producer-panel-empty" className="bg-elevated border-outline">
+        <CardContent className="p-6">
+          <p className="text-muted-foreground text-sm">Scoreboard not configured for this stream.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Only show error for critical failures (5xx)
+  if (error && (error.includes('500') || error.includes('Internal Server Error'))) {
     return (
       <Card data-testid="producer-panel-error" className="bg-elevated border-outline">
         <CardContent className="p-6">

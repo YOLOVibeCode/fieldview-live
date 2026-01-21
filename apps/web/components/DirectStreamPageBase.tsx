@@ -949,7 +949,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     data-testid="scoreboard-v2"
                   />
 
-                  {scoreboardData.error && (
+                  {/* Only show error for critical failures (5xx), not missing data (404) */}
+                  {scoreboardData.error && scoreboardData.error.includes('500') && (
                     <div 
                       className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm"
                       role="alert"
