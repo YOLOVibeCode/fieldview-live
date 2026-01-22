@@ -58,7 +58,7 @@ export function useStreamDebug(hlsInstance: Hls | null, videoElement: HTMLVideoE
       }
 
       // Get player state
-      let playerState: StreamDebugInfo['playerState'] = 'idle';
+      let playerState: StreamDebugInfo['playerState'] = 'loading';
       if (videoElement.readyState >= 2) {
         if (videoElement.paused) {
           playerState = 'paused';

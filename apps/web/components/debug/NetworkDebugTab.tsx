@@ -116,9 +116,9 @@ export function NetworkDebugTab({ requests, onClear }: NetworkDebugTabProps) {
                       Response Body
                     </summary>
                     <pre className="mt-1 p-2 bg-gray-900 rounded text-[10px] overflow-x-auto max-h-32 overflow-y-auto">
-                      {String(typeof request.responseBody === 'string'
+                      {typeof request.responseBody === 'string'
                         ? request.responseBody
-                        : JSON.stringify(request.responseBody, null, 2))}
+                        : JSON.stringify(request.responseBody, null, 2)}
                     </pre>
                   </details>
                 )}
