@@ -79,13 +79,13 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Extract base slug (part before first slash) for unlock endpoint
-    // Bootstrap may return "tchs/soccer-20260120-varsity" but unlock needs just "tchs"
-    const baseSlug = slug.split('/')[0];
+    // Use full slug for unlock endpoint (e.g., "tchs/soccer-20260122-jv2")
+    // The API will find the DirectStream by full slug
+    const fullSlug = slug.toLowerCase();
     
     console.log('[AdminPanel] 🔐 Unlock attempt started', {
       slug,
-      baseSlug,
+      fullSlug,
       passwordLength: password.length,
       hasPassword: password.length > 0
     });
@@ -95,7 +95,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-      const url = `${apiUrl}/api/direct/${baseSlug}/unlock-admin`;
+      const url = `${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`;
       
       console.log('[AdminPanel] 📡 Sending unlock request', {
         url,
@@ -161,13 +161,13 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   };
 
   const handleSave = async () => {
-    // Extract base slug (part before first slash) for settings endpoint
-    // JWT token is issued for base slug only (e.g., "tchs"), not full slug (e.g., "tchs/soccer-20260120-varsity")
-    const baseSlug = slug.split('/')[0];
+    // Use full slug for settings endpoint (e.g., "tchs/soccer-20260122-jv2")
+    // JWT token is issued for the full slug, matching the DirectStream in database
+    const fullSlug = slug.toLowerCase();
     
     console.log('[AdminPanel] 💾 Save settings attempt started', {
       slug,
-      baseSlug,
+      fullSlug,
       hasToken: !!adminToken,
       streamUrl: streamUrl || null,
       chatEnabled,
@@ -210,12 +210,12 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         payload,
         streamUrlProvided: !!streamUrl,
         streamUrlLength: streamUrl?.length || 0,
-        baseSlug
+        fullSlug
       });
 
-      // Use base slug for settings endpoint (JWT token is for base slug)
+      // Use full slug for settings endpoint (JWT token is for full slug)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-      const url = `${apiUrl}/api/direct/${baseSlug}/settings`;
+      const url = `${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/settings`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -264,7 +264,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           awayTeam: awayTeamName || 'Away'
         });
         
-        const scoreboardResponse = await fetch(`${apiUrl}/api/direct/${baseSlug}/scoreboard/setup`, {
+        const scoreboardResponse = await fetch(`${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/scoreboard/setup`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
