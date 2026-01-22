@@ -64,7 +64,30 @@ To fully understand and work with this project, follow this systematic approach:
 
 ## 🚀 Deployment
 
-### ⚠️ BEFORE EVERY PUSH - Run Preflight Build
+### 🎯 **RECOMMENDED: Version-Managed Deployment**
+
+**For all production deployments, use the automated deployment script:**
+
+```bash
+./scripts/deploy-to-production.sh
+```
+
+**What it does automatically:**
+1. ✅ **Version Management** - Bumps version (build number for regular deploys, minor/major for significant changes)
+2. ✅ **Git Tagging** - Creates git tags for significant releases
+3. ✅ **Preflight Build** - Runs mandatory preflight build (catches errors before push)
+4. ✅ **Deployment** - Commits version changes and pushes to Railway
+5. ✅ **Version Display** - Version automatically appears in UI (lower right corner) and `/api/version` endpoint
+
+**Version Bump Behavior:**
+- **Regular deploy**: Automatically bumps build number (1.2.3.005 → 1.2.3.006)
+- **Significant change**: Prompts for minor (1.2.3 → 1.3.0) or major (1.2.3 → 2.0.0) bump and creates git tag
+
+**Current Version:** Check with `./scripts/version-manager.sh current`
+
+### ⚠️ Manual Deployment (If Needed)
+
+If you need to deploy without version management:
 
 ```bash
 # MANDATORY: Simulates exactly what Railway does
@@ -78,7 +101,8 @@ To fully understand and work with this project, follow this systematic approach:
 
 | Method | Time | Documentation |
 |--------|------|---------------|
-| **Preflight Build** | 3-5 min | **RUN THIS FIRST** - catches errors locally |
+| **Version-Managed Deploy** | 3-5 min | **RECOMMENDED** - Handles versioning automatically |
+| **Preflight Build** | 3-5 min | Manual preflight check (if not using deploy script) |
 | **Full Validation** | 30 min | Safe for features, migrations, releases |
 | **Quick Deploy** | 2 min | Fast for bug fixes, small API changes |
 
@@ -87,8 +111,16 @@ To fully understand and work with this project, follow this systematic approach:
 ### Quick Commands
 
 ```bash
-# 🔴 ALWAYS RUN FIRST (before any push)
-./scripts/preflight-build.sh
+# 🎯 RECOMMENDED: Version-managed deployment
+./scripts/deploy-to-production.sh
+
+# Check current version
+./scripts/version-manager.sh current
+
+# Manual version management (if needed)
+./scripts/version-manager.sh build      # Bump build number
+./scripts/version-manager.sh patch      # Bump patch version
+./scripts/version-manager.sh set 1.2.4  # Set version explicitly
 
 # If build fails, debug with:
 ./scripts/debug-railway-build.sh
@@ -96,7 +128,7 @@ To fully understand and work with this project, follow this systematic approach:
 # Full validation (optional, takes 30 min)
 ./scripts/railway-ready-check.sh
 
-# Quick deploy after preflight passes
+# Quick deploy after preflight passes (legacy method)
 ./scripts/yolo-deploy.sh api      # Quick deploy API (2 min)
 ./scripts/yolo-deploy.sh web      # Quick deploy Web (2 min)
 ```

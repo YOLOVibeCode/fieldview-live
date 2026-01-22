@@ -17,31 +17,41 @@ Default: `ROLE: engineer STRICT=true` (read-only unless approved)
 
 ## 🚀 TRIGGER PHRASES
 
-### "Deploy to Railway" / "Push to Railway" / "Deploy"
+### "Deploy to Railway" / "Push to Railway" / "Deploy" / "Deploy to Production"
 
 When user says any of these, IMMEDIATELY execute this workflow:
 
 ```bash
-# Step 1: Run preflight build (MANDATORY)
-./scripts/preflight-build.sh
-
-# Step 2: If preflight PASSES, commit and push
-git add -A
-git commit -m "<appropriate commit message>"
-git push origin main
-
-# Step 3: Monitor deployment
-echo "✅ Pushed to Railway. Monitor at: https://railway.app"
+# Use the version-managed deployment script (automatically handles versioning)
+./scripts/deploy-to-production.sh
 ```
+
+**What the deployment script does:**
+1. **Version Management**: Automatically bumps version (build number for regular deploys, minor/major for significant changes)
+2. **Git Tagging**: Creates git tags for significant releases (minor/major bumps)
+3. **Preflight Build**: Runs preflight build (MANDATORY) - fails if errors found
+4. **Deployment**: Commits version changes and pushes to Railway
+5. **Version Display**: Version is automatically displayed in UI (lower right corner) and available via `/api/version`
+
+**Version Bump Behavior:**
+- **Regular deploy**: Bumps build number (1.2.3.005 → 1.2.3.006)
+- **Significant change**: Prompts for minor (1.2.3 → 1.3.0) or major (1.2.3 → 2.0.0) bump and creates git tag
 
 **If preflight FAILS:**
 1. Show the errors
 2. Run `./scripts/debug-railway-build.sh` to analyze
 3. Fix each TypeScript error
-4. Re-run preflight until it passes
-5. Then push
+4. Re-run deployment script until it passes
 
 **NEVER push without preflight passing first!**
+
+**Manual version management** (if needed):
+```bash
+./scripts/version-manager.sh current    # Check current version
+./scripts/version-manager.sh build      # Bump build number
+./scripts/version-manager.sh patch      # Bump patch version
+./scripts/version-manager.sh set 1.2.4  # Set version explicitly
+```
 
 ### "Debug Railway" / "Fix Railway build"
 
@@ -341,7 +351,19 @@ Add to existing checklist:
 
 ### BEFORE EVERY PUSH TO MAIN
 
-**MANDATORY**: Run preflight build before pushing:
+**RECOMMENDED**: Use version-managed deployment script:
+
+```bash
+./scripts/deploy-to-production.sh
+```
+
+This automatically:
+- Bumps version (build number for regular deploys)
+- Runs preflight build (MANDATORY)
+- Creates git tags for significant releases
+- Deploys to Railway
+
+**Alternative (Manual)**: If not using deploy script, run preflight build:
 
 ```bash
 ./scripts/preflight-build.sh
