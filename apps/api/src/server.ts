@@ -38,7 +38,6 @@ import { createPublicSavedPaymentsRouter } from './routes/public.saved-payments'
 import { createWatchRouter } from './routes/public.watch';
 import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createStreamLinksRouter } from './routes/stream-links';
-import { createTchsRouter } from './routes/tchs';
 import { createDirectRouter } from './routes/direct';
 import { createDirectLifecycleRouter } from './routes/direct-lifecycle';
 import { createDirectViewerRouter } from './routes/public.direct-viewer';
@@ -145,7 +144,6 @@ app.use('/api/public/coupons', createPublicCouponsRouter());
 app.use('/api/early-access', createEarlyAccessRouter());
 // Note: Subscription routes are mounted at /api/public, so routes defined as '/subscriptions' become /api/public/subscriptions
 app.use('/api/streams', createStreamLinksRouter());
-app.use('/api/tchs', createTchsRouter());
 app.use('/api/direct', createDirectRouter());
 app.use('/api/direct', createDirectLifecycleRouter());
 app.use('/api/direct', scoreboardRouter);
