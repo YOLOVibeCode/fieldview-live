@@ -6,18 +6,13 @@ set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_SCRIPT="$ROOT_DIR/scripts/version-manager.sh"
-
-# Source version manager
-source "$VERSION_SCRIPT" 2>/dev/null || {
-  echo "❌ Version manager not found"
-  exit 1
-}
+API_PKG="$ROOT_DIR/apps/api/package.json"
 
 echo "🚀 Deploy to Production"
 echo ""
 
 # Get current version
-CURRENT_VERSION=$(get_current_version)
+CURRENT_VERSION=$(jq -r '.version' "$API_PKG")
 echo "📦 Current version: $CURRENT_VERSION"
 echo ""
 
@@ -39,7 +34,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   fi
   
   # Bump version
-  NEW_VERSION=$(bump_version "$BUMP_TYPE")
+  NEW_VERSION=$("$VERSION_SCRIPT" "$BUMP_TYPE")
   echo ""
   echo "✅ Version bumped to: $NEW_VERSION"
   
@@ -51,8 +46,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
   echo "✅ Git tag created: v$NEW_VERSION"
 else
-  # Regular patch bump
-  NEW_VERSION=$(bump_version "build")
+  # Regular build bump
+  NEW_VERSION=$("$VERSION_SCRIPT" "build")
   echo ""
   echo "✅ Version bumped to: $NEW_VERSION"
   
@@ -68,6 +63,18 @@ echo "🔨 Running preflight build..."
 if [ $? -ne 0 ]; then
   echo "❌ Preflight build failed. Aborting deployment."
   exit 1
+fi
+
+echo ""
+echo "🔍 Running additional runtime validation..."
+if [ -f "$ROOT_DIR/scripts/validate-runtime.sh" ]; then
+  "$ROOT_DIR/scripts/validate-runtime.sh"
+  if [ $? -ne 0 ]; then
+    echo "❌ Runtime validation failed. Aborting deployment."
+    exit 1
+  fi
+else
+  echo "⚠️  Runtime validation script not found (skipping)"
 fi
 
 echo ""

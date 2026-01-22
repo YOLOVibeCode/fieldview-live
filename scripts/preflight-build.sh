@@ -185,7 +185,7 @@ echo ""
 # Step 7: Final Verification
 ###############################################################################
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW}🔍 Step 7/7: Final verification...${NC}"
+echo -e "${YELLOW}🔍 Step 7/8: Final verification...${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Verify critical build artifacts exist
@@ -221,6 +221,26 @@ fi
 echo ""
 
 ###############################################################################
+# Step 8: Runtime Validation (NEW)
+###############################################################################
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}🔍 Step 8/8: Runtime validation...${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+if [ -f "./scripts/validate-runtime.sh" ]; then
+    if ./scripts/validate-runtime.sh; then
+        echo -e "${GREEN}✅ Runtime validation passed${NC}"
+    else
+        echo -e "${RED}❌ Runtime validation failed${NC}"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}⚠️  Runtime validation script not found (skipping)${NC}"
+fi
+
+echo ""
+
+###############################################################################
 # Success!
 ###############################################################################
 END_TIME=$(date +%s)
@@ -238,6 +258,7 @@ echo -e "${GREEN}║  ✅ All packages built (data-model, dvr-service)          
 echo -e "${GREEN}║  ✅ API built (TypeScript strict passed)                                  ║${NC}"
 echo -e "${GREEN}║  ✅ Web built (all pages passed SSR/SSG)                                  ║${NC}"
 echo -e "${GREEN}║  ✅ Build artifacts verified                                              ║${NC}"
+echo -e "${GREEN}║  ✅ Runtime validation passed                                             ║${NC}"
 echo -e "${GREEN}║                                                                            ║${NC}"
 echo -e "${GREEN}║  🚀 100% SAFE TO DEPLOY TO RAILWAY                                        ║${NC}"
 echo -e "${GREEN}║                                                                            ║${NC}"

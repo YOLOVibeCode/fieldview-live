@@ -13,6 +13,7 @@ import cron from 'node-cron';
 import { logger } from './lib/logger';
 import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
+import { prisma } from './lib/prisma';
 import { sendStreamReminders } from './jobs/send-stream-reminders';
 import { autoPurgeDeletedStreams } from './jobs/auto-purge-streams';
 import { createAdminRouter } from './routes/admin';
@@ -59,6 +60,7 @@ import clipsRouter from './routes/clips.routes';
 import bookmarksRouter from './routes/bookmarks.routes';
 import recordingsRouter from './routes/recordings.routes';
 import versionRouter from './routes/version';
+import { redisClient } from './lib/redis';
 
 // Initialize Sentry error tracking (optional, requires SENTRY_DSN env var)
 initSentry();
@@ -190,10 +192,50 @@ logger.info('Cron jobs initialized: stream reminders (every minute), auto-purge 
 import { initializeCleanupJobs } from './jobs/cleanup';
 initializeCleanupJobs();
 
+// Startup validation (fail fast if critical dependencies are unavailable)
+async function validateStartup(): Promise<void> {
+  // Validate required environment variables
+  const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+  const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
+  
+  if (missingVars.length > 0) {
+    logger.error({ missing: missingVars }, 'Missing required environment variables');
+    process.exit(1);
+  }
+
+  // Test database connection before accepting requests
+  try {
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    logger.info('Database connection verified at startup');
+  } catch (error) {
+    logger.error({ error }, 'Database connection failed at startup - server will not start');
+    process.exit(1);
+  }
+
+  // Test Redis connection (non-critical, warn only)
+  if (process.env.REDIS_URL) {
+    try {
+      await redisClient.ping();
+      logger.info('Redis connection verified at startup');
+    } catch (error) {
+      logger.warn({ error }, 'Redis connection failed at startup (non-critical, continuing)');
+    }
+  } else {
+    logger.warn('REDIS_URL not set - rate limiting will use in-memory store');
+  }
+}
+
 // Start server
 if (require.main === module) {
-  app.listen(PORT, () => {
-    logger.info({ port: PORT }, 'API server started');
+  // Validate startup before listening
+  void validateStartup().then(() => {
+    app.listen(PORT, () => {
+      logger.info({ port: PORT }, 'API server started');
+    });
+  }).catch((error) => {
+    logger.error({ error }, 'Startup validation failed');
+    process.exit(1);
   });
 }
 
