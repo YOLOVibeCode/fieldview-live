@@ -26,7 +26,8 @@ interface ConnectionDebugPanelProps {
   api?: ApiHealthInfo;
   chat?: {
     isConnected: boolean;
-    messages: unknown[];
+    messages?: unknown[];
+    messageCount?: number;
     error?: string | null;
     transport?: string;
     gameId?: string;
@@ -84,7 +85,12 @@ export function ConnectionDebugPanel({
     const report = generateDebugReport({
       stream,
       api,
-      chat,
+      chat: chat ? {
+        connected: chat.isConnected,
+        transport: chat.transport || 'SSE',
+        messageCount: chat.messageCount ?? chat.messages?.length ?? 0,
+        gameId: chat.gameId,
+      } : undefined,
       networkLog,
       consoleErrors: getCapturedErrors(),
       metrics,

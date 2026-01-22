@@ -9,7 +9,8 @@ import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 interface ChatDebugTabProps {
   chat: {
     isConnected: boolean;
-    messages: unknown[];
+    messages?: unknown[];
+    messageCount?: number;
     error?: string | null;
     transport?: string;
     gameId?: string;
@@ -46,7 +47,7 @@ export function ChatDebugTab({ chat, viewer, effectiveGameId }: ChatDebugTabProp
           </div>
           <div className="flex justify-between">
             <span>Messages:</span>
-            <span className="text-white">{chat.messages?.length || 0}</span>
+            <span className="text-white">{chat.messageCount ?? chat.messages?.length ?? 0}</span>
           </div>
           {chat.gameId && (
             <div className="flex justify-between">

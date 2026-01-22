@@ -245,13 +245,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     }
   }, [status]);
 
+  // Chat hook - declared early so it can be used in useEffect below
+  // Chat hook already declared above for metrics tracking
+
   // Track chat connect time
   useEffect(() => {
     if (chat.isConnected && !metrics.chatConnectTime) {
       const connectTime = performance.now() - metrics.pageLoadTime;
       setMetrics(prev => ({ ...prev, chatConnectTime: connectTime }));
     }
-  }, [chat.isConnected]);
+  }, [chat.isConnected, metrics.chatConnectTime, metrics.pageLoadTime]);
 
   // Update total active time
   useEffect(() => {
@@ -1598,6 +1601,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           chat={{
             isConnected: chat.isConnected,
             messages: chat.messages,
+            messageCount: chat.messages?.length || 0,
             error: chat.error || null,
             transport: 'SSE',
             gameId: effectiveGameId || undefined,

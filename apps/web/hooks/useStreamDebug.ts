@@ -5,12 +5,12 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import type Hls from 'hls.js';
 import type { StreamDebugInfo } from '@/lib/debug/types';
+import type Hls from 'hls.js';
 
 export function useStreamDebug(hlsInstance: Hls | null, videoElement: HTMLVideoElement | null, streamUrl: string | null) {
   const [debugInfo, setDebugInfo] = useState<StreamDebugInfo>({
-    playerState: 'idle',
+    playerState: 'loading',
     hlsVersion: 'unknown',
     isLive: false,
     currentLevel: -1,
@@ -34,7 +34,7 @@ export function useStreamDebug(hlsInstance: Hls | null, videoElement: HTMLVideoE
 
   useEffect(() => {
     if (!hlsInstance || !videoElement) {
-      setDebugInfo(prev => ({ ...prev, playerState: 'idle' }));
+      setDebugInfo(prev => ({ ...prev, playerState: 'loading' }));
       return;
     }
 
