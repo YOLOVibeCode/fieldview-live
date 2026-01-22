@@ -1,6 +1,6 @@
 {
   "name": "api",
-  "version": "1.2.3.006",
+  "version": "1.2.3.007",
   "private": true,
   "main": "./dist/server.js",
   "types": "./dist/server.d.ts",
