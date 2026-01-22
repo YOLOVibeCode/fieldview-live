@@ -313,32 +313,75 @@ test.describe('Direct Stream Features', () => {
       await page.goto('http://localhost:4300/direct/tchs');
       await page.waitForLoadState('networkidle');
       const loadTime = Date.now() - startTime;
-      
+
       // Should load in under 5 seconds
       expect(loadTime).toBeLessThan(5000);
     });
 
     test('should not have critical console errors', async ({ page }) => {
       const errors: string[] = [];
-      
+
       page.on('console', (msg) => {
         if (msg.type() === 'error') {
           errors.push(msg.text());
         }
       });
-      
+
       await page.goto('http://localhost:4300/direct/tchs');
       await page.waitForTimeout(2000);
-      
+
       // Filter out known harmless errors
-      const criticalErrors = errors.filter(err => 
+      const criticalErrors = errors.filter(err =>
         !err.includes('Fullscreen') &&
         !err.includes('autoplay') &&
         !err.includes('HLS') && // HLS warnings are okay
         !err.includes('Play failed') // Play may be blocked
       );
-      
+
       expect(criticalErrors.length).toBe(0);
+    });
+
+    test('should not have JavaScript reference errors on page load', async ({ page }) => {
+      // Regression test for iOS Safari crash (TS2448: variable used before declaration)
+      // This catches runtime ReferenceErrors that crash the page
+      const pageErrors: string[] = [];
+
+      // Listen for uncaught page errors (not console.error, actual exceptions)
+      page.on('pageerror', (error) => {
+        pageErrors.push(error.message);
+      });
+
+      // Test the specific URL that was crashing on iOS Safari
+      await page.goto('http://localhost:4300/direct/tchs/soccer-20260122-jv2');
+
+      // Wait for React to hydrate and hooks to initialize
+      await page.waitForTimeout(3000);
+
+      // Filter for reference errors (the type caused by using variables before declaration)
+      const referenceErrors = pageErrors.filter(e =>
+        e.includes('ReferenceError') ||
+        e.includes('is not defined') ||
+        e.includes('before initialization') ||
+        e.includes('Cannot access') ||
+        e.includes('used before its declaration')
+      );
+
+      // Should have zero JavaScript reference errors
+      expect(referenceErrors).toEqual([]);
+    });
+
+    test('should not show application error message', async ({ page }) => {
+      // Regression test: page should not show React error boundary message
+      await page.goto('http://localhost:4300/direct/tchs/soccer-20260122-jv2');
+      await page.waitForTimeout(2000);
+
+      // Check that the generic React error message is NOT visible
+      const errorMessage = page.locator('text=/Application error.*client-side exception/i');
+      await expect(errorMessage).not.toBeVisible();
+
+      // Page content should be visible (even if stream is offline)
+      const pageContent = page.locator('[data-testid="video-player"], [data-testid="stream-placeholder"], text=/Stream/i');
+      await expect(pageContent.first()).toBeVisible();
     });
   });
 

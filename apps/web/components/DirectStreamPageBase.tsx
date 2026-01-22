@@ -245,17 +245,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     }
   }, [status]);
 
-  // Chat hook - declared early so it can be used in useEffect below
-  // Chat hook already declared above for metrics tracking
-
-  // Track chat connect time
-  useEffect(() => {
-    if (chat.isConnected && !metrics.chatConnectTime) {
-      const connectTime = performance.now() - metrics.pageLoadTime;
-      setMetrics(prev => ({ ...prev, chatConnectTime: connectTime }));
-    }
-  }, [chat.isConnected, metrics.chatConnectTime, metrics.pageLoadTime]);
-
   // Update total active time
   useEffect(() => {
     const interval = setInterval(() => {
@@ -611,6 +600,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     enabled: bootstrap?.chatEnabled === true,
     currentUserId: viewer.token || undefined,
   });
+
+  // Track chat connect time (must be after chat hook declaration)
+  useEffect(() => {
+    if (chat.isConnected && !metrics.chatConnectTime) {
+      const connectTime = performance.now() - metrics.pageLoadTime;
+      setMetrics(prev => ({ ...prev, chatConnectTime: connectTime }));
+    }
+  }, [chat.isConnected, metrics.chatConnectTime, metrics.pageLoadTime]);
 
   // v2 Scoreboard hook (data fetching for v2 Scoreboard component)
   const scoreboardData = useScoreboardData({
