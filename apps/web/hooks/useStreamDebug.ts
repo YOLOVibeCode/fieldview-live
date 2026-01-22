@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { StreamDebugInfo } from '@/lib/debug/types';
-import type Hls from 'hls.js';
+import Hls from 'hls.js';
 
 export function useStreamDebug(hlsInstance: Hls | null, videoElement: HTMLVideoElement | null, streamUrl: string | null) {
   const [debugInfo, setDebugInfo] = useState<StreamDebugInfo>({
@@ -147,14 +147,22 @@ export function useStreamDebug(hlsInstance: Hls | null, videoElement: HTMLVideoE
     };
 
     videoElement.addEventListener('canplay', handleCanPlay);
-    hlsInstance.on(Hls.Events.ERROR, handleError);
-    hlsInstance.on(Hls.Events.FRAG_LOADED, handleFragLoaded);
+    // Access Hls.Events via the instance (hls.js exposes Events on the instance)
+    const HlsEvents = (hlsInstance as any).Events || (hlsInstance.constructor as any).Events;
+    if (HlsEvents) {
+      hlsInstance.on(HlsEvents.ERROR, handleError);
+      hlsInstance.on(HlsEvents.FRAG_LOADED, handleFragLoaded);
+    }
 
     return () => {
       clearInterval(updateInterval);
       videoElement.removeEventListener('canplay', handleCanPlay);
-      hlsInstance.off(Hls.Events.ERROR, handleError);
-      hlsInstance.off(Hls.Events.FRAG_LOADED, handleFragLoaded);
+      // Access Hls.Events via the instance
+      const HlsEvents = (hlsInstance as any).Events || (hlsInstance.constructor as any).Events;
+      if (HlsEvents) {
+        hlsInstance.off(HlsEvents.ERROR, handleError);
+        hlsInstance.off(HlsEvents.FRAG_LOADED, handleFragLoaded);
+      }
     };
   }, [hlsInstance, videoElement, streamUrl]);
 
