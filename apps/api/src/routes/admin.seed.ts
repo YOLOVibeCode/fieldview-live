@@ -37,6 +37,28 @@ const directStreams = [
     scoreboardHomeColor: null,
     scoreboardAwayColor: null,
   },
+  {
+    slug: 'tchs/soccer-20260122-jv2',
+    title: 'TCHS Soccer JV2 - January 22, 2026',
+    streamUrl: null,
+    scheduledStartAt: null,
+    paywallEnabled: false,
+    priceInCents: 0,
+    paywallMessage: null,
+    allowSavePayment: false,
+    adminPassword: 'tchs2026',
+    chatEnabled: true,
+    scoreboardEnabled: true,
+    allowAnonymousView: true,
+    requireEmailVerification: true,
+    listed: true,
+    sendReminders: true,
+    reminderMinutes: 5,
+    scoreboardHomeTeam: 'TCHS JV2',
+    scoreboardAwayTeam: 'Away Team',
+    scoreboardHomeColor: '#003366',
+    scoreboardAwayColor: '#CC0000',
+  },
 ];
 
 /**
