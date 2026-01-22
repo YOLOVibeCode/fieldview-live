@@ -418,9 +418,11 @@ A pre-push hook is installed at `.husky/pre-push` that:
 
 | Script | Purpose | When to Use |
 |--------|---------|-------------|
-| `./scripts/preflight-build.sh` | Full Railway simulation | Before EVERY push |
+| `./scripts/deploy-to-production.sh` | **RECOMMENDED** - Version-managed deployment | **Use for all production deploys** |
+| `./scripts/preflight-build.sh` | Full Railway simulation | Manual preflight check (if not using deploy script) |
 | `./scripts/debug-railway-build.sh` | Debug failed builds | After Railway fails |
 | `./scripts/railway-logs.sh tail api` | Live Railway logs | Monitor deployment |
+| `./scripts/version-manager.sh` | Version management | Check/set version manually if needed |
 
 ### Self-Check for Railway Deployment
 
