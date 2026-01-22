@@ -1,10 +1,10 @@
 {
   "name": "web",
-  "version": "0.1.0",
+  "version": "1.2.3.005",
   "private": true,
   "scripts": {
     "dev": "PORT=4300 next dev",
-    "build": "rm -rf .next && next build",
+    "build": "rm -rf .next && NEXT_PUBLIC_APP_VERSION=$(node -p \"require('./package.json').version\") next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",

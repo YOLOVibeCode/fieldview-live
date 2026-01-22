@@ -58,6 +58,7 @@ import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 import clipsRouter from './routes/clips.routes';
 import bookmarksRouter from './routes/bookmarks.routes';
 import recordingsRouter from './routes/recordings.routes';
+import versionRouter from './routes/version';
 
 // Initialize Sentry error tracking (optional, requires SENTRY_DSN env var)
 initSentry();
@@ -111,6 +112,7 @@ app.use(pinoHttp({ logger }));
 
 // Routes
 app.use('/', createHealthRouter());
+app.use('/api', versionRouter);
 app.use('/api/admin', createAdminRouter());
 app.use('/api/admin/coupons', createAdminCouponsRouter());
 app.use('/api/admin/platform', createAdminPlatformRouter());
