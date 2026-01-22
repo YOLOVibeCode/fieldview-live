@@ -288,6 +288,58 @@ router.post(
   }
 );
 
+// POST /api/direct/:slug/change-password - Change admin password (JWT protected)
+router.post(
+  '/:slug/change-password',
+  validateAdminToken, // Middleware validates JWT
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        if (!slug) {
+          return res.status(400).json({ error: 'Slug is required' });
+        }
+
+        // Validate request body
+        const schema = z.object({
+          newPassword: z.string().min(4, 'Password must be at least 4 characters'),
+        });
+        
+        const parsed = schema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ 
+            error: 'Invalid request', 
+            details: parsed.error.errors 
+          });
+        }
+
+        const { newPassword } = parsed.data;
+        const key = slug.toLowerCase();
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update the password
+        await prisma.directStream.update({
+          where: { slug: key },
+          data: { adminPassword: hashedPassword },
+        });
+
+        logger.info({ slug: key }, 'Admin password changed successfully');
+
+        return res.json({ 
+          success: true, 
+          message: 'Password changed successfully' 
+        });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to change password');
+        next(error);
+      }
+    })();
+  }
+);
+
 // POST /api/direct/:slug/settings - Update admin settings (JWT protected)
 router.post(
   '/:slug/settings',
