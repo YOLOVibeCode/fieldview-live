@@ -203,10 +203,18 @@ async function validateStartup(): Promise<void> {
     process.exit(1);
   }
 
-  // Test database connection before accepting requests
+  // Test database connection before accepting requests (with timeout)
   try {
-    await prisma.$connect();
-    await prisma.$queryRaw`SELECT 1`;
+    const dbTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database connection timeout (10s)')), 10000)
+    );
+    await Promise.race([
+      (async () => {
+        await prisma.$connect();
+        await prisma.$queryRaw`SELECT 1`;
+      })(),
+      dbTimeout,
+    ]);
     logger.info('Database connection verified at startup');
   } catch (error) {
     logger.error({ error }, 'Database connection failed at startup - server will not start');
@@ -216,7 +224,10 @@ async function validateStartup(): Promise<void> {
   // Test Redis connection (non-critical, warn only)
   if (process.env.REDIS_URL) {
     try {
-      await redisClient.ping();
+      const redisTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Redis connection timeout (5s)')), 5000)
+      );
+      await Promise.race([redisClient.ping(), redisTimeout]);
       logger.info('Redis connection verified at startup');
     } catch (error) {
       logger.warn({ error }, 'Redis connection failed at startup (non-critical, continuing)');
@@ -226,8 +237,12 @@ async function validateStartup(): Promise<void> {
   }
 }
 
-// Start server
-if (require.main === module) {
+// Start server - use multiple checks for module detection compatibility
+const isMainModule = require.main === module || 
+  process.argv[1]?.includes('server') ||
+  !process.env.VITEST;
+
+if (isMainModule) {
   // Validate startup before listening
   void validateStartup().then(() => {
     app.listen(PORT, () => {
