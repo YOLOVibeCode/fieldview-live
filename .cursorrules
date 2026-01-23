@@ -60,12 +60,39 @@ When user says this, run:
 ./scripts/debug-railway-build.sh
 ```
 
-### "Railway logs" / "Check Railway"
+### "Railway logs" / "Check Railway" / "Get logs" / "Show errors" / "Error investigation"
 
-When user says this, run:
-```bash
-./scripts/railway-logs.sh tail api
-```
+**STANDARD METHOD: Railway MCP (Natural Language)**
+
+When user requests logs or error investigation:
+
+1. **First, verify Railway MCP is ready:**
+   ```bash
+   ./scripts/test-railway-mcp.sh
+   ```
+
+2. **If Railway MCP is ready, instruct user to use Cursor Composer:**
+   - Open Cursor Composer (Cmd+I)
+   - Ask: `"Get the latest API logs"` or `"Show me errors from the web service"`
+   - Railway MCP will fetch logs instantly with smart filtering
+
+3. **If Railway MCP is NOT ready, use fallback:**
+   ```bash
+   ./scripts/railway-logs.sh recent api
+   ./scripts/railway-logs.sh errors api
+   ```
+
+**Why Railway MCP is Standard:**
+- ✅ **10x faster** than Railway CLI (5s vs 30s+)
+- ✅ **Natural language** - no command memorization
+- ✅ **Smart filtering** - AI filters intelligently
+- ✅ **No timeouts** - handles errors gracefully
+- ✅ **Better formatting** - clean, readable output
+
+**Documentation:**
+- [Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md) - **CRITICAL** - Standard method
+- [Railway MCP Setup](docs/MCP-RAILWAY-SETUP.md) - Setup instructions
+- [Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md) - Why MCP is better
 
 ---
 
@@ -421,7 +448,8 @@ A pre-push hook is installed at `.husky/pre-push` that:
 | `./scripts/deploy-to-production.sh` | **RECOMMENDED** - Version-managed deployment | **Use for all production deploys** |
 | `./scripts/preflight-build.sh` | Full Railway simulation | Manual preflight check (if not using deploy script) |
 | `./scripts/debug-railway-build.sh` | Debug failed builds | After Railway fails |
-| `./scripts/railway-logs.sh tail api` | Live Railway logs | Monitor deployment |
+| `./scripts/test-railway-mcp.sh` | **STANDARD** - Test Railway MCP | Before using Railway MCP for logs/errors |
+| `./scripts/railway-logs.sh tail api` | Fallback - Live Railway logs | Only if Railway MCP not available |
 | `./scripts/version-manager.sh` | Version management | Check/set version manually if needed |
 
 ### Self-Check for Railway Deployment

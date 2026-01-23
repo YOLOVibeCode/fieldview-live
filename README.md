@@ -59,8 +59,62 @@ To fully understand and work with this project, follow this systematic approach:
 **Quick Links:**
 - 📖 **[Documentation Index](docs/INDEX.md)** - Complete project documentation
 - 🔧 **[Scripts Index](scripts/INDEX.md)** - All available scripts and tools
+- 🔍 **[Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md)** - **CRITICAL** - Standard method for quick error access
+
+**🔍 Need to investigate errors?** → [Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md) ← **START HERE**
 
 <!-- AUTO-INDEX-SECTION -->
+
+## 🔍 Error Investigation & Logs (CRITICAL)
+
+### ⚡ **STANDARD METHOD: Railway MCP (Natural Language)**
+
+**For quick error investigation, use Railway MCP through Cursor Composer:**
+
+```bash
+# First, verify Railway MCP is ready:
+./scripts/test-railway-mcp.sh
+```
+
+**Then in Cursor Composer (Cmd+I), ask:**
+- `"Get the latest API logs"`
+- `"Show me errors from the web service"`
+- `"Get errors from the last hour"`
+- `"Show deployment status"`
+- `"Get the DATABASE_URL from production"`
+
+**Why Railway MCP?**
+- ✅ **Fast** - No waiting for slow CLI commands
+- ✅ **Natural Language** - Just describe what you need
+- ✅ **Smart Filtering** - AI filters logs intelligently
+- ✅ **Better Formatting** - Clean, readable output
+- ✅ **No Command Memorization** - Just ask
+
+**📖 [Railway MCP Setup Guide](docs/MCP-RAILWAY-SETUP.md)** - Complete setup instructions  
+**📖 [Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md)** - Why MCP is better  
+**📖 [Railway MCP Status](docs/RAILWAY-MCP-STATUS.md)** - Current status and troubleshooting
+
+### 🔄 Alternative: Railway CLI (If MCP Not Available)
+
+If Railway MCP isn't working, use the helper script:
+
+```bash
+# Get recent logs
+./scripts/railway-logs.sh recent api
+./scripts/railway-logs.sh recent web
+
+# Get only errors
+./scripts/railway-logs.sh errors api
+./scripts/railway-logs.sh errors web
+
+# Search logs
+./scripts/railway-logs.sh search api "unlock"
+./scripts/railway-logs.sh search web "error"
+```
+
+**⚠️ Note:** Railway CLI can be slow (10-30 seconds) and may timeout. Railway MCP is the preferred method.
+
+---
 
 ## 🚀 Deployment
 
@@ -151,8 +205,10 @@ The preflight build catches ALL of these locally **before** you push.
 # See all TypeScript errors
 pnpm --filter api type-check
 
-# Get Railway logs
-railway logs --service api | grep 'error'
+# Get Railway logs (RECOMMENDED: Use Railway MCP in Composer)
+# Or use helper script:
+./scripts/railway-logs.sh errors api
+./scripts/railway-logs.sh search api "error"
 ```
 
 ## Architecture
@@ -267,6 +323,12 @@ fieldview-live/
 - **External Services**: Twilio (SMS), SendGrid (Email), Square (Payments), Mux (Streaming)
 
 ## Documentation
+
+### 🔍 Error Investigation & Monitoring
+- **[Railway MCP Setup](docs/MCP-RAILWAY-SETUP.md)** - **STANDARD METHOD** for getting logs/errors quickly
+- **[Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md)** - Why Railway MCP is better than CLI
+- **[Railway MCP Status](docs/RAILWAY-MCP-STATUS.md)** - Current status and troubleshooting
+- **[Railway MCP Troubleshooting](docs/MCP-RAILWAY-TROUBLESHOOTING.md)** - Fix common issues
 
 ### 🚀 Deployment
 - **[Deployment Options](./DEPLOYMENT_OPTIONS.md)** - **SOURCE OF TRUTH** for all deployment methods
