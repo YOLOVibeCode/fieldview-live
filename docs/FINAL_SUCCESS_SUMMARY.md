@@ -84,7 +84,7 @@ $ curl https://api.fieldview.live/api/direct/tchs/bootstrap
 3. `COMPLETE_DEMO_TEST_REPORT.md` - Initial testing
 4. `SECOND_OPINION_REPORT.md` - Root cause analysis
 5. `PRODUCTION_FIX_SUCCESS_REPORT.md` - Success summary
-6. `DEPLOYMENT_SUMMARY_20260111.md` - Previous deployment
+6. Deployment docs: [DEPLOYMENT_OPTIONS.md](DEPLOYMENT_OPTIONS.md), [ERROR-INVESTIGATION-WORKFLOW.md](ERROR-INVESTIGATION-WORKFLOW.md)
 
 ### Modified Files:
 1. `scripts/seed-direct-streams.ts` - Added scoreboard defaults
@@ -162,7 +162,7 @@ All reports saved to project root:
 1. **COMPLETE_DEMO_TEST_REPORT.md** - Testing methodology
 2. **SECOND_OPINION_REPORT.md** - Root cause analysis
 3. **PRODUCTION_FIX_SUCCESS_REPORT.md** - Complete solution
-4. **DEPLOYMENT_SUMMARY_20260111.md** - Previous deployment
+4. **DEPLOYMENT_OPTIONS.md** / **ERROR-INVESTIGATION-WORKFLOW.md** - Deployment and triage
 
 ---
 

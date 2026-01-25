@@ -3,7 +3,10 @@
 ###############################################################################
 # Railway Logs Helper Script
 # 
+# ⚠️  MCP-FIRST ENFORCEMENT: This script requires Railway MCP verification
+# 
 # Easy access to Railway deployment logs with common filters
+# CLI access is BLOCKED if Railway MCP is available - use MCP via Composer instead
 #
 # Usage:
 #   ./railway-logs.sh [command] [service] [options]
@@ -27,6 +30,9 @@
 #   ./railway-logs.sh errors api               # API errors only
 #   ./railway-logs.sh search api "unlock"      # Search API logs
 #   ./railway-logs.sh export api logs.txt      # Export to file
+#
+# ⚠️  NOTE: If Railway MCP is available, this script will exit with an error.
+#    Use Railway MCP via Cursor Composer (Cmd+I) instead.
 ###############################################################################
 
 set -e
@@ -37,6 +43,31 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Enforce MCP-first: Check if Railway MCP is available
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/require-railway-mcp.sh" ]; then
+  source "$SCRIPT_DIR/require-railway-mcp.sh"
+  if ! require_railway_mcp >/dev/null 2>&1; then
+    echo -e "${RED}╔════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║                    ❌ CLI Access Blocked                              ║${NC}"
+    echo -e "${RED}╚════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${YELLOW}Railway MCP is available - CLI access is blocked.${NC}"
+    echo ""
+    echo -e "${BLUE}To use Railway logs:${NC}"
+    echo -e "  ${GREEN}1.${NC} Open Cursor Composer (${YELLOW}Cmd+I${NC})"
+    echo -e "  ${GREEN}2.${NC} Ask: ${YELLOW}\"Get Railway API logs\"${NC}"
+    echo -e "  ${GREEN}3.${NC} Or: ${YELLOW}\"Show me errors from the web service\"${NC}"
+    echo ""
+    echo -e "${BLUE}Why Railway MCP?${NC}"
+    echo -e "  ✅ ${GREEN}3-5x faster${NC} than CLI"
+    echo -e "  ✅ ${GREEN}Natural language${NC} - just ask"
+    echo -e "  ✅ ${GREEN}Smart filtering${NC} - AI filters intelligently"
+    echo ""
+    exit 1
+  fi
+fi
 
 # Default values
 COMMAND="${1:-tail}"

@@ -4,6 +4,12 @@
  * Main server setup with middleware and routes.
  */
 
+// Immediate startup logging (before any imports to catch early failures)
+console.log('[STARTUP] server.ts loading...');
+console.log('[STARTUP] NODE_ENV:', process.env.NODE_ENV);
+console.log('[STARTUP] RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
+console.log('[STARTUP] PORT:', process.env.PORT || '4301 (default)');
+
 import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
@@ -61,6 +67,8 @@ import bookmarksRouter from './routes/bookmarks.routes';
 import recordingsRouter from './routes/recordings.routes';
 import versionRouter from './routes/version';
 import { redisClient } from './lib/redis';
+
+console.log('[STARTUP] All imports loaded');
 
 // Initialize Sentry error tracking (optional, requires SENTRY_DSN env var)
 initSentry();
@@ -192,21 +200,24 @@ logger.info('Cron jobs initialized: stream reminders (every minute), auto-purge 
 import { initializeCleanupJobs } from './jobs/cleanup';
 initializeCleanupJobs();
 
-// Startup validation (fail fast if critical dependencies are unavailable)
-async function validateStartup(): Promise<void> {
-  // Validate required environment variables
-  const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
-  const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
+// Startup validation (non-blocking, graceful degradation)
+// Returns status instead of exiting - allows server to start even if dependencies are unavailable
+async function validateStartup(): Promise<{ database: boolean; redis: boolean; missingEnvVars: string[] }> {
+  console.log('[STARTUP] Starting dependency validation...');
+  const status = { database: false, redis: false, missingEnvVars: [] as string[] };
   
-  if (missingVars.length > 0) {
-    logger.error({ missing: missingVars }, 'Missing required environment variables');
-    process.exit(1);
+  // Validate required environment variables (non-blocking)
+  const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+  status.missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
+  
+  if (status.missingEnvVars.length > 0) {
+    logger.error({ missing: status.missingEnvVars }, 'Missing required environment variables - server will run in degraded mode');
   }
 
-  // Test database connection before accepting requests (with timeout)
+  // Test database connection (non-blocking, with timeout)
   try {
     const dbTimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database connection timeout (10s)')), 10000)
+      setTimeout(() => reject(new Error('Database connection timeout (5s)')), 5000)
     );
     await Promise.race([
       (async () => {
@@ -215,43 +226,78 @@ async function validateStartup(): Promise<void> {
       })(),
       dbTimeout,
     ]);
+    status.database = true;
     logger.info('Database connection verified at startup');
+    console.log('[STARTUP] Database: OK');
   } catch (error) {
-    logger.error({ error }, 'Database connection failed at startup - server will not start');
-    process.exit(1);
+    logger.error({ error }, 'Database connection failed at startup - continuing in degraded mode');
+    console.log('[STARTUP] Database: FAILED (degraded mode)');
   }
-
+  
   // Test Redis connection (non-critical, warn only)
   if (process.env.REDIS_URL) {
     try {
       const redisTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Redis connection timeout (5s)')), 5000)
+        setTimeout(() => reject(new Error('Redis connection timeout (3s)')), 3000)
       );
       await Promise.race([redisClient.ping(), redisTimeout]);
+      status.redis = true;
       logger.info('Redis connection verified at startup');
+      console.log('[STARTUP] Redis: OK');
     } catch (error) {
-      logger.warn({ error }, 'Redis connection failed at startup (non-critical, continuing)');
+      logger.warn({ error }, 'Redis connection failed at startup - rate limiting will be limited');
+      console.log('[STARTUP] Redis: FAILED (limited functionality)');
     }
   } else {
     logger.warn('REDIS_URL not set - rate limiting will use in-memory store');
+    console.log('[STARTUP] Redis: Not configured');
   }
+  
+  console.log('[STARTUP] Validation complete:', status);
+  return status;
 }
 
-// Start server - use multiple checks for module detection compatibility
-const isMainModule = require.main === module || 
-  process.argv[1]?.includes('server') ||
-  !process.env.VITEST;
+// Start server - simplified environment-based detection
+// Always start in production or non-test environments
+const shouldStartServer = process.env.NODE_ENV === 'production' || !process.env.VITEST;
 
-if (isMainModule) {
-  // Validate startup before listening
-  void validateStartup().then(() => {
-    app.listen(PORT, () => {
-      logger.info({ port: PORT }, 'API server started');
+if (shouldStartServer) {
+  console.log('[STARTUP] Starting HTTP server...');
+  
+  // Start HTTP server immediately (non-blocking)
+  // This ensures Railway's health check can succeed even if dependencies are still connecting
+  const server = app.listen(PORT, () => {
+    logger.info({ port: PORT }, 'API server started');
+    console.log(`[STARTUP] ✅ Server listening on port ${PORT}`);
+    
+    // Validate dependencies asynchronously after server is listening
+    // This allows health checks to pass while dependencies are being verified
+    void validateStartup().then((status) => {
+      if (status.missingEnvVars.length > 0) {
+        logger.warn({ missing: status.missingEnvVars }, 'Server running in degraded mode due to missing environment variables');
+      }
+      if (!status.database) {
+        logger.warn('Server running in degraded mode - database unavailable');
+      }
+      if (!status.redis && process.env.REDIS_URL) {
+        logger.warn('Server running in degraded mode - Redis unavailable');
+      }
+    }).catch((error) => {
+      logger.error({ error }, 'Startup validation failed - server running in degraded mode');
+      console.log('[STARTUP] ⚠️  Validation error (server continues):', error);
     });
-  }).catch((error) => {
-    logger.error({ error }, 'Startup validation failed');
-    process.exit(1);
   });
+  
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('[STARTUP] SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    });
+  });
+} else {
+  console.log('[STARTUP] Server startup skipped (test environment)');
 }
 
 export default app;

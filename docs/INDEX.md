@@ -368,10 +368,6 @@
 
 *321 words • Updated 1/12/2026*
 
-### [🔧 Railway Build Fixed!](RAILWAY_BUILD_FIXED.md)
-
-*368 words • Updated 1/12/2026*
-
 ### [🚂 Railway Configuration - Source of Truth](RAILWAY_CONFIG_SOURCE_OF_TRUTH.md)
 
 *841 words • Updated 1/12/2026*

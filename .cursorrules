@@ -62,36 +62,43 @@ When user says this, run:
 
 ### "Railway logs" / "Check Railway" / "Get logs" / "Show errors" / "Error investigation"
 
-**STANDARD METHOD: Railway MCP (Natural Language)**
+**STANDARD METHODS: Railway MCP + Browser MCP - MCP-FIRST ENFORCEMENT**
 
-When user requests logs or error investigation:
+⚠️ **CRITICAL: CLI access is BLOCKED if Railway MCP is available. Always use MCP first.**
 
-1. **First, verify Railway MCP is ready:**
+When user requests logs, error investigation, or deployment status:
+
+1. **MANDATORY: Verify Railway MCP is ready:**
    ```bash
    ./scripts/test-railway-mcp.sh
    ```
 
-2. **If Railway MCP is ready, instruct user to use Cursor Composer:**
+2. **If Railway MCP is ready (MOST COMMON):**
+   - ✅ **REQUIRED:** Instruct user to use Cursor Composer
    - Open Cursor Composer (Cmd+I)
-   - Ask: `"Get the latest API logs"` or `"Show me errors from the web service"`
+   - **Railway MCP:** Ask: `"Get the latest API logs"` or `"Show me errors from the web service"`
+   - **Browser MCP:** Ask: `"Navigate to Railway dashboard and show deployment status"` or `"Go to https://fieldview.live and verify it's working"`
    - Railway MCP will fetch logs instantly with smart filtering
+   - Browser MCP will provide visual verification
+   - ❌ **DO NOT** use CLI commands if MCP is available
 
-3. **If Railway MCP is NOT ready, use fallback:**
+3. **If Railway MCP is NOT ready (FALLBACK ONLY):**
+   - Only then allow CLI fallback:
    ```bash
    ./scripts/railway-logs.sh recent api
    ./scripts/railway-logs.sh errors api
    ```
+   - But first help user fix Railway MCP configuration
 
-**Why Railway MCP is Standard:**
-- ✅ **10x faster** than Railway CLI (5s vs 30s+)
-- ✅ **Natural language** - no command memorization
-- ✅ **Smart filtering** - AI filters intelligently
-- ✅ **No timeouts** - handles errors gracefully
-- ✅ **Better formatting** - clean, readable output
+**Why Railway MCP + Browser MCP:**
+- ✅ **Railway MCP:** 10x faster than CLI (5s vs 30s+), natural language, smart filtering
+- ✅ **Browser MCP:** Visual verification, production site checking, screenshot capability
+- ✅ **Combined:** Complete debugging solution (infrastructure + visual)
 
 **Documentation:**
 - [Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md) - **CRITICAL** - Standard method
-- [Railway MCP Setup](docs/MCP-RAILWAY-SETUP.md) - Setup instructions
+- [Railway MCP Setup](docs/MCP-RAILWAY-SETUP.md) - Infrastructure MCP setup
+- [Browser MCP Setup](docs/BROWSER-MCP-SETUP.md) - Visual verification MCP setup
 - [Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md) - Why MCP is better
 
 ---
@@ -449,6 +456,11 @@ A pre-push hook is installed at `.husky/pre-push` that:
 | `./scripts/preflight-build.sh` | Full Railway simulation | Manual preflight check (if not using deploy script) |
 | `./scripts/debug-railway-build.sh` | Debug failed builds | After Railway fails |
 | `./scripts/test-railway-mcp.sh` | **STANDARD** - Test Railway MCP | Before using Railway MCP for logs/errors |
+| `./scripts/monitor-deployments-realtime.sh both` | **STANDARD** - Monitor deployments | Real-time API + Web monitoring during install/startup |
+| `./scripts/debug-railway-logs.sh api --follow` | **STANDARD** - Real-time streaming | For immediate debugging (opens in lnav) |
+| `./scripts/debug-railway-logs.sh api 1000` | **STANDARD** - Recent logs analysis | For analyzing past events (MCP + SQL queries) |
+| `./scripts/cleanup-stale-logs.sh` | **STANDARD** - Cleanup old logs | Weekly maintenance (keeps last 7 days) |
+| `./scripts/install-lnav.sh` | Install lnav (one-time) | Before using debug-railway-logs.sh |
 | `./scripts/railway-logs.sh tail api` | Fallback - Live Railway logs | Only if Railway MCP not available |
 | `./scripts/version-manager.sh` | Version management | Check/set version manually if needed |
 

@@ -67,21 +67,30 @@ To fully understand and work with this project, follow this systematic approach:
 
 ## 🔍 Error Investigation & Logs (CRITICAL)
 
-### ⚡ **STANDARD METHOD: Railway MCP (Natural Language)**
+### ⚡ **STANDARD METHODS: Railway MCP + Browser MCP - MCP-FIRST ENFORCEMENT**
 
-**For quick error investigation, use Railway MCP through Cursor Composer:**
+⚠️ **CRITICAL: CLI access is BLOCKED if Railway MCP is available. Always use MCP first.**
+
+**For quick error investigation and visual verification:**
 
 ```bash
 # First, verify Railway MCP is ready:
 ./scripts/test-railway-mcp.sh
 ```
 
-**Then in Cursor Composer (Cmd+I), ask:**
+**Then in Cursor Composer (Cmd+I), use both:**
+
+**Railway MCP (Infrastructure):**
 - `"Get the latest API logs"`
 - `"Show me errors from the web service"`
 - `"Get errors from the last hour"`
 - `"Show deployment status"`
 - `"Get the DATABASE_URL from production"`
+
+**Browser MCP (Visual Verification):**
+- `"Navigate to https://railway.app and show deployment status"`
+- `"Go to https://fieldview.live and verify it's working"`
+- `"Check https://api.fieldview.live/health and show response"`
 
 **Why Railway MCP?**
 - ✅ **Fast** - No waiting for slow CLI commands
@@ -92,27 +101,70 @@ To fully understand and work with this project, follow this systematic approach:
 
 **📖 [Railway MCP Setup Guide](docs/MCP-RAILWAY-SETUP.md)** - Complete setup instructions  
 **📖 [Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md)** - Why MCP is better  
-**📖 [Railway MCP Status](docs/RAILWAY-MCP-STATUS.md)** - Current status and troubleshooting
+**📖 [Railway MCP Status](docs/RAILWAY-MCP-STATUS.md)** - Current status and troubleshooting  
+**📖 [Browser MCP Setup](docs/BROWSER-MCP-SETUP.md)** - Visual verification guide
 
-### 🔄 Alternative: Railway CLI (If MCP Not Available)
+### 🔍 **STANDARD: Real-Time Railway Logs Debugging (Searchable & Indexed)**
 
-If Railway MCP isn't working, use the helper script:
+**For immediate, real-time debugging with powerful analysis:**
 
 ```bash
-# Get recent logs
+# Install lnav (one-time)
+./scripts/install-lnav.sh
+
+# Real-time streaming (STANDARD METHOD)
+./scripts/debug-railway-logs.sh api --follow           # Stream in real-time (opens in lnav)
+
+# Monitor deployments in real-time (API + Web)
+./scripts/monitor-deployments-realtime.sh both         # Monitor both services simultaneously
+
+# Download recent logs for analysis
+./scripts/debug-railway-logs.sh api 1000               # Get 1000 lines
+./scripts/debug-railway-logs.sh api 500 --errors-only  # Errors only
+./scripts/debug-railway-logs.sh api 5000 --deployments # Track deployments
+
+# Cleanup stale logs (keep last 7 days)
+./scripts/cleanup-stale-logs.sh
+```
+
+**Features:**
+- ✅ **Real-time streaming** - `--follow` for immediate logs
+- ✅ **Fast downloads** - Railway MCP (3-5s) or CLI fallback
+- ✅ **SQL queries** - `SELECT * FROM log WHERE log_body LIKE '%error%'`
+- ✅ **Regex search** - `/error|ERROR|fail/`
+- ✅ **Automatic indexing** - Timestamps parsed, searchable
+- ✅ **Filtering** - `:filter-in error` to show only errors
+- ✅ **Automatic cleanup** - Removes logs older than 7 days
+
+**📖 [Debug Railway Logs Guide](docs/DEBUG-RAILWAY-LOGS-GUIDE.md)** - Log download and real-time streaming  
+**📖 [Debug Railway Logs Guide](docs/DEBUG-RAILWAY-LOGS-GUIDE.md)** - Complete debugging guide  
+**📖 [Deployment Tracking](docs/DEPLOYMENT-TRACKING-LNAV.md)** - Track deployments  
+**📖 [Browser MCP Setup](docs/BROWSER-MCP-SETUP.md)** - Visual verification guide
+
+### 🔄 Fallback: Railway CLI (ONLY if MCP Not Available)
+
+⚠️ **CLI scripts are BLOCKED if Railway MCP is configured. Use MCP via Composer instead.**
+
+If Railway MCP is not configured, CLI scripts may be used:
+
+```bash
+# Get recent logs (ONLY if MCP unavailable)
 ./scripts/railway-logs.sh recent api
 ./scripts/railway-logs.sh recent web
 
-# Get only errors
+# Get only errors (ONLY if MCP unavailable)
 ./scripts/railway-logs.sh errors api
 ./scripts/railway-logs.sh errors web
 
-# Search logs
+# Search logs (ONLY if MCP unavailable)
 ./scripts/railway-logs.sh search api "unlock"
 ./scripts/railway-logs.sh search web "error"
 ```
 
-**⚠️ Note:** Railway CLI can be slow (10-30 seconds) and may timeout. Railway MCP is the preferred method.
+**⚠️ Note:** 
+- Railway CLI is slow (10-30 seconds) and may timeout
+- **CLI access is automatically blocked if Railway MCP is available**
+- If you see "CLI access blocked", use Railway MCP via Composer instead
 
 ---
 

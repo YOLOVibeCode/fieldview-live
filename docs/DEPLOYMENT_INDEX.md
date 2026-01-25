@@ -1,26 +1,24 @@
 # Deployment Documentation Index
 
-**Primary Documentation (Use These):**
-- ✅ `DEPLOYMENT_OPTIONS.md` - **SOURCE OF TRUTH** for all deployment methods
-- ✅ `DEPLOY_TO_RAILWAY.md` - First-time Railway setup guide
-- ✅ `ENV_SETUP_GUIDE.md` - Environment variable configuration
+**Single source of truth for deployment and triage.**
 
-**Archived (Historical Reference):**
-- 📦 `DEPLOYMENT_GUIDE.md` - Old detailed guide (superseded by DEPLOYMENT_OPTIONS.md)
-- 📦 `DEPLOYMENT_SUMMARY.md` - Old summary (superseded by DEPLOYMENT_OPTIONS.md)
-- 📦 `START_HERE.md` - Old quick start (superseded by DEPLOYMENT_OPTIONS.md)
-- 📦 `YOUR_DEPLOYMENT_STEPS.md` - Old steps (superseded by DEPLOYMENT_OPTIONS.md)
-- 📦 `RAILWAY-DEPLOYMENT-INSTRUCTIONS.md` - Old instructions (superseded by DEPLOYMENT_OPTIONS.md)
-- 📦 `PRODUCTION_READINESS_CHECKLIST.md` - Old checklist (superseded by DEPLOYMENT_OPTIONS.md)
-- 📦 `PRODUCTION_READINESS_SUMMARY.md` - Old summary (superseded by DEPLOYMENT_OPTIONS.md)
+**Triage & Logs (start here when something’s wrong):**
+- ✅ [ERROR-INVESTIGATION-WORKFLOW.md](ERROR-INVESTIGATION-WORKFLOW.md) – **START HERE** for deployment/error triage (MCP, Browser MCP, scripts)
+- ✅ [DEBUG-QUICK-REFERENCE.md](DEBUG-QUICK-REFERENCE.md) – Commands and lnav cheat sheet
+- ✅ [DEPLOYMENT-MONITORING-REALTIME.md](DEPLOYMENT-MONITORING-REALTIME.md) – Real-time API/Web monitoring
+- ✅ [MONITORING-DISTRIBUTION-FLOW.md](MONITORING-DISTRIBUTION-FLOW.md) – How logs/status reach you
+- ✅ [DEBUG-RAILWAY-LOGS-GUIDE.md](DEBUG-RAILWAY-LOGS-GUIDE.md) – Log download and analysis
 
-**Keep As-Is (Specific Contexts):**
-- ✅ `RAILWAY-DEPLOYMENT-INSTRUCTIONS.md` - Marketplace-specific deployment notes
-- ✅ `PRODUCTION_FIXES_COMPLETED.md` - Historical record of fixes
-- ✅ `READY-TO-RUN.md` - Local development readiness check
+**Deploy (how to ship):**
+- ✅ [DEPLOYMENT_OPTIONS.md](DEPLOYMENT_OPTIONS.md) – **SOURCE OF TRUTH** for all deployment methods
+- ✅ [DEPLOY_TO_RAILWAY.md](DEPLOY_TO_RAILWAY.md) – First-time Railway setup
+- ✅ [ENV_SETUP_GUIDE.md](ENV_SETUP_GUIDE.md) – Environment variables
+- ✅ [RAILWAY_DEPLOYMENT_CHECKLIST.md](RAILWAY_DEPLOYMENT_CHECKLIST.md) – Pre/post deploy checklist
+- ✅ [RAILWAY_CONFIG_SOURCE_OF_TRUTH.md](RAILWAY_CONFIG_SOURCE_OF_TRUTH.md) – Config reference
+- ✅ [RAILWAY-DEPLOYMENT-INSTRUCTIONS.md](RAILWAY-DEPLOYMENT-INSTRUCTIONS.md) – Marketplace-specific
 
-**Recommendation:**
-Move archived docs to `docs/archive/deployment-v1/` to reduce confusion.
+**Other:**
+- ✅ [READY-TO-RUN.md](READY-TO-RUN.md) – Local development readiness
 
 ---
 

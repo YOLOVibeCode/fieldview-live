@@ -125,7 +125,7 @@ apps/web/components/DirectStreamPageBase.tsx
 ## Related Files
 
 - Previous fix: `STREAM_FIX_REPORT_JAN16_2026.md` (fixed streamUrl typo)
-- Deployment doc: `DEPLOYMENT_SUCCESS_JAN16_2026.md`
+- Deployment: see [Error Investigation Workflow](ERROR-INVESTIGATION-WORKFLOW.md) and [Deployment Options](DEPLOYMENT_OPTIONS.md)
 
 ---
 

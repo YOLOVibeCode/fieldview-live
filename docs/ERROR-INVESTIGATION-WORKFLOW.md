@@ -5,9 +5,13 @@
 
 ---
 
-## 🎯 Standard Method: Railway MCP (Natural Language)
+## 🎯 Standard Methods: Railway MCP + Browser MCP
 
 **This is the PRIMARY method for error investigation.**
+
+### Method 1: Railway MCP (Infrastructure)
+
+**For logs, deployment status, and infrastructure:**
 
 ### Step 1: Verify Railway MCP is Ready
 
@@ -57,6 +61,43 @@ Use natural language to get exactly what you need:
 "Get the DATABASE_URL from production"
 "Show me all environment variables for API"
 ```
+
+---
+
+### Method 2: Browser MCP (Visual Verification)
+
+**For visual verification and production site checking:**
+
+**In Cursor Composer (Cmd+I), ask:**
+
+**Check Deployment Status:**
+```
+Navigate to https://railway.app and show me the deployment status for fieldview-live project
+```
+
+**Verify Production Site:**
+```
+Go to https://fieldview.live and verify the homepage loads correctly
+```
+
+**Check API Health:**
+```
+Navigate to https://api.fieldview.live/health and show me the response
+```
+
+**Test Direct Stream:**
+```
+Go to https://fieldview.live/direct/tchs/soccer-20260122-jv2 and verify it loads
+```
+
+**What Browser MCP does:**
+- ✅ Navigates to URLs
+- ✅ Takes screenshots
+- ✅ Checks page status
+- ✅ Verifies UI elements
+- ✅ Reports errors visually
+
+**📖 [Browser MCP Setup](BROWSER-MCP-SETUP.md)** - Complete Browser MCP guide
 
 ---
 
