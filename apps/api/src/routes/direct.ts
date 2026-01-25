@@ -9,9 +9,7 @@ import { validateAdminToken } from '../middleware/admin-jwt';
 import { 
   SavePaymentMethodSchema, 
   GetPaymentMethodsQuerySchema,
-  DirectStreamCheckoutSchema,
-  DirectStreamSettingsUpdateSchema,
-  getStreamStatus 
+  DirectStreamCheckoutSchema  // 🆕
 } from '@fieldview/data-model';
 // 🆕 Payment service dependencies
 import { PaymentService } from '../services/PaymentService';
@@ -162,41 +160,7 @@ router.get(
           });
         }
 
-        // ISP: Segregate page config from stream config
-        const pageConfig = {
-          slug: directStream.slug,
-          title: directStream.title,
-          gameId: directStream.gameId,
-          chatEnabled: directStream.chatEnabled,
-          scoreboardEnabled: directStream.scoreboardEnabled,
-          paywallEnabled: directStream.paywallEnabled,
-          priceInCents: directStream.priceInCents,
-          paywallMessage: directStream.paywallMessage,
-          allowSavePayment: directStream.allowSavePayment,
-          scoreboardHomeTeam: directStream.scoreboardHomeTeam,
-          scoreboardAwayTeam: directStream.scoreboardAwayTeam,
-          scoreboardHomeColor: directStream.scoreboardHomeColor,
-          scoreboardAwayColor: directStream.scoreboardAwayColor,
-          allowViewerScoreEdit: directStream.allowViewerScoreEdit,
-          allowViewerNameEdit: directStream.allowViewerNameEdit,
-        };
-
-        // Get stream status (null if not configured)
-        // Defensive: wrap in try-catch to prevent crashes
-        let streamConfig = null;
-        try {
-          streamConfig = getStreamStatus(directStream.streamUrl);
-        } catch (error) {
-          logger.error({ error, streamUrl: directStream.streamUrl }, 'getStreamStatus failed, returning null');
-          streamConfig = null;
-        }
-
         return res.json({
-          // ISP: New decoupled structure
-          page: pageConfig,
-          stream: streamConfig,
-          
-          // Backward compatibility: flat fields for old clients
           slug: directStream.slug,
           gameId: directStream.gameId,
           streamUrl: directStream.streamUrl,
@@ -211,6 +175,7 @@ router.get(
           scoreboardAwayTeam: directStream.scoreboardAwayTeam,
           scoreboardHomeColor: directStream.scoreboardHomeColor,
           scoreboardAwayColor: directStream.scoreboardAwayColor,
+          // 🆕 Viewer editing permissions
           allowViewerScoreEdit: directStream.allowViewerScoreEdit,
           allowViewerNameEdit: directStream.allowViewerNameEdit,
         });
@@ -288,58 +253,6 @@ router.post(
   }
 );
 
-// POST /api/direct/:slug/change-password - Change admin password (JWT protected)
-router.post(
-  '/:slug/change-password',
-  validateAdminToken, // Middleware validates JWT
-  (req: Request, res: Response, next: NextFunction) => {
-    void (async () => {
-      try {
-        const { slug } = req.params;
-        
-        if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
-        }
-
-        // Validate request body
-        const schema = z.object({
-          newPassword: z.string().min(4, 'Password must be at least 4 characters'),
-        });
-        
-        const parsed = schema.safeParse(req.body);
-        if (!parsed.success) {
-          return res.status(400).json({ 
-            error: 'Invalid request', 
-            details: parsed.error.errors 
-          });
-        }
-
-        const { newPassword } = parsed.data;
-        const key = slug.toLowerCase();
-
-        // Hash the new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Update the password
-        await prisma.directStream.update({
-          where: { slug: key },
-          data: { adminPassword: hashedPassword },
-        });
-
-        logger.info({ slug: key }, 'Admin password changed successfully');
-
-        return res.json({ 
-          success: true, 
-          message: 'Password changed successfully' 
-        });
-      } catch (error) {
-        logger.error({ error, slug: req.params.slug }, 'Failed to change password');
-        next(error);
-      }
-    })();
-  }
-);
-
 // POST /api/direct/:slug/settings - Update admin settings (JWT protected)
 router.post(
   '/:slug/settings',
@@ -353,10 +266,26 @@ router.post(
           return res.status(400).json({ error: 'Slug is required' });
         }
 
-        // ISP: Use decoupled settings schema
-        const parsed = DirectStreamSettingsUpdateSchema.safeParse(req.body);
+        // Validate request body (password no longer required)
+        const schema = z.object({
+          streamUrl: z.string().url().optional().nullable(),
+          chatEnabled: z.boolean().optional(),
+          paywallEnabled: z.boolean().optional(),
+          priceInCents: z.number().int().min(0).max(99999).optional(),
+          paywallMessage: z.string().max(1000).optional().nullable(),
+          allowSavePayment: z.boolean().optional(),
+          scoreboardEnabled: z.boolean().optional(),
+          scoreboardHomeTeam: z.string().max(50).optional().nullable(),
+          scoreboardAwayTeam: z.string().max(50).optional().nullable(),
+          scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+          scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+          // 🆕 Viewer editing permissions
+          allowViewerScoreEdit: z.boolean().optional(),
+          allowViewerNameEdit: z.boolean().optional(),
+        });
+        
+        const parsed = schema.safeParse(req.body);
         if (!parsed.success) {
-          logger.warn({ errors: parsed.error.errors, body: req.body }, 'Settings validation failed');
           return res.status(400).json({ 
             error: 'Invalid request', 
             details: parsed.error.errors 
@@ -365,8 +294,6 @@ router.post(
 
         const body = parsed.data;
         const key = slug.toLowerCase();
-        
-        logger.info({ slug, body }, 'Settings update request validated');
 
         // Find existing DirectStream
         const existingStream = await prisma.directStream.findUnique({
@@ -380,24 +307,8 @@ router.post(
         // Build update data (ISP: only update provided fields)
         const updateData: any = {};
         
-        // Fault-tolerant stream URL validation
         if (body.streamUrl !== undefined) {
-          if (body.streamUrl === null || body.streamUrl === '') {
-            // Allow clearing stream URL
-            updateData.streamUrl = null;
-            logger.info({ slug }, 'Stream URL cleared by admin');
-          } else {
-            // Validate URL format (non-blocking)
-            try {
-              new URL(body.streamUrl);
-              updateData.streamUrl = body.streamUrl;
-              logger.info({ slug, streamUrl: body.streamUrl }, 'Stream URL updated');
-            } catch {
-              // Invalid URL: log warning but don't fail entire update
-              logger.warn({ slug, streamUrl: body.streamUrl }, 'Invalid stream URL format, skipping URL update');
-              // Don't add to updateData - other settings will still save
-            }
-          }
+          updateData.streamUrl = body.streamUrl;
         }
         if (body.paywallEnabled !== undefined) {
           updateData.paywallEnabled = body.paywallEnabled;
@@ -438,14 +349,12 @@ router.post(
         }
 
         // Update in database
-        logger.info({ slug, updateData }, 'About to update database');
-        
         const updated = await prisma.directStream.update({
           where: { slug: key },
           data: updateData,
         });
 
-        logger.info({ slug, updates: Object.keys(updateData) }, 'Direct stream settings updated successfully');
+        logger.info({ slug, updates: Object.keys(updateData) }, 'Direct stream settings updated');
 
         return res.json({
           success: true,
@@ -470,12 +379,7 @@ router.post(
         if (error instanceof z.ZodError) {
           return res.status(400).json({ error: 'Invalid request', details: error.errors });
         }
-        logger.error({ 
-          error, 
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-          slug: req.params.slug 
-        }, 'Failed to update settings');
+        logger.error({ error, slug: req.params.slug }, 'Failed to update settings');
         next(error);
       }
     })();

@@ -19,7 +19,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 interface ChatDebugPanelProps {
   bootstrap: {
     slug?: string;
-    gameId?: string;
+    gameId?: string | null;
     chatEnabled?: boolean;
     title?: string;
     paywallEnabled?: boolean;
@@ -281,11 +281,9 @@ export function ChatDebugPanel({ bootstrap, viewer, chat, effectiveGameId }: Cha
                         <StatusIcon status={check.status} />
                         <span className="text-white">{check.name}</span>
                       </div>
-                      {check.response && (
+                      {check.response !== undefined && (
                         <pre className="mt-1 text-[10px] text-gray-400 overflow-x-auto">
-                          {typeof check.response === 'object' 
-                            ? JSON.stringify(check.response, null, 2) 
-                            : String(check.response)}
+                          {JSON.stringify(check.response, null, 2)}
                         </pre>
                       )}
                       {check.error && (

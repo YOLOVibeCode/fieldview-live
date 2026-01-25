@@ -15,9 +15,9 @@
  * - Configurable theming and branding
  */
 
-import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
 import Hls from 'hls.js';
-import { MessageCircle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useGameChat } from '@/hooks/useGameChat';
 import { useGameChatV2 } from '@/hooks/useGameChatV2';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
@@ -28,31 +28,22 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
-import type { 
-  DirectStreamBootstrapResponse,
-  DirectStreamStreamConfig 
-} from '@/lib/types/directStream';
-import { getStreamStatusMessage, isStreamPlayable } from '@/lib/types/directStream';
 // Legacy components (needed for Admin Panel)
 import { AdminPanel } from '@/components/AdminPanel';
 import { SocialProducerPanel } from '@/components/SocialProducerPanel';
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
-import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
+import { VideoPlayer, VideoControls } from '@/components/v2/video';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
 import { Scoreboard } from '@/components/v2/scoreboard';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
-import { TouchButton, Badge, BottomSheet } from '@/components/v2/primitives';
+import { TouchButton, Badge } from '@/components/v2/primitives';
 import { useResponsive } from '@/hooks/v2/useResponsive';
-// Debug components
+// Debug component
 import { ChatDebugPanel } from '@/components/ChatDebugPanel';
-import { ConnectionDebugPanel } from '@/components/debug/ConnectionDebugPanel';
-import { useStreamDebug } from '@/hooks/useStreamDebug';
-import { useApiHealth } from '@/hooks/useApiHealth';
-import { initDebugTools } from '@/lib/debug/init';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -173,15 +164,14 @@ interface DirectStreamPageBaseProps {
 }
 
 export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [streamConfig, setStreamConfig] = useState<DirectStreamStreamConfig | null>(null);
-  const [streamMessage, setStreamMessage] = useState<string>('');
+  const [pendingStreamUrl, setPendingStreamUrl] = useState<string | null>(null);
+  const [videoMounted, setVideoMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
-  const [message, setMessage] = useState('');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
   const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(false);
@@ -197,6 +187,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Callback ref to detect when video element mounts
+  const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node) {
+      console.log('[DirectStream] 📹 Video element mounted');
+      setVideoMounted(true);
+    } else {
+      setVideoMounted(false);
+    }
+  }, []);
+
   // Fullscreen hook (v2)
   const { isFullscreen, toggleFullscreen: toggleFullscreenV2, isSupported: isFullscreenSupported } = useFullscreen(containerRef.current);
 
@@ -205,57 +206,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Paywall hook - manages paywall state based on bootstrap
   const paywall = usePaywall({
-    slug: bootstrap?.slug || config.slug || '',
+    slug: bootstrap?.slug || '',
     enabled: false, // We use bootstrap data directly, not API fetch
     demoMode: false,
   });
-
-  // Debug hooks
-  const streamDebug = useStreamDebug(hlsRef.current, videoRef.current, streamConfig?.url || null);
-  const apiHealth = useApiHealth(bootstrap?.slug || null);
-  
-  // Initialize debug tools on mount
-  useEffect(() => {
-    initDebugTools();
-  }, []);
-
-  // Track metrics
-  const [metrics, setMetrics] = useState({
-    pageLoadTime: typeof window !== 'undefined' ? performance.now() : 0,
-    bootstrapFetchTime: undefined as number | undefined,
-    streamConnectTime: undefined as number | undefined,
-    chatConnectTime: undefined as number | undefined,
-    totalActiveTime: 0,
-    timestamp: new Date(),
-  });
-
-  // Track bootstrap fetch time
-  useEffect(() => {
-    if (bootstrap) {
-      const fetchTime = performance.now() - metrics.pageLoadTime;
-      setMetrics(prev => ({ ...prev, bootstrapFetchTime: fetchTime }));
-    }
-  }, [bootstrap]);
-
-  // Track stream connect time
-  useEffect(() => {
-    if (status === 'playing' && !metrics.streamConnectTime) {
-      const connectTime = performance.now() - metrics.pageLoadTime;
-      setMetrics(prev => ({ ...prev, streamConnectTime: connectTime }));
-    }
-  }, [status]);
-
-  // Update total active time
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMetrics(prev => ({
-        ...prev,
-        totalActiveTime: performance.now() - prev.pageLoadTime,
-        timestamp: new Date(),
-      }));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Track if paywall check is complete
   const [paywallChecked, setPaywallChecked] = useState(false);
@@ -326,54 +280,26 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         }
         return res.json();
       })
-      .then((data: DirectStreamBootstrapResponse | null) => {
+      .then((data: Bootstrap | null) => {
         if (!data) {
           console.log('[DirectStream] No bootstrap data returned');
           return;
         }
         
         console.log('[DirectStream] ✅ Bootstrap loaded:', {
-          slug: data.page?.slug || data.slug,
-          streamStatus: data.stream?.status || 'not configured',
-          streamUrl: data.stream?.url || null,
-          title: data.page?.title || data.title,
-          paywallEnabled: data.page?.paywallEnabled || data.paywallEnabled,
-          chatEnabled: data.page?.chatEnabled || data.chatEnabled,
-          scoreboardEnabled: data.page?.scoreboardEnabled || data.scoreboardEnabled
+          slug: data.slug,
+          streamUrl: data.streamUrl,
+          title: data.title,
+          paywallEnabled: data.paywallEnabled,
+          chatEnabled: data.chatEnabled,
+          scoreboardEnabled: data.scoreboardEnabled
         });
         
-        // ISP: Extract page config and stream config
-        const pageConfig = data.page || data;  // Backward compatibility
-        const stream = data.stream || null;
-        
-        // Store page config (with backward compatibility for flat structure)
-        const bootstrapData: Bootstrap = {
-          slug: pageConfig.slug,
-          title: pageConfig.title,
-          gameId: pageConfig.gameId,
-          streamUrl: stream?.url || null,
-          chatEnabled: pageConfig.chatEnabled,
-          scoreboardEnabled: pageConfig.scoreboardEnabled,
-          paywallEnabled: pageConfig.paywallEnabled,
-          priceInCents: pageConfig.priceInCents,
-          paywallMessage: pageConfig.paywallMessage,
-          allowSavePayment: pageConfig.allowSavePayment,
-          scoreboardHomeTeam: pageConfig.scoreboardHomeTeam,
-          scoreboardAwayTeam: pageConfig.scoreboardAwayTeam,
-          scoreboardHomeColor: pageConfig.scoreboardHomeColor,
-          scoreboardAwayColor: pageConfig.scoreboardAwayColor,
-          allowViewerScoreEdit: pageConfig.allowViewerScoreEdit,
-          allowViewerNameEdit: pageConfig.allowViewerNameEdit,
-        };
-        
-        setBootstrap(bootstrapData);
-        setStreamConfig(stream);
-        setStreamMessage(getStreamStatusMessage(stream));
-        
-        config.onBootstrapLoaded?.(bootstrapData);
+        setBootstrap(data);
+        config.onBootstrapLoaded?.(data);
         
         // Check paywall status before initializing player
-        if (pageConfig.paywallEnabled) {
+        if (data.paywallEnabled) {
           // Check if user has already paid (localStorage)
           const storageKey = `paywall_${data.slug}`;
           const stored = localStorage.getItem(storageKey);
@@ -385,7 +311,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             // CRITICAL SECURITY: Verify with server before granting access
             // Get viewer identity from global auth or local viewer state
             const viewerId = globalAuth.viewerIdentityId || viewer.viewerId;
-            const email = globalAuth.viewerEmail || viewer.email;
+            const email = globalAuth.viewerEmail;
             
             // Build query params
             const params = new URLSearchParams();
@@ -393,8 +319,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             else if (email) params.append('email', email);
             
             // Verify access with server
-            const verifySlug = (pageConfig as any).slug || data.slug;
-            fetch(`${API_URL}/api/direct/${verifySlug}/verify-access?${params.toString()}`)
+            fetch(`${API_URL}/api/direct/${data.slug}/verify-access?${params.toString()}`)
               .then(res => res.json())
               .then(verifyResult => {
                 if (verifyResult.hasAccess) {
@@ -404,13 +329,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     console.log('[DirectStream] 🎫 Entitlement expires:', verifyResult.entitlement.expiresAt);
                   }
                   setPaywallChecked(true);
-                  
-                  // ISP: Check if stream is playable
-                  if (stream && isStreamPlayable(stream)) {
-                    console.log('[DirectStream] ▶️ Stream is playable, initializing player');
-                    initPlayer(stream.url!);
+                  if (data.streamUrl) {
+                    initPlayer(data.streamUrl);
                   } else {
-                    console.warn('[DirectStream] ⚠️ Stream not playable:', stream?.status || 'not configured');
                     setStatus('offline');
                   }
                 } else {
@@ -441,23 +362,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         } else {
           // No paywall - proceed normally
           setPaywallChecked(true);
-          
-          // ISP: Check if stream is playable
-          if (stream && isStreamPlayable(stream)) {
-            console.log('[DirectStream] ▶️ Stream is live, initializing player');
-            initPlayer(stream.url!);
-          } else if (stream?.status === 'offline') {
-            console.log('[DirectStream] 📡 Stream is offline');
-            setStatus('offline');
-          } else if (stream?.status === 'scheduled') {
-            console.log('[DirectStream] ⏰ Stream is scheduled');
-            setStatus('offline');
-          } else if (stream?.status === 'error') {
-            console.log('[DirectStream] ❌ Stream error:', stream.errorMessage);
-            setStatus('error');
+          if (data.streamUrl) {
+            console.log('[DirectStream] ▶️ Initializing player with streamUrl');
+            initPlayer(data.streamUrl);
           } else {
-            // No stream configured
-            console.log('[DirectStream] 🔧 No stream configured');
+            console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
             setStatus('offline');
           }
         }
@@ -601,14 +510,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     currentUserId: viewer.token || undefined,
   });
 
-  // Track chat connect time (must be after chat hook declaration)
-  useEffect(() => {
-    if (chat.isConnected && !metrics.chatConnectTime) {
-      const connectTime = performance.now() - metrics.pageLoadTime;
-      setMetrics(prev => ({ ...prev, chatConnectTime: connectTime }));
-    }
-  }, [chat.isConnected, metrics.chatConnectTime, metrics.pageLoadTime]);
-
   // v2 Scoreboard hook (data fetching for v2 Scoreboard component)
   const scoreboardData = useScoreboardData({
     slug: bootstrap?.slug || null,
@@ -621,14 +522,43 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     config.onStreamStatusChange?.(status);
   }, [status, config]);
 
+  // Initialize player when pending URL is set and video element is mounted
+  useEffect(() => {
+    if (pendingStreamUrl && videoMounted && videoRef.current) {
+      console.log('[DirectStream] 🔄 Video element mounted, initializing deferred player');
+      const url = pendingStreamUrl;
+      setPendingStreamUrl(null); // Clear pending to avoid re-triggering
+      initPlayer(url);
+    }
+  }, [pendingStreamUrl, videoMounted]);
+
+  // Cleanup HLS instance on unmount
+  useEffect(() => {
+    return () => {
+      if (hlsRef.current) {
+        console.log('[DirectStream] 🧹 Cleanup: Destroying HLS instance on unmount');
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, []);
+
   // HLS player initialization
   function initPlayer(url: string) {
     console.log('[DirectStream] 🎬 initPlayer called', { url, timestamp: new Date().toISOString() });
-    
+
     const video = videoRef.current;
     if (!video) {
-      console.error('[DirectStream] ❌ No video ref available');
+      console.log('[DirectStream] ⏳ Video ref not available yet, deferring initialization');
+      setPendingStreamUrl(url);
       return;
+    }
+
+    // Destroy existing HLS instance before creating a new one
+    if (hlsRef.current) {
+      console.log('[DirectStream] 🧹 Destroying existing HLS instance');
+      hlsRef.current.destroy();
+      hlsRef.current = null;
     }
 
     console.log('[DirectStream] 📹 Video element state:', {
@@ -641,26 +571,26 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
     setStatus('loading');
     console.log('[DirectStream] 🔄 Status set to: loading');
-    
+
     // Ensure video is muted for autoplay to work
     video.muted = isMuted;
     console.log('[DirectStream] 🔇 Video muted:', isMuted);
 
     if (Hls.isSupported()) {
       console.log('[DirectStream] ✅ HLS.js supported, initializing...');
-      
+
       // Clear src BEFORE creating HLS instance
       video.removeAttribute('src');
       video.load(); // Reset the video element
       console.log('[DirectStream] 🧹 Cleared video src attribute for HLS.js');
-      
+
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
         debug: true, // TEMP: Enable debug logging to diagnose production issue
       });
 
-      // Store HLS instance for debug hook (before loadSource)
+      // Track the HLS instance
       hlsRef.current = hls;
 
       console.log('[DirectStream] 📡 Loading source:', url);
@@ -733,11 +663,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           }
         }
       });
-
-      return () => {
-        console.log('[DirectStream] 🧹 Destroying HLS instance');
-        hls.destroy();
-      };
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       console.log('[DirectStream] 🍎 Native HLS support (Safari)');
       
@@ -890,10 +815,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-white font-medium">Stream Settings</h2>
                   <button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setMessage('');
-                    }}
+                    onClick={() => setIsEditing(false)}
                     className="text-muted-foreground hover:text-white text-sm"
                     data-testid="btn-close-edit"
                   >
@@ -1012,21 +934,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     data-testid="scoreboard-v2"
                   />
 
-                  {/* Only show error for critical failures (5xx), not missing data (404) */}
-                  {scoreboardData.error && scoreboardData.error.includes('500') && (
-                    <div 
-                      className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm"
-                      role="alert"
-                      ref={(el) => {
-                        if (el) {
-                          console.error('[DirectStream] 🔴 RED ERROR DISPLAYED (Scoreboard):', {
-                            type: 'scoreboard',
-                            message: scoreboardData.error,
-                            timestamp: new Date().toISOString()
-                          });
-                        }
-                      }}
-                    >
+                  {scoreboardData.error && (
+                    <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm">
                       {scoreboardData.error}
                     </div>
                   )}
@@ -1167,92 +1076,30 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* v2 Video Player or Stream Placeholder */}
-              {status === 'playing' && (
-                <VideoPlayer
-                  ref={videoRef}
-                  src="" // Empty - HLS.js manages source. Safari fallback sets src directly in initPlayer
-                  autoPlay
-                  muted={isMuted}
-                  playsInline
-                  controls={false} // We'll use custom controls
-                  onPlay={() => setStatus('playing')}
-                  onPause={() => {}}
-                  onTimeUpdate={(e) => {
-                    const video = e.currentTarget;
-                    setCurrentTime(video.currentTime);
-                  }}
-                  onLoadedMetadata={(e) => {
-                    const video = e.currentTarget;
-                    setDuration(video.duration);
-                    setStatus('playing');
-                  }}
-                  data-testid="video-player"
-                />
-              )}
-              
-              {/* Stream Placeholder (when offline/error/not configured) */}
-              {(status === 'offline' || status === 'error' || status === 'loading') && (
-                <div 
-                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900"
-                  data-testid="stream-placeholder"
-                >
-                  <div className="text-center p-8 max-w-md">
-                    <div className="mb-6">
-                      {status === 'loading' && (
-                        <div className="w-20 h-20 mx-auto rounded-full bg-gray-800/50 flex items-center justify-center">
-                          <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-                        </div>
-                      )}
-                      {status === 'offline' && !streamConfig && (
-                        <div className="w-20 h-20 mx-auto rounded-full bg-blue-900/20 flex items-center justify-center">
-                          <svg className="w-10 h-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                      )}
-                      {status === 'offline' && streamConfig && (
-                        <div className="w-20 h-20 mx-auto rounded-full bg-gray-800 flex items-center justify-center">
-                          <svg className="w-10 h-10 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                          </svg>
-                        </div>
-                      )}
-                      {status === 'error' && (
-                        <div className="w-20 h-20 mx-auto rounded-full bg-red-900/20 flex items-center justify-center">
-                          <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <h3 className="text-xl font-semibold text-white mb-3">
-                      {status === 'loading' && 'Loading Stream...'}
-                      {status === 'offline' && !streamConfig && 'No Stream Configured'}
-                      {status === 'offline' && streamConfig && 'Stream Offline'}
-                      {status === 'error' && 'Stream Error'}
-                    </h3>
-                    
-                    <p className="text-gray-400 mb-6 text-sm">
-                      {streamMessage || (status === 'loading' ? 'Please wait...' : 'Stream is currently unavailable')}
-                    </p>
-                    
-                    {isAdmin && status !== 'loading' && (
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg"
-                        data-testid="btn-configure-stream"
-                      >
-                        Configure Stream
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* v2 Video Player */}
+              <VideoPlayer
+                ref={setVideoRef}
+                src="" // Empty - HLS.js manages source. Safari fallback sets src directly in initPlayer
+                autoPlay
+                muted={isMuted}
+                playsInline
+                controls={false} // We'll use custom controls
+                onPlay={() => setStatus('playing')}
+                onPause={() => {}}
+                onTimeUpdate={(e) => {
+                  const video = e.currentTarget;
+                  setCurrentTime(video.currentTime);
+                }}
+                onLoadedMetadata={(e) => {
+                  const video = e.currentTarget;
+                  setDuration(video.duration);
+                  setStatus('playing');
+                }}
+                data-testid="video-player"
+              />
 
               {/* v2 Video Controls (outside video container, below it) */}
-              {status === 'playing' && (
+              {bootstrap?.streamUrl && status !== 'offline' && status !== 'error' && (
                 <div className="absolute bottom-0 left-0 right-0 z-20">
                   <VideoControls
                     isPlaying={status === 'playing'}
@@ -1431,19 +1278,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       {/* Show messages to unregistered users (read-only) */}
                       <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
                         {chat.error && (
-                          <div 
-                            className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" 
-                            role="alert"
-                            ref={(el) => {
-                              if (el) {
-                                console.error('[DirectStream] 🔴 RED ERROR DISPLAYED (Chat):', {
-                                  type: 'chat',
-                                  message: chat.error,
-                                  timestamp: new Date().toISOString()
-                                });
-                              }
-                            }}
-                          >
+                          <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">
                             {chat.error}
                           </div>
                         )}
@@ -1531,9 +1366,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                   required
                                   className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
                                   data-testid="input-name"
-                                  defaultValue={globalAuth.viewerIdentity?.firstName && globalAuth.viewerIdentity?.lastName 
-                                    ? `${globalAuth.viewerIdentity.firstName} ${globalAuth.viewerIdentity.lastName}` 
-                                    : globalAuth.viewerIdentity?.firstName || ''}
+                                  defaultValue={globalAuth.viewerFirstName && globalAuth.viewerLastName
+                                    ? `${globalAuth.viewerFirstName} ${globalAuth.viewerLastName}`
+                                    : globalAuth.viewerFirstName || ''}
                                 />
                               </div>
                               <div>
@@ -1546,21 +1381,21 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                   required
                                   className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
                                   data-testid="input-email"
-                                  defaultValue={globalAuth.viewerIdentity?.email || ''}
+                                  defaultValue={globalAuth.viewerEmail || ''}
                                 />
                               </div>
                               <TouchButton
                                 type="submit"
-                                disabled={viewer.isLoading || globalAuth.isAutoRegistering}
+                                disabled={viewer.isLoading || globalAuth.isLoading}
                                 variant="primary"
                                 className="w-full"
                                 data-testid="btn-submit-viewer-register"
                               >
-                                {viewer.isLoading || globalAuth.isAutoRegistering ? 'Registering...' : 'Register'}
+                                {viewer.isLoading || globalAuth.isLoading ? 'Registering...' : 'Register'}
                               </TouchButton>
-                              {(viewer.error || globalAuth.autoRegisterError) && (
+                              {viewer.error && (
                                 <p className="text-xs text-destructive text-center" role="alert">
-                                  {viewer.error || globalAuth.autoRegisterError}
+                                  {viewer.error}
                                 </p>
                               )}
                               <p className="text-xs text-muted-foreground text-center">
@@ -1591,32 +1426,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           defaultName={globalAuth.viewerName || ''}
         />
 
-        {/* Connection Debug Panel - shows in dev or with ?debug=true */}
-        <ConnectionDebugPanel
-          stream={streamDebug}
-          api={apiHealth.health}
-          chat={{
-            isConnected: chat.isConnected,
-            messages: chat.messages,
-            messageCount: chat.messages?.length || 0,
-            error: chat.error || null,
-            transport: 'SSE',
-            gameId: effectiveGameId || undefined,
-          }}
-          viewer={{
-            isUnlocked: viewer.isUnlocked,
-            token: viewer.token,
-            viewerId: viewer.viewerId,
-            isLoading: viewer.isLoading,
-            error: viewer.error,
-          }}
-          effectiveGameId={effectiveGameId}
-          metrics={metrics}
-          slug={bootstrap?.slug}
-          onCheckEndpoint={apiHealth.checkEndpoint}
-        />
-        
-        {/* Legacy ChatDebugPanel - keep for backward compatibility */}
+        {/* Debug Panel - shows in dev or with ?debug=true */}
         <ChatDebugPanel
           bootstrap={bootstrap}
           viewer={{
