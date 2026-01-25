@@ -111,9 +111,8 @@ export default function StreamTestPage() {
       });
 
       hls.on(Hls.Events.FRAG_LOADED, () => {
-        if (status !== 'playing') {
-          setStatus('playing');
-        }
+        // Use functional update to avoid stale closure
+        setStatus(prev => prev === 'loading' ? 'playing' : prev);
       });
 
       hls.attachMedia(video);
@@ -138,7 +137,7 @@ export default function StreamTestPage() {
       setStatus('error');
       log('HLS not supported');
     }
-  }, [log, status]);
+  }, [log]); // Removed 'status' dependency to prevent re-initialization loop
 
   // Load stream when URL changes
   useEffect(() => {
@@ -277,9 +276,18 @@ export default function StreamTestPage() {
           </button>
           <button
             onClick={() => {
+              // Force reload by clearing first, then setting
               setInputUrl(DEFAULT_STREAM);
-              setStreamUrl(DEFAULT_STREAM);
-              log('Reset to default test stream');
+              if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+              }
+              setStatus('idle');
+              // Use setTimeout to ensure state is cleared before reloading
+              setTimeout(() => {
+                setStreamUrl(DEFAULT_STREAM);
+                log('Reset to default test stream');
+              }, 50);
             }}
             className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm transition-colors"
           >
@@ -326,7 +334,13 @@ export default function StreamTestPage() {
               onClick={() => {
                 const url = 'https://stream.mux.com/VZtzUzGRv02OhRnZCxcNg49OilvolTqdnFLEqBsTwaxU.m3u8';
                 setInputUrl(url);
-                setStreamUrl(url);
+                // Force reload even if same URL
+                if (hlsRef.current) {
+                  hlsRef.current.destroy();
+                  hlsRef.current = null;
+                }
+                setStatus('idle');
+                setTimeout(() => setStreamUrl(url), 50);
               }}
               className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
             >
@@ -336,7 +350,12 @@ export default function StreamTestPage() {
               onClick={() => {
                 const url = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
                 setInputUrl(url);
-                setStreamUrl(url);
+                if (hlsRef.current) {
+                  hlsRef.current.destroy();
+                  hlsRef.current = null;
+                }
+                setStatus('idle');
+                setTimeout(() => setStreamUrl(url), 50);
               }}
               className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
             >
@@ -346,7 +365,12 @@ export default function StreamTestPage() {
               onClick={() => {
                 const url = 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8';
                 setInputUrl(url);
-                setStreamUrl(url);
+                if (hlsRef.current) {
+                  hlsRef.current.destroy();
+                  hlsRef.current = null;
+                }
+                setStatus('idle');
+                setTimeout(() => setStreamUrl(url), 50);
               }}
               className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
             >
