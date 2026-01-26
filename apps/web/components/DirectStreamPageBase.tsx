@@ -44,6 +44,8 @@ import { TouchButton, Badge } from '@/components/v2/primitives';
 import { useResponsive } from '@/hooks/v2/useResponsive';
 // Debug component
 import { ChatDebugPanel } from '@/components/ChatDebugPanel';
+// DVR components
+import { BookmarkButton } from '@/components/dvr/BookmarkButton';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -1101,42 +1103,55 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               {/* v2 Video Controls (outside video container, below it) */}
               {bootstrap?.streamUrl && status !== 'offline' && status !== 'error' && (
                 <div className="absolute bottom-0 left-0 right-0 z-20">
-                  <VideoControls
-                    isPlaying={status === 'playing'}
-                    isMuted={isMuted}
-                    volume={volume}
-                    currentTime={currentTime}
-                    duration={duration}
-                    onPlayPause={() => {
-                      if (videoRef.current) {
-                        if (status === 'playing') {
-                          videoRef.current.pause();
-                          setStatus('loading');
-                        } else {
-                          videoRef.current.play();
-                          setStatus('playing');
-                        }
-                      }
-                    }}
-                    onMuteToggle={() => {
-                      if (videoRef.current) {
-                        videoRef.current.muted = !isMuted;
-                        setIsMuted(!isMuted);
-                      }
-                    }}
-                    onVolumeChange={(newVolume) => {
-                      if (videoRef.current) {
-                        videoRef.current.volume = newVolume;
-                        setVolume(newVolume);
-                      }
-                    }}
-                    onSeek={(time) => {
-                      if (videoRef.current) {
-                        videoRef.current.currentTime = time;
-                      }
-                    }}
-                    onFullscreenToggle={toggleFullscreenV2}
-                  />
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <VideoControls
+                        isPlaying={status === 'playing'}
+                        isMuted={isMuted}
+                        volume={volume}
+                        currentTime={currentTime}
+                        duration={duration}
+                        onPlayPause={() => {
+                          if (videoRef.current) {
+                            if (status === 'playing') {
+                              videoRef.current.pause();
+                              setStatus('loading');
+                            } else {
+                              videoRef.current.play();
+                              setStatus('playing');
+                            }
+                          }
+                        }}
+                        onMuteToggle={() => {
+                          if (videoRef.current) {
+                            videoRef.current.muted = !isMuted;
+                            setIsMuted(!isMuted);
+                          }
+                        }}
+                        onVolumeChange={(newVolume) => {
+                          if (videoRef.current) {
+                            videoRef.current.volume = newVolume;
+                            setVolume(newVolume);
+                          }
+                        }}
+                        onSeek={(time) => {
+                          if (videoRef.current) {
+                            videoRef.current.currentTime = time;
+                          }
+                        }}
+                        onFullscreenToggle={toggleFullscreenV2}
+                      />
+                    </div>
+                    {/* DVR Bookmark Button - only show when viewer is registered */}
+                    {viewer.isUnlocked && viewer.viewerId && (
+                      <BookmarkButton
+                        directStreamId={bootstrap.slug}
+                        viewerIdentityId={viewer.viewerId}
+                        getCurrentTime={() => videoRef.current?.currentTime || 0}
+                        className="mr-2"
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 
