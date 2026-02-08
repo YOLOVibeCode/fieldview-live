@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
-import Hls from 'hls.js';
+import { type MediaPlayerInstance } from '@vidstack/react';
 import { X } from 'lucide-react';
 import { useGameChat } from '@/hooks/useGameChat';
 import { useGameChatV2 } from '@/hooks/useGameChatV2';
@@ -34,18 +34,24 @@ import { SocialProducerPanel } from '@/components/SocialProducerPanel';
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
-import { VideoPlayer, VideoControls } from '@/components/v2/video';
+import { VidstackPlayer } from '@/components/v2/video/VidstackPlayer';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
 import { Scoreboard } from '@/components/v2/scoreboard';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
 import { TouchButton, Badge } from '@/components/v2/primitives';
+import { BottomSheet } from '@/components/v2/primitives/BottomSheet';
 import { useResponsive } from '@/hooks/v2/useResponsive';
 // Debug component
 import { ChatDebugPanel } from '@/components/ChatDebugPanel';
 // DVR components
 import { BookmarkButton } from '@/components/dvr/BookmarkButton';
+import { BookmarkMarkers } from '@/components/v2/video/BookmarkMarkers';
+import { QuickBookmarkButton } from '@/components/v2/video/QuickBookmarkButton';
+import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
+import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
+import { useViewerCount } from '@/hooks/useViewerCount';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -125,6 +131,10 @@ export interface Bootstrap {
   scoreboardAwayTeam?: string | null;
   scoreboardHomeColor?: string | null;
   scoreboardAwayColor?: string | null;
+  allowViewerScoreEdit?: boolean;
+  allowViewerNameEdit?: boolean;
+  allowAnonymousChat?: boolean;
+  allowAnonymousScoreEdit?: boolean;
 }
 
 export type FontSize = 'small' | 'medium' | 'large';
@@ -166,12 +176,10 @@ interface DirectStreamPageBaseProps {
 }
 
 export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playerRef = useRef<MediaPlayerInstance>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [pendingStreamUrl, setPendingStreamUrl] = useState<string | null>(null);
-  const [videoMounted, setVideoMounted] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
@@ -182,29 +190,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [isAdmin, setIsAdmin] = useState(false);
   const [showViewerAuthModal, setShowViewerAuthModal] = useState(false);
   const [showInlineRegistration, setShowInlineRegistration] = useState(false);
-
-  // Video control state (v2)
-  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
-  const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-
-  // Callback ref to detect when video element mounts
-  const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
-    videoRef.current = node;
-    if (node) {
-      console.log('[DirectStream] 📹 Video element mounted');
-      setVideoMounted(true);
-    } else {
-      setVideoMounted(false);
-    }
-  }, []);
+  const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
+  const [guestDisplayName, setGuestDisplayName] = useState<string | null>(null);
+  const [isEditingGuestName, setIsEditingGuestName] = useState(false);
 
   // Fullscreen hook (v2)
-  const { isFullscreen, toggleFullscreen: toggleFullscreenV2, isSupported: isFullscreenSupported } = useFullscreen(containerRef.current);
+  const { isFullscreen } = useFullscreen(containerRef.current);
 
   // v2 Responsive hook (replaces manual detection)
-  const { isMobile, isTouch, breakpoint } = useResponsive();
+  const { isMobile, isTablet, isDesktop, isTouch, breakpoint, chatPosition, scoreboardPosition } = useResponsive();
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
 
   // Paywall hook - manages paywall state based on bootstrap
   const paywall = usePaywall({
@@ -332,7 +329,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   }
                   setPaywallChecked(true);
                   if (data.streamUrl) {
-                    initPlayer(data.streamUrl);
+                    setStreamUrl(data.streamUrl);
                   } else {
                     setStatus('offline');
                   }
@@ -366,7 +363,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           setPaywallChecked(true);
           if (data.streamUrl) {
             console.log('[DirectStream] ▶️ Initializing player with streamUrl');
-            initPlayer(data.streamUrl);
+            setStreamUrl(data.streamUrl);
           } else {
             console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
             setStatus('offline');
@@ -466,6 +463,101 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     void autoRegister();
   }, [bootstrap, globalAuth.isAuthenticated, globalAuth.viewerIdentityId, globalAuth.isLoading, viewer.isUnlocked, API_URL]);
 
+  // Anonymous chat auto-connect: when allowAnonymousChat is enabled, auto-issue a viewer token
+  useEffect(() => {
+    if (!bootstrap || viewer.isUnlocked || !bootstrap.allowAnonymousChat) return;
+
+    const connectAnonymous = async () => {
+      try {
+        // Get or create a persistent session ID
+        const storageKey = 'fieldview_anon_session';
+        let sessionId = localStorage.getItem(storageKey);
+        if (!sessionId) {
+          sessionId = crypto.randomUUID();
+          localStorage.setItem(storageKey, sessionId);
+        }
+
+        // Check for a saved guest name for this stream
+        const savedName = localStorage.getItem(`fieldview_guest_name_${bootstrap.slug}`);
+
+        const response = await fetch(
+          `${API_URL}/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              displayName: savedName || undefined,
+            }),
+          }
+        );
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        viewer.setExternalIdentity({
+          viewerToken: data.viewerToken,
+          viewerId: data.viewer.id,
+          displayName: data.viewer.displayName,
+          gameId: data.gameId,
+          email: `anon-${sessionId}@guest.fieldview.live`,
+        });
+        setGuestDisplayName(data.viewer.displayName);
+      } catch (err) {
+        console.error('[DirectStreamPageBase] Anonymous auto-connect failed:', err);
+      }
+    };
+
+    void connectAnonymous();
+  }, [bootstrap, viewer.isUnlocked]);
+
+  // Check if current viewer is anonymous (for guest name change UI)
+  const isAnonymousViewer = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('fieldview_viewer_identity');
+      if (saved) {
+        const identity = JSON.parse(saved);
+        return identity.email?.endsWith('@guest.fieldview.live') ?? false;
+      }
+    } catch { /* ignore */ }
+    return false;
+  }, [viewer.isUnlocked]);
+
+  // Handler to change anonymous guest name
+  const handleChangeGuestName = useCallback(async (newName: string) => {
+    if (!bootstrap || !newName.trim()) return;
+    const trimmed = newName.trim();
+    localStorage.setItem(`fieldview_guest_name_${bootstrap.slug}`, trimmed);
+    setGuestDisplayName(trimmed);
+    setIsEditingGuestName(false);
+
+    // Re-fetch anonymous token with new name
+    const sessionId = localStorage.getItem('fieldview_anon_session');
+    if (!sessionId) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, displayName: trimmed }),
+        }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      viewer.setExternalIdentity({
+        viewerToken: data.viewerToken,
+        viewerId: data.viewer.id,
+        displayName: data.viewer.displayName,
+        gameId: data.gameId,
+        email: `anon-${sessionId}@guest.fieldview.live`,
+      });
+    } catch (err) {
+      console.error('[DirectStreamPageBase] Guest name change failed:', err);
+    }
+  }, [bootstrap, viewer]);
+
   // Handler for viewer registration via v2 modal
   const handleViewerRegister = async (email: string, name: string) => {
     // Parse name into firstName and lastName
@@ -517,6 +609,20 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     slug: bootstrap?.slug || null,
     enabled: bootstrap?.scoreboardEnabled === true,
     viewerToken: viewer.token,
+    allowAnonymousEdit: bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit,
+  });
+
+  // Live viewer count
+  const viewerCount = useViewerCount({
+    slug: bootstrap?.slug || null,
+    enabled: !!bootstrap,
+  });
+
+  // Bookmark markers for the timeline
+  const bookmarkMarkers = useBookmarkMarkers({
+    directStreamId: bootstrap?.slug,
+    viewerId: viewer.viewerId || undefined,
+    enabled: !!streamUrl && !isPaywallBlocked,
   });
 
   // Notify status changes
@@ -524,201 +630,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     config.onStreamStatusChange?.(status);
   }, [status, config]);
 
-  // Initialize player when pending URL is set and video element is mounted
-  useEffect(() => {
-    if (pendingStreamUrl && videoMounted && videoRef.current) {
-      console.log('[DirectStream] 🔄 Video element mounted, initializing deferred player');
-      const url = pendingStreamUrl;
-      setPendingStreamUrl(null); // Clear pending to avoid re-triggering
-      initPlayer(url);
-    }
-  }, [pendingStreamUrl, videoMounted]);
-
-  // Cleanup HLS instance on unmount
-  useEffect(() => {
-    return () => {
-      if (hlsRef.current) {
-        console.log('[DirectStream] 🧹 Cleanup: Destroying HLS instance on unmount');
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, []);
-
-  // HLS player initialization
-  function initPlayer(url: string) {
-    console.log('[DirectStream] 🎬 initPlayer called', { url, timestamp: new Date().toISOString() });
-
-    const video = videoRef.current;
-    if (!video) {
-      console.log('[DirectStream] ⏳ Video ref not available yet, deferring initialization');
-      setPendingStreamUrl(url);
-      return;
-    }
-
-    // Destroy existing HLS instance before creating a new one
-    if (hlsRef.current) {
-      console.log('[DirectStream] 🧹 Destroying existing HLS instance');
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-
-    console.log('[DirectStream] 📹 Video element state:', {
-      readyState: video.readyState,
-      networkState: video.networkState,
-      paused: video.paused,
-      muted: video.muted,
-      src: video.src
-    });
-
-    setStatus('loading');
-    console.log('[DirectStream] 🔄 Status set to: loading');
-
-    // Ensure video is muted for autoplay to work
-    video.muted = isMuted;
-    console.log('[DirectStream] 🔇 Video muted:', isMuted);
-
-    if (Hls.isSupported()) {
-      console.log('[DirectStream] ✅ HLS.js supported, initializing...');
-
-      // Clear src BEFORE creating HLS instance
-      video.removeAttribute('src');
-      video.load(); // Reset the video element
-      console.log('[DirectStream] 🧹 Cleared video src attribute for HLS.js');
-
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        debug: true, // TEMP: Enable debug logging to diagnose production issue
-      });
-
-      // Track the HLS instance
-      hlsRef.current = hls;
-
-      console.log('[DirectStream] 📡 Loading source:', url);
-      hls.loadSource(url);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-        console.log('[DirectStream] ✅ MANIFEST_PARSED', { 
-          levels: data.levels?.length,
-          firstLevel: data.firstLevel,
-          video: data.video,
-          audio: data.audio
-        });
-        setStatus('playing');
-        console.log('[DirectStream] 🔄 Status set to: playing');
-        
-        // Autoplay will work because video is muted
-        video.play()
-          .then(() => {
-            console.log('[DirectStream] ▶️ Video.play() succeeded');
-          })
-          .catch((err) => {
-            console.log('[DirectStream] ⏸️ Autoplay blocked (user interaction required):', err.name, err.message);
-            // Don't set error status for autoplay blocks - stream is loaded, just paused
-          });
-      });
-
-      hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
-        console.log('[DirectStream] 📊 Level loaded:', {
-          level: data.level,
-          details: data.details?.live ? 'LIVE' : 'VOD'
-        });
-      });
-
-      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
-        console.log('[DirectStream] 🎞️ First fragment loaded:', {
-          sn: data.frag.sn,
-          duration: data.frag.duration,
-          level: data.frag.level
-        });
-        // Only log first fragment to avoid spam
-        hls.off(Hls.Events.FRAG_LOADED);
-      });
-
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        console.error('[DirectStream] ⚠️ HLS Error:', {
-          type: data.type,
-          details: data.details,
-          fatal: data.fatal,
-          url: data.url,
-          response: data.response,
-          reason: data.reason
-        });
-        
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              console.error('[DirectStream] 🌐 Network error, trying to recover...');
-              hls.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.error('[DirectStream] 🎥 Media error, trying to recover...');
-              hls.recoverMediaError();
-              break;
-            default:
-              console.error('[DirectStream] ❌ Fatal error, cannot recover');
-              hls.destroy();
-              setStatus('error');
-              break;
-          }
-        }
-      });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      console.log('[DirectStream] 🍎 Native HLS support (Safari)');
-      
-      // Native HLS support (Safari)
-      video.src = url;
-      video.addEventListener('loadedmetadata', () => {
-        console.log('[DirectStream] ✅ Native HLS loadedmetadata');
-        setStatus('playing');
-        
-        // Autoplay will work because video is muted
-        video.play()
-          .then(() => {
-            console.log('[DirectStream] ▶️ Native video.play() succeeded');
-          })
-          .catch((err) => {
-            console.log('[DirectStream] ⏸️ Native autoplay blocked:', err.name, err.message);
-            // Don't set error status for autoplay blocks - stream is loaded, just paused
-          });
-      });
-      
-      video.addEventListener('error', (e) => {
-        // Only set error for actual media errors, not playback issues
-        const mediaError = (e.target as HTMLVideoElement)?.error;
-        console.error('[DirectStream] ❌ Native video error:', {
-          code: mediaError?.code,
-          message: mediaError?.message,
-          MEDIA_ERR_ABORTED: mediaError?.code === MediaError.MEDIA_ERR_ABORTED,
-          MEDIA_ERR_NETWORK: mediaError?.code === MediaError.MEDIA_ERR_NETWORK,
-          MEDIA_ERR_DECODE: mediaError?.code === MediaError.MEDIA_ERR_DECODE,
-          MEDIA_ERR_SRC_NOT_SUPPORTED: mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
-        });
-        
-        if (mediaError && mediaError.code !== MediaError.MEDIA_ERR_ABORTED) {
-          console.error('[DirectStream] ❌ Setting error status');
-          setStatus('error');
-        }
-      });
-    } else {
-      console.error('[DirectStream] ❌ HLS not supported in this browser');
-      setStatus('error');
-    }
-  }
-
-  // Keyboard shortcuts: F for fullscreen, C for chat overlay (in fullscreen), S for scoreboard, Escape to close chat
+  // Keyboard shortcuts: C for chat, S for scoreboard, Escape to close panels
+  // Note: F (fullscreen), Space (play/pause), M (mute), arrows (seek) are handled by Vidstack
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only if not typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
-      }
-
-      if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault();
-        toggleFullscreenV2(); // Use v2 hook
       }
 
       // C toggles chat in fullscreen mode (overlay)
@@ -751,16 +669,30 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         chatPanel.toggle();
       }
 
-      // Escape closes chat
-      if (e.key === 'Escape' && isChatOpen) {
+      // B toggles bookmark panel
+      if ((e.key === 'b' || e.key === 'B') && viewer.isUnlocked) {
         e.preventDefault();
-        setIsChatOpen(false);
+        setIsBookmarkPanelOpen(prev => !prev);
+      }
+
+      // Escape closes panels in priority order
+      if (e.key === 'Escape') {
+        if (isBookmarkPanelOpen) {
+          e.preventDefault();
+          setIsBookmarkPanelOpen(false);
+        } else if (isMobileChatOpen) {
+          e.preventDefault();
+          setIsMobileChatOpen(false);
+        } else if (isChatOpen) {
+          e.preventDefault();
+          setIsChatOpen(false);
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle, toggleFullscreenV2]);
+  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, isMobileChatOpen, isBookmarkPanelOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle]);
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex flex-col ${config.containerClassName || ''}`}>
@@ -772,7 +704,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight">{config.title}</h1>
-                {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
+                <div className="flex items-center gap-3">
+                  {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
+                  {viewerCount.count > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      {viewerCount.count} watching
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2 md:gap-3">
                 {config.enableFontSize && (
@@ -838,10 +778,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     awayTeamName: bootstrap?.scoreboardAwayTeam || undefined,
                     homeJerseyColor: bootstrap?.scoreboardHomeColor || undefined,
                     awayJerseyColor: bootstrap?.scoreboardAwayColor || undefined,
+                    allowViewerScoreEdit: bootstrap?.allowViewerScoreEdit,
+                    allowViewerNameEdit: bootstrap?.allowViewerNameEdit,
+                    allowAnonymousChat: bootstrap?.allowAnonymousChat,
+                    allowAnonymousScoreEdit: bootstrap?.allowAnonymousScoreEdit,
                   }}
-                  onAuthSuccess={(jwt) => {
+                  onAuthSuccess={(jwt, viewerInfo) => {
                     setAdminJwt(jwt);
                     setIsAdmin(true);
+                    // Auto-login admin as viewer for chat + scoreboard
+                    if (viewerInfo) {
+                      viewer.setExternalIdentity(viewerInfo);
+                    }
                   }}
                 />
                 
@@ -862,86 +810,113 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             </div>
           )}
 
-          {/* Scoreboard Overlay (non-fullscreen - collapsible to left edge) */}
+          {/* Scoreboard Overlay (non-fullscreen) */}
           {!isFullscreen && bootstrap?.scoreboardEnabled && (
             <>
-              {/* Collapsed: Left-edge tab - Enhanced with glow */}
-              {scoreboardPanel.isCollapsed && (
-              <button
-                type="button"
-                data-testid="btn-expand-scoreboard"
-                className={cn(
-                  'fixed left-0 top-1/2 -translate-y-1/2 z-30',
-                  'w-12 py-4',
-                  'bg-black/80 backdrop-blur-md',
-                  'border-r-2 border-white/20',
-                  'rounded-r-lg',
-                  'shadow-2xl shadow-blue-500/10',
-                  'cursor-pointer pointer-events-auto',
-                  'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-blue-500/30',
-                  'transition-all duration-300',
-                  'flex flex-col items-center gap-2',
-                  'group'
-                )}
-                onClick={scoreboardPanel.toggle}
-                aria-label="Expand scoreboard"
-              >
-                  <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">→</div>
-                  <div className="text-2xl group-hover:scale-110 transition-transform">📊</div>
-                  {/* Optional badge for active state */}
-                  <div className="absolute -right-1 top-4 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              </button>
-              )}
-
-              {/* Expanded Scoreboard Panel - Enhanced with depth */}
-              {!scoreboardPanel.isCollapsed && (
-              <div
-                className={cn(
-                  'fixed left-0 top-1/2 -translate-y-1/2 z-30',
-                  'w-[320px]',
-                  'bg-black/90 backdrop-blur-md',
-                  'border-r-2 border-white/20',
-                  'rounded-r-lg shadow-2xl shadow-blue-500/10',
-                  'transition-transform duration-300 ease-in-out',
-                  'p-4'
-                )}
-                data-testid="scoreboard-panel"
-                role="dialog"
-                aria-modal="false"
-                aria-label="Scoreboard panel"
-              >
-                  {/* Header with collapse button */}
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white">Scoreboard</h3>
-                    <button
-                      type="button"
-                      className="text-white/70 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
-                      onClick={scoreboardPanel.toggle}
-                      aria-label="Collapse scoreboard"
-                      data-testid="btn-collapse-scoreboard"
-                    >
-                      <div className="text-lg">←</div>
-                    </button>
-                  </div>
-
-                  {/* v2 Scoreboard Component */}
+              {/* Mobile: Floating compact scoreboard at top */}
+              {scoreboardPosition === 'floating' ? (
+                <div
+                  className={cn(
+                    'fixed top-2 left-2 right-2 z-30',
+                    'bg-black/85 backdrop-blur-md',
+                    'border border-white/20',
+                    'rounded-lg shadow-2xl',
+                    'px-3 py-2'
+                  )}
+                  data-testid="scoreboard-panel"
+                  role="region"
+                  aria-label="Scoreboard"
+                >
                   <Scoreboard
                     homeTeam={scoreboardData.homeTeam}
                     awayTeam={scoreboardData.awayTeam}
                     period={scoreboardData.period}
                     time={scoreboardData.time}
-                    mode="sidebar"
-                    editable={viewer.isUnlocked}
+                    mode="minimal"
+                    editable={viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
                     onScoreUpdate={scoreboardData.updateScore}
                     data-testid="scoreboard-v2"
                   />
+                </div>
+              ) : (
+                <>
+                  {/* Tablet/Desktop: Collapsible left-edge sidebar */}
+                  {/* Collapsed: Left-edge tab */}
+                  {scoreboardPanel.isCollapsed && (
+                  <button
+                    type="button"
+                    data-testid="btn-expand-scoreboard"
+                    className={cn(
+                      'fixed left-0 top-1/2 -translate-y-1/2 z-30',
+                      'w-12 py-4',
+                      'bg-black/80 backdrop-blur-md',
+                      'border-r-2 border-white/20',
+                      'rounded-r-lg',
+                      'shadow-2xl shadow-blue-500/10',
+                      'cursor-pointer pointer-events-auto',
+                      'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-blue-500/30',
+                      'transition-all duration-300',
+                      'flex flex-col items-center gap-2',
+                      'group'
+                    )}
+                    onClick={scoreboardPanel.toggle}
+                    aria-label="Expand scoreboard"
+                  >
+                      <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">&rarr;</div>
+                      <div className="text-2xl group-hover:scale-110 transition-transform">📊</div>
+                      <div className="absolute -right-1 top-4 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  </button>
+                  )}
 
-                  {scoreboardData.error && (
-                    <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm">
-                      {scoreboardData.error}
+                  {/* Expanded Scoreboard Panel */}
+                  {!scoreboardPanel.isCollapsed && (
+                  <div
+                    className={cn(
+                      'fixed left-0 top-1/2 -translate-y-1/2 z-30',
+                      isTablet ? 'w-[min(320px,40vw)]' : 'w-[320px]',
+                      'bg-black/90 backdrop-blur-md',
+                      'border-r-2 border-white/20',
+                      'rounded-r-lg shadow-2xl shadow-blue-500/10',
+                      'transition-transform duration-300 ease-in-out',
+                      'p-4'
+                    )}
+                    data-testid="scoreboard-panel"
+                    role="dialog"
+                    aria-modal="false"
+                    aria-label="Scoreboard panel"
+                  >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold text-white">Scoreboard</h3>
+                        <button
+                          type="button"
+                          className="text-white/70 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
+                          onClick={scoreboardPanel.toggle}
+                          aria-label="Collapse scoreboard"
+                          data-testid="btn-collapse-scoreboard"
+                        >
+                          <div className="text-lg">&larr;</div>
+                        </button>
+                      </div>
+
+                      <Scoreboard
+                        homeTeam={scoreboardData.homeTeam}
+                        awayTeam={scoreboardData.awayTeam}
+                        period={scoreboardData.period}
+                        time={scoreboardData.time}
+                        mode="sidebar"
+                        editable={viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+                        onScoreUpdate={scoreboardData.updateScore}
+                        data-testid="scoreboard-v2"
+                      />
+
+                      {scoreboardData.error && (
+                        <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm">
+                          {scoreboardData.error}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </>
               )}
             </>
           )}
@@ -955,11 +930,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               onSuccess={() => {
                 // Mark as paid in localStorage and close modal
                 paywall.markAsPaid(bootstrap.slug);
-                
-                // Initialize player after successful payment
+
+                // Set stream URL after successful payment - Vidstack will auto-initialize
                 if (bootstrap.streamUrl) {
-                  console.log('[DirectStream] 💳 Payment successful, initializing player');
-                  initPlayer(bootstrap.streamUrl);
+                  console.log('[DirectStream] Payment successful, setting stream URL');
+                  setStreamUrl(bootstrap.streamUrl);
                 }
               }}
               priceInCents={bootstrap.priceInCents || 0}
@@ -973,7 +948,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             <div
               ref={containerRef}
               className="relative w-full aspect-video bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden shadow-2xl border border-white/10"
-              style={{ minHeight: '400px' }}
+              style={{ minHeight: isMobile ? '200px' : isTablet ? '300px' : '400px' }}
             >
               {/* Paywall Blocker Overlay */}
               {isPaywallBlocked && paywallChecked && (
@@ -1078,80 +1053,70 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* v2 Video Player */}
-              <VideoPlayer
-                ref={setVideoRef}
-                src="" // Empty - HLS.js manages source. Safari fallback sets src directly in initPlayer
-                autoPlay
-                muted={isMuted}
-                playsInline
-                controls={false} // We'll use custom controls
-                onPlay={() => setStatus('playing')}
-                onPause={() => {}}
-                onTimeUpdate={(e) => {
-                  const video = e.currentTarget;
-                  setCurrentTime(video.currentTime);
-                }}
-                onLoadedMetadata={(e) => {
-                  const video = e.currentTarget;
-                  setDuration(video.duration);
-                  setStatus('playing');
-                }}
-                data-testid="video-player"
-              />
+              {/* Vidstack Player - handles HLS, controls, seeking, keyboard shortcuts */}
+              {streamUrl && !isPaywallBlocked && (
+                <VidstackPlayer
+                  src={streamUrl}
+                  playerRef={playerRef}
+                  onStatusChange={setStatus}
+                  onTimeUpdate={setCurrentTime}
+                  onDurationChange={setDuration}
+                  className="absolute inset-0 w-full h-full"
+                >
+                  {/* Bookmark markers overlaid on the timeline */}
+                  {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
+                    <BookmarkMarkers
+                      bookmarks={bookmarkMarkers.bookmarks}
+                      duration={duration}
+                      currentViewerId={viewer.viewerId || undefined}
+                      onBookmarkClick={(bookmark) => {
+                        if (playerRef.current) {
+                          playerRef.current.currentTime = bookmark.timestampSeconds;
+                        }
+                      }}
+                    />
+                  )}
+                </VidstackPlayer>
+              )}
 
-              {/* v2 Video Controls (outside video container, below it) */}
-              {bootstrap?.streamUrl && status !== 'offline' && status !== 'error' && (
-                <div className="absolute bottom-0 left-0 right-0 z-20">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <VideoControls
-                        isPlaying={status === 'playing'}
-                        isMuted={isMuted}
-                        volume={volume}
-                        currentTime={currentTime}
-                        duration={duration}
-                        onPlayPause={() => {
-                          if (videoRef.current) {
-                            if (status === 'playing') {
-                              videoRef.current.pause();
-                              setStatus('loading');
-                            } else {
-                              videoRef.current.play();
-                              setStatus('playing');
-                            }
-                          }
-                        }}
-                        onMuteToggle={() => {
-                          if (videoRef.current) {
-                            videoRef.current.muted = !isMuted;
-                            setIsMuted(!isMuted);
-                          }
-                        }}
-                        onVolumeChange={(newVolume) => {
-                          if (videoRef.current) {
-                            videoRef.current.volume = newVolume;
-                            setVolume(newVolume);
-                          }
-                        }}
-                        onSeek={(time) => {
-                          if (videoRef.current) {
-                            videoRef.current.currentTime = time;
-                          }
-                        }}
-                        onFullscreenToggle={toggleFullscreenV2}
-                      />
-                    </div>
-                    {/* DVR Bookmark Button - only show when viewer is registered */}
-                    {viewer.isUnlocked && viewer.viewerId && (
-                      <BookmarkButton
-                        directStreamId={bootstrap.slug}
-                        viewerIdentityId={viewer.viewerId}
-                        getCurrentTime={() => videoRef.current?.currentTime || 0}
-                        className="mr-2"
-                      />
-                    )}
-                  </div>
+              {/* DVR Bookmark Controls - positioned over the player */}
+              {streamUrl && viewer.isUnlocked && viewer.viewerId && status !== 'offline' && status !== 'error' && (
+                <div className={cn(
+                  'absolute z-20 flex items-center gap-2',
+                  isMobile ? 'bottom-20 right-2' : 'bottom-16 right-2',
+                  isMobile && '[&_button]:min-h-[44px] [&_button]:min-w-[44px]'
+                )}>
+                  {/* Quick one-click bookmark */}
+                  <QuickBookmarkButton
+                    directStreamId={bootstrap?.slug || ''}
+                    viewerIdentityId={viewer.viewerId}
+                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
+                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
+                  />
+                  {/* Full bookmark with label, notes, sharing, time window */}
+                  <BookmarkButton
+                    directStreamId={bootstrap?.slug || ''}
+                    viewerIdentityId={viewer.viewerId}
+                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
+                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
+                    className=""
+                  />
+                  {/* Toggle bookmark panel */}
+                  <button
+                    type="button"
+                    onClick={() => setIsBookmarkPanelOpen(prev => !prev)}
+                    className={`px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors shadow-lg
+                      ${isBookmarkPanelOpen
+                        ? 'bg-amber-500 shadow-amber-500/30'
+                        : 'bg-gray-700/80 hover:bg-gray-600 shadow-black/30'
+                      }`}
+                    aria-label="Toggle bookmarks panel"
+                    data-testid="btn-toggle-bookmark-panel"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                  </button>
                 </div>
               )}
 
@@ -1175,6 +1140,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   {bootstrap?.scoreboardEnabled && (
                     <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">S</kbd> to collapse/expand scoreboard</>
                   )}
+                  {viewer.isUnlocked && (
+                    <>, <kbd className="px-2 py-1 bg-secondary rounded text-secondary-foreground">B</kbd> for bookmarks</>
+                  )}
                 </p>
               )}
               {/* Touch-friendly hint */}
@@ -1190,77 +1158,64 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           {children}
         </div>
 
-        {/* Collapsible Chat Panel - Right Edge */}
+        {/* Bookmark Panel - Slide-out drawer */}
+        {viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
+          <BookmarkPanel
+            isOpen={isBookmarkPanelOpen}
+            onClose={() => setIsBookmarkPanelOpen(false)}
+            directStreamId={bootstrap.slug}
+            viewerId={viewer.viewerId}
+            isMobile={isMobile}
+            onSeek={(timeSeconds) => {
+              if (playerRef.current) {
+                playerRef.current.currentTime = timeSeconds;
+              }
+            }}
+          />
+        )}
+
+        {/* Chat Panel - Responsive: BottomSheet on mobile, sidebar on tablet/desktop */}
         {!isFullscreen && bootstrap?.chatEnabled && (
           <>
-            {/* Collapsed: Right-edge tab - Enhanced with glow */}
-            {chatPanel.isCollapsed && (
-              <button
-                type="button"
-                data-testid="chat-collapsed-tab"
-                className={cn(
-                  'fixed right-0 top-1/2 -translate-y-1/2 z-30',
-                  'w-12 py-4',
-                  'bg-black/80 backdrop-blur-md',
-                  'border-l-2 border-white/20',
-                  'rounded-l-lg',
-                  'shadow-2xl shadow-green-500/10',
-                  'cursor-pointer pointer-events-auto',
-                  'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-green-500/30',
-                  'transition-all duration-300',
-                  'flex flex-col items-center gap-2',
-                  'group'
-                )}
-                onClick={chatPanel.toggle}
-                aria-label="Expand chat"
-              >
-                <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">←</div>
-                <div className="text-2xl group-hover:scale-110 transition-transform">💬</div>
-                {chat.messages.length > 0 && (
-                  <Badge 
-                    count={chat.messages.length}
-                    max={9}
-                    color="error"
-                    data-testid="chat-collapsed-badge"
-                  />
-                )}
-                {chat.isConnected && (
-                  <div className="absolute -left-1 top-4 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                )}
-              </button>
-            )}
+            {chatPosition === 'bottom-sheet' ? (
+              <>
+                {/* Mobile: Floating chat toggle button */}
+                <button
+                  type="button"
+                  data-testid="btn-mobile-chat-toggle"
+                  className={cn(
+                    'fixed bottom-4 right-4 z-40',
+                    'w-14 h-14 rounded-full',
+                    'bg-green-600 shadow-lg shadow-green-500/30',
+                    'flex items-center justify-center',
+                    'active:scale-95 transition-transform'
+                  )}
+                  onClick={() => setIsMobileChatOpen(prev => !prev)}
+                  aria-label={isMobileChatOpen ? 'Close chat' : 'Open chat'}
+                >
+                  <span className="text-2xl">{isMobileChatOpen ? '✕' : '💬'}</span>
+                  {!isMobileChatOpen && chat.messages.length > 0 && (
+                    <span className="absolute -top-1 -right-1">
+                      <Badge count={chat.messages.length} max={9} color="error" />
+                    </span>
+                  )}
+                  {chat.isConnected && !isMobileChatOpen && (
+                    <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-green-600" />
+                  )}
+                </button>
 
-            {/* Expanded Chat Panel - Enhanced with depth */}
-            {!chatPanel.isCollapsed && (
-              <div
-                className={cn(
-                  'fixed right-0 top-1/2 -translate-y-1/2 z-30',
-                  'w-[360px] max-h-[80vh]',
-                  'bg-black/90 backdrop-blur-md',
-                  'border-l-2 border-white/20',
-                  'rounded-l-lg shadow-2xl shadow-green-500/10',
-                  'flex flex-col',
-                  'transition-transform duration-300 ease-in-out'
-                )}
-                data-testid="chat-panel"
-                role="dialog"
-                aria-modal="false"
-                aria-label="Chat panel"
-              >
-                {/* Header with collapse button */}
-                <div className="p-4 border-b border-outline flex items-center justify-between relative">
-                  {/* Collapse button - Top left */}
-                  <button
-                    onClick={chatPanel.toggle}
-                    className="absolute -left-10 top-2 w-8 h-8 bg-background/95 backdrop-blur-sm border border-outline rounded-l-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-background transition-colors"
-                    data-testid="btn-collapse-chat"
-                    aria-label="Collapse chat"
-                  >
-                    <span className="text-xs font-bold">→</span>
-                  </button>
-                  
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-white font-bold text-base">Live Chat</h2>
+                {/* Mobile: Chat BottomSheet */}
+                <BottomSheet
+                  isOpen={isMobileChatOpen}
+                  onClose={() => setIsMobileChatOpen(false)}
+                  snapPoints={[0.5, 0.85]}
+                  initialSnap={0}
+                  enableDrag
+                  aria-labelledby="mobile-chat-title"
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-3 -mt-2">
+                    <h2 id="mobile-chat-title" className="text-white font-bold text-base">Live Chat</h2>
                     {chat.isConnected ? (
                       <span className="flex items-center gap-1 text-green-400 text-xs">
                         <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
@@ -1270,160 +1225,278 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       <span className="text-muted-foreground text-xs">Connecting...</span>
                     )}
                   </div>
-                </div>
 
-                {/* Content - Always show messages, conditionally show input */}
-                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  {/* v2 Chat Component */}
-                  {viewer.isUnlocked ? (
-                    <Chat
-                      messages={chatV2.messages}
-                      onSend={chatV2.sendMessage}
-                      currentUserId={chatV2.currentUserId}
-                      mode="embedded"
-                      title=""
-                      isLoading={chatV2.isLoading}
-                      disabled={!chatV2.isConnected}
-                      emptyMessage="No messages yet. Be the first to chat!"
-                      className="h-full"
-                      data-testid="chat-panel-v2"
-                    />
-                  ) : (
-                    <div className="flex-1 flex flex-col">
-                      {/* Show messages to unregistered users (read-only) */}
-                      <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
-                        {chat.error && (
-                          <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">
-                            {chat.error}
-                          </div>
-                        )}
-                        
-                        {chat.messages.length === 0 ? (
-                          <p className="text-center text-muted-foreground py-8 text-sm">
-                            No messages yet. Be the first to chat!
-                          </p>
-                        ) : (
-                          chat.messages.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className="p-3 bg-muted/50 rounded-lg"
-                              data-testid={`chat-msg-${msg.id}`}
-                            >
-                              <div className="text-xs font-semibold text-muted-foreground mb-1">
-                                {msg.displayName}
+                  {/* Guest name bar (compact for mobile) */}
+                  {viewer.isUnlocked && isAnonymousViewer && (
+                    <div className="px-2 py-1.5 mb-2 rounded bg-amber-900/20 flex items-center justify-between text-xs">
+                      {isEditingGuestName ? (
+                        <form
+                          className="flex items-center gap-2 w-full"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const input = e.currentTarget.elements.namedItem('guestName') as HTMLInputElement;
+                            if (input.value.trim()) handleChangeGuestName(input.value);
+                          }}
+                        >
+                          <input name="guestName" type="text" defaultValue={guestDisplayName || ''} maxLength={50} autoFocus className="flex-1 bg-black/40 border border-amber-600/50 rounded px-2 py-1 min-h-[44px] text-white text-sm" placeholder="Enter your name" />
+                          <button type="submit" className="text-amber-400 hover:text-amber-300 font-medium">Save</button>
+                          <button type="button" onClick={() => setIsEditingGuestName(false)} className="text-gray-400 hover:text-gray-300">Cancel</button>
+                        </form>
+                      ) : (
+                        <>
+                          <span className="text-amber-200/80">Chatting as <strong className="text-amber-300">{guestDisplayName || 'Guest'}</strong></span>
+                          <button onClick={() => setIsEditingGuestName(true)} className="text-amber-400 hover:text-amber-300 underline">Change name</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Chat content */}
+                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden -mx-6 pb-[env(safe-area-inset-bottom,0px)]">
+                    {viewer.isUnlocked ? (
+                      <Chat
+                        messages={chatV2.messages}
+                        onSend={chatV2.sendMessage}
+                        currentUserId={chatV2.currentUserId}
+                        mode="embedded"
+                        title=""
+                        isLoading={chatV2.isLoading}
+                        disabled={!chatV2.isConnected}
+                        emptyMessage="No messages yet. Be the first to chat!"
+                        className="h-full"
+                        data-testid="chat-panel-v2"
+                      />
+                    ) : (
+                      <div className="flex-1 flex flex-col">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
+                          {chat.error && (
+                            <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">{chat.error}</div>
+                          )}
+                          {chat.messages.length === 0 ? (
+                            <p className="text-center text-muted-foreground py-8 text-sm">No messages yet. Be the first to chat!</p>
+                          ) : (
+                            chat.messages.map((msg) => (
+                              <div key={msg.id} className="p-3 bg-muted/50 rounded-lg" data-testid={`chat-msg-${msg.id}`}>
+                                <div className="text-xs font-semibold text-muted-foreground mb-1">{msg.displayName}</div>
+                                <div className="text-sm leading-relaxed break-words text-white">{msg.message}</div>
                               </div>
-                              <div className="text-sm leading-relaxed break-words text-white">
-                                {msg.message}
-                              </div>
+                            ))
+                          )}
+                        </div>
+                        <div className="border-t border-outline p-4 bg-background/50">
+                          {!showInlineRegistration ? (
+                            <div className="space-y-3 text-center">
+                              <p className="text-sm text-muted-foreground">Register your email to send messages</p>
+                              <TouchButton onClick={() => setShowInlineRegistration(true)} variant="primary" data-testid="btn-open-viewer-auth" className="w-full">Register to Chat</TouchButton>
                             </div>
-                          ))
-                        )}
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-sm font-semibold text-white">Join the Chat</h3>
+                                <button onClick={() => setShowInlineRegistration(false)} className="text-muted-foreground hover:text-white transition-colors" data-testid="btn-cancel-inline-registration" aria-label="Cancel registration"><X className="w-4 h-4" /></button>
+                              </div>
+                              <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); const dn = fd.get('displayName') as string; const em = fd.get('email') as string; if (!dn || !em) return; await handleViewerRegister(em, dn); setShowInlineRegistration(false); }} className="space-y-3" data-testid="form-viewer-register">
+                                <Input name="displayName" type="text" placeholder="Your name" required className="w-full bg-background/80 border-outline text-white placeholder:text-white/50" data-testid="input-name" defaultValue={globalAuth.viewerFirstName && globalAuth.viewerLastName ? `${globalAuth.viewerFirstName} ${globalAuth.viewerLastName}` : globalAuth.viewerFirstName || ''} />
+                                <Input name="email" type="email" placeholder="you@example.com" required className="w-full bg-background/80 border-outline text-white placeholder:text-white/50" data-testid="input-email" defaultValue={globalAuth.viewerEmail || ''} />
+                                <TouchButton type="submit" disabled={viewer.isLoading || globalAuth.isLoading} variant="primary" className="w-full" data-testid="btn-submit-viewer-register">{viewer.isLoading || globalAuth.isLoading ? 'Registering...' : 'Register'}</TouchButton>
+                                {viewer.error && <p className="text-xs text-destructive text-center" role="alert">{viewer.error}</p>}
+                              </form>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    )}
+                  </div>
+                </BottomSheet>
+              </>
+            ) : (
+              <>
+                {/* Tablet/Desktop: Collapsible right-edge sidebar */}
+                {chatPanel.isCollapsed && (
+                  <button
+                    type="button"
+                    data-testid="chat-collapsed-tab"
+                    className={cn(
+                      'fixed right-0 top-1/2 -translate-y-1/2 z-30',
+                      'w-12 py-4',
+                      'bg-black/80 backdrop-blur-md',
+                      'border-l-2 border-white/20',
+                      'rounded-l-lg',
+                      'shadow-2xl shadow-green-500/10',
+                      'cursor-pointer pointer-events-auto',
+                      'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-green-500/30',
+                      'transition-all duration-300',
+                      'flex flex-col items-center gap-2',
+                      'group'
+                    )}
+                    onClick={chatPanel.toggle}
+                    aria-label="Expand chat"
+                  >
+                    <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">&larr;</div>
+                    <div className="text-2xl group-hover:scale-110 transition-transform">💬</div>
+                    {chat.messages.length > 0 && (
+                      <Badge count={chat.messages.length} max={9} color="error" data-testid="chat-collapsed-badge" />
+                    )}
+                    {chat.isConnected && (
+                      <div className="absolute -left-1 top-4 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                    )}
+                  </button>
+                )}
 
-                      {/* Registration prompt for unregistered users */}
-                      <div className="border-t border-outline p-4 bg-background/50">
-                        {!showInlineRegistration ? (
-                          <div className="space-y-3 text-center">
-                            <p className="text-sm text-muted-foreground">
-                              Register your email to send messages
-                            </p>
-                            <TouchButton
-                              onClick={() => setShowInlineRegistration(true)}
-                              variant="primary"
-                              data-testid="btn-open-viewer-auth"
-                              className="w-full"
-                            >
-                              Register to Chat
-                            </TouchButton>
-                          </div>
+                {!chatPanel.isCollapsed && (
+                  <div
+                    className={cn(
+                      'fixed right-0 top-1/2 -translate-y-1/2 z-30',
+                      isTablet ? 'w-[min(360px,45vw)]' : 'w-[360px]',
+                      'max-h-[80vh]',
+                      'bg-black/90 backdrop-blur-md',
+                      'border-l-2 border-white/20',
+                      'rounded-l-lg shadow-2xl shadow-green-500/10',
+                      'flex flex-col',
+                      'transition-transform duration-300 ease-in-out'
+                    )}
+                    data-testid="chat-panel"
+                    role="dialog"
+                    aria-modal="false"
+                    aria-label="Chat panel"
+                  >
+                    {/* Header with collapse button */}
+                    <div className="p-4 border-b border-outline flex items-center justify-between relative">
+                      <button
+                        onClick={chatPanel.toggle}
+                        className="absolute -left-10 top-2 w-8 h-8 bg-background/95 backdrop-blur-sm border border-outline rounded-l-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-background transition-colors"
+                        data-testid="btn-collapse-chat"
+                        aria-label="Collapse chat"
+                      >
+                        <span className="text-xs font-bold">&rarr;</span>
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-white font-bold text-base">Live Chat</h2>
+                        {chat.isConnected ? (
+                          <span className="flex items-center gap-1 text-green-400 text-xs">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                            Live
+                          </span>
                         ) : (
-                          <div className="space-y-3">
-                            {/* Inline Registration Form */}
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-sm font-semibold text-white">Join the Chat</h3>
-                              <button
-                                onClick={() => setShowInlineRegistration(false)}
-                                className="text-muted-foreground hover:text-white transition-colors"
-                                data-testid="btn-cancel-inline-registration"
-                                aria-label="Cancel registration"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                            <p className="text-xs text-muted-foreground mb-3">
-                              Register your email to start chatting
-                            </p>
-                            <form
-                              onSubmit={async (e) => {
-                                e.preventDefault();
-                                const formData = new FormData(e.currentTarget);
-                                const displayName = formData.get('displayName') as string;
-                                const email = formData.get('email') as string;
-                                
-                                if (!displayName || !email) return;
-                                
-                                // Call handleViewerRegister with correct signature: (email, name)
-                                await handleViewerRegister(email, displayName);
-                                
-                                // Close form on success
-                                setShowInlineRegistration(false);
-                              }}
-                              className="space-y-3"
-                              data-testid="form-viewer-register"
-                            >
-                              <div>
-                                <label htmlFor="inline-displayName" className="sr-only">Display Name</label>
-                                <Input
-                                  id="inline-displayName"
-                                  name="displayName"
-                                  type="text"
-                                  placeholder="Your name"
-                                  required
-                                  className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
-                                  data-testid="input-name"
-                                  defaultValue={globalAuth.viewerFirstName && globalAuth.viewerLastName
-                                    ? `${globalAuth.viewerFirstName} ${globalAuth.viewerLastName}`
-                                    : globalAuth.viewerFirstName || ''}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="inline-email" className="sr-only">Email Address</label>
-                                <Input
-                                  id="inline-email"
-                                  name="email"
-                                  type="email"
-                                  placeholder="you@example.com"
-                                  required
-                                  className="w-full bg-background/80 border-outline text-white placeholder:text-white/50"
-                                  data-testid="input-email"
-                                  defaultValue={globalAuth.viewerEmail || ''}
-                                />
-                              </div>
-                              <TouchButton
-                                type="submit"
-                                disabled={viewer.isLoading || globalAuth.isLoading}
-                                variant="primary"
-                                className="w-full"
-                                data-testid="btn-submit-viewer-register"
-                              >
-                                {viewer.isLoading || globalAuth.isLoading ? 'Registering...' : 'Register'}
-                              </TouchButton>
-                              {viewer.error && (
-                                <p className="text-xs text-destructive text-center" role="alert">
-                                  {viewer.error}
-                                </p>
-                              )}
-                              <p className="text-xs text-muted-foreground text-center">
-                                We'll send you a secure link to verify your email. No password required!
-                              </p>
-                            </form>
-                          </div>
+                          <span className="text-muted-foreground text-xs">Connecting...</span>
                         )}
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
+
+                    {/* Guest name bar for anonymous users */}
+                    {viewer.isUnlocked && isAnonymousViewer && (
+                      <div className="px-4 py-2 border-b border-outline bg-amber-900/20 flex items-center justify-between text-xs">
+                        {isEditingGuestName ? (
+                          <form
+                            className="flex items-center gap-2 w-full"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const input = e.currentTarget.elements.namedItem('guestName') as HTMLInputElement;
+                              if (input.value.trim()) handleChangeGuestName(input.value);
+                            }}
+                          >
+                            <input name="guestName" type="text" defaultValue={guestDisplayName || ''} maxLength={50} autoFocus className="flex-1 bg-black/40 border border-amber-600/50 rounded px-2 py-1 min-h-[44px] text-white text-sm" placeholder="Enter your name" />
+                            <button type="submit" className="text-amber-400 hover:text-amber-300 font-medium">Save</button>
+                            <button type="button" onClick={() => setIsEditingGuestName(false)} className="text-gray-400 hover:text-gray-300">Cancel</button>
+                          </form>
+                        ) : (
+                          <>
+                            <span className="text-amber-200/80">
+                              Chatting as <strong className="text-amber-300">{guestDisplayName || 'Guest'}</strong>
+                            </span>
+                            <button onClick={() => setIsEditingGuestName(true)} className="text-amber-400 hover:text-amber-300 underline">Change name</button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                      {viewer.isUnlocked ? (
+                        <Chat
+                          messages={chatV2.messages}
+                          onSend={chatV2.sendMessage}
+                          currentUserId={chatV2.currentUserId}
+                          mode="embedded"
+                          title=""
+                          isLoading={chatV2.isLoading}
+                          disabled={!chatV2.isConnected}
+                          emptyMessage="No messages yet. Be the first to chat!"
+                          className="h-full"
+                          data-testid="chat-panel-v2"
+                        />
+                      ) : (
+                        <div className="flex-1 flex flex-col">
+                          <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
+                            {chat.error && (
+                              <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">{chat.error}</div>
+                            )}
+                            {chat.messages.length === 0 ? (
+                              <p className="text-center text-muted-foreground py-8 text-sm">No messages yet. Be the first to chat!</p>
+                            ) : (
+                              chat.messages.map((msg) => (
+                                <div key={msg.id} className="p-3 bg-muted/50 rounded-lg" data-testid={`chat-msg-${msg.id}`}>
+                                  <div className="text-xs font-semibold text-muted-foreground mb-1">{msg.displayName}</div>
+                                  <div className="text-sm leading-relaxed break-words text-white">{msg.message}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          <div className="border-t border-outline p-4 bg-background/50">
+                            {!showInlineRegistration ? (
+                              <div className="space-y-3 text-center">
+                                <p className="text-sm text-muted-foreground">Register your email to send messages</p>
+                                <TouchButton onClick={() => setShowInlineRegistration(true)} variant="primary" data-testid="btn-open-viewer-auth" className="w-full">Register to Chat</TouchButton>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h3 className="text-sm font-semibold text-white">Join the Chat</h3>
+                                  <button onClick={() => setShowInlineRegistration(false)} className="text-muted-foreground hover:text-white transition-colors" data-testid="btn-cancel-inline-registration" aria-label="Cancel registration"><X className="w-4 h-4" /></button>
+                                </div>
+                                <p className="text-xs text-muted-foreground mb-3">Register your email to start chatting</p>
+                                <form
+                                  onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.currentTarget);
+                                    const displayName = formData.get('displayName') as string;
+                                    const email = formData.get('email') as string;
+                                    if (!displayName || !email) return;
+                                    await handleViewerRegister(email, displayName);
+                                    setShowInlineRegistration(false);
+                                  }}
+                                  className="space-y-3"
+                                  data-testid="form-viewer-register"
+                                >
+                                  <div>
+                                    <label htmlFor="inline-displayName" className="sr-only">Display Name</label>
+                                    <Input id="inline-displayName" name="displayName" type="text" placeholder="Your name" required className="w-full bg-background/80 border-outline text-white placeholder:text-white/50" data-testid="input-name" defaultValue={globalAuth.viewerFirstName && globalAuth.viewerLastName ? `${globalAuth.viewerFirstName} ${globalAuth.viewerLastName}` : globalAuth.viewerFirstName || ''} />
+                                  </div>
+                                  <div>
+                                    <label htmlFor="inline-email" className="sr-only">Email Address</label>
+                                    <Input id="inline-email" name="email" type="email" placeholder="you@example.com" required className="w-full bg-background/80 border-outline text-white placeholder:text-white/50" data-testid="input-email" defaultValue={globalAuth.viewerEmail || ''} />
+                                  </div>
+                                  <TouchButton type="submit" disabled={viewer.isLoading || globalAuth.isLoading} variant="primary" className="w-full" data-testid="btn-submit-viewer-register">
+                                    {viewer.isLoading || globalAuth.isLoading ? 'Registering...' : 'Register'}
+                                  </TouchButton>
+                                  {viewer.error && (
+                                    <p className="text-xs text-destructive text-center" role="alert">{viewer.error}</p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground text-center">
+                                    We&apos;ll send you a secure link to verify your email. No password required!
+                                  </p>
+                                </form>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

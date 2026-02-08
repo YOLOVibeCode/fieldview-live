@@ -32,6 +32,7 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
         label: data.label,
         notes: data.notes,
         isShared: data.isShared ?? false,
+        bufferSeconds: data.bufferSeconds ?? 5,
       },
     });
   }
@@ -125,6 +126,27 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
       orderBy: options?.orderBy
         ? { [options.orderBy]: options.orderDirection ?? 'desc' }
         : { createdAt: 'desc' },
+    });
+  }
+
+  async listByStreamWithShared(
+    streamId: string,
+    viewerId: string,
+    options?: BookmarkListOptions,
+  ): Promise<VideoBookmark[]> {
+    return this.prisma.videoBookmark.findMany({
+      where: {
+        directStreamId: streamId,
+        OR: [
+          { viewerIdentityId: viewerId },
+          { isShared: true },
+        ],
+      },
+      take: options?.limit,
+      skip: options?.offset,
+      orderBy: options?.orderBy
+        ? { [options.orderBy]: options.orderDirection ?? 'desc' }
+        : { timestampSeconds: 'asc' },
     });
   }
 

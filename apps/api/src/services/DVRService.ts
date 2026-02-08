@@ -219,6 +219,15 @@ export class DVRService implements IDVRService {
   }
 
   async listBookmarks(options: ListBookmarksOptions): Promise<VideoBookmark[]> {
+    // Combined query: own bookmarks + shared bookmarks for a stream
+    if (options.viewerId && options.directStreamId && options.includeShared) {
+      return this.bookmarkRepo.listByStreamWithShared(
+        options.directStreamId,
+        options.viewerId,
+        { limit: options.limit, offset: options.offset },
+      );
+    }
+
     if (options.viewerId) {
       return this.bookmarkRepo.listByViewer(options.viewerId, {
         limit: options.limit,

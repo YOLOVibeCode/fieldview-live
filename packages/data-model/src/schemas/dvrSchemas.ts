@@ -90,6 +90,7 @@ export const createBookmarkSchema = z.object({
     .max(BOOKMARK_LIMITS.NOTES_MAX, `Notes must be ${BOOKMARK_LIMITS.NOTES_MAX} characters or less`)
     .optional(),
   isShared: z.boolean().optional(),
+  bufferSeconds: z.number().int().min(1).max(10).optional().default(5),
 }).refine(
   (data) => data.gameId || data.directStreamId,
   { message: 'Either gameId or directStreamId must be provided' }
@@ -113,6 +114,7 @@ export const listBookmarksSchema = z.object({
   gameId: z.string().uuid().optional(),
   directStreamId: z.string().uuid().optional(),
   publicOnly: z.string().transform(val => val === 'true').optional(),
+  includeShared: z.string().transform(val => val === 'true').optional(),
   limit: z.string().transform(val => parseInt(val, 10)).optional(),
   offset: z.string().transform(val => parseInt(val, 10)).optional(),
 });

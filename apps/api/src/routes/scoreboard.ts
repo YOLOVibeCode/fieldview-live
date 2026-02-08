@@ -433,11 +433,6 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
   const { viewerToken, field, value } = req.body;
 
   try {
-    // Validate input
-    if (!viewerToken) {
-      return res.status(401).json({ error: 'Viewer token required' });
-    }
-
     if (!field || value === undefined) {
       return res.status(400).json({ error: 'Field and value required' });
     }
@@ -470,9 +465,13 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       return res.status(403).json({ error: 'Viewer name editing is disabled' });
     }
 
-    // TODO: Verify viewerToken JWT and extract viewer identity
-    // For now, we'll use a placeholder viewer name
-    const viewerName = 'Viewer'; // Extract from JWT in production
+    // Auth check: require viewerToken unless anonymous editing is enabled
+    const isAnonymousAllowed = isScoreField && stream.allowAnonymousScoreEdit;
+    if (!viewerToken && !isAnonymousAllowed) {
+      return res.status(401).json({ error: 'Viewer token required' });
+    }
+
+    const viewerName = viewerToken ? 'Viewer' : 'Guest';
 
     // Rate limiting check (simple in-memory implementation)
     // TODO: Implement proper Redis-based rate limiting

@@ -53,6 +53,8 @@ describe('AutoRegistrationService (TDD)', () => {
     allowViewerScoreEdit: false,
     allowViewerNameEdit: false,
     allowAnonymousView: true,
+    allowAnonymousChat: false,
+    allowAnonymousScoreEdit: false,
     requireEmailVerification: true,
     listed: true,
     scoreboardHomeTeam: null,

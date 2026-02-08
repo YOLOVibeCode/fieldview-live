@@ -29,6 +29,7 @@ interface UseScoreboardDataOptions {
   enabled?: boolean;
   pollInterval?: number; // milliseconds
   viewerToken?: string | null;
+  allowAnonymousEdit?: boolean;
 }
 
 interface ScoreboardData {
@@ -78,6 +79,7 @@ export function useScoreboardData({
   enabled = true,
   pollInterval = 5000, // 5 seconds default
   viewerToken,
+  allowAnonymousEdit = false,
 }: UseScoreboardDataOptions): UseScoreboardDataReturn {
   const [homeTeam, setHomeTeam] = useState<TeamData>({
     name: 'Home',
@@ -159,20 +161,29 @@ export function useScoreboardData({
    * Update score (for editable scoreboards)
    */
   const updateScore = useCallback(async (team: 'home' | 'away', newScore: number) => {
-    if (!slug || !viewerToken) {
+    if (!slug) {
+      throw new Error('No slug available');
+    }
+    if (!viewerToken && !allowAnonymousEdit) {
       throw new Error('Authentication required to update score');
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/public/scoreboard/${slug}/score`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${viewerToken}`,
-        },
+      const field = team === 'home' ? 'homeScore' : 'awayScore';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (viewerToken) {
+        headers.Authorization = `Bearer ${viewerToken}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard/viewer-update`, {
+        method: 'POST',
+        headers,
         body: JSON.stringify({
-          team,
-          score: newScore,
+          viewerToken: viewerToken || undefined,
+          field,
+          value: newScore,
         }),
       });
 
@@ -193,7 +204,7 @@ export function useScoreboardData({
       console.error('[Scoreboard] Update error:', err);
       throw err;
     }
-  }, [slug, viewerToken, fetchScoreboard]);
+  }, [slug, viewerToken, allowAnonymousEdit, fetchScoreboard]);
 
   /**
    * Initial fetch and polling

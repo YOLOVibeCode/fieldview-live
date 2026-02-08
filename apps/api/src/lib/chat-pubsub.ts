@@ -11,6 +11,7 @@ import { logger } from './logger';
 export interface IChatPubSub {
   publish(gameId: string, message: GameChatMessage): Promise<void>;
   subscribe(gameId: string, handler: (msg: GameChatMessage) => void): () => void;
+  getSubscriberCount(gameId: string): number;
 }
 
 /**
@@ -55,6 +56,10 @@ export class InMemoryChatPubSub implements IChatPubSub {
       }
       logger.debug({ gameId, totalSubscribers: handlers.size }, 'Chat subscriber removed');
     };
+  }
+
+  getSubscriberCount(gameId: string): number {
+    return this.handlers.get(gameId)?.size ?? 0;
   }
 }
 

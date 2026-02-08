@@ -1,0 +1,66 @@
+/**
+ * Vidstack Theme Overrides
+ *
+ * Maps Vidstack's CSS variables to the FieldView v2 design tokens.
+ * Dark theme matching the existing player aesthetic.
+ */
+
+[data-media-player] {
+  --media-brand: var(--fv-color-primary-500, #3B82F6);
+  --media-focus-ring-color: var(--fv-color-primary-500, #3B82F6);
+  --media-focus-ring: 0 0 0 2px var(--media-focus-ring-color);
+
+  /* Font */
+  --media-font-family: var(--fv-font-sans, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+
+  /* Controls background */
+  --media-controls-color: var(--fv-color-text-primary, #F8FAFC);
+
+  /* Tooltip */
+  --media-tooltip-bg-color: var(--fv-color-bg-elevated, #334155);
+  --media-tooltip-color: var(--fv-color-text-primary, #F8FAFC);
+
+  /* Menu */
+  --media-menu-bg: var(--fv-color-bg-secondary, #1E293B);
+  --media-menu-border: var(--fv-color-border, rgba(255, 255, 255, 0.1));
+
+  /* Slider / progress bar */
+  --media-slider-track-bg: rgba(255, 255, 255, 0.2);
+  --media-slider-track-fill-bg: var(--fv-color-primary-500, #3B82F6);
+  --media-slider-thumb-bg: var(--fv-color-primary-400, #60A5FA);
+  --media-slider-track-progress-bg: rgba(255, 255, 255, 0.3);
+
+  /* Border radius */
+  border-radius: var(--fv-radius-lg, 0.75rem);
+  overflow: hidden;
+}
+
+/* Ensure player fills container properly */
+[data-media-player][data-view-type='video'] {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+/* Controls bar background - match existing dark control bar */
+:where([data-media-player]) :where([data-media-controls]) {
+  background: linear-gradient(
+    to top,
+    rgba(15, 23, 42, 0.9) 0%,
+    rgba(15, 23, 42, 0.5) 60%,
+    transparent 100%
+  );
+}
+
+/* Time display monospace font */
+:where([data-media-player]) :where([data-media-time]) {
+  font-family: var(--fv-font-mono, 'JetBrains Mono', monospace);
+  font-size: var(--fv-text-xs, 0.75rem);
+}
+
+/* Touch-friendly button sizes on mobile */
+@media (max-width: 640px) {
+  :where([data-media-player]) :where(button) {
+    min-height: var(--fv-touch-target-min, 44px);
+    min-width: var(--fv-touch-target-min, 44px);
+  }
+}

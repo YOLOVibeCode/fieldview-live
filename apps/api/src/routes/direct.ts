@@ -6,6 +6,9 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { validateAdminToken } from '../middleware/admin-jwt';
+import { generateViewerToken } from '../lib/viewer-jwt';
+import { ensureGameForDirectStream } from '../lib/ensure-game';
+import { getChatPubSub } from '../lib/chat-pubsub';
 import { 
   SavePaymentMethodSchema, 
   GetPaymentMethodsQuerySchema,
@@ -175,9 +178,12 @@ router.get(
           scoreboardAwayTeam: directStream.scoreboardAwayTeam,
           scoreboardHomeColor: directStream.scoreboardHomeColor,
           scoreboardAwayColor: directStream.scoreboardAwayColor,
-          // 🆕 Viewer editing permissions
+          // Viewer editing permissions
           allowViewerScoreEdit: directStream.allowViewerScoreEdit,
           allowViewerNameEdit: directStream.allowViewerNameEdit,
+          // Anonymous feature flags
+          allowAnonymousChat: directStream.allowAnonymousChat,
+          allowAnonymousScoreEdit: directStream.allowAnonymousScoreEdit,
         });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
@@ -215,9 +221,18 @@ router.post(
         const { password } = parsed.data;
         const key = slug.toLowerCase();
 
-        // Find the DirectStream record
+        // Find the DirectStream record (include fields needed for ensureGame)
         const directStream = await prisma.directStream.findUnique({
           where: { slug: key },
+          select: {
+            id: true,
+            title: true,
+            adminPassword: true,
+            ownerAccountId: true,
+            scheduledStartAt: true,
+            priceInCents: true,
+            gameId: true,
+          },
         });
 
         if (!directStream) {
@@ -226,12 +241,12 @@ router.post(
 
         // Verify password with bcrypt
         const isValid = await bcrypt.compare(password, directStream.adminPassword);
-        
+
         if (!isValid) {
           return res.status(401).json({ error: 'Invalid password' });
         }
 
-        // Generate JWT token
+        // Generate admin JWT token
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) {
           logger.error('JWT_SECRET not configured');
@@ -244,7 +259,40 @@ router.post(
           { expiresIn: '1h' }
         );
 
-        return res.json({ token });
+        // Auto-login admin as viewer: upsert ViewerIdentity + generate viewer JWT
+        const adminEmail = `admin@${key}.fieldview.live`;
+        const adminDisplayName = `${directStream.title || key} Admin`;
+
+        const gameId = directStream.gameId || await ensureGameForDirectStream(key, directStream);
+
+        const adminViewer = await prisma.viewerIdentity.upsert({
+          where: { email: adminEmail },
+          create: {
+            email: adminEmail,
+            firstName: adminDisplayName,
+            lastName: '',
+            wantsReminders: false,
+          },
+          update: {
+            firstName: adminDisplayName,
+            lastSeenAt: new Date(),
+          },
+        });
+
+        const viewerToken = generateViewerToken({
+          viewerId: adminViewer.id,
+          gameId,
+          slug: key,
+          displayName: adminDisplayName,
+        });
+
+        return res.json({
+          token,
+          viewerToken,
+          viewerId: adminViewer.id,
+          displayName: adminDisplayName,
+          gameId,
+        });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to unlock admin');
         next(error);
@@ -279,9 +327,12 @@ router.post(
           scoreboardAwayTeam: z.string().max(50).optional().nullable(),
           scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
           scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
-          // 🆕 Viewer editing permissions
+          // Viewer editing permissions
           allowViewerScoreEdit: z.boolean().optional(),
           allowViewerNameEdit: z.boolean().optional(),
+          // Anonymous feature flags
+          allowAnonymousChat: z.boolean().optional(),
+          allowAnonymousScoreEdit: z.boolean().optional(),
         });
         
         const parsed = schema.safeParse(req.body);
@@ -340,12 +391,19 @@ router.post(
         if (body.scoreboardAwayColor !== undefined) {
           updateData.scoreboardAwayColor = body.scoreboardAwayColor;
         }
-        // 🆕 Viewer editing permissions
+        // Viewer editing permissions
         if (body.allowViewerScoreEdit !== undefined) {
           updateData.allowViewerScoreEdit = body.allowViewerScoreEdit;
         }
         if (body.allowViewerNameEdit !== undefined) {
           updateData.allowViewerNameEdit = body.allowViewerNameEdit;
+        }
+        // Anonymous feature flags
+        if (body.allowAnonymousChat !== undefined) {
+          updateData.allowAnonymousChat = body.allowAnonymousChat;
+        }
+        if (body.allowAnonymousScoreEdit !== undefined) {
+          updateData.allowAnonymousScoreEdit = body.allowAnonymousScoreEdit;
         }
 
         // Update in database
@@ -751,26 +809,33 @@ router.get(
           return res.status(404).json({ error: 'Stream not found' });
         }
 
-        // Get viewers active within last 2 minutes
+        // Get viewers active within last 2 minutes, scoped to this stream
         const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-        
-        const activeViewers = await prisma.viewerIdentity.findMany({
+
+        const registrations = await prisma.directStreamRegistration.findMany({
           where: {
-            lastSeenAt: {
-              gte: twoMinutesAgo,
+            directStreamId: stream.id,
+            viewerIdentity: {
+              lastSeenAt: { gte: twoMinutesAgo },
             },
           },
           select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            lastSeenAt: true,
+            viewerIdentity: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                lastSeenAt: true,
+              },
+            },
           },
           orderBy: {
-            lastSeenAt: 'desc',
+            viewerIdentity: { lastSeenAt: 'desc' },
           },
         });
+
+        const activeViewers = registrations.map((r) => r.viewerIdentity);
 
         // Mark viewers as active or inactive based on 1-minute threshold
         const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
@@ -954,6 +1019,41 @@ router.get(
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Verify access failed');
         next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/direct/:slug/viewer-count - Get live viewer count (public, no auth)
+router.get(
+  '/:slug/viewer-count',
+  (req: Request, res: Response) => {
+    const { slug } = req.params;
+    if (!slug) {
+      return res.status(400).json({ error: 'Slug is required' });
+    }
+
+    // Look up the game for this stream and count SSE subscribers
+    const key = slug.toLowerCase();
+    const gameTitle = `Direct Stream: ${key}`;
+
+    void (async () => {
+      try {
+        const game = await prisma.game.findFirst({
+          where: { title: gameTitle },
+          select: { id: true },
+        });
+
+        if (!game) {
+          return res.json({ count: 0 });
+        }
+
+        const pubsub = getChatPubSub();
+        const count = pubsub.getSubscriberCount(game.id);
+        return res.json({ count });
+      } catch (error) {
+        logger.error({ error, slug }, 'Failed to get viewer count');
+        return res.json({ count: 0 });
       }
     })();
   }

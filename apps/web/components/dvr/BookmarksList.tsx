@@ -13,6 +13,7 @@ interface BookmarksListProps {
   viewerId?: string;
   gameId?: string;
   directStreamId?: string;
+  includeShared?: boolean;
   onSeek?: (timeSeconds: number) => void;
   className?: string;
 }
@@ -21,6 +22,7 @@ export function BookmarksList({
   viewerId,
   gameId,
   directStreamId,
+  includeShared,
   onSeek,
   className = '',
 }: BookmarksListProps) {
@@ -28,6 +30,7 @@ export function BookmarksList({
     viewerId,
     gameId,
     directStreamId,
+    includeShared,
   });
   const { deleteBookmark, loading: deleting } = useDeleteBookmark();
   const { createClipFromBookmark, loading: creatingClip } = useCreateClipFromBookmark();

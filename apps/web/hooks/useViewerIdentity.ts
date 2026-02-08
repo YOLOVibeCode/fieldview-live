@@ -72,6 +72,33 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
     }
   }, [gameId]);
 
+  /**
+   * Imperatively set viewer identity from an external source (admin auto-login, anonymous token).
+   * Persists to localStorage and updates React state — no page reload needed.
+   */
+  const setExternalIdentity = useCallback((data: {
+    viewerToken: string;
+    viewerId: string;
+    displayName: string;
+    gameId: string;
+    email?: string;
+  }) => {
+    const identity: ViewerIdentity = {
+      email: data.email || '',
+      firstName: data.displayName,
+      lastName: '',
+      viewerToken: data.viewerToken,
+      gameId: data.gameId,
+      viewerId: data.viewerId,
+      viewerIdentityId: data.viewerId,
+      registeredAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
+    setToken(data.viewerToken);
+    setViewerId(data.viewerId);
+    setIsUnlocked(true);
+  }, []);
+
   const unlock = useCallback(async (data: UnlockData): Promise<{ viewerId: string | null; viewerToken: string } | void> => {
     // Require either gameId or slug to proceed
     if (!gameId && !slug) {
@@ -158,9 +185,10 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
   return {
     isUnlocked,
     token,
-    viewerId, // Export viewerId
+    viewerId,
     isLoading,
     error,
     unlock,
+    setExternalIdentity,
   };
 }

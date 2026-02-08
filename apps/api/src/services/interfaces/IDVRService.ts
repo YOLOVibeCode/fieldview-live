@@ -42,6 +42,7 @@ export interface CreateBookmarkInput {
   label: string;
   notes?: string;
   isShared?: boolean;
+  bufferSeconds?: number;
 }
 
 export interface ListClipsOptions {
@@ -60,6 +61,7 @@ export interface ListBookmarksOptions {
   gameId?: string;
   directStreamId?: string;
   publicOnly?: boolean;
+  includeShared?: boolean;
   limit?: number;
   offset?: number;
 }

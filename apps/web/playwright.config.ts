@@ -18,6 +18,7 @@ export default defineConfig({
   },
 
   projects: [
+    // Desktop
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -30,6 +31,24 @@ export default defineConfig({
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
     },
+    // Mobile
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 13'] },
+    },
+    // Tablet
+    {
+      name: 'tablet-safari',
+      use: { ...devices['iPad (gen 7)'] },
+    },
+    {
+      name: 'tablet-safari-landscape',
+      use: { ...devices['iPad (gen 7) landscape'] },
+    },
   ],
 
   // Run local dev servers before tests
@@ -38,7 +57,7 @@ export default defineConfig({
       command: 'cd ../api && pnpm dev',
       url: 'http://localhost:4301/health',
       timeout: 120 * 1000,
-      reuseExistingServer: !process.env.CI || process.env.REUSE_SERVER === 'true',
+      reuseExistingServer: !process.env.CI,
       stdout: 'pipe',
       stderr: 'pipe',
     },
@@ -46,7 +65,7 @@ export default defineConfig({
       command: 'pnpm dev',
       url: 'http://localhost:4300',
       timeout: 120 * 1000,
-      reuseExistingServer: !process.env.CI || process.env.REUSE_SERVER === 'true',
+      reuseExistingServer: !process.env.CI,
       stdout: 'pipe',
       stderr: 'pipe',
     },

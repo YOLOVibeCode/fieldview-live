@@ -15,6 +15,7 @@ import { logger } from '../lib/logger';
 import { sendEmail, renderRegistrationEmail } from '../lib/email';
 import { createAutoRegistrationService } from '../services/auto-registration.implementations';
 import type { AutoRegisterRequest, AutoRegisterResponse } from '../services/auto-registration.interfaces';
+import { ensureGameForDirectStream } from '../lib/ensure-game';
 
 const router = express.Router();
 
@@ -29,65 +30,6 @@ const AutoRegisterSchema = z.object({
   directStreamSlug: z.string().min(1),
   viewerIdentityId: z.string().min(1),
 });
-
-/**
- * Ensures a Game record exists for a DirectStream.
- * Creates one automatically if missing (resilient design).
- * 
- * @param slug - DirectStream slug
- * @param directStream - DirectStream record (must include ownerAccountId)
- * @returns Game ID (existing or newly created)
- */
-async function ensureGameForDirectStream(
-  slug: string,
-  directStream: { id: string; title: string; ownerAccountId: string; scheduledStartAt: Date | null; priceInCents: number }
-): Promise<string> {
-  const gameTitle = `Direct Stream: ${slug}`;
-  
-  // Try to find existing Game
-  const existingGame = await prisma.game.findFirst({
-    where: { title: gameTitle },
-    select: { id: true },
-  });
-
-  if (existingGame) {
-    return existingGame.id;
-  }
-
-  // Auto-create Game record (resilient fallback)
-  logger.warn({ slug, directStreamId: directStream.id }, 'Game record missing for DirectStream - auto-creating');
-
-  // Generate unique keyword code using slug + timestamp
-  const keywordCode = `DIRECT-${slug.toUpperCase()}-${Date.now()}`;
-
-  const newGame = await prisma.game.create({
-    data: {
-      ownerAccountId: directStream.ownerAccountId,
-      title: gameTitle,
-      homeTeam: directStream.title || slug,
-      awayTeam: 'TBD',
-      startsAt: directStream.scheduledStartAt || new Date(),
-      priceCents: directStream.priceInCents || 0,
-      currency: 'USD',
-      keywordCode,
-      qrUrl: `https://fieldview.live/direct/${slug}`,
-      state: 'active',
-    },
-  });
-
-  // Link the Game back to the DirectStream so bootstrap returns the correct gameId
-  await prisma.directStream.update({
-    where: { id: directStream.id },
-    data: { gameId: newGame.id },
-  });
-
-  logger.info(
-    { slug, gameId: newGame.id, directStreamId: directStream.id },
-    'Game record auto-created and linked to DirectStream'
-  );
-
-  return newGame.id;
-}
 
 /**
  * POST /api/public/direct/:slug/viewer/unlock
@@ -275,6 +217,97 @@ router.post(
         // Log and return generic error
         logger.error({ error, body: req.body }, 'Auto-registration failed');
         res.status(500).json({ error: 'Auto-registration failed' });
+      }
+    })();
+  }
+);
+
+/**
+ * POST /api/public/direct/:slug/viewer/anonymous-token
+ *
+ * Issue a viewer JWT for an anonymous user.
+ * Requires allowAnonymousChat to be enabled on the stream.
+ * Creates a synthetic ViewerIdentity with an auto-assigned guest name.
+ */
+const AnonymousTokenSchema = z.object({
+  sessionId: z.string().min(1).max(64),
+  displayName: z.string().min(1).max(50).optional(),
+});
+
+router.post(
+  '/direct/:slug/viewer/anonymous-token',
+  validateRequest({ body: AnonymousTokenSchema }),
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+
+        const body = req.body as z.infer<typeof AnonymousTokenSchema>;
+
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug },
+          select: {
+            id: true,
+            title: true,
+            ownerAccountId: true,
+            scheduledStartAt: true,
+            priceInCents: true,
+            allowAnonymousChat: true,
+          },
+        });
+
+        if (!directStream) {
+          throw new BadRequestError('Stream not found');
+        }
+
+        if (!directStream.allowAnonymousChat) {
+          return res.status(403).json({ error: 'Anonymous chat is not enabled for this stream' });
+        }
+
+        const gameId = await ensureGameForDirectStream(slug, directStream);
+
+        // Generate guest name from sessionId hash if no displayName provided
+        const guestCode = body.sessionId.slice(-4).toUpperCase();
+        const displayName = body.displayName || `Guest ${guestCode}`;
+
+        // Upsert anonymous ViewerIdentity with synthetic email
+        const anonEmail = `anon-${body.sessionId}@guest.fieldview.live`;
+        const viewer = await prisma.viewerIdentity.upsert({
+          where: { email: anonEmail },
+          create: {
+            email: anonEmail,
+            firstName: displayName,
+            lastName: '',
+            wantsReminders: false,
+          },
+          update: {
+            firstName: displayName,
+            lastSeenAt: new Date(),
+          },
+        });
+
+        const viewerToken = generateViewerToken({
+          viewerId: viewer.id,
+          gameId,
+          slug,
+          displayName,
+        });
+
+        logger.info(
+          { viewerId: viewer.id, gameId, slug, displayName, anonymous: true },
+          'Anonymous viewer token issued'
+        );
+
+        res.json({
+          viewerToken,
+          viewer: { id: viewer.id, displayName },
+          gameId,
+        });
+      } catch (error) {
+        next(error);
       }
     })();
   }

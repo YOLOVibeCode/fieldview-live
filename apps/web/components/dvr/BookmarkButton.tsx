@@ -7,7 +7,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCreateBookmark } from '@/lib/hooks/useDVR';
+import { useCreateBookmark, type VideoBookmark } from '@/lib/hooks/useDVR';
 
 // Import validation constants from data-model
 const BOOKMARK_LIMITS = {
@@ -21,6 +21,8 @@ interface BookmarkButtonProps {
   viewerIdentityId: string;
   getCurrentTime: () => number;
   onSuccess?: () => void;
+  /** Called with the created bookmark for optimistic UI (e.g. timeline markers) */
+  onBookmarkCreated?: (bookmark: VideoBookmark) => void;
   className?: string;
 }
 
@@ -30,12 +32,14 @@ export function BookmarkButton({
   viewerIdentityId,
   getCurrentTime,
   onSuccess,
+  onBookmarkCreated,
   className = '',
 }: BookmarkButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [label, setLabel] = useState('');
   const [notes, setNotes] = useState('');
   const [isShared, setIsShared] = useState(false);
+  const [bufferSeconds, setBufferSeconds] = useState<1 | 5 | 10>(5);
   const { createBookmark, loading, error } = useCreateBookmark();
 
   const handleBookmark = async () => {
@@ -51,7 +55,7 @@ export function BookmarkButton({
     }
 
     try {
-      await createBookmark({
+      const bookmark = await createBookmark({
         gameId,
         directStreamId,
         viewerIdentityId,
@@ -59,14 +63,17 @@ export function BookmarkButton({
         label: label.trim(),
         notes: notes.trim() || undefined,
         isShared,
+        bufferSeconds,
       });
 
       // Reset form
       setLabel('');
       setNotes('');
       setIsShared(false);
+      setBufferSeconds(5);
       setShowDialog(false);
 
+      onBookmarkCreated?.(bookmark);
       onSuccess?.();
     } catch (err) {
       console.error('Failed to create bookmark:', err);
@@ -162,7 +169,7 @@ export function BookmarkButton({
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="flex items-center text-gray-300">
                   <input
                     type="checkbox"
@@ -173,6 +180,33 @@ export function BookmarkButton({
                   />
                   Share publicly
                 </label>
+              </div>
+
+              {/* Time window selector */}
+              <div className="mb-6">
+                <label className="block text-gray-300 mb-2">
+                  Clip capture window
+                </label>
+                <div className="flex gap-2" data-testid="buffer-seconds-toggle">
+                  {([1, 5, 10] as const).map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setBufferSeconds(sec)}
+                      className={`flex-1 py-2 rounded text-sm font-medium transition-colors
+                        ${bufferSeconds === sec
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                        }`}
+                      data-testid={`btn-buffer-${sec}s`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Seconds of video captured before and after this moment when creating a clip
+                </p>
               </div>
 
               {error && (

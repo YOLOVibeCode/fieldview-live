@@ -652,6 +652,10 @@ model DirectStream {
   allowViewerScoreEdit Boolean @default(false) // Viewers can edit scores
   allowViewerNameEdit  Boolean @default(false) // Viewers can edit team names
 
+  // Anonymous access toggles
+  allowAnonymousChat      Boolean @default(false) // Guests can chat without email registration
+  allowAnonymousScoreEdit Boolean @default(false) // Guests can edit scores without registration
+
   // 🆕 Access control
   allowAnonymousView       Boolean @default(true) // Allow anonymous page viewing
   requireEmailVerification Boolean @default(true) // Require verified email for access/chat
@@ -927,6 +931,7 @@ model VideoBookmark {
   label            String // e.g., "Great Goal!", "Offside Call"
   notes            String? // Optional additional notes
   isShared         Boolean   @default(false) // Public or private
+  bufferSeconds    Int?      @default(5) // Clip capture window around bookmark (1, 5, or 10)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

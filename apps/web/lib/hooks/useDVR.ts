@@ -41,6 +41,7 @@ export interface VideoBookmark {
   label: string;
   notes?: string;
   isShared: boolean;
+  bufferSeconds?: number;
   createdAt: string;
 }
 
@@ -65,6 +66,7 @@ export interface CreateBookmarkInput {
   label: string;
   notes?: string;
   isShared?: boolean;
+  bufferSeconds?: number;
 }
 
 // ========================================
@@ -233,6 +235,7 @@ export function useListBookmarks(options?: {
   viewerId?: string;
   gameId?: string;
   directStreamId?: string;
+  includeShared?: boolean;
 }) {
   const [bookmarks, setBookmarks] = useState<VideoBookmark[]>([]);
   const [loading, setLoading] = useState(false);
@@ -246,6 +249,7 @@ export function useListBookmarks(options?: {
       if (options?.viewerId) params.append('viewerId', options.viewerId);
       if (options?.gameId) params.append('gameId', options.gameId);
       if (options?.directStreamId) params.append('directStreamId', options.directStreamId);
+      if (options?.includeShared) params.append('includeShared', 'true');
 
       const result = await apiRequest<{ bookmarks: VideoBookmark[] }>(
         `/api/bookmarks?${params.toString()}`
@@ -258,9 +262,14 @@ export function useListBookmarks(options?: {
     } finally {
       setLoading(false);
     }
-  }, [options?.viewerId, options?.gameId, options?.directStreamId]);
+  }, [options?.viewerId, options?.gameId, options?.directStreamId, options?.includeShared]);
 
-  return { bookmarks, fetchBookmarks, loading, error };
+  // Allow optimistic bookmark insertion (for instant marker display)
+  const addOptimistic = useCallback((bookmark: VideoBookmark) => {
+    setBookmarks(prev => [...prev, bookmark].sort((a, b) => a.timestampSeconds - b.timestampSeconds));
+  }, []);
+
+  return { bookmarks, fetchBookmarks, addOptimistic, loading, error };
 }
 
 export function useUpdateBookmark() {

@@ -21,6 +21,7 @@ export interface CreateBookmarkInput {
   label: string;
   notes?: string;
   isShared?: boolean;
+  bufferSeconds?: number;
 }
 
 export interface UpdateBookmarkInput {
@@ -61,6 +62,11 @@ export interface IBookmarkReader {
    * List bookmarks by stream
    */
   listByStream(streamId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]>;
+
+  /**
+   * List own + shared bookmarks for a stream (combined query)
+   */
+  listByStreamWithShared(streamId: string, viewerId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]>;
 
   /**
    * List bookmarks by clip

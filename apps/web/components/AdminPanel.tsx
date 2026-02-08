@@ -33,11 +33,14 @@ interface AdminPanelProps {
     awayTeamName?: string;
     homeJerseyColor?: string;
     awayJerseyColor?: string;
-    // 🆕 Viewer editing permissions
+    // Viewer editing permissions
     allowViewerScoreEdit?: boolean;
     allowViewerNameEdit?: boolean;
+    // Anonymous feature flags
+    allowAnonymousChat?: boolean;
+    allowAnonymousScoreEdit?: boolean;
   };
-  onAuthSuccess?: (token: string) => void;
+  onAuthSuccess?: (token: string, viewerInfo?: { viewerToken: string; viewerId: string; displayName: string; gameId: string }) => void;
 }
 
 export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelProps) {
@@ -68,9 +71,12 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const [awayTeamName, setAwayTeamName] = useState(initialSettings?.awayTeamName || '');
   const [homeJerseyColor, setHomeJerseyColor] = useState(initialSettings?.homeJerseyColor || '#003366');
   const [awayJerseyColor, setAwayJerseyColor] = useState(initialSettings?.awayJerseyColor || '#CC0000');
-  // 🆕 Viewer editing permissions
+  // Viewer editing permissions
   const [allowViewerScoreEdit, setAllowViewerScoreEdit] = useState(initialSettings?.allowViewerScoreEdit ?? false);
   const [allowViewerNameEdit, setAllowViewerNameEdit] = useState(initialSettings?.allowViewerNameEdit ?? false);
+  // Anonymous feature flags
+  const [allowAnonymousChat, setAllowAnonymousChat] = useState(initialSettings?.allowAnonymousChat ?? false);
+  const [allowAnonymousScoreEdit, setAllowAnonymousScoreEdit] = useState(initialSettings?.allowAnonymousScoreEdit ?? false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -138,11 +144,17 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
       setAdminToken(data.token);
       setIsUnlocked(true);
       setPassword(''); // Clear password from state for security
-      
+
       console.log('[AdminPanel] ✅ Admin panel unlocked successfully');
-      
-      // Notify parent component
-      onAuthSuccess?.(data.token);
+
+      // Notify parent component with admin token + viewer info for auto-login
+      const viewerInfo = data.viewerToken ? {
+        viewerToken: data.viewerToken as string,
+        viewerId: data.viewerId as string,
+        displayName: data.displayName as string,
+        gameId: data.gameId as string,
+      } : undefined;
+      onAuthSuccess?.(data.token, viewerInfo);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to unlock admin panel';
       console.error('[AdminPanel] ❌ Unlock error caught', {
@@ -204,6 +216,8 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         allowSavePayment,
         allowViewerScoreEdit,
         allowViewerNameEdit,
+        allowAnonymousChat,
+        allowAnonymousScoreEdit,
       };
 
       console.log('[AdminPanel] 📤 Sending settings update', {
@@ -447,6 +461,30 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           />
         </div>
 
+        {/* Anonymous Chat Toggle (shown when chat is enabled) */}
+        {chatEnabled && (
+          <div className="flex items-center justify-between ml-4">
+            <div>
+              <label htmlFor="allow-anonymous-chat" className="text-sm font-medium">
+                Allow Anonymous Chat
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Anyone can chat without registering their email
+              </p>
+            </div>
+            <input
+              id="allow-anonymous-chat"
+              name="allow-anonymous-chat"
+              type="checkbox"
+              checked={allowAnonymousChat}
+              onChange={(e) => setAllowAnonymousChat(e.target.checked)}
+              className="w-5 h-5"
+              data-testid="allow-anonymous-chat-checkbox"
+              aria-label="Allow anonymous chat"
+            />
+          </div>
+        )}
+
         {/* Scoreboard Settings */}
         <div className="space-y-4 border-t pt-4">
           <div className="flex items-center justify-between">
@@ -610,6 +648,30 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                 <p className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/30 p-2 rounded">
                   🎉 <strong>Social Editing:</strong> These features allow your audience to participate! Great for community streams.
                 </p>
+
+                {/* Anonymous score editing (sub-permission) */}
+                {allowViewerScoreEdit && (
+                  <div className="flex items-center justify-between ml-4">
+                    <div>
+                      <label htmlFor="allow-anonymous-score-edit" className="text-sm font-medium">
+                        Allow Anonymous Score Editing
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Anyone can edit scores without registering
+                      </p>
+                    </div>
+                    <input
+                      id="allow-anonymous-score-edit"
+                      name="allow-anonymous-score-edit"
+                      type="checkbox"
+                      checked={allowAnonymousScoreEdit}
+                      onChange={(e) => setAllowAnonymousScoreEdit(e.target.checked)}
+                      className="w-5 h-5"
+                      data-testid="allow-anonymous-score-edit-checkbox"
+                      aria-label="Allow anonymous score editing"
+                    />
+                  </div>
+                )}
               </div>
             </>
           )}
