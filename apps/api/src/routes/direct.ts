@@ -167,7 +167,9 @@ router.get(
 
         // Resolve stream provider metadata from StreamSource or URL inference
         const streamSource = directStream.game?.streamSource ?? null;
-        const streamProvider = streamSource?.type ?? inferStreamProvider(directStream.streamUrl);
+        const knownProviders = ['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed'];
+        const rawType = streamSource?.type;
+        const streamProvider = (rawType && knownProviders.includes(rawType)) ? rawType : (rawType ? 'unknown' : inferStreamProvider(directStream.streamUrl));
         const muxPlaybackId = streamSource?.muxPlaybackId ?? extractMuxPlaybackId(directStream.streamUrl);
         const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
 

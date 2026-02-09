@@ -54,10 +54,6 @@ export function MuxStreamPlayer({
   metadata,
   'data-testid': testId = 'mux-player',
 }: MuxStreamPlayerProps) {
-  const handleCanPlay = useCallback(() => {
-    onStatusChange?.('playing');
-  }, [onStatusChange]);
-
   const handleWaiting = useCallback(() => {
     onStatusChange?.('loading');
   }, [onStatusChange]);
@@ -71,14 +67,14 @@ export function MuxStreamPlayer({
   }, [onStatusChange]);
 
   const handleTimeUpdate = useCallback((evt: Event) => {
-    const target = evt.target as HTMLVideoElement;
-    onTimeUpdate?.(target.currentTime);
+    const el = evt.target as HTMLMediaElement;
+    onTimeUpdate?.(el.currentTime);
   }, [onTimeUpdate]);
 
   const handleDurationChange = useCallback((evt: Event) => {
-    const target = evt.target as HTMLVideoElement;
-    if (target.duration && isFinite(target.duration)) {
-      onDurationChange?.(target.duration);
+    const el = evt.target as HTMLMediaElement;
+    if (el.duration && isFinite(el.duration)) {
+      onDurationChange?.(el.duration);
     }
   }, [onDurationChange]);
 
@@ -88,12 +84,12 @@ export function MuxStreamPlayer({
       streamType={streamType}
       autoPlay={autoPlay ? 'muted' : false}
       muted={muted}
+      playsInline
       tokens={playbackToken ? { playback: playbackToken } : undefined}
       metadata={metadata}
       accentColor="var(--fv-color-primary-500, #3B82F6)"
       forwardSeekOffset={10}
       backwardSeekOffset={10}
-      onCanPlay={handleCanPlay}
       onWaiting={handleWaiting}
       onError={handleError}
       onPlaying={handlePlaying}

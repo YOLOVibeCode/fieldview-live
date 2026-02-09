@@ -66,13 +66,14 @@ export function StreamPlayer({
   metadata,
   'data-testid': testId,
 }: StreamPlayerProps) {
-  const useMuxPlayer = streamProvider === 'mux_managed' && muxPlaybackId;
+  const trimmedPlaybackId = muxPlaybackId?.trim() || null;
+  const useMuxPlayer = streamProvider === 'mux_managed' && trimmedPlaybackId;
 
   if (useMuxPlayer) {
     return (
-      <div className={`relative ${className ?? ''}`}>
+      <div className={`relative overflow-hidden ${className ?? ''}`}>
         <MuxStreamPlayer
-          playbackId={muxPlaybackId}
+          playbackId={trimmedPlaybackId}
           streamType={streamType}
           playbackToken={playbackToken}
           autoPlay={autoPlay}
@@ -83,7 +84,11 @@ export function StreamPlayer({
           metadata={metadata}
           data-testid={testId ?? 'stream-player-mux'}
         />
-        {children}
+        {children && (
+          <div className="absolute inset-0 pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto">
+            {children}
+          </div>
+        )}
       </div>
     );
   }

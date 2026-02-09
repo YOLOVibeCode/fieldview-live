@@ -188,11 +188,17 @@ export function getStreamStatus(streamUrl: string | null): DirectStreamStreamCon
 /**
  * Helper: Infer stream provider from URL when no StreamSource record exists
  */
-export function inferStreamProvider(streamUrl: string | null): 'mux_managed' | 'byo_hls' | 'external_embed' | 'unknown' | null {
+export function inferStreamProvider(streamUrl: string | null): 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed' | 'unknown' | null {
   if (!streamUrl) return null;
-  if (streamUrl.includes('stream.mux.com') || streamUrl.includes('mux.com')) return 'mux_managed';
-  if (streamUrl.includes('youtube.com') || streamUrl.includes('twitch.tv') || streamUrl.includes('vimeo.com')) return 'external_embed';
-  if (streamUrl.endsWith('.m3u8') || streamUrl.includes('.m3u8?')) return 'byo_hls';
+  try {
+    const hostname = new URL(streamUrl).hostname;
+    if (hostname === 'stream.mux.com' || hostname.endsWith('.mux.com')) return 'mux_managed';
+    if (hostname.includes('youtube.com') || hostname.includes('twitch.tv') || hostname.includes('vimeo.com')) return 'external_embed';
+  } catch {
+    // Not a valid URL — fall through to pattern matching
+  }
+  if (streamUrl.startsWith('rtmp://') || streamUrl.startsWith('rtmps://')) return 'byo_rtmp';
+  if (/\.m3u8($|\?|#)/.test(streamUrl)) return 'byo_hls';
   return 'unknown';
 }
 
@@ -202,6 +208,6 @@ export function inferStreamProvider(streamUrl: string | null): 'mux_managed' | '
  */
 export function extractMuxPlaybackId(streamUrl: string | null): string | null {
   if (!streamUrl) return null;
-  const match = streamUrl.match(/stream\.mux\.com\/([a-zA-Z0-9]+)(?:\.m3u8)?/);
+  const match = streamUrl.match(/\/\/stream\.mux\.com\/([a-zA-Z0-9_-]+)/);
   return match ? match[1] : null;
 }
