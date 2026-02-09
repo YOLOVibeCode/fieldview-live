@@ -9,10 +9,12 @@ import { validateAdminToken } from '../middleware/admin-jwt';
 import { generateViewerToken } from '../lib/viewer-jwt';
 import { ensureGameForDirectStream } from '../lib/ensure-game';
 import { getChatPubSub } from '../lib/chat-pubsub';
-import { 
-  SavePaymentMethodSchema, 
+import {
+  SavePaymentMethodSchema,
   GetPaymentMethodsQuerySchema,
-  DirectStreamCheckoutSchema  // 🆕
+  DirectStreamCheckoutSchema,  // 🆕
+  inferStreamProvider,
+  extractMuxPlaybackId,
 } from '@fieldview/data-model';
 // 🆕 Payment service dependencies
 import { PaymentService } from '../services/PaymentService';
@@ -65,7 +67,7 @@ router.get(
         // Try to find existing DirectStream in DB (only active streams)
         let directStream = await prisma.directStream.findUnique({
           where: { slug: key },
-          include: { game: true },
+          include: { game: { include: { streamSource: true } } },
         });
 
         // Check if stream is deleted or archived
@@ -91,7 +93,7 @@ router.get(
             directStream = await prisma.directStream.update({
               where: { slug: key },
               data: { gameId: existingGame.id },
-              include: { game: true },
+              include: { game: { include: { streamSource: true } } },
             });
             logger.info({ slug, gameId: existingGame.id }, 'Auto-linked existing Game to DirectStream');
           }
@@ -159,9 +161,17 @@ router.get(
               scoreboardHomeColor: isE2ETest ? '#3B82F6' : null,
               scoreboardAwayColor: isE2ETest ? '#EF4444' : null,
             },
-            include: { game: true },
+            include: { game: { include: { streamSource: true } } },
           });
         }
+
+        // Resolve stream provider metadata from StreamSource or URL inference
+        const streamSource = directStream.game?.streamSource ?? null;
+        const knownProviders = ['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed'];
+        const rawType = streamSource?.type;
+        const streamProvider = (rawType && knownProviders.includes(rawType)) ? rawType : (rawType ? 'unknown' : inferStreamProvider(directStream.streamUrl));
+        const muxPlaybackId = streamSource?.muxPlaybackId ?? extractMuxPlaybackId(directStream.streamUrl);
+        const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
 
         return res.json({
           slug: directStream.slug,
@@ -184,6 +194,10 @@ router.get(
           // Anonymous feature flags
           allowAnonymousChat: directStream.allowAnonymousChat,
           allowAnonymousScoreEdit: directStream.allowAnonymousScoreEdit,
+          // Stream provider metadata (for player selection)
+          streamProvider,
+          muxPlaybackId,
+          protectionLevel,
         });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
