@@ -48,6 +48,11 @@ export interface DirectStreamStreamConfig {
   url: string | null;
   type: 'hls' | 'rtmp' | 'embed' | null;
   errorMessage: string | null;
+
+  // Stream provider metadata (for player selection)
+  provider: 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed' | 'unknown' | null;
+  muxPlaybackId: string | null;
+  protectionLevel: 'strong' | 'moderate' | 'best_effort' | 'none' | null;
 }
 
 /**
@@ -78,6 +83,11 @@ export interface DirectStreamBootstrapResponse {
   scoreboardAwayColor: string | null;
   allowViewerScoreEdit: boolean;
   allowViewerNameEdit: boolean;
+
+  // Stream provider metadata (flat, for player selection)
+  streamProvider: 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed' | 'unknown' | null;
+  muxPlaybackId: string | null;
+  protectionLevel: 'strong' | 'moderate' | 'best_effort' | 'none' | null;
 }
 
 /**

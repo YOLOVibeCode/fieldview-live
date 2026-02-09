@@ -53,6 +53,11 @@ export const DirectStreamStreamConfigSchema = z.object({
   url: z.string().url().nullable(),
   type: z.enum(['hls', 'rtmp', 'embed']).nullable(),
   errorMessage: z.string().nullable(),
+
+  // Stream provider metadata (for player selection)
+  provider: z.enum(['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed', 'unknown']).nullable(),
+  muxPlaybackId: z.string().nullable(),
+  protectionLevel: z.enum(['strong', 'moderate', 'best_effort', 'none']).nullable(),
 });
 
 /**
@@ -83,6 +88,11 @@ export const DirectStreamBootstrapResponseSchema = z.object({
   scoreboardAwayColor: z.string().nullable(),
   allowViewerScoreEdit: z.boolean(),
   allowViewerNameEdit: z.boolean(),
+
+  // Stream provider metadata (flat, for player selection)
+  streamProvider: z.enum(['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed', 'unknown']).nullable(),
+  muxPlaybackId: z.string().nullable(),
+  protectionLevel: z.enum(['strong', 'moderate', 'best_effort', 'none']).nullable(),
 });
 
 /**
@@ -150,6 +160,9 @@ export function getStreamStatus(streamUrl: string | null): DirectStreamStreamCon
       url: null,
       type: null,
       errorMessage: 'Invalid stream URL format',
+      provider: null,
+      muxPlaybackId: null,
+      protectionLevel: null,
     };
   }
   
@@ -160,11 +173,35 @@ export function getStreamStatus(streamUrl: string | null): DirectStreamStreamCon
   } else if (streamUrl.startsWith('rtmp://') || streamUrl.startsWith('rtmps://')) {
     type = 'rtmp';
   }
-  
+
   return {
     status: 'live',  // TODO: Add actual health check
     url: streamUrl,
     type,
     errorMessage: null,
+    provider: null,
+    muxPlaybackId: null,
+    protectionLevel: null,
   };
+}
+
+/**
+ * Helper: Infer stream provider from URL when no StreamSource record exists
+ */
+export function inferStreamProvider(streamUrl: string | null): 'mux_managed' | 'byo_hls' | 'external_embed' | 'unknown' | null {
+  if (!streamUrl) return null;
+  if (streamUrl.includes('stream.mux.com') || streamUrl.includes('mux.com')) return 'mux_managed';
+  if (streamUrl.includes('youtube.com') || streamUrl.includes('twitch.tv') || streamUrl.includes('vimeo.com')) return 'external_embed';
+  if (streamUrl.endsWith('.m3u8') || streamUrl.includes('.m3u8?')) return 'byo_hls';
+  return 'unknown';
+}
+
+/**
+ * Helper: Extract Mux playback ID from a Mux HLS URL
+ * e.g., "https://stream.mux.com/abc123.m3u8" → "abc123"
+ */
+export function extractMuxPlaybackId(streamUrl: string | null): string | null {
+  if (!streamUrl) return null;
+  const match = streamUrl.match(/stream\.mux\.com\/([a-zA-Z0-9]+)(?:\.m3u8)?/);
+  return match ? match[1] : null;
 }

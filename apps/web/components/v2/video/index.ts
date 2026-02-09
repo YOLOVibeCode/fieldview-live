@@ -3,9 +3,9 @@
  */
 
 export * from './VideoContainer';
-export * from './VideoPlayer';
-export * from './VideoControls';
 export * from './VidstackPlayer';
+export * from './MuxStreamPlayer';
+export * from './StreamPlayer';
 export * from './BookmarkMarkers';
 export * from './BookmarkTooltip';
 export * from './QuickBookmarkButton';

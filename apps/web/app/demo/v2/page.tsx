@@ -8,7 +8,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { VideoContainer, VideoPlayer, VideoControls } from '@/components/v2/video';
+import { VideoContainer } from '@/components/v2/video';
 import { PageShell, Header } from '@/components/v2/layout';
 import { TouchButton, Badge } from '@/components/v2/primitives';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
@@ -366,35 +366,10 @@ export default function DemoV2Page() {
         {/* Video Player */}
         <div ref={containerRef} className="relative bg-black">
           <VideoContainer fullWidth aspectRatio="16:9" rounded={false}>
-            <VideoPlayer
-              ref={videoRef}
-              src="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
-              poster="https://image.mux.com/x36xhzz/thumbnail.jpg"
-              autoPlay
-              muted={isMuted}
-              playsInline
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-            />
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+              <p>Demo player removed — use VidstackPlayer or /direct/ routes</p>
+            </div>
           </VideoContainer>
-
-          {/* Video Controls */}
-          <div className="absolute bottom-0 left-0 right-0">
-            <VideoControls
-              isPlaying={isPlaying}
-              isMuted={isMuted}
-              volume={volume}
-              currentTime={currentTime}
-              duration={duration}
-              onPlayPause={handlePlayPause}
-              onMuteToggle={handleMuteToggle}
-              onVolumeChange={handleVolumeChange}
-              onSeek={handleSeek}
-              onFullscreenToggle={toggleFullscreen}
-            />
-          </div>
 
           {/* Scoreboard Overlay (Fullscreen) */}
           {isFullscreen && (

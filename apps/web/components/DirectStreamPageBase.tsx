@@ -34,7 +34,7 @@ import { SocialProducerPanel } from '@/components/SocialProducerPanel';
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
-import { VidstackPlayer } from '@/components/v2/video/VidstackPlayer';
+import { StreamPlayer } from '@/components/v2/video/StreamPlayer';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
 import { Scoreboard } from '@/components/v2/scoreboard';
@@ -135,6 +135,10 @@ export interface Bootstrap {
   allowViewerNameEdit?: boolean;
   allowAnonymousChat?: boolean;
   allowAnonymousScoreEdit?: boolean;
+  // Stream provider metadata (for Mux Player selection)
+  streamProvider?: string | null;
+  muxPlaybackId?: string | null;
+  protectionLevel?: string | null;
 }
 
 export type FontSize = 'small' | 'medium' | 'large';
@@ -1053,15 +1057,21 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* Vidstack Player - handles HLS, controls, seeking, keyboard shortcuts */}
+              {/* Stream Player - routes to MuxPlayer or VidstackPlayer based on provider */}
               {streamUrl && !isPaywallBlocked && (
-                <VidstackPlayer
+                <StreamPlayer
                   src={streamUrl}
+                  streamProvider={bootstrap?.streamProvider}
+                  muxPlaybackId={bootstrap?.muxPlaybackId}
                   playerRef={playerRef}
                   onStatusChange={setStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
                   className="absolute inset-0 w-full h-full"
+                  metadata={{
+                    video_title: bootstrap?.title ?? config.title,
+                    player_name: 'FieldView.Live',
+                  }}
                 >
                   {/* Bookmark markers overlaid on the timeline */}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
@@ -1076,7 +1086,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       }}
                     />
                   )}
-                </VidstackPlayer>
+                </StreamPlayer>
               )}
 
               {/* DVR Bookmark Controls - positioned over the player */}
