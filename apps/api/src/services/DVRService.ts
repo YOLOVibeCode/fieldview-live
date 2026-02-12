@@ -219,48 +219,31 @@ export class DVRService implements IDVRService {
   }
 
   async listBookmarks(options: ListBookmarksOptions): Promise<VideoBookmark[]> {
+    const paginationOpts = { limit: options.limit, offset: options.offset };
+
     // Combined query: own bookmarks + shared bookmarks for a stream
     if (options.viewerId && options.directStreamId && options.includeShared) {
       return this.bookmarkRepo.listByStreamWithShared(
         options.directStreamId,
         options.viewerId,
-        { limit: options.limit, offset: options.offset },
+        paginationOpts,
       );
     }
 
     if (options.viewerId) {
-      return this.bookmarkRepo.listByViewer(options.viewerId, {
-        limit: options.limit,
-        offset: options.offset,
-      });
+      return this.bookmarkRepo.listByViewer(options.viewerId, paginationOpts);
     }
 
     if (options.gameId) {
-      return this.bookmarkRepo.listByGame(options.gameId, {
-        limit: options.limit,
-        offset: options.offset,
-      });
+      return this.bookmarkRepo.listByGame(options.gameId, paginationOpts, options.publicOnly);
     }
 
     if (options.directStreamId) {
-      return this.bookmarkRepo.listByStream(options.directStreamId, {
-        limit: options.limit,
-        offset: options.offset,
-      });
+      return this.bookmarkRepo.listByStream(options.directStreamId, paginationOpts, options.publicOnly);
     }
 
-    if (options.publicOnly) {
-      return this.bookmarkRepo.listPublic({
-        limit: options.limit,
-        offset: options.offset,
-      });
-    }
-
-    // Default: return public bookmarks
-    return this.bookmarkRepo.listPublic({
-      limit: options.limit,
-      offset: options.offset,
-    });
+    // Default: return only shared/public bookmarks
+    return this.bookmarkRepo.listPublic(paginationOpts);
   }
 
   async deleteBookmark(bookmarkId: string): Promise<void> {

@@ -1,12 +1,12 @@
 /**
  * BookmarksList Component
- * 
+ *
  * Display and manage user's bookmarks
  */
 
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useListBookmarks, useDeleteBookmark, useCreateClipFromBookmark, type VideoBookmark } from '@/lib/hooks/useDVR';
 
 interface BookmarksListProps {
@@ -35,16 +35,27 @@ export function BookmarksList({
   const { deleteBookmark, loading: deleting } = useDeleteBookmark();
   const { createClipFromBookmark, loading: creatingClip } = useCreateClipFromBookmark();
 
+  // Inline confirm state (replaces native confirm())
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // Inline clip feedback (replaces native alert())
+  const [clipFeedback, setClipFeedback] = useState<{ bookmarkId: string; message: string; isError: boolean } | null>(null);
+
   useEffect(() => {
     fetchBookmarks();
   }, [fetchBookmarks]);
 
-  const handleDelete = async (bookmarkId: string) => {
-    if (!confirm('Delete this bookmark?')) return;
+  // Auto-hide clip feedback after 3s
+  useEffect(() => {
+    if (!clipFeedback) return;
+    const timer = setTimeout(() => setClipFeedback(null), 3000);
+    return () => clearTimeout(timer);
+  }, [clipFeedback]);
 
+  const handleDelete = async (bookmarkId: string) => {
     try {
       await deleteBookmark(bookmarkId);
-      await fetchBookmarks(); // Refresh list
+      setConfirmDeleteId(null);
+      await fetchBookmarks();
     } catch (err) {
       console.error('Failed to delete bookmark:', err);
     }
@@ -57,10 +68,10 @@ export function BookmarksList({
         bufferSeconds: 5,
         isPublic: bookmark.isShared,
       });
-      alert(`Clip created! ID: ${clip.id}`);
+      setClipFeedback({ bookmarkId: bookmark.id, message: `Clip created (${clip.id.slice(0, 8)}...)`, isError: false });
     } catch (err) {
       console.error('Failed to create clip:', err);
-      alert('Failed to create clip');
+      setClipFeedback({ bookmarkId: bookmark.id, message: 'Failed to create clip', isError: true });
     }
   };
 
@@ -131,7 +142,7 @@ export function BookmarksList({
                   <p className="text-gray-400 text-sm mt-2">{bookmark.notes}</p>
                 )}
               </div>
-              
+
               {bookmark.isShared && (
                 <span className="ml-2 px-2 py-1 bg-blue-900/50 text-blue-300 text-xs rounded">
                   Public
@@ -139,39 +150,73 @@ export function BookmarksList({
               )}
             </div>
 
+            {/* Clip feedback inline */}
+            {clipFeedback?.bookmarkId === bookmark.id && (
+              <div
+                className={`text-xs px-2 py-1 rounded mb-2 ${
+                  clipFeedback.isError
+                    ? 'bg-red-900/50 text-red-300'
+                    : 'bg-green-900/50 text-green-300'
+                }`}
+                data-testid={`clip-feedback-${bookmark.id}`}
+              >
+                {clipFeedback.message}
+              </div>
+            )}
+
             <div className="flex gap-2 mt-3">
               {onSeek && (
                 <button
                   data-testid={`btn-seek-${bookmark.id}`}
                   onClick={() => onSeek(bookmark.timestampSeconds)}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded transition-colors"
+                  className="px-3 py-1 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white text-sm rounded transition-colors"
                 >
                   Jump to
                 </button>
               )}
-              
+
               <button
                 data-testid={`btn-create-clip-${bookmark.id}`}
                 onClick={() => handleCreateClip(bookmark)}
                 disabled={creatingClip}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors"
+                className="px-3 py-1 min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors"
               >
                 {creatingClip ? 'Creating...' : 'Create Clip'}
               </button>
 
-              <button
-                data-testid={`btn-delete-${bookmark.id}`}
-                onClick={() => handleDelete(bookmark.id)}
-                disabled={deleting}
-                className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors ml-auto"
-              >
-                Delete
-              </button>
+              {confirmDeleteId === bookmark.id ? (
+                /* Inline confirm/cancel (replaces native confirm()) */
+                <div className="flex gap-1 ml-auto" data-testid={`confirm-delete-${bookmark.id}`}>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-2 py-1 min-h-[44px] bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors"
+                  >
+                    No
+                  </button>
+                  <button
+                    onClick={() => handleDelete(bookmark.id)}
+                    disabled={deleting}
+                    className="px-2 py-1 min-h-[44px] bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors"
+                    data-testid={`btn-confirm-delete-${bookmark.id}`}
+                  >
+                    {deleting ? '...' : 'Yes'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  data-testid={`btn-delete-${bookmark.id}`}
+                  onClick={() => setConfirmDeleteId(bookmark.id)}
+                  disabled={deleting}
+                  className="px-3 py-1 min-h-[44px] bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors ml-auto"
+                >
+                  Delete
+                </button>
+              )}
             </div>
 
             {bookmark.clipId && (
               <div className="mt-2 text-xs text-green-400">
-                ✓ Clip created
+                Clip created
               </div>
             )}
           </div>
@@ -180,4 +225,3 @@ export function BookmarksList({
     </div>
   );
 }
-

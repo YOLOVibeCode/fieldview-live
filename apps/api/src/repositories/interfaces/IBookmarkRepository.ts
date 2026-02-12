@@ -56,12 +56,12 @@ export interface IBookmarkReader {
   /**
    * List bookmarks by game
    */
-  listByGame(gameId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]>;
+  listByGame(gameId: string, options?: BookmarkListOptions, publicOnly?: boolean): Promise<VideoBookmark[]>;
 
   /**
    * List bookmarks by stream
    */
-  listByStream(streamId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]>;
+  listByStream(streamId: string, options?: BookmarkListOptions, publicOnly?: boolean): Promise<VideoBookmark[]>;
 
   /**
    * List own + shared bookmarks for a stream (combined query)

@@ -16,3 +16,6 @@ export type { SidePanelProps } from './SidePanel';
 export { PageShell } from './PageShell';
 export type { PageShellProps } from './PageShell';
 
+export { PortraitStreamLayout } from './PortraitStreamLayout';
+export type { PortraitStreamLayoutProps, PortraitTab } from './PortraitStreamLayout';
+

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCreateBookmark, type VideoBookmark } from '@/lib/hooks/useDVR';
 
 // Import validation constants from data-model
@@ -38,9 +38,19 @@ export function BookmarkButton({
   const [showDialog, setShowDialog] = useState(false);
   const [label, setLabel] = useState('');
   const [notes, setNotes] = useState('');
-  const [isShared, setIsShared] = useState(false);
+  const [isShared, setIsShared] = useState(true);
   const [bufferSeconds, setBufferSeconds] = useState<1 | 5 | 10>(5);
   const { createBookmark, loading, error } = useCreateBookmark();
+
+  // Escape key closes dialog
+  useEffect(() => {
+    if (!showDialog) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowDialog(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showDialog]);
 
   const handleBookmark = async () => {
     const timestampSeconds = Math.floor(getCurrentTime());
@@ -69,7 +79,7 @@ export function BookmarkButton({
       // Reset form
       setLabel('');
       setNotes('');
-      setIsShared(false);
+      setIsShared(true);
       setBufferSeconds(5);
       setShowDialog(false);
 
@@ -85,7 +95,7 @@ export function BookmarkButton({
       <button
         data-testid="btn-bookmark"
         onClick={handleBookmark}
-        className={`px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors ${className}`}
+        className={`px-4 py-2 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors ${className}`}
         aria-label="Bookmark current moment"
       >
         <svg
@@ -220,7 +230,7 @@ export function BookmarkButton({
                   type="button"
                   data-testid="btn-cancel-bookmark"
                   onClick={() => setShowDialog(false)}
-                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                  className="flex-1 px-4 py-2 min-h-[44px] bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
                 >
                   Cancel
                 </button>
@@ -228,7 +238,7 @@ export function BookmarkButton({
                   type="submit"
                   data-testid="btn-submit-bookmark"
                   disabled={loading || !label.trim()}
-                  className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+                  className="flex-1 px-4 py-2 min-h-[44px] bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
                 >
                   {loading ? 'Saving...' : 'Save Bookmark'}
                 </button>

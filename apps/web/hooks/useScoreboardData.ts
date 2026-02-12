@@ -1,13 +1,13 @@
 /**
  * useScoreboardData Hook
- * 
+ *
  * Fetches scoreboard data from API and provides it in v2 Scoreboard format.
- * Handles real-time updates via polling.
- * 
+ * Uses SSE for real-time push updates, with polling as fallback.
+ *
  * Usage:
  * ```tsx
  * const scoreboard = useScoreboardData({ slug: 'tchs', enabled: true });
- * 
+ *
  * <Scoreboard
  *   homeTeam={scoreboard.homeTeam}
  *   awayTeam={scoreboard.awayTeam}
@@ -21,13 +21,13 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { TeamData } from '@/components/v2/scoreboard/Scoreboard';
 
 interface UseScoreboardDataOptions {
   slug: string | null;
   enabled?: boolean;
-  pollInterval?: number; // milliseconds
+  pollInterval?: number; // milliseconds (fallback when SSE disconnects)
   viewerToken?: string | null;
   allowAnonymousEdit?: boolean;
 }
@@ -47,20 +47,17 @@ interface UseScoreboardDataReturn extends ScoreboardData {
 }
 
 interface ApiScoreboardResponse {
-  homeTeam: {
-    name: string;
-    abbreviation?: string;
-    score: number;
-    color?: string;
-  };
-  awayTeam: {
-    name: string;
-    abbreviation?: string;
-    score: number;
-    color?: string;
-  };
-  period?: string;
-  time?: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  homeJerseyColor: string;
+  awayJerseyColor: string;
+  homeScore: number;
+  awayScore: number;
+  clockMode: string;
+  clockSeconds: number;
+  clockStartedAt: string | null;
+  lastEditedBy: string | null;
+  lastEditedAt: string | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
@@ -72,12 +69,42 @@ const DEFAULT_HOME_COLOR = '#3B82F6'; // Blue
 const DEFAULT_AWAY_COLOR = '#EF4444'; // Red
 
 /**
+ * Apply a scoreboard data payload to the local state setters.
+ */
+function applyScoreboardData(
+  data: ApiScoreboardResponse,
+  setHomeTeam: React.Dispatch<React.SetStateAction<TeamData>>,
+  setAwayTeam: React.Dispatch<React.SetStateAction<TeamData>>,
+  setTime: React.Dispatch<React.SetStateAction<string | undefined>>,
+) {
+  setHomeTeam(prev => ({
+    ...prev,
+    name: data.homeTeamName || prev.name,
+    score: data.homeScore ?? prev.score,
+    color: data.homeJerseyColor || prev.color,
+  }));
+
+  setAwayTeam(prev => ({
+    ...prev,
+    name: data.awayTeamName || prev.name,
+    score: data.awayScore ?? prev.score,
+    color: data.awayJerseyColor || prev.color,
+  }));
+
+  if (data.clockMode === 'running' || data.clockSeconds > 0) {
+    const mins = Math.floor(data.clockSeconds / 60);
+    const secs = data.clockSeconds % 60;
+    setTime(`${mins}:${secs.toString().padStart(2, '0')}`);
+  }
+}
+
+/**
  * Hook to fetch and manage scoreboard data
  */
 export function useScoreboardData({
   slug,
   enabled = true,
-  pollInterval = 5000, // 5 seconds default
+  pollInterval = 30000, // 30s fallback poll (SSE provides real-time)
   viewerToken,
   allowAnonymousEdit = false,
 }: UseScoreboardDataOptions): UseScoreboardDataReturn {
@@ -86,20 +113,21 @@ export function useScoreboardData({
     score: 0,
     color: DEFAULT_HOME_COLOR,
   });
-  
+
   const [awayTeam, setAwayTeam] = useState<TeamData>({
     name: 'Away',
     score: 0,
     color: DEFAULT_AWAY_COLOR,
   });
-  
+
   const [period, setPeriod] = useState<string | undefined>(undefined);
   const [time, setTime] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sseConnectedRef = useRef(false);
 
   /**
-   * Fetch scoreboard data from API
+   * Fetch scoreboard data from API (initial load + fallback poll)
    */
   const fetchScoreboard = useCallback(async () => {
     if (!slug || !enabled) return;
@@ -108,47 +136,28 @@ export function useScoreboardData({
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_URL}/api/public/scoreboard/${slug}`, {
+      const response = await fetch(`${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard`, {
         headers: viewerToken
           ? { Authorization: `Bearer ${viewerToken}` }
           : {},
       });
 
       if (!response.ok) {
-        // If scoreboard doesn't exist (404), that's OK - use defaults, don't set error
         if (response.status === 404) {
           console.log(`[Scoreboard] No data for ${slug}, using defaults`);
-          setError(null); // Explicitly clear error for 404
+          setError(null);
           return;
         }
-        // Only set error for actual errors (5xx), not missing data
         if (response.status >= 500) {
           throw new Error(`Failed to fetch scoreboard: ${response.statusText}`);
         }
-        // For other non-OK statuses (like 403), don't show error either
         console.log(`[Scoreboard] Non-critical response ${response.status} for ${slug}, using defaults`);
         setError(null);
         return;
       }
 
       const data: ApiScoreboardResponse = await response.json();
-
-      setHomeTeam({
-        name: data.homeTeam.name,
-        abbreviation: data.homeTeam.abbreviation,
-        score: data.homeTeam.score,
-        color: data.homeTeam.color || DEFAULT_HOME_COLOR,
-      });
-
-      setAwayTeam({
-        name: data.awayTeam.name,
-        abbreviation: data.awayTeam.abbreviation,
-        score: data.awayTeam.score,
-        color: data.awayTeam.color || DEFAULT_AWAY_COLOR,
-      });
-
-      setPeriod(data.period);
-      setTime(data.time);
+      applyScoreboardData(data, setHomeTeam, setAwayTeam, setTime);
     } catch (err) {
       console.error('[Scoreboard] Fetch error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -198,25 +207,78 @@ export function useScoreboardData({
         setAwayTeam(prev => ({ ...prev, score: newScore }));
       }
 
-      // Refresh from server to ensure consistency
-      await fetchScoreboard();
+      // SSE will push the server-confirmed value; no need for explicit refresh
+      // If SSE is disconnected, the fallback poll will catch it
     } catch (err) {
       console.error('[Scoreboard] Update error:', err);
       throw err;
     }
-  }, [slug, viewerToken, allowAnonymousEdit, fetchScoreboard]);
+  }, [slug, viewerToken, allowAnonymousEdit]);
 
   /**
-   * Initial fetch and polling
+   * SSE subscription for real-time scoreboard push
    */
   useEffect(() => {
     if (!enabled || !slug) return;
 
-    // Initial fetch
+    const sseUrl = `${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard/stream`;
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      es = new EventSource(sseUrl);
+
+      es.addEventListener('scoreboard_snapshot', (event) => {
+        try {
+          const data: ApiScoreboardResponse = JSON.parse(event.data);
+          applyScoreboardData(data, setHomeTeam, setAwayTeam, setTime);
+          sseConnectedRef.current = true;
+        } catch (err) {
+          console.error('[Scoreboard SSE] snapshot parse error:', err);
+        }
+      });
+
+      es.addEventListener('scoreboard_update', (event) => {
+        try {
+          const data: ApiScoreboardResponse = JSON.parse(event.data);
+          applyScoreboardData(data, setHomeTeam, setAwayTeam, setTime);
+        } catch (err) {
+          console.error('[Scoreboard SSE] update parse error:', err);
+        }
+      });
+
+      es.onerror = () => {
+        sseConnectedRef.current = false;
+        es?.close();
+        // Reconnect after 5s
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    }
+
+    connect();
+
+    return () => {
+      sseConnectedRef.current = false;
+      clearTimeout(reconnectTimer);
+      es?.close();
+    };
+  }, [enabled, slug]);
+
+  /**
+   * Initial fetch + fallback polling (only when SSE is disconnected)
+   */
+  useEffect(() => {
+    if (!enabled || !slug) return;
+
+    // Always do an initial fetch for immediate data
     fetchScoreboard();
 
-    // Poll for updates
-    const interval = setInterval(fetchScoreboard, pollInterval);
+    // Fallback poll — only fires if SSE drops
+    const interval = setInterval(() => {
+      if (!sseConnectedRef.current) {
+        fetchScoreboard();
+      }
+    }, pollInterval);
 
     return () => clearInterval(interval);
   }, [fetchScoreboard, pollInterval, enabled, slug]);
@@ -232,4 +294,3 @@ export function useScoreboardData({
     refresh: fetchScoreboard,
   };
 }
-

@@ -12,6 +12,7 @@ import {
   UpdateGameScoreboardSchema,
   ValidateProducerPasswordSchema,
 } from '@fieldview/data-model';
+import { getScoreboardPubSub, type ScoreboardEvent } from '../lib/scoreboard-pubsub';
 
 const router: Router = Router();
 
@@ -85,6 +86,79 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
     logger.error({ error, slug }, 'Failed to fetch scoreboard');
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+/** Build a ScoreboardEvent from a Prisma scoreboard record */
+function toScoreboardEvent(sb: any): ScoreboardEvent {
+  return {
+    homeTeamName: sb.homeTeamName,
+    awayTeamName: sb.awayTeamName,
+    homeJerseyColor: sb.homeJerseyColor,
+    awayJerseyColor: sb.awayJerseyColor,
+    homeScore: sb.homeScore,
+    awayScore: sb.awayScore,
+    clockMode: sb.clockMode,
+    clockSeconds: sb.clockSeconds,
+    clockStartedAt: sb.clockStartedAt?.toISOString?.() ?? sb.clockStartedAt ?? null,
+    isVisible: sb.isVisible,
+    position: sb.position,
+    lastEditedBy: sb.lastEditedBy,
+    lastEditedAt: sb.lastEditedAt?.toISOString?.() ?? sb.lastEditedAt ?? null,
+  };
+}
+
+/**
+ * GET /api/direct/:slug/scoreboard/stream
+ * SSE endpoint for real-time scoreboard updates.
+ */
+router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
+  const { slug } = req.params;
+
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  logger.info({ slug }, 'Scoreboard SSE connection established');
+
+  // Send initial snapshot
+  (async () => {
+    try {
+      const stream = await prisma.directStream.findUnique({
+        where: { slug },
+        include: { scoreboard: true },
+      });
+
+      if (stream?.scoreboard) {
+        const snapshot = toScoreboardEvent(stream.scoreboard);
+        res.write(`event: scoreboard_snapshot\n`);
+        res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
+      }
+    } catch (error) {
+      logger.error({ error, slug }, 'Failed to send scoreboard snapshot');
+    }
+  })();
+
+  // Subscribe to live updates
+  const pubsub = getScoreboardPubSub();
+  const unsubscribe = pubsub.subscribe(slug, (data) => {
+    res.write(`event: scoreboard_update\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+
+  // Keep-alive ping every 30s
+  const pingInterval = setInterval(() => {
+    res.write(`: ping\n\n`);
+  }, 30000);
+
+  // Cleanup on disconnect
+  req.on('close', () => {
+    clearInterval(pingInterval);
+    unsubscribe();
+    logger.info({ slug }, 'Scoreboard SSE connection closed');
+  });
 });
 
 /**
@@ -225,6 +299,9 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
       },
     });
 
+    // Broadcast to SSE subscribers
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+
     res.json({
       id: updatedScoreboard.id,
       homeTeamName: updatedScoreboard.homeTeamName,
@@ -280,6 +357,8 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
       },
     });
 
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+
     res.json({
       clockMode: updatedScoreboard.clockMode,
       clockStartedAt: updatedScoreboard.clockStartedAt?.toISOString(),
@@ -326,6 +405,8 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
       },
     });
 
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+
     res.json({
       clockMode: updatedScoreboard.clockMode,
       clockSeconds: updatedScoreboard.clockSeconds,
@@ -362,6 +443,8 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
         clockStartedAt: null,
       },
     });
+
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
 
     res.json({
       clockMode: updatedScoreboard.clockMode,
@@ -478,12 +561,14 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     const rateLimitKey = `viewer-scoreboard-${slug}-${viewerToken}`;
     // Skip rate limit check for now - implement in production
 
-    // Validate value based on field type
+    // Validate and sanitize value based on field type
+    let sanitizedValue: number | string = value;
     if (isScoreField) {
       const score = parseInt(value as string, 10);
       if (isNaN(score) || score < 0 || score > 999) {
         return res.status(400).json({ error: 'Score must be between 0 and 999' });
       }
+      sanitizedValue = score;
     }
 
     if (isNameField) {
@@ -491,11 +576,12 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       if (!name || name.trim().length === 0 || name.length > 30) {
         return res.status(400).json({ error: 'Team name must be 1-30 characters' });
       }
+      sanitizedValue = name.trim();
     }
 
     // Update scoreboard
     const updateData: any = {
-      [field]: value,
+      [field]: sanitizedValue,
       lastEditedBy: viewerName,
       lastEditedAt: new Date(),
     };
@@ -504,6 +590,9 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       where: { id: stream.scoreboard.id },
       data: updateData,
     });
+
+    // Broadcast to SSE subscribers
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
 
     logger.info({
       slug,

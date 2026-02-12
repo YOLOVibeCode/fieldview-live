@@ -52,6 +52,7 @@ import { QuickBookmarkButton } from '@/components/v2/video/QuickBookmarkButton';
 import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
+import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -196,7 +197,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [showInlineRegistration, setShowInlineRegistration] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
+  // Bookmark panel uses useCollapsiblePanel (bookmarkPanel) instead of local state
   const [guestDisplayName, setGuestDisplayName] = useState<string | null>(null);
   const [isEditingGuestName, setIsEditingGuestName] = useState(false);
 
@@ -204,8 +205,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const { isFullscreen } = useFullscreen(containerRef.current);
 
   // v2 Responsive hook (replaces manual detection)
-  const { isMobile, isTablet, isDesktop, isTouch, breakpoint, chatPosition, scoreboardPosition } = useResponsive();
+  const { isMobile, isTablet, isDesktop, isTouch, breakpoint, chatPosition, scoreboardPosition, orientation } = useResponsive();
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+  const [portraitActiveTab, setPortraitActiveTab] = useState<PortraitTab>('chat');
+  const isPortrait = isMobile && orientation === 'portrait';
 
   // Paywall hook - manages paywall state based on bootstrap
   const paywall = usePaywall({
@@ -242,6 +245,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     edge: 'right',
     defaultCollapsed: true, // Collapsed by default
     storageKey: `chat-collapsed-${stableKey}`, // Per-page storage
+  });
+
+  const bookmarkPanel = useCollapsiblePanel({
+    edge: 'right',
+    defaultCollapsed: true,
+    storageKey: `bookmark-collapsed-${stableKey}`,
   });
 
   // Load font size preference
@@ -673,17 +682,21 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         chatPanel.toggle();
       }
 
-      // B toggles bookmark panel
+      // B toggles bookmark panel (portrait: switches tab; landscape/desktop: toggles collapsible panel)
       if ((e.key === 'b' || e.key === 'B') && viewer.isUnlocked) {
         e.preventDefault();
-        setIsBookmarkPanelOpen(prev => !prev);
+        if (isPortrait) {
+          setPortraitActiveTab(prev => prev === 'bookmarks' ? 'chat' : 'bookmarks');
+        } else {
+          bookmarkPanel.toggle();
+        }
       }
 
       // Escape closes panels in priority order
       if (e.key === 'Escape') {
-        if (isBookmarkPanelOpen) {
+        if (!bookmarkPanel.isCollapsed) {
           e.preventDefault();
-          setIsBookmarkPanelOpen(false);
+          bookmarkPanel.collapse();
         } else if (isMobileChatOpen) {
           e.preventDefault();
           setIsMobileChatOpen(false);
@@ -696,7 +709,232 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, isMobileChatOpen, isBookmarkPanelOpen, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle]);
+  }, [isFullscreen, isChatOverlayVisible, isScoreboardOverlayVisible, isChatOpen, isMobileChatOpen, bookmarkPanel.isCollapsed, bookmarkPanel.toggle, bookmarkPanel.collapse, viewer.isUnlocked, bootstrap?.chatEnabled, bootstrap?.scoreboardEnabled, scoreboardPanel.toggle, chatPanel.toggle, isPortrait, setPortraitActiveTab]);
+
+  // ==========================================
+  // Portrait Mode Layout (mobile only)
+  // ==========================================
+  if (isPortrait) {
+    return (
+      <>
+        <PortraitStreamLayout
+          // Video section: player + all overlays + bookmark controls
+          videoSection={
+            <div
+              ref={containerRef}
+              className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black"
+            >
+              {/* Paywall Blocker Overlay */}
+              {isPaywallBlocked && paywallChecked && (
+                <div className="absolute inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm">
+                  <div className="text-center text-white max-w-xs mx-auto px-4">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-amber-600/20 rounded-full flex items-center justify-center border border-amber-500/30">
+                      <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold mb-2">Premium Stream</h2>
+                    <p className="text-gray-400 text-xs mb-2">{bootstrap?.paywallMessage || 'Payment required'}</p>
+                    <p className="text-lg font-bold text-amber-400 mb-3">${((bootstrap?.priceInCents || 0) / 100).toFixed(2)}</p>
+                    <TouchButton onClick={paywall.openPaywall} variant="primary" size="sm" className="bg-amber-500 hover:bg-amber-600">
+                      Unlock Stream
+                    </TouchButton>
+                  </div>
+                </div>
+              )}
+
+              {/* Status overlays */}
+              {status === 'offline' && !isEditing && (
+                <div className="absolute inset-0 flex items-center justify-center z-20">
+                  <div className="text-center text-white px-4">
+                    <div className="w-14 h-14 mx-auto mb-3 bg-gray-700/50 rounded-full flex items-center justify-center animate-pulse">
+                      <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-bold mb-1">Stream Offline</h2>
+                    <p className="text-gray-400 text-xs">No stream configured</p>
+                  </div>
+                </div>
+              )}
+
+              {status === 'loading' && bootstrap?.streamUrl && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 backdrop-blur-sm">
+                  <div className="text-center text-white">
+                    <div className="w-12 h-12 mx-auto mb-3 border-3 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
+                    <p className="text-sm font-medium">Loading stream...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* StreamPlayer */}
+              {streamUrl && !isPaywallBlocked && (
+                <StreamPlayer
+                  src={streamUrl}
+                  streamProvider={bootstrap?.streamProvider}
+                  muxPlaybackId={bootstrap?.muxPlaybackId}
+                  playerRef={playerRef}
+                  onStatusChange={setStatus}
+                  onTimeUpdate={setCurrentTime}
+                  onDurationChange={setDuration}
+                  className="absolute inset-0 w-full h-full"
+                  metadata={{
+                    video_title: bootstrap?.title ?? config.title,
+                    player_name: 'FieldView.Live',
+                  }}
+                >
+                  {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
+                    <BookmarkMarkers
+                      bookmarks={bookmarkMarkers.bookmarks}
+                      duration={duration}
+                      currentViewerId={viewer.viewerId || undefined}
+                      onBookmarkClick={(bookmark) => {
+                        if (playerRef.current) {
+                          playerRef.current.currentTime = bookmark.timestampSeconds;
+                        }
+                      }}
+                    />
+                  )}
+                </StreamPlayer>
+              )}
+
+              {/* Bookmark controls overlay */}
+              {streamUrl && viewer.isUnlocked && viewer.viewerId && status !== 'offline' && status !== 'error' && (
+                <div className="absolute z-20 flex items-center gap-1.5 bottom-14 right-2 [&_button]:min-h-[44px] [&_button]:min-w-[44px]">
+                  <QuickBookmarkButton
+                    directStreamId={bootstrap?.slug || ''}
+                    viewerIdentityId={viewer.viewerId}
+                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
+                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
+                  />
+                  <BookmarkButton
+                    directStreamId={bootstrap?.slug || ''}
+                    viewerIdentityId={viewer.viewerId}
+                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
+                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
+                    className=""
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPortraitActiveTab('bookmarks')}
+                    className={cn(
+                      'px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors shadow-lg',
+                      portraitActiveTab === 'bookmarks'
+                        ? 'bg-amber-500 shadow-amber-500/30'
+                        : 'bg-gray-700/80 hover:bg-gray-600 shadow-black/30',
+                    )}
+                    aria-label="Show bookmarks"
+                    data-testid="btn-portrait-bookmark-tab"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          }
+
+          // Scoreboard
+          homeTeam={scoreboardData.homeTeam}
+          awayTeam={scoreboardData.awayTeam}
+          period={scoreboardData.period}
+          time={scoreboardData.time}
+          scoreboardEnabled={bootstrap?.scoreboardEnabled ?? false}
+          scoreboardEditable={viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+          onScoreUpdate={scoreboardData.updateScore}
+
+          // Chat
+          chatContent={
+            viewer.isUnlocked ? (
+              <Chat
+                messages={chatV2.messages}
+                onSend={chatV2.sendMessage}
+                currentUserId={chatV2.currentUserId}
+                mode="embedded"
+                title=""
+                isLoading={chatV2.isLoading}
+                disabled={!chatV2.isConnected}
+                emptyMessage="No messages yet. Be the first to chat!"
+                className="h-full"
+                data-testid="chat-portrait"
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-4">
+                <p className="text-sm text-[var(--fv-color-text-muted)] mb-3">Register to join the chat</p>
+                <TouchButton
+                  onClick={() => setShowViewerAuthModal(true)}
+                  variant="primary"
+                  size="sm"
+                  data-testid="btn-portrait-register"
+                >
+                  Join Chat
+                </TouchButton>
+              </div>
+            )
+          }
+          chatMessageCount={chatV2.messages.length}
+          chatEnabled={bootstrap?.chatEnabled ?? false}
+
+          // Bookmarks
+          bookmarkContent={
+            viewer.isUnlocked && viewer.viewerId && bootstrap?.slug ? (
+              <BookmarkPanel
+                isOpen={true}
+                onClose={() => setPortraitActiveTab('chat')}
+                directStreamId={bootstrap.slug}
+                viewerId={viewer.viewerId}
+                mode="inline"
+                onSeek={(timeSeconds) => {
+                  if (playerRef.current) {
+                    playerRef.current.currentTime = timeSeconds;
+                  }
+                }}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-4">
+                <p className="text-sm text-[var(--fv-color-text-muted)]">Register to use bookmarks</p>
+              </div>
+            )
+          }
+          bookmarkCount={bookmarkMarkers.bookmarks.length}
+          bookmarksAvailable={!!viewer.isUnlocked && !!viewer.viewerId}
+
+          // Tab control
+          activeTab={portraitActiveTab}
+          onTabChange={setPortraitActiveTab}
+        />
+
+        {/* Modals that must render outside the layout */}
+        {bootstrap?.paywallEnabled && (
+          <PaywallModal
+            slug={bootstrap.slug}
+            isOpen={paywall.showPaywall}
+            onClose={paywall.closePaywall}
+            onSuccess={() => {
+              paywall.markAsPaid(bootstrap.slug);
+              if (bootstrap.streamUrl) setStreamUrl(bootstrap.streamUrl);
+            }}
+            priceInCents={bootstrap.priceInCents || 0}
+            paywallMessage={bootstrap.paywallMessage}
+            allowSavePayment={bootstrap.allowSavePayment}
+          />
+        )}
+
+        <ViewerAuthModal
+          isOpen={showViewerAuthModal}
+          onClose={() => setShowViewerAuthModal(false)}
+          onRegister={handleViewerRegister}
+          isLoading={viewer.isLoading}
+          error={viewer.error}
+          title="Join the Chat"
+          description="Register your email to start chatting"
+          defaultEmail={globalAuth.viewerEmail || ''}
+          defaultName={globalAuth.viewerName || ''}
+        />
+      </>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex flex-col ${config.containerClassName || ''}`}>
@@ -711,7 +949,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <div className="flex items-center gap-3">
                   {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
                   {viewerCount.count > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-400" data-testid="viewer-count">
                       <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                       {viewerCount.count} watching
                     </span>
@@ -1111,12 +1349,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
                     className=""
                   />
-                  {/* Toggle bookmark panel */}
+                  {/* Toggle bookmark panel (collapsible sidebar) */}
                   <button
                     type="button"
-                    onClick={() => setIsBookmarkPanelOpen(prev => !prev)}
-                    className={`px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors shadow-lg
-                      ${isBookmarkPanelOpen
+                    onClick={bookmarkPanel.toggle}
+                    className={`relative px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-white text-sm font-medium transition-colors shadow-lg flex items-center justify-center
+                      ${!bookmarkPanel.isCollapsed
                         ? 'bg-amber-500 shadow-amber-500/30'
                         : 'bg-gray-700/80 hover:bg-gray-600 shadow-black/30'
                       }`}
@@ -1126,6 +1364,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                     </svg>
+                    {bookmarkMarkers.bookmarks.length > 0 && bookmarkPanel.isCollapsed && (
+                      <span className="absolute -top-1.5 -right-1.5">
+                        <Badge count={bookmarkMarkers.bookmarks.length} max={9} color="warning" />
+                      </span>
+                    )}
                   </button>
                 </div>
               )}
@@ -1168,14 +1411,98 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           {children}
         </div>
 
-        {/* Bookmark Panel - Slide-out drawer */}
-        {viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
+        {/* Bookmark Panel - Collapsible right-edge sidebar (non-portrait, non-mobile) */}
+        {!isPortrait && !isMobile && viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
+          <>
+            {/* Collapsed: Right-edge tab (positioned above chat) */}
+            {bookmarkPanel.isCollapsed && (
+              <button
+                type="button"
+                data-testid="bookmark-collapsed-tab"
+                className={cn(
+                  'fixed right-0 top-[30%] -translate-y-1/2 z-30',
+                  'w-12 py-4',
+                  'bg-black/80 backdrop-blur-md',
+                  'border-l-2 border-white/20',
+                  'rounded-l-lg',
+                  'shadow-2xl shadow-amber-500/10',
+                  'cursor-pointer pointer-events-auto',
+                  'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-amber-500/30',
+                  'transition-all duration-300',
+                  'flex flex-col items-center gap-2',
+                  'group'
+                )}
+                onClick={bookmarkPanel.toggle}
+                aria-label="Expand bookmarks"
+              >
+                <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">&larr;</div>
+                <svg className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                {bookmarkMarkers.bookmarks.length > 0 && (
+                  <Badge count={bookmarkMarkers.bookmarks.length} max={9} color="warning" />
+                )}
+              </button>
+            )}
+
+            {/* Expanded: Full sidebar panel */}
+            {!bookmarkPanel.isCollapsed && (
+              <div
+                className={cn(
+                  'fixed right-0 top-[30%] -translate-y-1/2 z-30',
+                  isTablet ? 'w-[min(360px,45vw)]' : 'w-[360px]',
+                  'max-h-[60vh]',
+                  'bg-black/95 backdrop-blur-md',
+                  'border-l-2 border-white/20',
+                  'rounded-l-lg shadow-2xl shadow-amber-500/10',
+                  'flex flex-col',
+                  'transition-transform duration-300 ease-in-out'
+                )}
+                data-testid="bookmark-panel"
+                role="dialog"
+                aria-modal="false"
+                aria-label="Bookmarks panel"
+              >
+                {/* Header with collapse button */}
+                <div className="p-4 border-b border-white/10 flex items-center justify-between relative">
+                  <button
+                    onClick={bookmarkPanel.toggle}
+                    className="absolute -left-10 top-2 w-8 h-8 bg-black/95 backdrop-blur-sm border border-white/10 rounded-l-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-black transition-colors"
+                    data-testid="btn-collapse-bookmark-panel"
+                    aria-label="Collapse bookmarks"
+                  >
+                    <span className="text-xs font-bold">&rarr;</span>
+                  </button>
+                  <h3 className="text-lg font-bold text-white">Bookmarks</h3>
+                  {bookmarkMarkers.bookmarks.length > 0 && (
+                    <Badge count={bookmarkMarkers.bookmarks.length} max={9} color="warning" />
+                  )}
+                </div>
+                <BookmarkPanel
+                  isOpen={true}
+                  onClose={bookmarkPanel.collapse}
+                  directStreamId={bootstrap.slug}
+                  viewerId={viewer.viewerId}
+                  onSeek={(timeSeconds) => {
+                    if (playerRef.current) {
+                      playerRef.current.currentTime = timeSeconds;
+                    }
+                  }}
+                  mode="inline"
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Bookmark Panel - Mobile bottom sheet (portrait and landscape mobile) */}
+        {(isPortrait || isMobile) && viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
           <BookmarkPanel
-            isOpen={isBookmarkPanelOpen}
-            onClose={() => setIsBookmarkPanelOpen(false)}
+            isOpen={!bookmarkPanel.isCollapsed}
+            onClose={bookmarkPanel.collapse}
             directStreamId={bootstrap.slug}
             viewerId={viewer.viewerId}
-            isMobile={isMobile}
+            isMobile={true}
             onSeek={(timeSeconds) => {
               if (playerRef.current) {
                 playerRef.current.currentTime = timeSeconds;
