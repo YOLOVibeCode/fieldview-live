@@ -536,25 +536,40 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       return res.status(404).json({ error: 'Scoreboard not found' });
     }
 
-    // Check if viewer editing is enabled
+    // Check for admin JWT — admins bypass viewer permission checks
+    let isAdmin = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const { verifyAdminJwt } = await import('../lib/admin-jwt');
+        const decoded = verifyAdminJwt(authHeader.substring(7));
+        if (decoded && decoded.slug === slug && decoded.role === 'admin') {
+          isAdmin = true;
+        }
+      } catch {
+        // Invalid/expired admin token — fall through to normal checks
+      }
+    }
+
+    // Check if viewer editing is enabled (admins bypass)
     const isScoreField = field === 'homeScore' || field === 'awayScore';
     const isNameField = field === 'homeTeamName' || field === 'awayTeamName';
 
-    if (isScoreField && !stream.allowViewerScoreEdit) {
+    if (!isAdmin && isScoreField && !stream.allowViewerScoreEdit) {
       return res.status(403).json({ error: 'Viewer score editing is disabled' });
     }
 
-    if (isNameField && !stream.allowViewerNameEdit) {
+    if (!isAdmin && isNameField && !stream.allowViewerNameEdit) {
       return res.status(403).json({ error: 'Viewer name editing is disabled' });
     }
 
-    // Auth check: require viewerToken unless anonymous editing is enabled
+    // Auth check: require viewerToken unless anonymous editing is enabled or admin
     const isAnonymousAllowed = isScoreField && stream.allowAnonymousScoreEdit;
-    if (!viewerToken && !isAnonymousAllowed) {
+    if (!isAdmin && !viewerToken && !isAnonymousAllowed) {
       return res.status(401).json({ error: 'Viewer token required' });
     }
 
-    const viewerName = viewerToken ? 'Viewer' : 'Guest';
+    const viewerName = isAdmin ? 'Admin' : (viewerToken ? 'Viewer' : 'Guest');
 
     // Rate limiting check (simple in-memory implementation)
     // TODO: Implement proper Redis-based rate limiting

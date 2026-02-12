@@ -622,6 +622,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     slug: bootstrap?.slug || null,
     enabled: bootstrap?.scoreboardEnabled === true,
     viewerToken: viewer.token,
+    adminToken: adminJwt,
     allowAnonymousEdit: bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit,
   });
 

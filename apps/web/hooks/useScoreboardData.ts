@@ -29,6 +29,7 @@ interface UseScoreboardDataOptions {
   enabled?: boolean;
   pollInterval?: number; // milliseconds (fallback when SSE disconnects)
   viewerToken?: string | null;
+  adminToken?: string | null;
   allowAnonymousEdit?: boolean;
 }
 
@@ -106,6 +107,7 @@ export function useScoreboardData({
   enabled = true,
   pollInterval = 30000, // 30s fallback poll (SSE provides real-time)
   viewerToken,
+  adminToken,
   allowAnonymousEdit = false,
 }: UseScoreboardDataOptions): UseScoreboardDataReturn {
   const [homeTeam, setHomeTeam] = useState<TeamData>({
@@ -173,7 +175,7 @@ export function useScoreboardData({
     if (!slug) {
       throw new Error('No slug available');
     }
-    if (!viewerToken && !allowAnonymousEdit) {
+    if (!adminToken && !viewerToken && !allowAnonymousEdit) {
       throw new Error('Authentication required to update score');
     }
 
@@ -182,8 +184,10 @@ export function useScoreboardData({
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (viewerToken) {
-        headers.Authorization = `Bearer ${viewerToken}`;
+      // Prefer admin token over viewer token for Authorization header
+      const authToken = adminToken || viewerToken;
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
       }
 
       const response = await fetch(`${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard/viewer-update`, {
@@ -213,7 +217,7 @@ export function useScoreboardData({
       console.error('[Scoreboard] Update error:', err);
       throw err;
     }
-  }, [slug, viewerToken, allowAnonymousEdit]);
+  }, [slug, viewerToken, adminToken, allowAnonymousEdit]);
 
   /**
    * SSE subscription for real-time scoreboard push
