@@ -49,7 +49,7 @@ export function QuickBookmarkButton({
         viewerIdentityId,
         timestampSeconds: time,
         label,
-        isShared: false,
+        isShared: true,
       });
 
       onBookmarkCreated?.(bookmark);
@@ -68,7 +68,7 @@ export function QuickBookmarkButton({
       onClick={handleQuickBookmark}
       disabled={loading}
       className={`
-        relative px-3 py-2 rounded-lg
+        relative px-3 py-2 rounded-lg min-h-[44px] min-w-[44px]
         bg-amber-600/80 hover:bg-amber-600
         disabled:bg-gray-600 disabled:cursor-not-allowed
         text-white text-sm font-medium

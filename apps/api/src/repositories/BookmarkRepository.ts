@@ -31,7 +31,7 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
         timestampSeconds: data.timestampSeconds,
         label: data.label,
         notes: data.notes,
-        isShared: data.isShared ?? false,
+        isShared: data.isShared ?? true,
         bufferSeconds: data.bufferSeconds ?? 5,
       },
     });
@@ -96,9 +96,9 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
     });
   }
 
-  async listByGame(gameId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]> {
+  async listByGame(gameId: string, options?: BookmarkListOptions, publicOnly?: boolean): Promise<VideoBookmark[]> {
     return this.prisma.videoBookmark.findMany({
-      where: { gameId },
+      where: { gameId, ...(publicOnly && { isShared: true }) },
       take: options?.limit,
       skip: options?.offset,
       orderBy: options?.orderBy
@@ -107,9 +107,9 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
     });
   }
 
-  async listByStream(streamId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]> {
+  async listByStream(streamId: string, options?: BookmarkListOptions, publicOnly?: boolean): Promise<VideoBookmark[]> {
     return this.prisma.videoBookmark.findMany({
-      where: { directStreamId: streamId },
+      where: { directStreamId: streamId, ...(publicOnly && { isShared: true }) },
       take: options?.limit,
       skip: options?.offset,
       orderBy: options?.orderBy

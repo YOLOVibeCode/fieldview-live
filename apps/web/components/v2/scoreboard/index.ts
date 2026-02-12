@@ -16,3 +16,6 @@ export type { ScoreEditSheetProps } from './ScoreEditSheet';
 export { GameClock } from './GameClock';
 export type { GameClockProps } from './GameClock';
 
+export { CompactScoreBar } from './CompactScoreBar';
+export type { CompactScoreBarProps } from './CompactScoreBar';
+

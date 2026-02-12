@@ -20,6 +20,8 @@ interface BookmarkPanelProps {
   viewerId: string;
   onSeek: (timeSeconds: number) => void;
   isMobile?: boolean;
+  /** Render mode: 'sheet' (mobile BottomSheet), 'sidebar' (desktop), 'inline' (embedded in parent) */
+  mode?: 'sheet' | 'sidebar' | 'inline';
 }
 
 export function BookmarkPanel({
@@ -29,10 +31,14 @@ export function BookmarkPanel({
   viewerId,
   onSeek,
   isMobile = false,
+  mode,
 }: BookmarkPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('mine');
 
-  if (!isOpen) return null;
+  // Determine effective mode
+  const effectiveMode = mode ?? (isMobile ? 'sheet' : 'sidebar');
+
+  if (!isOpen && effectiveMode !== 'inline') return null;
 
   const tabs = (
     <div className="flex border-b border-white/10">
@@ -75,8 +81,18 @@ export function BookmarkPanel({
     </div>
   );
 
+  // Inline: render tabs + list directly (for portrait layout)
+  if (effectiveMode === 'inline') {
+    return (
+      <div className="flex flex-col h-full" data-testid="bookmark-panel-inline">
+        {tabs}
+        {content}
+      </div>
+    );
+  }
+
   // Mobile: render inside BottomSheet
-  if (isMobile) {
+  if (effectiveMode === 'sheet') {
     return (
       <BottomSheet
         isOpen={isOpen}
@@ -116,7 +132,7 @@ export function BookmarkPanel({
         <button
           type="button"
           onClick={onClose}
-          className="text-white/70 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
+          className="text-white/70 hover:text-white hover:bg-white/10 p-2 min-h-[44px] min-w-[44px] rounded transition-colors flex items-center justify-center"
           aria-label="Close bookmarks"
           data-testid="btn-close-bookmark-panel"
         >

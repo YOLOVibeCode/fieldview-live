@@ -6,9 +6,11 @@
  * Shows bookmark label, timestamp, and whether it's the viewer's own or shared.
  * Uses a simple CSS tooltip approach (no Radix dependency to keep it lightweight
  * inside the video player).
+ *
+ * Supports touch devices via onTouchStart with auto-hide after 2.5s.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 
 interface BookmarkTooltipProps {
   label: string;
@@ -24,6 +26,20 @@ export function BookmarkTooltip({
   children,
 }: BookmarkTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  const showTooltipTouch = () => {
+    clearTimeout(hideTimerRef.current);
+    setIsVisible(true);
+    hideTimerRef.current = setTimeout(() => setIsVisible(false), 2500);
+  };
 
   return (
     <div
@@ -32,6 +48,7 @@ export function BookmarkTooltip({
       onMouseLeave={() => setIsVisible(false)}
       onFocus={() => setIsVisible(true)}
       onBlur={() => setIsVisible(false)}
+      onTouchStart={showTooltipTouch}
     >
       {children}
       {isVisible && (
