@@ -7,6 +7,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { validateAdminToken } from '../middleware/admin-jwt';
+import { getBookmarkPubSub } from '../lib/bookmark-pubsub';
 
 const router = Router();
 
@@ -158,6 +159,9 @@ router.delete(
             autoPurgeAt,
           },
         });
+
+        // Notify bookmark SSE subscribers that stream is ended
+        getBookmarkPubSub().publish(slug, { type: 'stream_ended' });
 
         logger.info(
           {

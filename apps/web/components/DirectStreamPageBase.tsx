@@ -50,6 +50,7 @@ import { BookmarkButton } from '@/components/dvr/BookmarkButton';
 import { BookmarkMarkers } from '@/components/v2/video/BookmarkMarkers';
 import { QuickBookmarkButton } from '@/components/v2/video/QuickBookmarkButton';
 import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
+import { BookmarkToast, useBookmarkToasts } from '@/components/v2/video/BookmarkToast';
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
@@ -632,11 +633,31 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     enabled: !!bootstrap,
   });
 
-  // Bookmark markers for the timeline
+  // Bookmark toast notifications (real-time SSE announcements)
+  const bookmarkToasts = useBookmarkToasts();
+
+  // Bookmark markers for the timeline (with SSE real-time + toast callback)
   const bookmarkMarkers = useBookmarkMarkers({
     directStreamId: bootstrap?.slug,
     viewerId: viewer.viewerId || undefined,
     enabled: !!streamUrl && !isPaywallBlocked,
+    onBookmarkReceived: useCallback((bookmark: { id: string; viewerIdentityId?: string | null; timestampSeconds: number; label: string }) => {
+      // Don't show toast for own bookmarks (they already see the optimistic marker)
+      if (bookmark.viewerIdentityId === viewer.viewerId) return;
+      const secs = bookmark.timestampSeconds;
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = Math.floor(secs % 60);
+      const time = h > 0
+        ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+        : `${m}:${s.toString().padStart(2, '0')}`;
+      bookmarkToasts.addToast({
+        id: bookmark.id,
+        label: bookmark.label,
+        timestampSeconds: bookmark.timestampSeconds,
+        time,
+      });
+    }, [viewer.viewerId, bookmarkToasts.addToast]),
   });
 
   // Notify status changes
@@ -832,6 +853,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     </svg>
                   </button>
                 </div>
+              )}
+
+              {/* Real-time bookmark toast notifications (portrait) */}
+              {bookmarkToasts.toasts.length > 0 && (
+                <BookmarkToast
+                  toasts={bookmarkToasts.toasts}
+                  onJumpTo={(timestampSeconds) => {
+                    if (playerRef.current) {
+                      playerRef.current.currentTime = timestampSeconds;
+                    }
+                  }}
+                  onDismiss={bookmarkToasts.dismissToast}
+                />
               )}
             </div>
           }
@@ -1372,6 +1406,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     )}
                   </button>
                 </div>
+              )}
+
+              {/* Real-time bookmark toast notifications */}
+              {bookmarkToasts.toasts.length > 0 && (
+                <BookmarkToast
+                  toasts={bookmarkToasts.toasts}
+                  onJumpTo={(timestampSeconds) => {
+                    if (playerRef.current) {
+                      playerRef.current.currentTime = timestampSeconds;
+                    }
+                  }}
+                  onDismiss={bookmarkToasts.dismissToast}
+                />
               )}
 
               {/* v2 Panels work in both normal and fullscreen modes */}

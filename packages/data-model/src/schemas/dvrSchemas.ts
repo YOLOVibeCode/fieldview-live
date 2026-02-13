@@ -79,7 +79,7 @@ export const BOOKMARK_LIMITS = {
 export const createBookmarkSchema = z.object({
   gameId: z.string().uuid().optional(),
   directStreamId: z.string().uuid().optional(),
-  viewerIdentityId: z.string().uuid(),
+  viewerIdentityId: z.string().uuid().optional(),
   timestampSeconds: z.number().int().min(0).max(BOOKMARK_LIMITS.MAX_TIMESTAMP_SECONDS),
   label: z.string()
     .trim()

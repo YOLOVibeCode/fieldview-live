@@ -81,10 +81,26 @@ export function BookmarkPanel({
     </div>
   );
 
-  // Inline: render tabs + list directly (for portrait layout)
+  // Inline: render collapse header + tabs + list (portrait layout — collapsible in all views)
   if (effectiveMode === 'inline') {
     return (
       <div className="flex flex-col h-full" data-testid="bookmark-panel-inline">
+        {/* Collapse header: back/close so bookmarks are collapsible in portrait like other views */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-[var(--fv-color-bg-secondary)]/80 px-3 py-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-sm font-medium text-[var(--fv-color-text-muted)] hover:text-[var(--fv-color-text)] transition-colors min-h-[44px] min-w-[44px] -ml-1 rounded"
+            aria-label="Back to chat"
+            data-testid="btn-collapse-bookmark-inline"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span>Chat</span>
+          </button>
+          <span className="text-sm font-semibold text-white">Bookmarks</span>
+        </div>
         {tabs}
         {content}
       </div>

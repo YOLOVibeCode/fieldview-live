@@ -105,7 +105,7 @@ export class DVRService implements IDVRService {
       startTimeSeconds,
       endTimeSeconds,
       isPublic: input.isPublic,
-      createdById: bookmark.viewerIdentityId,
+      createdById: bookmark.viewerIdentityId ?? undefined,
       createdByType: 'viewer',
     });
 
