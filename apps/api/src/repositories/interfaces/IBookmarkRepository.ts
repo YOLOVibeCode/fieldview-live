@@ -16,7 +16,7 @@ export interface CreateBookmarkInput {
   gameId?: string;
   directStreamId?: string;
   clipId?: string;
-  viewerIdentityId: string;
+  viewerIdentityId?: string;
   timestampSeconds: number;
   label: string;
   notes?: string;

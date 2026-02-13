@@ -37,7 +37,7 @@ export interface CreateClipFromBookmarkInput {
 export interface CreateBookmarkInput {
   gameId?: string;
   directStreamId?: string;
-  viewerIdentityId: string;
+  viewerIdentityId?: string;
   timestampSeconds: number;
   label: string;
   notes?: string;

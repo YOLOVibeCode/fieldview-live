@@ -17,11 +17,24 @@ vi.mock('@/lib/hooks/useDVR', () => ({
   }),
 }));
 
+// Mock the SSE hook (returns disconnected by default, so polling is active)
+let mockSSEBookmarks: any[] = [];
+let mockSSEConnected = false;
+
+vi.mock('../useBookmarkSSE', () => ({
+  useBookmarkSSE: () => ({
+    bookmarks: mockSSEBookmarks,
+    isConnected: mockSSEConnected,
+  }),
+}));
+
 describe('useBookmarkMarkers', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     mockBookmarks = [];
+    mockSSEBookmarks = [];
+    mockSSEConnected = false;
   });
 
   afterEach(() => {
@@ -74,7 +87,7 @@ describe('useBookmarkMarkers', () => {
     expect(mockFetchBookmarks).not.toHaveBeenCalled();
   });
 
-  it('should poll every 30 seconds', async () => {
+  it('should poll every 30 seconds when SSE is disconnected', async () => {
     renderHook(() =>
       useBookmarkMarkers({
         directStreamId: 'stream-1',
@@ -117,12 +130,45 @@ describe('useBookmarkMarkers', () => {
 
     expect(result.current.ownBookmarks).toHaveLength(2);
     expect(result.current.ownBookmarks.map(b => b.id)).toEqual(['1', '3']);
-
-    expect(result.current.sharedBookmarks).toHaveLength(1);
-    expect(result.current.sharedBookmarks[0].id).toBe('2');
   });
 
-  it('should delegate addBookmarkOptimistic to underlying hook', () => {
+  it('should handle null viewerIdentityId as orphaned/shared', () => {
+    mockBookmarks = [
+      { id: '1', viewerIdentityId: 'v-1', isShared: true, timestampSeconds: 10, label: 'Mine', createdAt: '' },
+      { id: '2', viewerIdentityId: null, isShared: true, timestampSeconds: 20, label: 'Orphaned', createdAt: '' },
+      { id: '3', viewerIdentityId: 'v-2', isShared: true, timestampSeconds: 30, label: 'Shared', createdAt: '' },
+    ];
+
+    const { result } = renderHook(() =>
+      useBookmarkMarkers({
+        directStreamId: 'stream-1',
+        viewerId: 'v-1',
+        enabled: true,
+      })
+    );
+
+    // Own: only v-1
+    expect(result.current.ownBookmarks).toHaveLength(1);
+    expect(result.current.ownBookmarks[0].id).toBe('1');
+
+    // Shared: orphaned (null) + other viewer
+    expect(result.current.sharedBookmarks).toHaveLength(2);
+    expect(result.current.sharedBookmarks.map(b => b.id)).toEqual(['2', '3']);
+  });
+
+  it('should expose sseConnected flag', () => {
+    const { result } = renderHook(() =>
+      useBookmarkMarkers({
+        directStreamId: 'stream-1',
+        viewerId: 'v-1',
+        enabled: true,
+      })
+    );
+
+    expect(result.current.sseConnected).toBe(false);
+  });
+
+  it('should support addBookmarkOptimistic', () => {
     const { result } = renderHook(() =>
       useBookmarkMarkers({
         directStreamId: 'stream-1',
@@ -144,6 +190,7 @@ describe('useBookmarkMarkers', () => {
       result.current.addBookmarkOptimistic(bookmark as any);
     });
 
-    expect(mockAddOptimistic).toHaveBeenCalledWith(bookmark);
+    // Optimistic bookmark should appear in the list
+    expect(result.current.bookmarks.some(b => b.id === 'opt-1')).toBe(true);
   });
 });

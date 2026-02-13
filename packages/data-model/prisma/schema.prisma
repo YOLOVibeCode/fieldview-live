@@ -926,7 +926,7 @@ model VideoBookmark {
   gameId           String?   @db.Uuid // Optional: link to game
   directStreamId   String?   @db.Uuid // Optional: link to direct stream
   clipId           String?   @db.Uuid // Optional: link to generated clip
-  viewerIdentityId String    @db.Uuid // Who created the bookmark
+  viewerIdentityId String?   @db.Uuid // Who created the bookmark (nullable: bookmarks survive viewer deletion)
   timestampSeconds Int // When the event happened
   label            String // e.g., "Great Goal!", "Offside Call"
   notes            String? // Optional additional notes
@@ -937,8 +937,8 @@ model VideoBookmark {
 
   game           Game?          @relation(fields: [gameId], references: [id], onDelete: Cascade)
   directStream   DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
-  clip           VideoClip?     @relation(fields: [clipId], references: [id], onDelete: Cascade)
-  viewerIdentity ViewerIdentity @relation(fields: [viewerIdentityId], references: [id], onDelete: Cascade)
+  clip           VideoClip?      @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  viewerIdentity ViewerIdentity? @relation(fields: [viewerIdentityId], references: [id], onDelete: SetNull)
 
   @@index([gameId])
   @@index([directStreamId])

@@ -36,7 +36,7 @@ export interface VideoBookmark {
   gameId?: string;
   directStreamId?: string;
   clipId?: string;
-  viewerIdentityId: string;
+  viewerIdentityId?: string | null;
   timestampSeconds: number;
   label: string;
   notes?: string;

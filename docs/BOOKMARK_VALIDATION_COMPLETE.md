@@ -199,6 +199,21 @@ open http://localhost:4300/test/dvr
 
 ---
 
+## 📐 Collapsible bookmarks (all views)
+
+Bookmarks panel is collapsible in every view for consistent UX:
+
+| View | Collapse behavior |
+|------|--------------------|
+| **Desktop/Tablet** | Right-edge sidebar: collapsed tab (←) to expand; header arrow (→) or **B** / **Escape** to collapse |
+| **Mobile (landscape)** | BottomSheet: drag down or overlay toggle button; **B** toggles |
+| **Portrait** | Chat \| Bookmarks tabs: tap **Chat** or **← Chat** header in bookmark content; **B** switches tab |
+
+- Portrait inline panel includes a **← Chat** header button (`btn-collapse-bookmark-inline`) so the list can be collapsed without leaving the tab bar.
+- All views support **B** keyboard shortcut where applicable (non-fullscreen, non-touch hint).
+
+---
+
 ## 📝 Next Steps (Optional Enhancements)
 
 1. **Rate Limiting**: Limit bookmark creation to X per minute
