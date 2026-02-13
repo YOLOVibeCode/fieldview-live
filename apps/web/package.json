@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.2.3.010",
+  "version": "1.2.3.009",
   "private": true,
   "scripts": {
     "dev": "PORT=4300 next dev",
