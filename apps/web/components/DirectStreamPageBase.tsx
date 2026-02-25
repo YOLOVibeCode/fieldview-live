@@ -1145,23 +1145,52 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     data-testid="btn-expand-scoreboard"
                     className={cn(
                       'fixed left-0 top-1/2 -translate-y-1/2 z-30',
-                      'w-12 py-4',
+                      'w-14 py-3',
                       'bg-black/80 backdrop-blur-md',
                       'border-r-2 border-white/20',
                       'rounded-r-lg',
                       'shadow-2xl shadow-blue-500/10',
                       'cursor-pointer pointer-events-auto',
-                      'hover:bg-black/90 hover:w-14 hover:border-white/40 hover:shadow-blue-500/30',
+                      'hover:bg-black/90 hover:border-white/40 hover:shadow-blue-500/30',
                       'transition-all duration-300',
-                      'flex flex-col items-center gap-2',
+                      'flex flex-col items-center gap-1',
                       'group'
                     )}
                     onClick={scoreboardPanel.toggle}
                     aria-label="Expand scoreboard"
                   >
-                      <div className="text-white/60 text-xs font-bold group-hover:text-white/90 transition-colors">&rarr;</div>
-                      <div className="text-2xl group-hover:scale-110 transition-transform">📊</div>
-                      <div className="absolute -right-1 top-4 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                      {/* Home: initial + score */}
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="text-[10px] font-bold uppercase leading-none"
+                          style={{ color: scoreboardData.homeTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
+                        >
+                          {scoreboardData.homeTeam.name.charAt(0)}
+                        </span>
+                        <span
+                          className="text-sm font-bold tabular-nums leading-none"
+                          style={{ color: scoreboardData.homeTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
+                        >
+                          {scoreboardData.homeTeam.score}
+                        </span>
+                      </div>
+                      {/* Expand arrow */}
+                      <div className="text-white/50 text-[10px] font-bold group-hover:text-white/90 transition-colors leading-none">&rArr;</div>
+                      {/* Away: initial + score */}
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="text-[10px] font-bold uppercase leading-none"
+                          style={{ color: scoreboardData.awayTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
+                        >
+                          {scoreboardData.awayTeam.name.charAt(0)}
+                        </span>
+                        <span
+                          className="text-sm font-bold tabular-nums leading-none"
+                          style={{ color: scoreboardData.awayTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
+                        >
+                          {scoreboardData.awayTeam.score}
+                        </span>
+                      </div>
                   </button>
                   )}
 
