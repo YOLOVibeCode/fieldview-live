@@ -37,6 +37,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { StreamPlayer } from '@/components/v2/video/StreamPlayer';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
+import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
 import { Scoreboard } from '@/components/v2/scoreboard';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
@@ -46,14 +47,13 @@ import { useResponsive } from '@/hooks/v2/useResponsive';
 // Debug component
 import { ChatDebugPanel } from '@/components/ChatDebugPanel';
 // DVR components
-import { BookmarkButton } from '@/components/dvr/BookmarkButton';
 import { BookmarkMarkers } from '@/components/v2/video/BookmarkMarkers';
-import { QuickBookmarkButton } from '@/components/v2/video/QuickBookmarkButton';
 import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
 import { BookmarkToast, useBookmarkToasts } from '@/components/v2/video/BookmarkToast';
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
+import { WelcomeMessageBanner, isWelcomeDismissed } from '@/components/v2/WelcomeMessageBanner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -133,6 +133,7 @@ export interface Bootstrap {
   scoreboardAwayTeam?: string | null;
   scoreboardHomeColor?: string | null;
   scoreboardAwayColor?: string | null;
+  welcomeMessage?: string | null;
   allowViewerScoreEdit?: boolean;
   allowViewerNameEdit?: boolean;
   allowAnonymousChat?: boolean;
@@ -209,6 +210,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const { isMobile, isTablet, isDesktop, isTouch, breakpoint, chatPosition, scoreboardPosition, orientation } = useResponsive();
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [portraitActiveTab, setPortraitActiveTab] = useState<PortraitTab>('chat');
+  const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const isPortrait = isMobile && orientation === 'portrait';
 
   // Paywall hook - manages paywall state based on bootstrap
@@ -254,10 +256,34 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     storageKey: `bookmark-collapsed-${stableKey}`,
   });
 
+  // Collapse all panels when orientation or layout changes (portrait ↔ landscape, mobile ↔ desktop).
+  // Panels stay collapsed (persisted) until the user opens them again.
+  const layoutKeyRef = useRef<string | null>(null);
+  const layoutKey = `${isPortrait}-${isMobile}-${breakpoint}`;
+  useEffect(() => {
+    if (layoutKeyRef.current !== null && layoutKeyRef.current !== layoutKey) {
+      scoreboardPanel.collapse();
+      chatPanel.collapse();
+      bookmarkPanel.collapse();
+      setIsMobileChatOpen(false);
+      setPortraitActiveTab('chat');
+    }
+    layoutKeyRef.current = layoutKey;
+  }, [layoutKey, scoreboardPanel.collapse, chatPanel.collapse, bookmarkPanel.collapse]);
+
+  // Sync welcome banner dismissed state with localStorage when bootstrap changes
+  useEffect(() => {
+    if (!bootstrap?.slug || !bootstrap?.welcomeMessage?.trim()) {
+      setWelcomeBannerDismissed(true);
+      return;
+    }
+    setWelcomeBannerDismissed(isWelcomeDismissed(bootstrap.slug, bootstrap.welcomeMessage));
+  }, [bootstrap?.slug, bootstrap?.welcomeMessage]);
+
   // Load font size preference
   useEffect(() => {
     if (!config.enableFontSize || !config.fontSizeStorageKey) return;
-    
+
     const saved = localStorage.getItem(config.fontSizeStorageKey);
     if (saved === 'small' || saved === 'medium' || saved === 'large') {
       setFontSize(saved);
@@ -737,8 +763,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Portrait Mode Layout (mobile only)
   // ==========================================
   if (isPortrait) {
+    const showWelcomeBanner = !!bootstrap?.welcomeMessage?.trim() && !welcomeBannerDismissed;
     return (
       <>
+        {showWelcomeBanner && bootstrap?.slug && (
+          <WelcomeMessageBanner
+            message={bootstrap.welcomeMessage!}
+            slug={bootstrap.slug}
+            onDismiss={() => setWelcomeBannerDismissed(true)}
+          />
+        )}
         <PortraitStreamLayout
           // Video section: player + all overlays + bookmark controls
           videoSection={
@@ -820,40 +854,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </StreamPlayer>
               )}
 
-              {/* Bookmark controls overlay */}
-              {streamUrl && viewer.isUnlocked && viewer.viewerId && status !== 'offline' && status !== 'error' && (
-                <div className="absolute z-20 flex items-center gap-1.5 bottom-14 right-2 [&_button]:min-h-[44px] [&_button]:min-w-[44px]">
-                  <QuickBookmarkButton
-                    directStreamId={bootstrap?.slug || ''}
-                    viewerIdentityId={viewer.viewerId}
-                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
-                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
-                  />
-                  <BookmarkButton
-                    directStreamId={bootstrap?.slug || ''}
-                    viewerIdentityId={viewer.viewerId}
-                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
-                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
-                    className=""
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPortraitActiveTab('bookmarks')}
-                    className={cn(
-                      'px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors shadow-lg',
-                      portraitActiveTab === 'bookmarks'
-                        ? 'bg-amber-500 shadow-amber-500/30'
-                        : 'bg-gray-700/80 hover:bg-gray-600 shadow-black/30',
-                    )}
-                    aria-label="Show bookmarks"
-                    data-testid="btn-portrait-bookmark-tab"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                    </svg>
-                  </button>
-                </div>
-              )}
+              {/* Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet) */}
 
               {/* Real-time bookmark toast notifications (portrait) */}
               {bookmarkToasts.toasts.length > 0 && (
@@ -867,6 +868,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   onDismiss={bookmarkToasts.dismissToast}
                 />
               )}
+
+              {/* Admin broadcast overlay (portrait) */}
+              {chatV2.latestBroadcast && (
+                <AdminBroadcast
+                  message={chatV2.latestBroadcast.message}
+                  onDismiss={() => chatV2.setLatestBroadcast(null)}
+                />
+              )}
             </div>
           }
 
@@ -876,7 +885,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           period={scoreboardData.period}
           time={scoreboardData.time}
           scoreboardEnabled={bootstrap?.scoreboardEnabled ?? false}
-          scoreboardEditable={viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+          scoreboardEditable={!!adminJwt || viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
           onScoreUpdate={scoreboardData.updateScore}
 
           // Chat
@@ -891,6 +900,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 isLoading={chatV2.isLoading}
                 disabled={!chatV2.isConnected}
                 emptyMessage="No messages yet. Be the first to chat!"
+                variant="twitch"
                 className="h-full"
                 data-testid="chat-portrait"
               />
@@ -1027,6 +1037,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             </div>
           </div>
 
+          {/* Welcome message banner (dismissible, above video) */}
+          {!!bootstrap?.welcomeMessage?.trim() && !welcomeBannerDismissed && bootstrap?.slug && (
+            <WelcomeMessageBanner
+              message={bootstrap.welcomeMessage}
+              slug={bootstrap.slug}
+              onDismiss={() => setWelcomeBannerDismissed(true)}
+            />
+          )}
+
           {/* Edit Form - Use AdminPanel */}
           {isEditing && (
             <div className="bg-card border-b border-border p-4">
@@ -1059,6 +1078,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     allowViewerNameEdit: bootstrap?.allowViewerNameEdit,
                     allowAnonymousChat: bootstrap?.allowAnonymousChat,
                     allowAnonymousScoreEdit: bootstrap?.allowAnonymousScoreEdit,
+                    welcomeMessage: bootstrap?.welcomeMessage ?? undefined,
                   }}
                   onAuthSuccess={(jwt, viewerInfo) => {
                     setAdminJwt(jwt);
@@ -1110,7 +1130,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     period={scoreboardData.period}
                     time={scoreboardData.time}
                     mode="minimal"
-                    editable={viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+                    editable={!!adminJwt || viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
                     onScoreUpdate={scoreboardData.updateScore}
                     data-testid="scoreboard-v2"
                   />
@@ -1181,14 +1201,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         period={scoreboardData.period}
                         time={scoreboardData.time}
                         mode="sidebar"
-                        editable={viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+                        editable={!!adminJwt || viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
                         onScoreUpdate={scoreboardData.updateScore}
                         data-testid="scoreboard-v2"
                       />
 
-                      {scoreboardData.error && (
-                        <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm">
-                          {scoreboardData.error}
+                      {(scoreboardData.error || scoreboardData.saveError) && (
+                        <div className="mt-4 p-3 bg-destructive/20 text-destructive rounded-lg text-sm" data-testid="scoreboard-error">
+                          {scoreboardData.saveError || scoreboardData.error}
                         </div>
                       )}
                     </div>
@@ -1362,51 +1382,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </StreamPlayer>
               )}
 
-              {/* DVR Bookmark Controls - positioned over the player */}
-              {streamUrl && viewer.isUnlocked && viewer.viewerId && status !== 'offline' && status !== 'error' && (
-                <div className={cn(
-                  'absolute z-20 flex items-center gap-2',
-                  isMobile ? 'bottom-20 right-2' : 'bottom-16 right-2',
-                  isMobile && '[&_button]:min-h-[44px] [&_button]:min-w-[44px]'
-                )}>
-                  {/* Quick one-click bookmark */}
-                  <QuickBookmarkButton
-                    directStreamId={bootstrap?.slug || ''}
-                    viewerIdentityId={viewer.viewerId}
-                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
-                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
-                  />
-                  {/* Full bookmark with label, notes, sharing, time window */}
-                  <BookmarkButton
-                    directStreamId={bootstrap?.slug || ''}
-                    viewerIdentityId={viewer.viewerId}
-                    getCurrentTime={() => playerRef.current?.currentTime ?? 0}
-                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
-                    className=""
-                  />
-                  {/* Toggle bookmark panel (collapsible sidebar) */}
-                  <button
-                    type="button"
-                    onClick={bookmarkPanel.toggle}
-                    className={`relative px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-white text-sm font-medium transition-colors shadow-lg flex items-center justify-center
-                      ${!bookmarkPanel.isCollapsed
-                        ? 'bg-amber-500 shadow-amber-500/30'
-                        : 'bg-gray-700/80 hover:bg-gray-600 shadow-black/30'
-                      }`}
-                    aria-label="Toggle bookmarks panel"
-                    data-testid="btn-toggle-bookmark-panel"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                    </svg>
-                    {bookmarkMarkers.bookmarks.length > 0 && bookmarkPanel.isCollapsed && (
-                      <span className="absolute -top-1.5 -right-1.5">
-                        <Badge count={bookmarkMarkers.bookmarks.length} max={9} color="warning" />
-                      </span>
-                    )}
-                  </button>
-                </div>
-              )}
+              {/* Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet) */}
 
               {/* Real-time bookmark toast notifications */}
               {bookmarkToasts.toasts.length > 0 && (
@@ -1418,6 +1394,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     }
                   }}
                   onDismiss={bookmarkToasts.dismissToast}
+                />
+              )}
+
+              {/* Admin broadcast overlay (landscape) */}
+              {chatV2.latestBroadcast && (
+                <AdminBroadcast
+                  message={chatV2.latestBroadcast.message}
+                  onDismiss={() => chatV2.setLatestBroadcast(null)}
                 />
               )}
 
@@ -1543,8 +1527,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           </>
         )}
 
-        {/* Bookmark Panel - Mobile bottom sheet (portrait and landscape mobile) */}
-        {(isPortrait || isMobile) && viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
+        {/* Bookmark Panel - Mobile landscape only (bottom sheet). Portrait uses tab content in PortraitStreamLayout. */}
+        {isMobile && !isPortrait && viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
           <BookmarkPanel
             isOpen={!bookmarkPanel.isCollapsed}
             onClose={bookmarkPanel.collapse}
@@ -1648,6 +1632,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         isLoading={chatV2.isLoading}
                         disabled={!chatV2.isConnected}
                         emptyMessage="No messages yet. Be the first to chat!"
+                        variant="twitch"
                         className="h-full"
                         data-testid="chat-panel-v2"
                       />
@@ -1808,6 +1793,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                           isLoading={chatV2.isLoading}
                           disabled={!chatV2.isConnected}
                           emptyMessage="No messages yet. Be the first to chat!"
+                          variant="twitch"
                           className="h-full"
                           data-testid="chat-panel-v2"
                         />
