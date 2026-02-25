@@ -320,3 +320,230 @@ test.describe('Production Score Editing — Portrait', () => {
     }
   });
 });
+
+// =============================================================
+// Landscape Mobile tests (844x390) — floating minimal scoreboard
+// =============================================================
+test.describe('Production Score Editing — Landscape Mobile', () => {
+  test.describe.configure({ timeout: 90000 });
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  test.beforeEach(async () => {
+    await resetScores();
+  });
+
+  test.afterEach(async () => {
+    await resetScores();
+  });
+
+  test('admin unlocks at desktop, then edits score in landscape', async ({ page }) => {
+    // Unlock at desktop width first (landscape mobile may not show admin panel)
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(PROD_URL);
+    await page.waitForTimeout(3000);
+
+    const unlocked = await unlockAdminOnPage(page);
+    expect(unlocked).toBe(true);
+
+    // Switch to landscape mobile
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.waitForTimeout(2000);
+
+    await page.screenshot({ path: '__tests__/e2e/screenshots/prod-landscape-admin-unlocked.png' });
+
+    // Floating scoreboard should be visible with editable score cards
+    const scorePanel = page.getByTestId('scoreboard-panel');
+    const hasPanel = await scorePanel.isVisible({ timeout: 3000 }).catch(() => false);
+
+    if (hasPanel) {
+      const scoreCardBtns = page.getByTestId('score-card-button');
+      const btnCount = await scoreCardBtns.count();
+      console.log(`Landscape editable score cards: ${btnCount}`);
+
+      if (btnCount >= 2) {
+        const edited = await editScoreViaUI(page, 'home', 6);
+        expect(edited).toBe(true);
+
+        await page.screenshot({ path: '__tests__/e2e/screenshots/prod-landscape-score-edited.png' });
+
+        const scores = await getScoresFromAPI();
+        expect(scores.home).toBe(6);
+      }
+    } else {
+      // Scoreboard might need expanding even in landscape
+      const expandBtn = page.getByTestId('btn-expand-scoreboard');
+      if (await expandBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await expandBtn.click();
+        await page.waitForTimeout(1000);
+
+        const scoreCardBtns = page.getByTestId('score-card-button');
+        if (await scoreCardBtns.count() >= 2) {
+          const edited = await editScoreViaUI(page, 'home', 6);
+          expect(edited).toBe(true);
+
+          const scores = await getScoresFromAPI();
+          expect(scores.home).toBe(6);
+        }
+      }
+    }
+  });
+
+  test('SSE push updates floating scoreboard in real time', async ({ page }) => {
+    await page.goto(PROD_URL);
+    await page.waitForTimeout(5000);
+
+    // Set scores via producer
+    await setScoreViaProducer('homeScore', 11);
+    await setScoreViaProducer('awayScore', 8);
+
+    // Wait for SSE push
+    await page.waitForTimeout(3000);
+
+    // Check scoreboard content
+    const scoreboard = page.getByTestId('scoreboard-v2').or(page.getByTestId('scoreboard-panel'));
+    if (await scoreboard.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+      const text = await scoreboard.first().innerText();
+      console.log('Landscape scoreboard after SSE push:', text);
+      expect(text).toContain('11');
+      expect(text).toContain('8');
+      await page.screenshot({ path: '__tests__/e2e/screenshots/prod-landscape-sse-push.png' });
+    }
+  });
+});
+
+// =============================================================
+// Tablet Portrait tests (768x1024) — sidebar scoreboard
+// =============================================================
+test.describe('Production Score Editing — Tablet Portrait', () => {
+  test.describe.configure({ timeout: 90000 });
+  test.use({ viewport: { width: 768, height: 1024 } });
+
+  test.beforeEach(async () => {
+    await resetScores();
+  });
+
+  test.afterEach(async () => {
+    await resetScores();
+  });
+
+  test('admin unlocks and edits score on tablet portrait', async ({ page }) => {
+    await page.goto(PROD_URL);
+    await page.waitForTimeout(3000);
+
+    const unlocked = await unlockAdminOnPage(page);
+    expect(unlocked).toBe(true);
+
+    await page.screenshot({ path: '__tests__/e2e/screenshots/prod-tablet-portrait-unlocked.png' });
+
+    const edited = await editScoreViaUI(page, 'away', 8);
+    expect(edited).toBe(true);
+
+    await page.screenshot({ path: '__tests__/e2e/screenshots/prod-tablet-portrait-score-edited.png' });
+
+    const scores = await getScoresFromAPI();
+    expect(scores.away).toBe(8);
+  });
+
+  test('SSE push updates sidebar scoreboard in real time', async ({ page }) => {
+    await page.goto(PROD_URL);
+    await page.waitForTimeout(5000);
+
+    // Expand scoreboard if collapsed
+    const expandBtn = page.getByTestId('btn-expand-scoreboard');
+    if (await expandBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await expandBtn.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Set scores via producer
+    await setScoreViaProducer('homeScore', 15);
+    await setScoreViaProducer('awayScore', 12);
+
+    // Wait for SSE push
+    await page.waitForTimeout(3000);
+
+    const scoreboard = page.getByTestId('scoreboard-v2');
+    if (await scoreboard.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const text = await scoreboard.innerText();
+      console.log('Tablet portrait scoreboard after SSE push:', text);
+      expect(text).toContain('15');
+      expect(text).toContain('12');
+      await page.screenshot({ path: '__tests__/e2e/screenshots/prod-tablet-portrait-sse-push.png' });
+    }
+  });
+});
+
+// =============================================================
+// Tablet Landscape tests (1024x768) — sidebar scoreboard
+// =============================================================
+test.describe('Production Score Editing — Tablet Landscape', () => {
+  test.describe.configure({ timeout: 90000 });
+  test.use({ viewport: { width: 1024, height: 768 } });
+
+  test.beforeEach(async () => {
+    await resetScores();
+  });
+
+  test.afterEach(async () => {
+    await resetScores();
+  });
+
+  test('admin unlocks and edits both scores on tablet landscape', async ({ page }) => {
+    await page.goto(PROD_URL);
+    await page.waitForTimeout(3000);
+
+    const unlocked = await unlockAdminOnPage(page);
+    expect(unlocked).toBe(true);
+
+    await page.screenshot({ path: '__tests__/e2e/screenshots/prod-tablet-landscape-unlocked.png' });
+
+    // Edit home score
+    const editedHome = await editScoreViaUI(page, 'home', 3);
+    expect(editedHome).toBe(true);
+
+    // Edit away score
+    const editedAway = await editScoreViaUI(page, 'away', 1);
+    expect(editedAway).toBe(true);
+
+    await page.screenshot({ path: '__tests__/e2e/screenshots/prod-tablet-landscape-scores-edited.png' });
+
+    const scores = await getScoresFromAPI();
+    expect(scores.home).toBe(3);
+    expect(scores.away).toBe(1);
+
+    // Verify displayed scores match
+    const displayed = await getDisplayedScores(page);
+    if (displayed) {
+      expect(displayed.home).toBe(3);
+      expect(displayed.away).toBe(1);
+    }
+  });
+
+  test('SSE push updates sidebar scoreboard in real time', async ({ page }) => {
+    await page.goto(PROD_URL);
+    await page.waitForTimeout(5000);
+
+    // Expand scoreboard if collapsed
+    const expandBtn = page.getByTestId('btn-expand-scoreboard');
+    if (await expandBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await expandBtn.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Set scores via producer
+    await setScoreViaProducer('homeScore', 20);
+    await setScoreViaProducer('awayScore', 17);
+
+    // Wait for SSE push
+    await page.waitForTimeout(3000);
+
+    const scoreboard = page.getByTestId('scoreboard-v2');
+    if (await scoreboard.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const text = await scoreboard.innerText();
+      console.log('Tablet landscape scoreboard after SSE push:', text);
+      expect(text).toContain('20');
+      expect(text).toContain('17');
+      await page.screenshot({ path: '__tests__/e2e/screenshots/prod-tablet-landscape-sse-push.png' });
+    }
+  });
+});

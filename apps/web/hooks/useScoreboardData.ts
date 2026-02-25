@@ -45,6 +45,7 @@ interface ScoreboardData {
 interface UseScoreboardDataReturn extends ScoreboardData {
   updateScore: (team: 'home' | 'away', newScore: number) => Promise<void>;
   refresh: () => Promise<void>;
+  saveError: string | null;
 }
 
 interface ApiScoreboardResponse {
@@ -126,6 +127,7 @@ export function useScoreboardData({
   const [time, setTime] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const sseConnectedRef = useRef(false);
 
   /**
@@ -201,8 +203,14 @@ export function useScoreboardData({
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to update score: ${response.statusText}`);
+        const body = await response.json().catch(() => ({}));
+        const msg = body.error || `Failed to update score (${response.status})`;
+        setSaveError(msg);
+        throw new Error(msg);
       }
+
+      // Clear any previous save error on success
+      setSaveError(null);
 
       // Update local state optimistically
       if (team === 'home') {
@@ -215,6 +223,9 @@ export function useScoreboardData({
       // If SSE is disconnected, the fallback poll will catch it
     } catch (err) {
       console.error('[Scoreboard] Update error:', err);
+      if (!saveError) {
+        setSaveError(err instanceof Error ? err.message : 'Score update failed');
+      }
       throw err;
     }
   }, [slug, viewerToken, adminToken, allowAnonymousEdit]);
@@ -294,6 +305,7 @@ export function useScoreboardData({
     time,
     isLoading,
     error,
+    saveError,
     updateScore,
     refresh: fetchScoreboard,
   };
