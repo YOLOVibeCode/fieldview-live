@@ -3,6 +3,8 @@
 **Status:** Standard Operating Procedure  
 **Priority:** CRITICAL - Quick error access is essential
 
+**🤖 Using AI to solve or monitor deployment?** → Follow [AI-DEPLOYMENT-RUNBOOK.md](AI-DEPLOYMENT-RUNBOOK.md) for the AI-specific flow (intent → status → logs → interpret → next action).
+
 ---
 
 ## 🎯 Standard Methods: Railway MCP + Browser MCP

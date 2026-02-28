@@ -10,8 +10,8 @@ export const CreateDirectStreamSchema = z.object({
   slug: z
     .string()
     .min(2, 'Slug must be at least 2 characters')
-    .max(50)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with dashes'),
+    .max(80)
+    .regex(/^[a-z0-9/-]+$/, 'Slug must be lowercase alphanumeric with dashes or slashes (e.g. tchs/soccer-20260213-jv)'),
   title: z.string().min(1, 'Title required').max(200),
   streamUrl: z.string().url('Invalid stream URL').optional(),
   scheduledStartAt: z.string().datetime().optional(), // ISO 8601

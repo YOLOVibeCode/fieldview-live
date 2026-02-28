@@ -137,13 +137,14 @@ export function useGlobalViewerAuth(): UseGlobalViewerAuthReturn {
     }
   }, []);
 
-  // Clear viewer auth
+  // Clear viewer auth. Dispatches custom event so useViewerIdentity can reset in same tab.
   const clearViewerAuth = useCallback(() => {
     setIdentity(null);
 
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(STORAGE_KEY);
+        window.dispatchEvent(new CustomEvent('fieldview_viewer_logout'));
       } catch (error) {
         console.error('[useGlobalViewerAuth] Failed to clear localStorage:', error);
       }

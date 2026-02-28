@@ -33,6 +33,7 @@ export interface ChatProps {
   isLoading?: boolean;
   disabled?: boolean;
   emptyMessage?: string;
+  variant?: 'default' | 'compact' | 'twitch';
   className?: string;
   'data-testid'?: string;
 }
@@ -51,6 +52,7 @@ export function Chat({
   isLoading = false,
   disabled = false,
   emptyMessage,
+  variant = 'default',
   className,
   'data-testid': dataTestId,
 }: ChatProps) {
@@ -93,6 +95,7 @@ export function Chat({
         currentUserId={currentUserId}
         isLoading={isLoading}
         emptyMessage={emptyMessage}
+        variant={variant}
       />
       
       {/* Input */}

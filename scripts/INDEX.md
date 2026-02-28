@@ -60,6 +60,16 @@ Verification script for Marketplace Model A setup
 
 *Language: bash • ✓ Executable*
 
+### [`ensure-super-admin.sh`](ensure-super-admin.sh)
+Ensure super admin (`admin@fieldview.live`) exists locally and in production via API. Prompts for password; uses local `http://localhost:4301` and production `https://api.fieldview.live`.
+
+**Usage:**
+```bash
+./scripts/ensure-super-admin.sh
+```
+
+*Language: bash • ✓ Executable*
+
 ## 🔨 Build Scripts
 
 *Scripts for building and compiling the project*
@@ -330,6 +340,36 @@ node seed-direct-streams.ts [arguments]
 
 *Language: typescript • ✗ Not executable • ⚠️ Requires arguments*
 
+### [`ensure-super-admin.ts`](ensure-super-admin.ts)
+Create or update super admin in DB. Uses `DATABASE_URL` and `ADMIN_PASSWORD` (min 8 chars). Use when API is not available (e.g. seeding production DB directly).
+
+**Usage:**
+```bash
+DATABASE_URL="postgresql://..." ADMIN_PASSWORD=yourpassword pnpm exec tsx scripts/ensure-super-admin.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`add-tchs-soccer-20260213.ts`](add-tchs-soccer-20260213.ts)
+Add TCHS Soccer Feb 13 direct stream links (jv2, jv, varsity) to DB. Stream admin password: `tchs2026`. Use with local or production `DATABASE_URL`.
+
+**Usage:**
+```bash
+DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260213.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`add-tchs-soccer-20260217.ts`](add-tchs-soccer-20260217.ts)
+Add TCHS Soccer Feb 17 direct stream links (jv2, jv, varsity) to DB. Stream admin password: `tchs2026`. Use with local or production `DATABASE_URL`.
+
+**Usage:**
+```bash
+DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260217.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
 ### [`seed-production-streams.sh`](seed-production-streams.sh)
 Seed DirectStreams to Production Database
 
@@ -387,6 +427,39 @@ Clean slate
 ## 🔧 Utility Scripts
 
 *General utility and helper scripts*
+
+### [`add-direct-links-api.sh`](add-direct-links-api.sh)
+Add direct stream links via API. Log in as super admin, then create streams. Local default: `http://localhost:4301`; for production use `https://api.fieldview.live`. Set `ADMIN_PASSWORD` or prompt. Optional `STREAM_ADMIN_PASSWORD` (default `admin2026`).
+
+**Usage:**
+```bash
+./scripts/add-direct-links-api.sh [API_BASE_URL] slug1 [slug2 ...]
+# Production: ./scripts/add-direct-links-api.sh https://api.fieldview.live slug1 slug2
+```
+
+*Language: bash • ✓ Executable*
+
+### [`add-tchs-soccer-20260213-api.sh`](add-tchs-soccer-20260213-api.sh)
+Add TCHS Soccer Feb 13 direct links (jv2, jv, varsity) via API. Uses stream password `tchs2026`. Run `ensure-super-admin.sh` first if needed.
+
+**Usage:**
+```bash
+./scripts/add-tchs-soccer-20260213-api.sh                    # local
+./scripts/add-tchs-soccer-20260213-api.sh https://api.fieldview.live   # production
+```
+
+*Language: bash • ✓ Executable*
+
+### [`add-tchs-soccer-20260217-api.sh`](add-tchs-soccer-20260217-api.sh)
+Add TCHS Soccer Feb 17 direct links (jv2, jv, varsity) via API. Uses stream password `tchs2026`. Run `ensure-super-admin.sh` first if needed.
+
+**Usage:**
+```bash
+./scripts/add-tchs-soccer-20260217-api.sh                    # local
+./scripts/add-tchs-soccer-20260217-api.sh https://api.fieldview.live   # production
+```
+
+*Language: bash • ✓ Executable*
 
 ### [`add-tchs-soccer-games-20260112.js`](add-tchs-soccer-games-20260112.js)
 Find the parent TCHS stream

@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ScoreEditSheet } from '../ScoreEditSheet';
 
 describe('ScoreEditSheet', () => {
@@ -13,12 +14,12 @@ describe('ScoreEditSheet', () => {
     teamName: 'Home Team',
     currentScore: 42,
     teamColor: '#3B82F6',
-    onSave: jest.fn(),
-    onClose: jest.fn(),
+    onSave: vi.fn(),
+    onClose: vi.fn(),
   };
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('visibility', () => {
@@ -100,7 +101,7 @@ describe('ScoreEditSheet', () => {
   
   describe('save action', () => {
     it('should call onSave with new score', async () => {
-      const handleSave = jest.fn();
+      const handleSave = vi.fn();
       render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
       
       const input = screen.getByDisplayValue('42');
@@ -114,7 +115,7 @@ describe('ScoreEditSheet', () => {
     });
     
     it('should close after saving', async () => {
-      const handleClose = jest.fn();
+      const handleClose = vi.fn();
       render(<ScoreEditSheet {...defaultProps} onClose={handleClose} />);
       
       fireEvent.click(screen.getByText('Save'));
@@ -127,8 +128,8 @@ describe('ScoreEditSheet', () => {
   
   describe('cancel action', () => {
     it('should call onClose without saving', () => {
-      const handleSave = jest.fn();
-      const handleClose = jest.fn();
+      const handleSave = vi.fn();
+      const handleClose = vi.fn();
       render(<ScoreEditSheet {...defaultProps} onSave={handleSave} onClose={handleClose} />);
       
       fireEvent.click(screen.getByText('Cancel'));

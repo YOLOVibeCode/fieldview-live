@@ -188,6 +188,11 @@ router.get(
           scoreboardAwayTeam: directStream.scoreboardAwayTeam,
           scoreboardHomeColor: directStream.scoreboardHomeColor,
           scoreboardAwayColor: directStream.scoreboardAwayColor,
+          welcomeMessage: directStream.welcomeMessage,
+          // Scheduling & reminders
+          scheduledStartAt: directStream.scheduledStartAt,
+          sendReminders: directStream.sendReminders,
+          reminderMinutes: directStream.reminderMinutes,
           // Viewer editing permissions
           allowViewerScoreEdit: directStream.allowViewerScoreEdit,
           allowViewerNameEdit: directStream.allowViewerNameEdit,
@@ -347,8 +352,13 @@ router.post(
           // Anonymous feature flags
           allowAnonymousChat: z.boolean().optional(),
           allowAnonymousScoreEdit: z.boolean().optional(),
+          welcomeMessage: z.string().max(500).optional().nullable(),
+          // Scheduling & reminders
+          scheduledStartAt: z.string().datetime().optional().nullable(),
+          sendReminders: z.boolean().optional(),
+          reminderMinutes: z.number().int().min(1).max(1440).optional(),
         });
-        
+
         const parsed = schema.safeParse(req.body);
         if (!parsed.success) {
           return res.status(400).json({ 
@@ -419,6 +429,19 @@ router.post(
         if (body.allowAnonymousScoreEdit !== undefined) {
           updateData.allowAnonymousScoreEdit = body.allowAnonymousScoreEdit;
         }
+        if (body.welcomeMessage !== undefined) {
+          updateData.welcomeMessage = body.welcomeMessage;
+        }
+        // Scheduling & reminders
+        if (body.scheduledStartAt !== undefined) {
+          updateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
+        }
+        if (body.sendReminders !== undefined) {
+          updateData.sendReminders = body.sendReminders;
+        }
+        if (body.reminderMinutes !== undefined) {
+          updateData.reminderMinutes = body.reminderMinutes;
+        }
 
         // Update in database
         const updated = await prisma.directStream.update({
@@ -445,6 +468,11 @@ router.post(
             // 🆕 Viewer editing permissions
             allowViewerScoreEdit: updated.allowViewerScoreEdit,
             allowViewerNameEdit: updated.allowViewerNameEdit,
+            welcomeMessage: updated.welcomeMessage,
+            // Scheduling & reminders
+            scheduledStartAt: updated.scheduledStartAt,
+            sendReminders: updated.sendReminders,
+            reminderMinutes: updated.reminderMinutes,
           },
         });
       } catch (error) {
@@ -452,6 +480,46 @@ router.post(
           return res.status(400).json({ error: 'Invalid request', details: error.errors });
         }
         logger.error({ error, slug: req.params.slug }, 'Failed to update settings');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/admin-broadcast - Send admin broadcast to all viewers (JWT protected)
+const AdminBroadcastSchema = z.object({
+  message: z.string().min(1).max(240),
+});
+router.post(
+  '/:slug/admin-broadcast',
+  validateAdminToken,
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const slug = (req.params.slug ?? '').toLowerCase();
+        if (!slug) {
+          return res.status(400).json({ error: 'Slug is required' });
+        }
+        const parsed = AdminBroadcastSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+        }
+        const { message } = parsed.data;
+
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug },
+          select: { gameId: true },
+        });
+        if (!directStream?.gameId) {
+          return res.status(400).json({ error: 'Stream has no chat game linked; cannot broadcast' });
+        }
+
+        const pubsub = getChatPubSub();
+        await pubsub.publishBroadcast(directStream.gameId, { message });
+        logger.info({ slug, gameId: directStream.gameId }, 'Admin broadcast sent');
+        return res.json({ success: true });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to send admin broadcast');
         next(error);
       }
     })();

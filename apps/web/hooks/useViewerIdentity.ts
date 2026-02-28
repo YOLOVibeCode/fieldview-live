@@ -59,8 +59,6 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const identity: ViewerIdentity = JSON.parse(saved);
-        
-        // Check if it's for the same game
         if (identity.gameId === gameId && identity.viewerToken) {
           setToken(identity.viewerToken);
           setViewerId(identity.viewerId || null);
@@ -71,6 +69,17 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
       console.error('Failed to load viewer identity:', err);
     }
   }, [gameId]);
+
+  // Reset when viewer logs out (same-tab sync with clearViewerAuth)
+  useEffect(() => {
+    const handleLogout = () => {
+      setToken(null);
+      setViewerId(null);
+      setIsUnlocked(false);
+    };
+    window.addEventListener('fieldview_viewer_logout', handleLogout);
+    return () => window.removeEventListener('fieldview_viewer_logout', handleLogout);
+  }, []);
 
   /**
    * Imperatively set viewer identity from an external source (admin auto-login, anonymous token).

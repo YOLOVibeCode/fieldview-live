@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { TouchButton } from '../TouchButton';
 
 describe('TouchButton', () => {
@@ -105,7 +106,7 @@ describe('TouchButton', () => {
   
   describe('interactions', () => {
     it('should call onClick when clicked', () => {
-      const handleClick = jest.fn();
+      const handleClick = vi.fn();
       render(<TouchButton onClick={handleClick}>Click</TouchButton>);
       
       fireEvent.click(screen.getByRole('button'));
@@ -114,7 +115,7 @@ describe('TouchButton', () => {
     });
     
     it('should not call onClick when disabled', () => {
-      const handleClick = jest.fn();
+      const handleClick = vi.fn();
       render(<TouchButton onClick={handleClick} disabled>Disabled</TouchButton>);
       
       fireEvent.click(screen.getByRole('button'));
@@ -123,7 +124,7 @@ describe('TouchButton', () => {
     });
     
     it('should not call onClick when loading', () => {
-      const handleClick = jest.fn();
+      const handleClick = vi.fn();
       render(<TouchButton onClick={handleClick} loading>Loading</TouchButton>);
       
       fireEvent.click(screen.getByRole('button'));
@@ -157,7 +158,7 @@ describe('TouchButton', () => {
     });
     
     it('should be keyboard accessible', () => {
-      const handleClick = jest.fn();
+      const handleClick = vi.fn();
       render(<TouchButton onClick={handleClick}>Submit</TouchButton>);
       const button = screen.getByRole('button');
       
@@ -170,7 +171,7 @@ describe('TouchButton', () => {
   describe('haptic feedback', () => {
     it('should trigger haptic feedback on touch devices', () => {
       // Mock navigator.vibrate
-      const vibrateMock = jest.fn();
+      const vibrateMock = vi.fn();
       Object.defineProperty(navigator, 'vibrate', {
         writable: true,
         value: vibrateMock,

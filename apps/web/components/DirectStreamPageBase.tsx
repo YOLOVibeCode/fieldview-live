@@ -54,6 +54,8 @@ import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
 import { WelcomeMessageBanner, isWelcomeDismissed } from '@/components/v2/WelcomeMessageBanner';
+import { NotifyMeForm } from '@/components/v2/NotifyMeForm';
+import { ViewerIdentityBar } from '@/components/v2/ViewerIdentityBar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -138,6 +140,10 @@ export interface Bootstrap {
   allowViewerNameEdit?: boolean;
   allowAnonymousChat?: boolean;
   allowAnonymousScoreEdit?: boolean;
+  // Scheduling & reminders
+  scheduledStartAt?: string | null;
+  sendReminders?: boolean;
+  reminderMinutes?: number;
   // Stream provider metadata (for Mux Player selection)
   streamProvider?: string | null;
   muxPlaybackId?: string | null;
@@ -211,6 +217,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [portraitActiveTab, setPortraitActiveTab] = useState<PortraitTab>('chat');
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
+  const [showNotifyMe, setShowNotifyMe] = useState(false);
   const isPortrait = isMobile && orientation === 'portrait';
 
   // Paywall hook - manages paywall state based on bootstrap
@@ -619,8 +626,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           lastName: lastName || undefined,
           // registeredAt is auto-added by setViewerAuth
         });
+        // Auto-subscribe to stream reminders when stream is scheduled
+        if (bootstrap?.scheduledStartAt && bootstrap?.sendReminders !== false) {
+          void fetch(
+            `${API_URL}/api/public/direct/${bootstrap.slug}/notify-me`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ viewerIdentityId: result.viewerId }),
+            },
+          ).catch(() => { /* best-effort */ });
+        }
       }
-      
+
       setShowViewerAuthModal(false);
     } catch (error) {
       console.error('Viewer registration failed:', error);
@@ -780,6 +798,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               ref={containerRef}
               className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black"
             >
+              {/* Viewer identity (portrait) - top right */}
+              {globalAuth.isAuthenticated && (
+                <div className="absolute top-2 right-2 z-10">
+                  <ViewerIdentityBar />
+                </div>
+              )}
               {/* Paywall Blocker Overlay */}
               {isPaywallBlocked && paywallChecked && (
                 <div className="absolute inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm">
@@ -810,6 +834,41 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     </div>
                     <h2 className="text-lg font-bold mb-1">Stream Offline</h2>
                     <p className="text-gray-400 text-xs">No stream configured</p>
+                    {bootstrap?.scheduledStartAt && (
+                      <div className="mt-3">
+                        <p className="text-blue-400 text-xs mb-2">
+                          Scheduled: {new Date(bootstrap.scheduledStartAt).toLocaleString()}
+                        </p>
+                        {!showNotifyMe ? (
+                          <button
+                            onClick={() => setShowNotifyMe(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/80 hover:bg-blue-500 rounded-full text-xs font-medium transition-colors"
+                            data-testid="btn-notify-me"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            Notify Me
+                          </button>
+                        ) : (
+                          <div className="mt-2 max-w-[260px] mx-auto">
+                            <NotifyMeForm
+                              slug={bootstrap.slug}
+                              apiBase={API_URL}
+                              viewerEmail={globalAuth.viewerEmail}
+                              viewerIdentityId={globalAuth.viewerIdentityId}
+                              viewerName={globalAuth.viewerName}
+                              onViewerCreated={(viewerId, email) => {
+                                globalAuth.setViewerAuth({
+                                  viewerIdentityId: viewerId,
+                                  email,
+                                });
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1002,6 +1061,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               </div>
               <div className="flex items-center gap-2 md:gap-3">
+                {globalAuth.isAuthenticated && <ViewerIdentityBar />}
                 {config.enableFontSize && (
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400 text-sm hidden md:inline">Text:</span>
@@ -1079,6 +1139,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     allowAnonymousChat: bootstrap?.allowAnonymousChat,
                     allowAnonymousScoreEdit: bootstrap?.allowAnonymousScoreEdit,
                     welcomeMessage: bootstrap?.welcomeMessage ?? undefined,
+                    scheduledStartAt: bootstrap?.scheduledStartAt,
+                    sendReminders: bootstrap?.sendReminders,
+                    reminderMinutes: bootstrap?.reminderMinutes,
                   }}
                   onAuthSuccess={(jwt, viewerInfo) => {
                     setAdminJwt(jwt);
@@ -1313,7 +1376,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {status === 'offline' && !isEditing && (
-                <div className="absolute inset-0 flex items-center justify-center z-20">
+                <div className="absolute inset-0 flex items-center justify-center z-20" data-testid="offline-overlay">
                   <div className="text-center text-white max-w-md mx-auto px-4">
                     {/* Animated icon */}
                     <div className="mb-6 relative">
@@ -1327,20 +1390,56 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold mb-3 tracking-tight">Stream Offline</h2>
                     <p className="text-gray-400 text-sm md:text-base mb-6">No stream URL configured yet</p>
-                    <TouchButton
-                      onClick={() => setIsEditing(true)}
-                      variant="primary"
-                      className="shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-shadow"
-                      data-testid="btn-set-stream"
-                    >
-                      Open Admin Panel
-                    </TouchButton>
+                    {bootstrap?.scheduledStartAt && (
+                      <p className="text-blue-400 text-sm mb-4">
+                        Scheduled: {new Date(bootstrap.scheduledStartAt).toLocaleString()}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 justify-center flex-wrap">
+                      <TouchButton
+                        onClick={() => setIsEditing(true)}
+                        variant="primary"
+                        className="shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-shadow"
+                        data-testid="btn-set-stream"
+                      >
+                        Open Admin Panel
+                      </TouchButton>
+                      {bootstrap?.scheduledStartAt && !showNotifyMe && (
+                        <button
+                          onClick={() => setShowNotifyMe(true)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600/80 hover:bg-blue-500 rounded-lg text-sm font-medium text-white transition-colors"
+                          data-testid="btn-notify-me-landscape"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                          Notify Me
+                        </button>
+                      )}
+                    </div>
+                    {showNotifyMe && bootstrap?.scheduledStartAt && (
+                      <div className="mt-4 max-w-[300px] mx-auto">
+                        <NotifyMeForm
+                          slug={bootstrap.slug}
+                          apiBase={API_URL}
+                          viewerEmail={globalAuth.viewerEmail}
+                          viewerIdentityId={globalAuth.viewerIdentityId}
+                          viewerName={globalAuth.viewerName}
+                          onViewerCreated={(viewerId, email) => {
+                            globalAuth.setViewerAuth({
+                              viewerIdentityId: viewerId,
+                              email,
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {status === 'error' && !isEditing && (
-                <div className="absolute inset-0 flex items-center justify-center z-20">
+                <div className="absolute inset-0 flex items-center justify-center z-20" data-testid="error-overlay">
                   <div className="text-center text-white max-w-md mx-auto px-4">
                     {/* Animated error icon */}
                     <div className="mb-6 relative">
@@ -1367,11 +1466,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {status === 'loading' && bootstrap?.streamUrl && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm" data-testid="loading-overlay">
                   <div className="text-center text-white">
                     {/* Animated loading spinner */}
                     <div className="mb-6">
-                      <div className="w-16 h-16 mx-auto border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
+                      <div className="w-16 h-16 mx-auto border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" data-testid="loading-spinner" />
                     </div>
                     <h2 className="text-xl md:text-2xl font-bold mb-2 tracking-tight">Loading stream...</h2>
                     <p className="text-gray-400 text-sm animate-pulse">Please wait</p>
@@ -1615,18 +1714,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   <div className="flex items-center gap-2 mb-3 -mt-2">
                     <h2 id="mobile-chat-title" className="text-white font-bold text-base">Live Chat</h2>
                     {chat.isConnected ? (
-                      <span className="flex items-center gap-1 text-green-400 text-xs">
+                      <span className="flex items-center gap-1 text-green-400 text-xs" data-testid="chat-status-live">
                         <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                         Live
                       </span>
                     ) : (
-                      <span className="text-muted-foreground text-xs">Connecting...</span>
+                      <span className="text-muted-foreground text-xs" data-testid="chat-status-connecting">Connecting...</span>
                     )}
                   </div>
 
                   {/* Guest name bar (compact for mobile) */}
                   {viewer.isUnlocked && isAnonymousViewer && (
-                    <div className="px-2 py-1.5 mb-2 rounded bg-amber-900/20 flex items-center justify-between text-xs">
+                    <div className="px-2 py-1.5 mb-2 rounded bg-amber-900/20 flex items-center justify-between text-xs" data-testid="guest-name-bar">
                       {isEditingGuestName ? (
                         <form
                           className="flex items-center gap-2 w-full"
@@ -1635,15 +1734,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                             const input = e.currentTarget.elements.namedItem('guestName') as HTMLInputElement;
                             if (input.value.trim()) handleChangeGuestName(input.value);
                           }}
+                          data-testid="form-guest-name"
                         >
-                          <input name="guestName" type="text" defaultValue={guestDisplayName || ''} maxLength={50} autoFocus className="flex-1 bg-black/40 border border-amber-600/50 rounded px-2 py-1 min-h-[44px] text-white text-sm" placeholder="Enter your name" />
-                          <button type="submit" className="text-amber-400 hover:text-amber-300 font-medium">Save</button>
-                          <button type="button" onClick={() => setIsEditingGuestName(false)} className="text-gray-400 hover:text-gray-300">Cancel</button>
+                          <input name="guestName" type="text" defaultValue={guestDisplayName || ''} maxLength={50} autoFocus className="flex-1 bg-black/40 border border-amber-600/50 rounded px-2 py-1 min-h-[44px] text-white text-sm" placeholder="Enter your name" data-testid="input-guest-name" aria-label="Guest display name" />
+                          <button type="submit" className="text-amber-400 hover:text-amber-300 font-medium" data-testid="btn-guest-name-save">Save</button>
+                          <button type="button" onClick={() => setIsEditingGuestName(false)} className="text-gray-400 hover:text-gray-300" data-testid="btn-guest-name-cancel">Cancel</button>
                         </form>
                       ) : (
                         <>
                           <span className="text-amber-200/80">Chatting as <strong className="text-amber-300">{guestDisplayName || 'Guest'}</strong></span>
-                          <button onClick={() => setIsEditingGuestName(true)} className="text-amber-400 hover:text-amber-300 underline">Change name</button>
+                          <button onClick={() => setIsEditingGuestName(true)} className="text-amber-400 hover:text-amber-300 underline" data-testid="btn-guest-change-name" aria-label="Change guest name">Change name</button>
                         </>
                       )}
                     </div>
@@ -1773,19 +1873,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       <div className="flex items-center gap-2">
                         <h2 className="text-white font-bold text-base">Live Chat</h2>
                         {chat.isConnected ? (
-                          <span className="flex items-center gap-1 text-green-400 text-xs">
+                          <span className="flex items-center gap-1 text-green-400 text-xs" data-testid="chat-status-live">
                             <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                             Live
                           </span>
                         ) : (
-                          <span className="text-muted-foreground text-xs">Connecting...</span>
+                          <span className="text-muted-foreground text-xs" data-testid="chat-status-connecting">Connecting...</span>
                         )}
                       </div>
                     </div>
 
                     {/* Guest name bar for anonymous users */}
                     {viewer.isUnlocked && isAnonymousViewer && (
-                      <div className="px-4 py-2 border-b border-outline bg-amber-900/20 flex items-center justify-between text-xs">
+                      <div className="px-4 py-2 border-b border-outline bg-amber-900/20 flex items-center justify-between text-xs" data-testid="guest-name-bar">
                         {isEditingGuestName ? (
                           <form
                             className="flex items-center gap-2 w-full"
@@ -1794,17 +1894,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                               const input = e.currentTarget.elements.namedItem('guestName') as HTMLInputElement;
                               if (input.value.trim()) handleChangeGuestName(input.value);
                             }}
+                            data-testid="form-guest-name"
                           >
-                            <input name="guestName" type="text" defaultValue={guestDisplayName || ''} maxLength={50} autoFocus className="flex-1 bg-black/40 border border-amber-600/50 rounded px-2 py-1 min-h-[44px] text-white text-sm" placeholder="Enter your name" />
-                            <button type="submit" className="text-amber-400 hover:text-amber-300 font-medium">Save</button>
-                            <button type="button" onClick={() => setIsEditingGuestName(false)} className="text-gray-400 hover:text-gray-300">Cancel</button>
+                            <input name="guestName" type="text" defaultValue={guestDisplayName || ''} maxLength={50} autoFocus className="flex-1 bg-black/40 border border-amber-600/50 rounded px-2 py-1 min-h-[44px] text-white text-sm" placeholder="Enter your name" data-testid="input-guest-name" aria-label="Guest display name" />
+                            <button type="submit" className="text-amber-400 hover:text-amber-300 font-medium" data-testid="btn-guest-name-save">Save</button>
+                            <button type="button" onClick={() => setIsEditingGuestName(false)} className="text-gray-400 hover:text-gray-300" data-testid="btn-guest-name-cancel">Cancel</button>
                           </form>
                         ) : (
                           <>
                             <span className="text-amber-200/80">
                               Chatting as <strong className="text-amber-300">{guestDisplayName || 'Guest'}</strong>
                             </span>
-                            <button onClick={() => setIsEditingGuestName(true)} className="text-amber-400 hover:text-amber-300 underline">Change name</button>
+                            <button onClick={() => setIsEditingGuestName(true)} className="text-amber-400 hover:text-amber-300 underline" data-testid="btn-guest-change-name" aria-label="Change guest name">Change name</button>
                           </>
                         )}
                       </div>

@@ -58,6 +58,13 @@ export interface ChatSnapshotEvent {
 }
 
 /**
+ * Admin broadcast payload (not a regular chat message)
+ */
+export interface AdminBroadcastEvent {
+  message: string;
+}
+
+/**
  * Unsubscribe function returned by event handlers
  */
 export type UnsubscribeFn = () => void;
@@ -135,5 +142,15 @@ export interface IMessageTransport {
    * @returns Unsubscribe function to remove the handler
    */
   onError(handler: (error: Error) => void): UnsubscribeFn;
+
+  /**
+   * Subscribe to admin broadcast events
+   *
+   * Handler is called when the stream admin sends a broadcast to all viewers.
+   *
+   * @param handler - Callback with broadcast message text
+   * @returns Unsubscribe function to remove the handler
+   */
+  onAdminBroadcast?(handler: (payload: AdminBroadcastEvent) => void): UnsubscribeFn;
 }
 

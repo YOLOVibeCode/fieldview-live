@@ -313,6 +313,7 @@ describe('DirectStreamEventService', () => {
         scoreboardAwayTeam: 'Opponent',
         scoreboardHomeColor: '#0000FF',
         scoreboardAwayColor: '#FF0000',
+        welcomeMessage: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -92,6 +92,10 @@
 
 *1055 words • Updated 12/12/2025*
 
+### [Super Admin & Direct Stream Links (current flow)](ADMIN-DIRECT-STREAMS.md)
+
+Setup super admin (`admin@fieldview.live`), add direct stream links via API or DB. Production API: `https://api.fieldview.live`.
+
 ### [FieldView.Live Design Document](09-design-document.md)
 
 *3312 words • Updated 12/12/2025*

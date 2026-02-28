@@ -667,6 +667,9 @@ model DirectStream {
   scoreboardHomeColor String? // Custom home jersey color (hex)
   scoreboardAwayColor String? // Custom away jersey color (hex)
 
+  // Welcome/announcement message (dismissible banner on first load)
+  welcomeMessage String? @db.VarChar(500)
+
   // Lifecycle management (soft delete with archival)
   status      String    @default("active") // 'active' | 'archived' | 'deleted'
   archivedAt  DateTime? // When stream was archived

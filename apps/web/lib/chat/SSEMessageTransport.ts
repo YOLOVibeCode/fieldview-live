@@ -41,6 +41,7 @@ import type {
   IMessageTransport,
   ChatMessageEvent,
   ChatSnapshotEvent,
+  AdminBroadcastEvent,
   UnsubscribeFn,
 } from './IMessageTransport';
 
@@ -59,6 +60,7 @@ export class SSEMessageTransport implements IMessageTransport {
   private snapshotHandlers = new Set<(snapshot: ChatSnapshotEvent) => void>();
   private connectionHandlers = new Set<(connected: boolean) => void>();
   private errorHandlers = new Set<(error: Error) => void>();
+  private adminBroadcastHandlers = new Set<(payload: AdminBroadcastEvent) => void>();
   
   /**
    * Connect to chat via SSE stream
@@ -103,7 +105,18 @@ export class SSEMessageTransport implements IMessageTransport {
         this.notifyError(new Error('Failed to parse chat message'));
       }
     });
-    
+
+    // Receive admin broadcasts
+    this.eventSource.addEventListener('admin_broadcast', (e: MessageEvent) => {
+      try {
+        const payload: AdminBroadcastEvent = JSON.parse(e.data);
+        console.log('[SSETransport] Received admin broadcast');
+        this.notifyAdminBroadcast(payload);
+      } catch (err) {
+        console.error('[SSETransport] Failed to parse admin broadcast:', err);
+      }
+    });
+
     // Keep-alive ping (no action needed)
     this.eventSource.addEventListener('ping', () => {
       // Heartbeat to keep connection alive
@@ -192,7 +205,15 @@ export class SSEMessageTransport implements IMessageTransport {
     this.errorHandlers.add(handler);
     return () => this.errorHandlers.delete(handler);
   }
-  
+
+  /**
+   * Subscribe to admin broadcast events
+   */
+  onAdminBroadcast(handler: (payload: AdminBroadcastEvent) => void): UnsubscribeFn {
+    this.adminBroadcastHandlers.add(handler);
+    return () => this.adminBroadcastHandlers.delete(handler);
+  }
+
   // Private notification methods
   
   private notifyMessage(msg: ChatMessageEvent): void {
@@ -231,6 +252,16 @@ export class SSEMessageTransport implements IMessageTransport {
         handler(error);
       } catch (err) {
         console.error('[SSETransport] Error in error handler:', err);
+      }
+    });
+  }
+
+  private notifyAdminBroadcast(payload: AdminBroadcastEvent): void {
+    this.adminBroadcastHandlers.forEach((handler) => {
+      try {
+        handler(payload);
+      } catch (err) {
+        console.error('[SSETransport] Error in admin broadcast handler:', err);
       }
     });
   }

@@ -1,8 +1,15 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { hashPassword } from '../lib/encryption';
 import { logger } from '../lib/logger';
 
 const router = Router();
+
+const SuperAdminSetupSchema = z.object({
+  email: z.string().email().default('admin@fieldview.live'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
 
 /**
  * Admin endpoint to initialize production database
@@ -66,6 +73,55 @@ router.post(
         });
       } catch (error) {
         logger.error({ error }, 'Failed to setup TCHS');
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
+ * POST /api/admin/setup/super-admin
+ * Create super_admin user (e.g. admin@fieldview.live) for login and direct-stream management.
+ * Call once to create the admin user; then use POST /api/admin/login with email + password.
+ */
+router.post(
+  '/super-admin',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const parse = SuperAdminSetupSchema.safeParse(req.body);
+        if (!parse.success) {
+          return res.status(400).json({ error: 'Validation failed', details: parse.error.errors });
+        }
+        const { email, password } = parse.data;
+        const existing = await prisma.adminAccount.findUnique({ where: { email } });
+        if (existing) {
+          return res.json({
+            success: true,
+            message: 'Super admin already exists',
+            email: existing.email,
+            role: existing.role,
+          });
+        }
+        const passwordHash = await hashPassword(password);
+        const admin = await prisma.adminAccount.create({
+          data: {
+            email,
+            passwordHash,
+            role: 'super_admin',
+            status: 'active',
+            mfaEnabled: false,
+          },
+        });
+        logger.info({ adminId: admin.id, email }, 'Super admin created');
+        res.status(201).json({
+          success: true,
+          message: 'Super admin created',
+          email: admin.email,
+          role: admin.role,
+        });
+      } catch (error) {
+        logger.error({ error }, 'Super admin setup failed');
         next(error);
       }
     })();

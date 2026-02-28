@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { Chat } from '../Chat';
 
 describe('Chat', () => {
@@ -52,7 +53,7 @@ describe('Chat', () => {
   
   describe('sending messages', () => {
     it('should call onSend with message', async () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<Chat messages={[]} onSend={handleSend} />);
       
       const input = screen.getByPlaceholderText(/type.*message/i);

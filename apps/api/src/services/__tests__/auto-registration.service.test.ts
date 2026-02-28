@@ -61,6 +61,7 @@ describe('AutoRegistrationService (TDD)', () => {
     scoreboardAwayTeam: null,
     scoreboardHomeColor: null,
     scoreboardAwayColor: null,
+    welcomeMessage: null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     status: 'active',

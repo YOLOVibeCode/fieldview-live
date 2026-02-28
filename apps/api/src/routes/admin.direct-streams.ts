@@ -24,11 +24,13 @@ import { EmailVerificationRepository } from '../repositories/implementations/Ema
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { EmailVerificationService } from '../services/EmailVerificationService';
 import { getEmailProvider } from '../lib/email';
-
+import { requireAdminAuth } from '../middleware/adminAuth';
+import { requireSuperAdmin } from '../middleware/adminAuth';
 const router = express.Router();
 
-// TODO: Add Super Admin authentication middleware in production
-// For now, accessible in development for testing
+// Require admin login (Bearer token from POST /api/admin/login) and super_admin role
+router.use(requireAdminAuth);
+router.use(requireSuperAdmin);
 
 // Initialize services for registrations endpoint
 const registrationReader = new DirectStreamRegistrationRepository();

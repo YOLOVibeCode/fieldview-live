@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { ScoreCard } from '../ScoreCard';
 
 describe('ScoreCard', () => {
@@ -39,7 +40,7 @@ describe('ScoreCard', () => {
   
   describe('interactivity', () => {
     it('should be tappable when editable', () => {
-      const handleTap = jest.fn();
+      const handleTap = vi.fn();
       render(<ScoreCard {...defaultProps} editable onTap={handleTap} />);
       
       const card = screen.getByTestId('score-card-button');
@@ -49,7 +50,7 @@ describe('ScoreCard', () => {
     });
     
     it('should not be tappable when not editable', () => {
-      const handleTap = jest.fn();
+      const handleTap = vi.fn();
       render(<ScoreCard {...defaultProps} editable={false} onTap={handleTap} />);
       
       expect(screen.queryByTestId('score-card-button')).not.toBeInTheDocument();
@@ -96,7 +97,7 @@ describe('ScoreCard', () => {
     });
     
     it('should be keyboard accessible when editable', () => {
-      const handleTap = jest.fn();
+      const handleTap = vi.fn();
       render(<ScoreCard {...defaultProps} editable onTap={handleTap} />);
       
       const card = screen.getByTestId('score-card-button');

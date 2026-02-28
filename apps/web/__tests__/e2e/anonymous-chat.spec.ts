@@ -27,15 +27,16 @@ test.describe('Anonymous Chat', () => {
     await page.goto(streamUrl);
     await page.waitForTimeout(2000);
 
-    const changeNameBtn = page.locator('text=Change name');
-    if (await changeNameBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    const guestBar = page.getByTestId('guest-name-bar');
+    const changeNameBtn = page.getByTestId('btn-guest-change-name');
+    if (await guestBar.isVisible({ timeout: 5000 }).catch(() => false)) {
       await changeNameBtn.click();
 
-      const nameInput = page.locator('input[name="guestName"]');
+      const nameInput = page.getByTestId('input-guest-name');
       await expect(nameInput).toBeVisible();
       await nameInput.fill('TestViewer');
 
-      await page.locator('button:has-text("Save")').click();
+      await page.getByTestId('btn-guest-name-save').click();
       await expect(page.locator('text=TestViewer')).toBeVisible();
     }
   });

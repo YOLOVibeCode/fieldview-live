@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { PasswordInput } from '../PasswordInput';
 
 describe('PasswordInput', () => {
@@ -93,7 +94,7 @@ describe('PasswordInput', () => {
   
   describe('onChange callback', () => {
     it('should call onChange with value', () => {
-      const handleChange = jest.fn();
+      const handleChange = vi.fn();
       render(<PasswordInput name="password" onChange={handleChange} />);
       const input = screen.getByLabelText(/password/i);
       

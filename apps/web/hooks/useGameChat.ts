@@ -37,6 +37,7 @@ export interface ChatMessage {
   displayName: string;
   message: string;
   createdAt: string;
+  isAdminBroadcast?: boolean;
 }
 
 interface UseGameChatOptions {
@@ -54,6 +55,7 @@ export function useGameChat({
   transport: injectedTransport,
 }: UseGameChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [latestBroadcast, setLatestBroadcast] = useState<{ message: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -74,29 +76,45 @@ export function useGameChat({
     }
 
     // Subscribe to transport events
-    const unsubscribers = [
+    const unsubscribers: Array<() => void> = [
       transport.onSnapshot((snapshot) => {
         setMessages(snapshot.messages);
         console.log('[Chat] Received snapshot:', snapshot.messages.length, 'messages');
       }),
-      
+
       transport.onMessage((msg) => {
         setMessages((prev) => [msg, ...prev]); // Newest first
         console.log('[Chat] Received message:', msg.id);
       }),
-      
+
       transport.onConnectionChange((connected) => {
         setIsConnected(connected);
         if (connected) {
           setError(null);
         }
       }),
-      
+
       transport.onError((err) => {
         console.error('[Chat] Transport error:', err);
         setError(err.message);
       }),
     ];
+
+    if (transport.onAdminBroadcast) {
+      unsubscribers.push(
+        transport.onAdminBroadcast((payload) => {
+          setLatestBroadcast({ message: payload.message });
+          const synthetic: ChatMessage = {
+            id: `broadcast-${Date.now()}`,
+            displayName: 'ADMIN',
+            message: payload.message,
+            createdAt: new Date().toISOString(),
+            isAdminBroadcast: true,
+          };
+          setMessages((prev) => [synthetic, ...prev]);
+        })
+      );
+    }
 
     // Connect
     transport.connect(gameId, viewerToken).catch((err) => {
@@ -122,6 +140,8 @@ export function useGameChat({
 
   return {
     messages,
+    latestBroadcast,
+    setLatestBroadcast,
     isConnected,
     error,
     sendMessage,

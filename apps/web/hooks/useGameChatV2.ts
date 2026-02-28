@@ -42,6 +42,8 @@ interface UseGameChatV2Return {
   isLoading: boolean;
   error: string | null;
   currentUserId: string;
+  latestBroadcast: { message: string } | null;
+  setLatestBroadcast: (value: { message: string } | null) => void;
 }
 
 /**
@@ -80,6 +82,7 @@ function transformMessage(msg: ChatMessage): ChatMessageData {
     message: msg.message,
     timestamp: new Date(msg.createdAt),
     isSystem: false,
+    isAdminBroadcast: msg.isAdminBroadcast,
   };
 }
 
@@ -117,6 +120,8 @@ export function useGameChatV2({
     isLoading: false, // v1 doesn't have isLoading
     error: v1Chat.error,
     currentUserId: currentUserId || 'viewer', // Default userId
+    latestBroadcast: v1Chat.latestBroadcast,
+    setLatestBroadcast: v1Chat.setLatestBroadcast,
   };
 }
 

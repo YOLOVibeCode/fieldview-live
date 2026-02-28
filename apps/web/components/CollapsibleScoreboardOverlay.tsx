@@ -265,7 +265,7 @@ export function CollapsibleScoreboardOverlay({
       }
 
       const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`, {
-        method: 'PATCH',
+        method: 'POST',
         headers,
         body: JSON.stringify(updateData),
       });

@@ -15,10 +15,13 @@ import {
   ListDirectStreamEventsQuerySchema,
 } from '@fieldview/data-model';
 import { logger } from '../lib/logger';
+import { requireAdminAuth, requireSuperAdmin } from '../middleware/adminAuth';
 
 export function createAdminDirectStreamEventsRouter(): Router {
   const router = Router();
-  
+  router.use(requireAdminAuth);
+  router.use(requireSuperAdmin);
+
   // Initialize service
   const eventRepo = new DirectStreamEventRepository(prisma);
   const eventService = new DirectStreamEventService(eventRepo, eventRepo);

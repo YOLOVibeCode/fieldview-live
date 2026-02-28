@@ -28,6 +28,7 @@ export interface ChatMessageData {
   message: string;
   timestamp: Date;
   isSystem?: boolean;
+  isAdminBroadcast?: boolean;
 }
 
 export interface ChatMessageListProps {
@@ -35,6 +36,7 @@ export interface ChatMessageListProps {
   currentUserId?: string;
   isLoading?: boolean;
   emptyMessage?: string;
+  variant?: 'default' | 'compact' | 'twitch';
   className?: string;
 }
 
@@ -48,6 +50,7 @@ export function ChatMessageList({
   currentUserId,
   isLoading = false,
   emptyMessage = 'No messages yet. Be the first to say hello!',
+  variant = 'default',
   className,
 }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,7 +113,7 @@ export function ChatMessageList({
       
       {/* Messages */}
       {messages.length > 0 && (
-        <div className="space-y-1">
+        <div className={variant === 'twitch' ? 'space-y-0' : 'space-y-1'}>
           {messages.map((msg) => (
             <ChatMessage
               key={msg.id}
@@ -121,6 +124,8 @@ export function ChatMessageList({
               timestamp={msg.timestamp}
               isOwn={currentUserId === msg.userId}
               isSystem={msg.isSystem}
+              isAdminBroadcast={msg.isAdminBroadcast}
+              variant={variant}
             />
           ))}
         </div>

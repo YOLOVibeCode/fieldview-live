@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { Scoreboard } from '../Scoreboard';
 
 describe('Scoreboard', () => {
@@ -66,7 +67,7 @@ describe('Scoreboard', () => {
     });
     
     it('should call onScoreUpdate with new score', async () => {
-      const handleUpdate = jest.fn();
+      const handleUpdate = vi.fn();
       render(<Scoreboard {...defaultProps} editable onScoreUpdate={handleUpdate} />);
       
       // Open edit sheet

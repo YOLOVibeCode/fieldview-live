@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { Header } from '../Header';
 
 describe('Header', () => {
@@ -33,7 +34,7 @@ describe('Header', () => {
     });
     
     it('should call onBack when clicked', () => {
-      const handleBack = jest.fn();
+      const handleBack = vi.fn();
       render(<Header title="Title" onBack={handleBack} />);
       
       fireEvent.click(screen.getByLabelText('Go back'));
@@ -53,7 +54,7 @@ describe('Header', () => {
     });
     
     it('should call onMenu when clicked', () => {
-      const handleMenu = jest.fn();
+      const handleMenu = vi.fn();
       render(<Header title="Title" onMenu={handleMenu} />);
       
       fireEvent.click(screen.getByLabelText('Open menu'));

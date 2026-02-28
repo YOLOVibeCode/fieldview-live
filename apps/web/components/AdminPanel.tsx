@@ -39,6 +39,11 @@ interface AdminPanelProps {
     // Anonymous feature flags
     allowAnonymousChat?: boolean;
     allowAnonymousScoreEdit?: boolean;
+    welcomeMessage?: string | null;
+    // Scheduling & reminders
+    scheduledStartAt?: string | null;
+    sendReminders?: boolean;
+    reminderMinutes?: number;
   };
   onAuthSuccess?: (token: string, viewerInfo?: { viewerToken: string; viewerId: string; displayName: string; gameId: string }) => void;
 }
@@ -77,10 +82,25 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   // Anonymous feature flags
   const [allowAnonymousChat, setAllowAnonymousChat] = useState(initialSettings?.allowAnonymousChat ?? false);
   const [allowAnonymousScoreEdit, setAllowAnonymousScoreEdit] = useState(initialSettings?.allowAnonymousScoreEdit ?? false);
+  const [welcomeMessage, setWelcomeMessage] = useState(initialSettings?.welcomeMessage ?? '');
+  // Scheduling & reminders
+  const [scheduledStartAt, setScheduledStartAt] = useState(() => {
+    if (!initialSettings?.scheduledStartAt) return '';
+    // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:MM)
+    const d = new Date(initialSettings.scheduledStartAt);
+    return d.toISOString().slice(0, 16);
+  });
+  const [sendReminders, setSendReminders] = useState(initialSettings?.sendReminders ?? true);
+  const [reminderMinutes, setReminderMinutes] = useState(initialSettings?.reminderMinutes ?? 5);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Broadcast message (admin-only, visible to all viewers)
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastError, setBroadcastError] = useState('');
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,6 +238,11 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         allowViewerNameEdit,
         allowAnonymousChat,
         allowAnonymousScoreEdit,
+        welcomeMessage: welcomeMessage.trim() || null,
+        // Scheduling & reminders
+        scheduledStartAt: scheduledStartAt ? new Date(scheduledStartAt).toISOString() : null,
+        sendReminders,
+        reminderMinutes,
       };
 
       console.log('[AdminPanel] 📤 Sending settings update', {
@@ -439,6 +464,147 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
             data-testid="stream-url-input"
             aria-label="Stream URL"
           />
+        </div>
+
+        {/* Broadcast Message - visible to all viewers as overlay + in chat */}
+        <div className="space-y-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <label htmlFor="broadcast-message" className="text-sm font-medium">
+            Broadcast Message
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Sends a message to all viewers (overlay on video + in chat). Max 240 characters.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              id="broadcast-message"
+              name="broadcast-message"
+              type="text"
+              value={broadcastMessage}
+              onChange={(e) => {
+                setBroadcastMessage(e.target.value.slice(0, 240));
+                setBroadcastError('');
+              }}
+              placeholder="e.g. Stream starts in 5 minutes"
+              maxLength={240}
+              className="flex-1"
+              data-testid="input-broadcast-message"
+              aria-label="Broadcast message"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isBroadcasting || !broadcastMessage.trim()}
+              onClick={async () => {
+                const fullSlug = slug.toLowerCase();
+                if (!adminToken) return;
+                setIsBroadcasting(true);
+                setBroadcastError('');
+                try {
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+                  const res = await fetch(`${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/admin-broadcast`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${adminToken}`,
+                    },
+                    body: JSON.stringify({ message: broadcastMessage.trim() }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Broadcast failed');
+                  setBroadcastMessage('');
+                } catch (err) {
+                  setBroadcastError(err instanceof Error ? err.message : 'Broadcast failed');
+                } finally {
+                  setIsBroadcasting(false);
+                }
+              }}
+              data-testid="btn-broadcast-message"
+              aria-label="Send broadcast to all viewers"
+            >
+              {isBroadcasting ? 'Sending...' : 'Broadcast'}
+            </Button>
+          </div>
+          {broadcastError && (
+            <p className="text-sm text-destructive" data-testid="error-broadcast" role="alert">
+              {broadcastError}
+            </p>
+          )}
+        </div>
+
+        {/* Welcome Message - dismissible banner shown to viewers on first load */}
+        <div className="space-y-2">
+          <label htmlFor="welcome-message" className="text-sm font-medium">
+            Welcome Message
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Shown once to viewers when they load the stream. They must dismiss it (×). Max 500 characters. Leave empty to hide.
+          </p>
+          <textarea
+            id="welcome-message"
+            name="welcome-message"
+            value={welcomeMessage}
+            onChange={(e) => setWelcomeMessage(e.target.value.slice(0, 500))}
+            placeholder="e.g. We apologize for the delay. Stream starts at 7:15 PM."
+            maxLength={500}
+            rows={3}
+            className="w-full min-h-[80px] px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            data-testid="input-welcome-message"
+            aria-label="Welcome message for viewers"
+          />
+        </div>
+
+        {/* Scheduling & Reminders */}
+        <div className="space-y-3 border-t pt-4">
+          <h4 className="text-sm font-semibold">Scheduling & Reminders</h4>
+          <div className="space-y-2">
+            <label htmlFor="scheduled-start" className="text-sm font-medium">
+              Scheduled Start Time
+            </label>
+            <p className="text-xs text-muted-foreground">
+              When the stream is expected to start. Viewers can sign up for email reminders.
+            </p>
+            <input
+              id="scheduled-start"
+              type="datetime-local"
+              value={scheduledStartAt}
+              onChange={(e) => setScheduledStartAt(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+              data-testid="input-scheduled-start"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="send-reminders" className="text-sm font-medium">
+                Send Reminders
+              </label>
+              <p className="text-xs text-muted-foreground">Email viewers before start time</p>
+            </div>
+            <input
+              id="send-reminders"
+              type="checkbox"
+              checked={sendReminders}
+              onChange={(e) => setSendReminders(e.target.checked)}
+              className="w-5 h-5"
+              data-testid="send-reminders-checkbox"
+            />
+          </div>
+          {sendReminders && (
+            <div className="space-y-2 ml-4">
+              <label htmlFor="reminder-minutes" className="text-sm font-medium">
+                Remind (minutes before)
+              </label>
+              <input
+                id="reminder-minutes"
+                type="number"
+                min={1}
+                max={1440}
+                value={reminderMinutes}
+                onChange={(e) => setReminderMinutes(Number(e.target.value))}
+                className="w-24 px-3 py-2 rounded-md border border-input bg-background text-sm"
+                data-testid="input-reminder-minutes"
+              />
+            </div>
+          )}
         </div>
 
         {/* Chat Toggle */}

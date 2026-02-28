@@ -270,5 +270,54 @@ describe('useGlobalViewerAuth', () => {
       });
     });
   });
+
+  describe('Logout Event Dispatch', () => {
+    it('should dispatch fieldview_viewer_logout when clearViewerAuth is called', () => {
+      const handler = vi.fn();
+      window.addEventListener('fieldview_viewer_logout', handler);
+
+      const { result } = renderHook(() => useGlobalViewerAuth());
+
+      act(() => {
+        result.current.setViewerAuth({
+          viewerIdentityId: 'viewer-123',
+          email: 'test@example.com',
+        });
+      });
+
+      act(() => {
+        result.current.clearViewerAuth();
+      });
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      window.removeEventListener('fieldview_viewer_logout', handler);
+    });
+
+    it('should remove localStorage AND dispatch event on clear', () => {
+      const handler = vi.fn();
+      window.addEventListener('fieldview_viewer_logout', handler);
+
+      const { result } = renderHook(() => useGlobalViewerAuth());
+
+      act(() => {
+        result.current.setViewerAuth({
+          viewerIdentityId: 'viewer-123',
+          email: 'test@example.com',
+        });
+      });
+
+      expect(localStorage.getItem(STORAGE_KEY)).toBeTruthy();
+
+      act(() => {
+        result.current.clearViewerAuth();
+      });
+
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(result.current.isAuthenticated).toBe(false);
+
+      window.removeEventListener('fieldview_viewer_logout', handler);
+    });
+  });
 });
 

@@ -3,6 +3,8 @@
 **Date**: January 21, 2026  
 **Status**: ✅ **READY** - Pages will work automatically via unified routing
 
+> **Current flow (Feb 2026):** For creating super admin and adding direct stream links (including TCHS soccer slugs), see **[ADMIN-DIRECT-STREAMS.md](ADMIN-DIRECT-STREAMS.md)**. Use scripts: `ensure-super-admin.sh` / `ensure-super-admin.ts`, `add-direct-links-api.sh`, `add-tchs-soccer-20260213-api.sh` or `add-tchs-soccer-20260213.ts`. Production API: `https://api.fieldview.live`.
+
 ---
 
 ## 📋 New Pages Created

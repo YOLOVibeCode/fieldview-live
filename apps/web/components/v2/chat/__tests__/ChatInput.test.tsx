@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { ChatInput } from '../ChatInput';
 
 describe('ChatInput', () => {
@@ -35,7 +36,7 @@ describe('ChatInput', () => {
     });
     
     it('should clear input after sending', async () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       const input = screen.getByPlaceholderText(/type.*message/i) as HTMLInputElement;
       
@@ -48,7 +49,7 @@ describe('ChatInput', () => {
     });
     
     it('should not send empty messages', () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       
       fireEvent.click(screen.getByLabelText(/send message/i));
@@ -57,7 +58,7 @@ describe('ChatInput', () => {
     });
     
     it('should not send whitespace-only messages', () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       const input = screen.getByPlaceholderText(/type.*message/i);
       
@@ -70,7 +71,7 @@ describe('ChatInput', () => {
   
   describe('send action', () => {
     it('should call onSend with message', async () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       const input = screen.getByPlaceholderText(/type.*message/i);
       
@@ -83,7 +84,7 @@ describe('ChatInput', () => {
     });
     
     it('should trim message before sending', async () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       const input = screen.getByPlaceholderText(/type.*message/i);
       
@@ -96,7 +97,7 @@ describe('ChatInput', () => {
     });
     
     it('should send on Enter key', async () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       const input = screen.getByPlaceholderText(/type.*message/i);
       
@@ -109,7 +110,7 @@ describe('ChatInput', () => {
     });
     
     it('should not send on Shift+Enter', () => {
-      const handleSend = jest.fn();
+      const handleSend = vi.fn();
       render(<ChatInput onSend={handleSend} />);
       const input = screen.getByPlaceholderText(/type.*message/i);
       

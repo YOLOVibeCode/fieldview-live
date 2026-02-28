@@ -1,0 +1,47 @@
+[
+  {
+    "slug": "tchs/soccer-20260213-jv2",
+    "title": "TCHS Soccer JV2 - February 13, 2026",
+    "scheduledStartAt": "2026-02-13T19:00:00Z",
+    "adminPassword": "tchs2026",
+    "chatEnabled": true,
+    "scoreboardEnabled": true,
+    "allowAnonymousView": true,
+    "requireEmailVerification": false,
+    "listed": true,
+    "sendReminders": true,
+    "reminderMinutes": 5,
+    "paywallEnabled": false,
+    "priceInCents": 0
+  },
+  {
+    "slug": "tchs/soccer-20260213-jv",
+    "title": "TCHS Soccer JV - February 13, 2026",
+    "scheduledStartAt": "2026-02-13T19:00:00Z",
+    "adminPassword": "tchs2026",
+    "chatEnabled": true,
+    "scoreboardEnabled": true,
+    "allowAnonymousView": true,
+    "requireEmailVerification": false,
+    "listed": true,
+    "sendReminders": true,
+    "reminderMinutes": 5,
+    "paywallEnabled": false,
+    "priceInCents": 0
+  },
+  {
+    "slug": "tchs/soccer-20260213-varsity",
+    "title": "TCHS Soccer Varsity - February 13, 2026",
+    "scheduledStartAt": "2026-02-13T19:00:00Z",
+    "adminPassword": "tchs2026",
+    "chatEnabled": true,
+    "scoreboardEnabled": true,
+    "allowAnonymousView": true,
+    "requireEmailVerification": false,
+    "listed": true,
+    "sendReminders": true,
+    "reminderMinutes": 5,
+    "paywallEnabled": false,
+    "priceInCents": 0
+  }
+]

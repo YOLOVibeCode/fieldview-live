@@ -222,4 +222,51 @@ describe('useViewerIdentity', () => {
       expect(result.current.isUnlocked).toBe(false);
     });
   });
+
+  describe('Logout Sync', () => {
+    it('should reset state when fieldview_viewer_logout is dispatched', () => {
+      storageMock.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          viewerToken: 'saved-token',
+          gameId: 'game-1',
+          viewerId: 'viewer-1',
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useViewerIdentity({ gameId: 'game-1', slug: 'test' })
+      );
+
+      expect(result.current.isUnlocked).toBe(true);
+      expect(result.current.token).toBe('saved-token');
+      expect(result.current.viewerId).toBe('viewer-1');
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('fieldview_viewer_logout'));
+      });
+
+      expect(result.current.isUnlocked).toBe(false);
+      expect(result.current.token).toBeNull();
+      expect(result.current.viewerId).toBeNull();
+    });
+
+    it('should handle logout when already not unlocked', () => {
+      const { result } = renderHook(() =>
+        useViewerIdentity({ gameId: 'game-1', slug: 'test' })
+      );
+
+      expect(result.current.isUnlocked).toBe(false);
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('fieldview_viewer_logout'));
+      });
+
+      expect(result.current.isUnlocked).toBe(false);
+      expect(result.current.token).toBeNull();
+    });
+  });
 });

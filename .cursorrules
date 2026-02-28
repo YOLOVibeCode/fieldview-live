@@ -60,6 +60,15 @@ When user says this, run:
 ./scripts/debug-railway-build.sh
 ```
 
+### "Solve deployment with AI" / "Monitor deployment with AI" / "Deployment issues" / "Deploy visibility"
+
+**When the user wants to solve or monitor deployment issues using AI**, follow the **AI Deployment Runbook**:
+
+- **Single source:** [docs/AI-DEPLOYMENT-RUNBOOK.md](docs/AI-DEPLOYMENT-RUNBOOK.md)
+- Use it for: deployment failures, monitoring, visibility, "can we solve/monitor this with AI?"
+- Runbook defines: intent detection → get status (Railway MCP, Browser MCP) → get logs → interpret → one concrete next action
+- Always prefer Railway MCP and Browser MCP; use scripts only when MCP isn’t available or user runs them
+
 ### "Railway logs" / "Check Railway" / "Get logs" / "Show errors" / "Error investigation"
 
 **STANDARD METHODS: Railway MCP + Browser MCP - MCP-FIRST ENFORCEMENT**
@@ -96,6 +105,7 @@ When user requests logs, error investigation, or deployment status:
 - ✅ **Combined:** Complete debugging solution (infrastructure + visual)
 
 **Documentation:**
+- [AI Deployment Runbook](docs/AI-DEPLOYMENT-RUNBOOK.md) - **Use when user wants to solve/monitor deployment with AI**
 - [Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md) - **CRITICAL** - Standard method
 - [Railway MCP Setup](docs/MCP-RAILWAY-SETUP.md) - Infrastructure MCP setup
 - [Browser MCP Setup](docs/BROWSER-MCP-SETUP.md) - Visual verification MCP setup

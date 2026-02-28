@@ -136,6 +136,12 @@ router.get(
           res.write(`data: ${JSON.stringify(msg)}\n\n`);
         });
 
+        // Subscribe to admin broadcasts
+        const unsubBroadcast = pubsub.subscribeBroadcast(gameId, (payload) => {
+          res.write(`event: admin_broadcast\n`);
+          res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        });
+
         // Keep connection alive with ping every 30s
         const pingInterval = setInterval(() => {
           res.write(`: ping\n\n`);
@@ -145,6 +151,7 @@ router.get(
         req.on('close', () => {
           clearInterval(pingInterval);
           unsubscribe();
+          unsubBroadcast();
           logger.info(
             { gameId, viewerId: claims.viewerId },
             'Chat SSE connection closed'

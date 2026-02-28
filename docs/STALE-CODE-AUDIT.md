@@ -64,7 +64,16 @@
 
 ---
 
-### 2. Old TCHS Main Page
+### 2. Removed: Super Admin API Key Flow (Feb 2026)
+
+**Files removed**: `apps/api/src/middleware/superAdminApi.ts`, `apps/api/src/routes/admin.auth-api.ts`
+
+- ❌ **Removed** – `POST /api/admin/auth/token` (JWT exchange for `SUPER_ADMIN_API_SECRET`) and `X-Super-Admin-Key` / `validateSuperAdminApi` are no longer used.
+- ✅ **Current**: Super admin uses email/password login (`POST /api/admin/login`) and `sessionToken`; direct-streams routes use `requireAdminAuth` + `requireSuperAdmin`. See [ADMIN-DIRECT-STREAMS.md](ADMIN-DIRECT-STREAMS.md).
+
+---
+
+### 3. Old TCHS Main Page
 **File**: `apps/web/app/direct/tchs/page.tsx`
 
 ```
@@ -82,7 +91,7 @@
 
 ---
 
-### 3. Old TCHS Stream Key Utility
+### 4. Old TCHS Stream Key Utility
 **File**: `apps/web/lib/tchs-stream-key.ts`
 
 ```
@@ -98,7 +107,7 @@
 
 ---
 
-### 4. Old TCHS Stream Key Test
+### 5. Old TCHS Stream Key Test
 **File**: `apps/web/__tests__/unit/lib/tchs-stream-key.test.ts`
 
 ```
@@ -109,7 +118,7 @@
 
 ---
 
-### 5. TCHS Fullscreen Chat Overlay
+### 6. TCHS Fullscreen Chat Overlay
 **File**: `apps/web/components/TchsFullscreenChatOverlay.tsx`
 
 ```
@@ -127,7 +136,7 @@
 
 ---
 
-### 6. DirectStreamPageV2 Wrapper
+### 7. DirectStreamPageV2 Wrapper
 **File**: `apps/web/components/DirectStreamPageV2.tsx`
 
 ```
@@ -144,7 +153,7 @@
 
 ---
 
-### 7. Old TCHS API Route
+### 8. Old TCHS API Route
 **File**: `apps/api/src/routes/tchs.ts`
 
 ```
@@ -162,7 +171,7 @@
 
 ---
 
-### 8. Test File with Non-Existent Stream
+### 9. Test File with Non-Existent Stream
 **File**: `tests/e2e/direct-stream-complete-ux.spec.ts`
 
 ```
