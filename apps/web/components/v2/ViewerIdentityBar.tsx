@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useGlobalViewerAuth } from '@/hooks/useGlobalViewerAuth';
 
 /**
- * Compact bar showing logged-in viewer identity and sign-out action.
+ * Compact bar showing logged-in viewer identity with account link and sign-out action.
  * Renders nothing when not authenticated.
  */
 export function ViewerIdentityBar() {
@@ -23,9 +24,15 @@ export function ViewerIdentityBar() {
       role="region"
       aria-label="Viewer account"
     >
-      <span className="truncate max-w-[140px]" title={viewerEmail ?? undefined}>
+      <Link
+        href="/account"
+        className="truncate max-w-[140px] hover:text-blue-300 transition-colors"
+        title={viewerEmail ?? undefined}
+        data-testid="link-account"
+        aria-label="View account settings"
+      >
         {displayLabel}
-      </span>
+      </Link>
       <button
         type="button"
         onClick={() => clearViewerAuth()}

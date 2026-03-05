@@ -32,6 +32,8 @@ import '@vidstack/react/player/styles/default/layouts/video.css';
 import './vidstack-theme.css';
 
 import { SeekBackwardButton, SeekForwardButton } from './SeekButtons';
+import { SafeTimeSlider } from './SafeTimeSlider';
+import { VidstackGoLiveButton } from './VidstackGoLiveButton';
 
 export type PlayerStatus = 'loading' | 'playing' | 'offline' | 'error';
 
@@ -131,9 +133,11 @@ export function VidstackPlayer({
         slots={{
           beforePlayButton: <SeekBackwardButton />,
           afterPlayButton: <SeekForwardButton />,
+          timeSlider: <SafeTimeSlider />,
         }}
       />
 
+      <VidstackGoLiveButton />
       {children}
     </MediaPlayer>
   );

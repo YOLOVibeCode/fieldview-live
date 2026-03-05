@@ -12,13 +12,13 @@ describe('PasswordInput', () => {
   describe('rendering', () => {
     it('should render input field', () => {
       render(<PasswordInput name="password" />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       expect(input).toBeInTheDocument();
     });
     
     it('should be type password by default', () => {
       render(<PasswordInput name="password" />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       expect(input).toHaveAttribute('type', 'password');
     });
     
@@ -41,7 +41,7 @@ describe('PasswordInput', () => {
     
     it('should toggle password visibility', () => {
       render(<PasswordInput name="password" />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       const toggle = screen.getByLabelText(/show password/i);
       
       // Initially hidden
@@ -81,7 +81,7 @@ describe('PasswordInput', () => {
   describe('disabled state', () => {
     it('should disable input', () => {
       render(<PasswordInput name="password" disabled />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       expect(input).toBeDisabled();
     });
     
@@ -96,7 +96,7 @@ describe('PasswordInput', () => {
     it('should call onChange with value', () => {
       const handleChange = vi.fn();
       render(<PasswordInput name="password" onChange={handleChange} />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       
       fireEvent.change(input, { target: { value: 'secret123' } });
       expect(handleChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -108,7 +108,7 @@ describe('PasswordInput', () => {
   describe('accessibility', () => {
     it('should have proper input-error association', () => {
       render(<PasswordInput name="password" error="Error message" />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       const error = screen.getByText('Error message');
       
       expect(input).toHaveAttribute('aria-describedby', expect.stringContaining('error'));
@@ -117,7 +117,7 @@ describe('PasswordInput', () => {
     
     it('should have aria-invalid when error', () => {
       render(<PasswordInput name="password" error="Error" />);
-      const input = screen.getByLabelText(/password/i);
+      const input = screen.getByTestId('input-password');
       expect(input).toHaveAttribute('aria-invalid', 'true');
     });
   });

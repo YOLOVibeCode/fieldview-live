@@ -81,6 +81,7 @@ export function PasswordInput({
           id={name}
           name={name}
           type={showPassword ? 'text' : 'password'}
+          data-testid={`input-${name}`}
           value={value}
           onChange={onChange}
           onBlur={onBlur}

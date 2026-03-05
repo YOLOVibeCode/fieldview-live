@@ -5,8 +5,13 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, beforeAll } from 'vitest';
 import { Chat } from '../Chat';
+
+// jsdom divs do not implement scrollTo; ChatMessageList calls it in useEffect
+beforeAll(() => {
+  Element.prototype.scrollTo = vi.fn();
+});
 
 describe('Chat', () => {
   const mockMessages = [

@@ -15,7 +15,8 @@ This document shows every key visual state of the direct stream page across all 
 1. [Desktop Layout](#desktop-layout)
 2. [Portrait Mobile Layout](#portrait-mobile-layout)
 3. [Landscape Mobile Layout](#landscape-mobile-layout)
-4. [Coverage Summary](#coverage-summary)
+4. [Account Page](#account-page)
+5. [Coverage Summary](#coverage-summary)
 
 ---
 
@@ -567,7 +568,8 @@ This document shows every key visual state of the direct stream page across all 
 | Component / Element | Symbol | Notes |
 |--------------------|--------|--------|
 | NotifyMeForm (email, one-tap, success, unsubscribe) | [T] | NotifyMeForm.test.tsx, NotifyMeUserJourneys.test.tsx |
-| ViewerIdentityBar (name, email, Guest, Sign out) | [T] | ViewerIdentityBar.test.tsx |
+| ViewerIdentityBar (name, email, Guest, Sign out, account link) | [T] | ViewerIdentityBar.test.tsx |
+| Account page (profile, subscriptions, payments, actions, guest, empty, error, refund) | [T] | app/account/__tests__/page.test.tsx |
 | useGlobalViewerAuth (set/clear, storage, logout event) | [T] | useGlobalViewerAuth.test.ts |
 | useViewerIdentity (logout sync) | [T] | useViewerIdentity.test.ts |
 | NotifyMe API (subscribe, status, unsubscribe) | [T] | notify-me.service.test.ts, notify-me.spec.ts |
@@ -592,7 +594,7 @@ This document shows every key visual state of the direct stream page across all 
 
 **Counts**
 
-- **Tested:** 23 areas (all of the above plus inline registration form in chat, guest name editing bar).
+- **Tested:** 25 areas (all of the above plus inline registration form in chat, guest name editing bar, account page).
 - **Untested:** 0 areas.
 
 **Integration tests (DirectStreamPageBase.integration.test.tsx — 34 tests)**
@@ -618,3 +620,62 @@ Full page-state integration suite organized by wireframe state:
 | **Accessibility** | Semantic buttons; ARIA labels on guest bar controls | ✅ 4 tests |
 
 **Wireframe [U] count: 0** — All elements in all wireframes are now marked [T].
+
+---
+
+## Account Page
+
+Account page (`/account`) is reached via [T] link in ViewerIdentityBar (`data-testid="link-account"`, href `/account`). All sections and states are covered by `apps/web/app/account/__tests__/page.test.tsx`.
+
+### Account wireframe (authenticated, full account)
+
+```
++------------------------------------------------------------------+
+| [T] FieldView.Live (link home)                                    |
+| [T] page-title: My Account                                        |
++------------------------------------------------------------------+
+| [T] section-profile                                               |
+|     [T] Profile                                                    |
+|     [T] input-first-name  [T] input-last-name                     |
+|     [T] display-email                                             |
+|     [T] btn-save-profile (when dirty)  [T] profile-saved  [T] error-profile |
++------------------------------------------------------------------+
+| [T] section-subscriptions                                         |
+|     [T] Stream Subscriptions                                      |
+|     [T] subs-loading | [T] subs-empty | [T] subs-list + [T] sub-{slug} |
+|     [T] link-stream-{slug}  [T] btn-unsub-{slug}                   |
++------------------------------------------------------------------+
+| [T] section-payments                                             |
+|     [T] Payment History                                           |
+|     [T] payments-loading | [T] payments-empty | [T] payments-list  |
+|     [T] purchase-{id}  [T] amount-{id}  [T] badge-status-paid/refunded |
+|     [T] btn-expand-{id}  [T] receipt-{id} (refund lines when present) |
++------------------------------------------------------------------+
+| [T] section-actions                                               |
+|     [T] btn-send-access-link  [T] access-link-sent                |
+|     [T] btn-sign-out                                              |
++------------------------------------------------------------------+
+```
+
+### Account wireframe (guest)
+
+```
+| [T] section-profile                                               |
+|     [T] profile-guest-message: "You are signed in as a guest..."   |
+|     (no name inputs; Send access link hidden)                    |
+| [T] section-actions: [T] btn-sign-out only                       |
++------------------------------------------------------------------+
+```
+
+### Account page test coverage
+
+| State / Area | Tests | Coverage |
+|-------------|-------|---------|
+| **Auth** | Redirect when not authenticated; loading spinner when auth loading | ✅ 2 tests |
+| **Guest** | Profile shows guest message, no name fields | ✅ 1 test |
+| **Profile** | Display name/email; edit and save; profile error on PATCH failure | ✅ 3 tests |
+| **Subscriptions** | Empty state; loading state; list with titles; unsubscribe | ✅ 4 tests |
+| **Payments** | Empty state; list with amounts/status; expand receipt; refund details in receipt | ✅ 4 tests |
+| **Account actions** | Send access link; sign out and redirect | ✅ 2 tests |
+
+**ViewerIdentityBar** account link: `ViewerIdentityBar.test.tsx` — link present when authenticated, `href="/account"`, `aria-label="View account settings"`.

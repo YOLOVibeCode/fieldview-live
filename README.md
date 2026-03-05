@@ -59,11 +59,6 @@ To fully understand and work with this project, follow this systematic approach:
 **Quick Links:**
 - 📖 **[Documentation Index](docs/INDEX.md)** - Complete project documentation
 - 🔧 **[Scripts Index](scripts/INDEX.md)** - All available scripts and tools
-- 🔍 **[Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md)** - **CRITICAL** - Standard method for quick error access
-
-**🔍 Need to investigate errors?** → [Error Investigation Workflow](docs/ERROR-INVESTIGATION-WORKFLOW.md) ← **START HERE**  
-
-**🤖 Solve or monitor deployment with AI?** → [AI Deployment Runbook](docs/AI-DEPLOYMENT-RUNBOOK.md) – triage and monitoring flow for AI
 
 <!-- AUTO-INDEX-SECTION -->
 

@@ -1,12 +1,12 @@
 # Scripts Index
 
-> 🔧 Auto-generated index of all project scripts. Last updated: 1/16/2026
+> 🔧 Auto-generated index of all project scripts. Last updated: 3/5/2026
 
 ## 📊 Overview
 
-- **Total Scripts**: 61
-- **Categories**: 7
-- **Executable**: 40 scripts
+- **Total Scripts**: 101
+- **Categories**: 9
+- **Executable**: 65 scripts
 
 ## 📑 Table of Contents
 
@@ -15,12 +15,24 @@
 - [🧪 Testing Scripts](#testing-scripts)
 - [🚀 Deployment Scripts](#deployment-scripts)
 - [🗄️ Database Scripts](#database-scripts)
+- [📦 Version Management](#version-management)
 - [🔄 CI/CD Scripts](#ci-cd-scripts)
+- [🧹 Cleanup Scripts](#cleanup-scripts)
 - [🔧 Utility Scripts](#utility-scripts)
 
 ## ⚙️ Setup & Installation
 
 *Scripts for project setup and dependency installation*
+
+### [`install-lnav.sh`](install-lnav.sh)
+Install lnav (Log Navigator) for powerful log analysis
+
+**Usage:**
+```bash
+./install-lnav.sh
+```
+
+*Language: bash • ✓ Executable*
 
 ### [`setup-marketplace-local.sh`](setup-marketplace-local.sh)
 Setup script for Marketplace Model A (local)
@@ -56,16 +68,6 @@ Verification script for Marketplace Model A setup
 **Usage:**
 ```bash
 ./verify-setup.sh
-```
-
-*Language: bash • ✓ Executable*
-
-### [`ensure-super-admin.sh`](ensure-super-admin.sh)
-Ensure super admin (`admin@fieldview.live`) exists locally and in production via API. Prompts for password; uses local `http://localhost:4301` and production `https://api.fieldview.live`.
-
-**Usage:**
-```bash
-./scripts/ensure-super-admin.sh
 ```
 
 *Language: bash • ✓ Executable*
@@ -117,6 +119,16 @@ Create Mux test streams via API (requires MUX_TOKEN_ID and MUX_TOKEN_SECRET)
 ```
 
 *Language: bash • ✓ Executable*
+
+### [`seed-e2e-test-data.ts`](seed-e2e-test-data.ts)
+Test data configuration
+
+**Usage:**
+```bash
+node seed-e2e-test-data.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`seed-test-stream.ts`](seed-test-stream.ts)
 Load environment from .env for API service
@@ -244,6 +256,16 @@ Production Readiness Test for TCHS Games with Chat
 
 *Language: bash • ✓ Executable*
 
+### [`test-railway-mcp.sh`](test-railway-mcp.sh)
+##############################################################################
+
+**Usage:**
+```bash
+./test-railway-mcp.sh
+```
+
+*Language: bash • ✓ Executable*
+
 ### [`test-stormfc-setup-local-auto.sh`](test-stormfc-setup-local-auto.sh)
 Test STORMFC Setup Locally (Non-interactive)
 
@@ -264,9 +286,29 @@ Test STORMFC Setup Locally
 
 *Language: bash • ✓ Executable*
 
+### [`test-veo-discovery-e2e.sh`](test-veo-discovery-e2e.sh)
+Veo Discovery E2E Test Runner
+
+**Usage:**
+```bash
+./test-veo-discovery-e2e.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
 ## 🚀 Deployment Scripts
 
 *Scripts for deploying to various environments*
+
+### [`check-deployment-status.sh`](check-deployment-status.sh)
+Check Current Deployment Status
+
+**Usage:**
+```bash
+./check-deployment-status.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
 
 ### [`deploy-marketplace-production.sh`](deploy-marketplace-production.sh)
 Deployment script for Marketplace Model A (Railway production)
@@ -288,12 +330,70 @@ Production Deployment Script for Railway
 
 *Language: bash • ✓ Executable*
 
+### [`deploy-railway-mcp.ts`](deploy-railway-mcp.ts)
+**Usage:**
+```bash
+node deploy-railway-mcp.ts [arguments]
+```
+
+*Language: typescript • ✗ Not executable • ⚠️ Requires arguments*
+
 ### [`deploy-railway.sh`](deploy-railway.sh)
 ###############################################################################
 
 **Usage:**
 ```bash
 ./deploy-railway.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`deploy-to-production.sh`](deploy-to-production.sh)
+Deploy to Production with Version Management
+
+**Usage:**
+```bash
+./deploy-to-production.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`deploy-to-railway.sh`](deploy-to-railway.sh)
+Railway Deploy via MCP – convenience wrapper.
+
+**Usage:**
+```bash
+./deploy-to-railway.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`force-production-redeploy.sh`](force-production-redeploy.sh)
+Force clear cache and redeploy both API and Web services to Railway
+
+**Usage:**
+```bash
+./force-production-redeploy.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`monitor-deployment.sh`](monitor-deployment.sh)
+Monitor Railway deployment status
+
+**Usage:**
+```bash
+./monitor-deployment.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`monitor-deployments-realtime.sh`](monitor-deployments-realtime.sh)
+Monitor API and Web Deployments in Real-Time
+
+**Usage:**
+```bash
+./monitor-deployments-realtime.sh [arguments]
 ```
 
 *Language: bash • ✓ Executable • ⚠️ Requires arguments*
@@ -340,36 +440,6 @@ node seed-direct-streams.ts [arguments]
 
 *Language: typescript • ✗ Not executable • ⚠️ Requires arguments*
 
-### [`ensure-super-admin.ts`](ensure-super-admin.ts)
-Create or update super admin in DB. Uses `DATABASE_URL` and `ADMIN_PASSWORD` (min 8 chars). Use when API is not available (e.g. seeding production DB directly).
-
-**Usage:**
-```bash
-DATABASE_URL="postgresql://..." ADMIN_PASSWORD=yourpassword pnpm exec tsx scripts/ensure-super-admin.ts
-```
-
-*Language: typescript • ✗ Not executable*
-
-### [`add-tchs-soccer-20260213.ts`](add-tchs-soccer-20260213.ts)
-Add TCHS Soccer Feb 13 direct stream links (jv2, jv, varsity) to DB. Stream admin password: `tchs2026`. Use with local or production `DATABASE_URL`.
-
-**Usage:**
-```bash
-DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260213.ts
-```
-
-*Language: typescript • ✗ Not executable*
-
-### [`add-tchs-soccer-20260217.ts`](add-tchs-soccer-20260217.ts)
-Add TCHS Soccer Feb 17 direct stream links (jv2, jv, varsity) to DB. Stream admin password: `tchs2026`. Use with local or production `DATABASE_URL`.
-
-**Usage:**
-```bash
-DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260217.ts
-```
-
-*Language: typescript • ✗ Not executable*
-
 ### [`seed-production-streams.sh`](seed-production-streams.sh)
 Seed DirectStreams to Production Database
 
@@ -400,6 +470,24 @@ node seed-soccer-events-local.ts
 
 *Language: typescript • ✗ Not executable*
 
+### [`seed-veo-discovery-data.ts`](seed-veo-discovery-data.ts)
+**Usage:**
+```bash
+node seed-veo-discovery-data.ts [arguments]
+```
+
+*Language: typescript • ✗ Not executable • ⚠️ Requires arguments*
+
+### [`seed-veo-discovery.sh`](seed-veo-discovery.sh)
+Veo Discovery Test Data Seeder
+
+**Usage:**
+```bash
+./seed-veo-discovery.sh
+```
+
+*Language: bash • ✓ Executable*
+
 ### [`update-varsity-direct-db.js`](update-varsity-direct-db.js)
 Get DATABASE_URL from Railway environment
 
@@ -409,6 +497,30 @@ node update-varsity-direct-db.js [arguments]
 ```
 
 *Language: javascript • ✗ Not executable • ⚠️ Requires arguments*
+
+## 📦 Version Management
+
+*Scripts for version management and releases*
+
+### [`inject-version.sh`](inject-version.sh)
+Inject version into Next.js build
+
+**Usage:**
+```bash
+./inject-version.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`version-manager.sh`](version-manager.sh)
+Version Manager for FieldView.Live
+
+**Usage:**
+```bash
+./version-manager.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
 
 ## 🔄 CI/CD Scripts
 
@@ -424,42 +536,131 @@ Clean slate
 
 *Language: bash • ✓ Executable*
 
+## 🧹 Cleanup Scripts
+
+*Scripts for cleaning up build artifacts and temporary files*
+
+### [`cleanup-stale-logs.sh`](cleanup-stale-logs.sh)
+Cleanup Stale Railway Debug Logs
+
+**Usage:**
+```bash
+./cleanup-stale-logs.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
 ## 🔧 Utility Scripts
 
 *General utility and helper scripts*
 
 ### [`add-direct-links-api.sh`](add-direct-links-api.sh)
-Add direct stream links via API. Log in as super admin, then create streams. Local default: `http://localhost:4301`; for production use `https://api.fieldview.live`. Set `ADMIN_PASSWORD` or prompt. Optional `STREAM_ADMIN_PASSWORD` (default `admin2026`).
+Add direct stream links via API. Log in as admin, get token, then create streams.
 
 **Usage:**
 ```bash
-./scripts/add-direct-links-api.sh [API_BASE_URL] slug1 [slug2 ...]
-# Production: ./scripts/add-direct-links-api.sh https://api.fieldview.live slug1 slug2
+./add-direct-links-api.sh [arguments]
+```
+
+*Language: bash • ✗ Not executable • ⚠️ Requires arguments*
+
+### [`add-tchs-soccer-20260206-api.sh`](add-tchs-soccer-20260206-api.sh)
+Add TCHS Soccer Direct Stream Links via API
+
+**Usage:**
+```bash
+./add-tchs-soccer-20260206-api.sh
 ```
 
 *Language: bash • ✓ Executable*
+
+### [`add-tchs-soccer-20260206.ts`](add-tchs-soccer-20260206.ts)
+**Usage:**
+```bash
+node add-tchs-soccer-20260206.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`add-tchs-soccer-20260210.ts`](add-tchs-soccer-20260210.ts)
+**Usage:**
+```bash
+node add-tchs-soccer-20260210.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`add-tchs-soccer-20260213-api.sh`](add-tchs-soccer-20260213-api.sh)
-Add TCHS Soccer Feb 13 direct links (jv2, jv, varsity) via API. Uses stream password `tchs2026`. Run `ensure-super-admin.sh` first if needed.
+Add TCHS Soccer Feb 13 direct links. Uses admin password (env ADMIN_PASSWORD or prompt).
 
 **Usage:**
 ```bash
-./scripts/add-tchs-soccer-20260213-api.sh                    # local
-./scripts/add-tchs-soccer-20260213-api.sh https://api.fieldview.live   # production
+./add-tchs-soccer-20260213-api.sh [arguments]
 ```
 
-*Language: bash • ✓ Executable*
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`add-tchs-soccer-20260213.ts`](add-tchs-soccer-20260213.ts)
+**Usage:**
+```bash
+node add-tchs-soccer-20260213.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`add-tchs-soccer-20260217-api.sh`](add-tchs-soccer-20260217-api.sh)
-Add TCHS Soccer Feb 17 direct links (jv2, jv, varsity) via API. Uses stream password `tchs2026`. Run `ensure-super-admin.sh` first if needed.
+Add TCHS Soccer Feb 17 direct links. Uses admin password (env ADMIN_PASSWORD or prompt).
 
 **Usage:**
 ```bash
-./scripts/add-tchs-soccer-20260217-api.sh                    # local
-./scripts/add-tchs-soccer-20260217-api.sh https://api.fieldview.live   # production
+./add-tchs-soccer-20260217-api.sh [arguments]
 ```
 
-*Language: bash • ✓ Executable*
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`add-tchs-soccer-20260217.ts`](add-tchs-soccer-20260217.ts)
+**Usage:**
+```bash
+node add-tchs-soccer-20260217.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`add-tchs-soccer-20260220-api.sh`](add-tchs-soccer-20260220-api.sh)
+Add TCHS Soccer Feb 20 direct links. Uses admin password (env ADMIN_PASSWORD or prompt).
+
+**Usage:**
+```bash
+./add-tchs-soccer-20260220-api.sh [arguments]
+```
+
+*Language: bash • ✗ Not executable • ⚠️ Requires arguments*
+
+### [`add-tchs-soccer-20260220.ts`](add-tchs-soccer-20260220.ts)
+**Usage:**
+```bash
+node add-tchs-soccer-20260220.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`add-tchs-soccer-20260224-api.sh`](add-tchs-soccer-20260224-api.sh)
+Add TCHS Soccer Feb 24 direct links. Uses admin password (env ADMIN_PASSWORD or prompt).
+
+**Usage:**
+```bash
+./add-tchs-soccer-20260224-api.sh [arguments]
+```
+
+*Language: bash • ✗ Not executable • ⚠️ Requires arguments*
+
+### [`add-tchs-soccer-20260224.ts`](add-tchs-soccer-20260224.ts)
+**Usage:**
+```bash
+node add-tchs-soccer-20260224.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`add-tchs-soccer-games-20260112.js`](add-tchs-soccer-games-20260112.js)
 Find the parent TCHS stream
@@ -470,6 +671,14 @@ node add-tchs-soccer-games-20260112.js
 ```
 
 *Language: javascript • ✗ Not executable*
+
+### [`apply-prod-migration.ts`](apply-prod-migration.ts)
+**Usage:**
+```bash
+node apply-prod-migration.ts
+```
+
+*Language: typescript • ✗ Not executable*
 
 ### [`check-local-events.ts`](check-local-events.ts)
 **Usage:**
@@ -509,6 +718,36 @@ node create-sample-event.ts
 
 *Language: typescript • ✗ Not executable*
 
+### [`debug-railway-logs.sh`](debug-railway-logs.sh)
+Railway Logs Debugging Script - Fast, Searchable, Indexed
+
+**Usage:**
+```bash
+./debug-railway-logs.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`download-railway-logs-mcp.sh`](download-railway-logs-mcp.sh)
+Download Railway logs using Railway MCP (STANDARD METHOD)
+
+**Usage:**
+```bash
+./download-railway-logs-mcp.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
+### [`download-railway-logs.sh`](download-railway-logs.sh)
+Download all Railway logs for triage (CLI Fallback Method)
+
+**Usage:**
+```bash
+./download-railway-logs.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
+
 ### [`enable-stream-features.ts`](enable-stream-features.ts)
 **Usage:**
 ```bash
@@ -516,6 +755,44 @@ node enable-stream-features.ts
 ```
 
 *Language: typescript • ✗ Not executable*
+
+### [`ensure-super-admin.sh`](ensure-super-admin.sh)
+Ensure super admin (admin@fieldview.live) exists locally and in production.
+
+**Usage:**
+```bash
+./ensure-super-admin.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`ensure-super-admin.ts`](ensure-super-admin.ts)
+**Usage:**
+```bash
+node ensure-super-admin.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`fix-missing-game-records.ts`](fix-missing-game-records.ts)
+Get all DirectStreams
+
+**Usage:**
+```bash
+node fix-missing-game-records.ts
+```
+
+*Language: typescript • ✗ Not executable*
+
+### [`fix-railway-service-linking.sh`](fix-railway-service-linking.sh)
+Fix Railway service linking for apps/web
+
+**Usage:**
+```bash
+./fix-railway-service-linking.sh
+```
+
+*Language: bash • ✓ Executable*
 
 ### [`fix-stream-url-direct.js`](fix-stream-url-direct.js)
 Quick fix for stream URL typo
@@ -556,6 +833,16 @@ node fix-streamurl-typo.ts
 ```
 
 *Language: typescript • ✗ Not executable*
+
+### [`force-clear-production-cache.sh`](force-clear-production-cache.sh)
+##############################################################################
+
+**Usage:**
+```bash
+./force-clear-production-cache.sh [arguments]
+```
+
+*Language: bash • ✓ Executable • ⚠️ Requires arguments*
 
 ### [`get-rtmp-credentials.sh`](get-rtmp-credentials.sh)
 Get RTMP Credentials for a Game
@@ -615,6 +902,16 @@ PHASE 1: Critical Build & Type Safety (5 mins)
 
 *Language: bash • ✓ Executable*
 
+### [`require-railway-mcp.sh`](require-railway-mcp.sh)
+Require Railway MCP Verification Before CLI Access
+
+**Usage:**
+```bash
+./require-railway-mcp.sh
+```
+
+*Language: bash • ✓ Executable*
+
 ### [`show-e2e-flow.sh`](show-e2e-flow.sh)
 Quick E2E Test Demo
 
@@ -634,6 +931,16 @@ node update-jv-stream-url.ts
 ```
 
 *Language: typescript • ✗ Not executable*
+
+### [`update-jv2-production.sh`](update-jv2-production.sh)
+Update TCHS JV2 stream URL in PRODUCTION database via Railway
+
+**Usage:**
+```bash
+./update-jv2-production.sh
+```
+
+*Language: bash • ✓ Executable*
 
 ### [`update-soccer-event-dates.ts`](update-soccer-event-dates.ts)
 Load .env from apps/api
@@ -701,6 +1008,16 @@ Update Varsity Stream URL via Admin API
 **Usage:**
 ```bash
 ./update-varsity-via-api.sh
+```
+
+*Language: bash • ✓ Executable*
+
+### [`validate-runtime.sh`](validate-runtime.sh)
+Runtime Validation Script
+
+**Usage:**
+```bash
+./validate-runtime.sh
 ```
 
 *Language: bash • ✓ Executable*

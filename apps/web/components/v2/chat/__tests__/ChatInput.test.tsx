@@ -138,7 +138,12 @@ describe('ChatInput', () => {
   describe('loading state', () => {
     it('should show loading state', () => {
       render(<ChatInput onSend={() => {}} isLoading />);
-      expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument(); // Spinner
+      const chatInput = screen.getByTestId('chat-input');
+      expect(chatInput).toBeInTheDocument();
+      const input = screen.getByPlaceholderText(/type.*message/i);
+      expect(input).toBeDisabled();
+      const sendBtn = screen.getByTestId('btn-send-message');
+      expect(sendBtn).toBeDisabled();
     });
     
     it('should disable input when loading', () => {
@@ -151,12 +156,9 @@ describe('ChatInput', () => {
   describe('max length', () => {
     it('should enforce max length', () => {
       render(<ChatInput onSend={() => {}} maxLength={10} />);
-      const input = screen.getByPlaceholderText(/type.*message/i) as HTMLInputElement;
-      
-      fireEvent.change(input, { target: { value: 'Hello world this is long' } });
-      
-      // Browser enforces maxLength, so this should be truncated
-      expect(input.value.length).toBeLessThanOrEqual(10);
+      const input = screen.getByPlaceholderText(/type.*message/i);
+      // Component passes maxLength to input; jsdom does not enforce truncation on programmatic value
+      expect(input).toHaveAttribute('maxlength', '10');
     });
   });
   

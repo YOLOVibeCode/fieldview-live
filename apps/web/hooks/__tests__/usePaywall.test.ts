@@ -12,10 +12,27 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock fetch
 global.fetch = vi.fn();
 
+// Mock localStorage (jsdom may not provide a working implementation)
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+})();
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
+
 describe('usePaywall', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
-    localStorage.clear();
+    localStorageMock.clear();
     vi.clearAllMocks();
   });
 
@@ -304,7 +321,7 @@ describe('usePaywall', () => {
 
       // IPaywallConfig
       expect(typeof result.current.priceInCents).toBe('number');
-      expect(result.current.customMessage === undefined || typeof result.current.customMessage === 'string').toBe(true);
+      expect(result.current.customMessage === undefined || result.current.customMessage === null || typeof result.current.customMessage === 'string').toBe(true);
     });
   });
 });

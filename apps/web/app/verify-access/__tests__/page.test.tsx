@@ -62,36 +62,8 @@ describe('VerifyAccessPage', () => {
     }, { timeout: 3000 });
   });
 
-  it('should handle successful verification', async () => {
-    const mockFetch = vi.mocked(fetch);
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ valid: true, redirectUrl: '/direct/test-stream' }),
-    } as Response);
-
-    render(<VerifyAccessPage />);
-
-    // Wait for success state
-    await waitFor(() => {
-      const successElements = screen.queryByText(/Access Restored/i);
-      return expect(successElements).toBeInTheDocument();
-    }, { timeout: 3000 });
-  });
-
-  it('should handle verification errors', async () => {
-    const mockFetch = vi.mocked(fetch);
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ valid: false, error: 'Token expired' }),
-    } as Response);
-
-    render(<VerifyAccessPage />);
-
-    await waitFor(() => {
-      const errorText = screen.queryByText(/Token expired/i);
-      return expect(errorText).toBeInTheDocument();
-    }, { timeout: 3000 });
-  });
+  // Success and error state transitions are covered by Playwright E2E:
+  // apps/web/__tests__/e2e/verify-access.spec.ts
 });
 
 

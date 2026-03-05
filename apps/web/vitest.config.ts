@@ -12,14 +12,14 @@ export default defineConfig(async () => {
       globals: true,
       setupFiles: ['./__tests__/setup.ts'],
       // IMPORTANT: Setting `exclude` overrides Vitest defaults. Include node_modules and build output.
-      // Also exclude Playwright E2E specs (they are run via `pnpm --filter web test:live`).
+      // Also exclude Playwright E2E specs (e2e/, tests/e2e/, __tests__/e2e/ — run via `pnpm --filter web test:live`).
       exclude: [
         '**/node_modules/**',
         '**/.next/**',
         '**/dist/**',
         '**/build/**',
         '**/coverage/**',
-        '**/__tests__/e2e/**',
+        '**/e2e/**',
       ],
     },
     resolve: {

@@ -49,13 +49,10 @@ export function mockTouchSupport(hasTouch: boolean) {
       value: 1,
     });
   } else {
-    // Remove touch support
-    Object.defineProperty(window, 'ontouchstart', {
-      writable: true,
-      configurable: true,
-      value: undefined,
-    });
-    
+    // Remove touch support: delete so 'ontouchstart' in window is false
+    if ('ontouchstart' in window) {
+      delete (window as unknown as { ontouchstart?: unknown }).ontouchstart;
+    }
     Object.defineProperty(navigator, 'maxTouchPoints', {
       writable: true,
       configurable: true,

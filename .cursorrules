@@ -19,39 +19,23 @@ Default: `ROLE: engineer STRICT=true` (read-only unless approved)
 
 ### "Deploy to Railway" / "Push to Railway" / "Deploy" / "Deploy to Production"
 
-When user says any of these, IMMEDIATELY execute this workflow:
+When user says any of these, execute the **Railway MCP deployment workflow**:
 
+**1. Prep (script)** – Run:
 ```bash
-# Use the version-managed deployment script (automatically handles versioning)
-./scripts/deploy-to-production.sh
+./scripts/deploy-to-railway.sh
 ```
+This runs preflight build, bumps version (build by default; use `--minor` or `--major` for significant releases), and commits. If preflight fails, stop and fix errors (e.g. `./scripts/debug-railway-build.sh`); **never deploy without preflight passing**.
 
-**What the deployment script does:**
-1. **Version Management**: Automatically bumps version (build number for regular deploys, minor/major for significant changes)
-2. **Git Tagging**: Creates git tags for significant releases (minor/major bumps)
-3. **Preflight Build**: Runs preflight build (MANDATORY) - fails if errors found
-4. **Deployment**: Commits version changes and pushes to Railway
-5. **Version Display**: Version is automatically displayed in UI (lower right corner) and available via `/api/version`
+**2. Deploy via Railway MCP** – After the script succeeds, use Railway MCP to deploy **both** services (always deploy API and Web):
+- Call MCP tool `deploy` with `workspacePath` = workspace root, `service`: `"api"`, `ci`: `true`
+- Call MCP tool `deploy` with `workspacePath` = workspace root, `service`: `"web"`, `ci`: `true`
 
-**Version Bump Behavior:**
-- **Regular deploy**: Bumps build number (1.2.3.005 → 1.2.3.006)
-- **Significant change**: Prompts for minor (1.2.3 → 1.3.0) or major (1.2.3 → 2.0.0) bump and creates git tag
+**3. Verify** – Use MCP `list-deployments` for api and web to confirm status (`SUCCESS` / `FAILED` / `BUILDING`). If any deployment failed, use `get-logs` for that service and report the error.
 
-**If preflight FAILS:**
-1. Show the errors
-2. Run `./scripts/debug-railway-build.sh` to analyze
-3. Fix each TypeScript error
-4. Re-run deployment script until it passes
+**4. Post-deploy** – Report the deployed version, deployment URLs, and suggest checking https://fieldview.live
 
-**NEVER push without preflight passing first!**
-
-**Manual version management** (if needed):
-```bash
-./scripts/version-manager.sh current    # Check current version
-./scripts/version-manager.sh build      # Bump build number
-./scripts/version-manager.sh patch      # Bump patch version
-./scripts/version-manager.sh set 1.2.4  # Set version explicitly
-```
+**Version:** Regular deploy bumps build number; pass `./scripts/deploy-to-railway.sh --minor` or `--major` for significant releases (script creates git tag). Manual version: `./scripts/version-manager.sh current|build|patch|set 1.2.4`
 
 ### "Debug Railway" / "Fix Railway build"
 
@@ -395,17 +379,14 @@ Add to existing checklist:
 
 ### BEFORE EVERY PUSH TO MAIN
 
-**RECOMMENDED**: Use version-managed deployment script:
+**RECOMMENDED (Railway MCP)**: When deploying from Cursor, use the MCP workflow:
 
 ```bash
-./scripts/deploy-to-production.sh
+./scripts/deploy-to-railway.sh
 ```
+Then use Railway MCP to deploy **api** and **web**, and verify with list-deployments. See trigger phrase "Deploy to Railway" above.
 
-This automatically:
-- Bumps version (build number for regular deploys)
-- Runs preflight build (MANDATORY)
-- Creates git tags for significant releases
-- Deploys to Railway
+**Alternative (git-push trigger)**: `./scripts/deploy-to-production.sh` — preflight, version bump, commit, push to main (Railway deploys from repo).
 
 **Alternative (Manual)**: If not using deploy script, run preflight build:
 
@@ -462,7 +443,8 @@ A pre-push hook is installed at `.husky/pre-push` that:
 
 | Script | Purpose | When to Use |
 |--------|---------|-------------|
-| `./scripts/deploy-to-production.sh` | **RECOMMENDED** - Version-managed deployment | **Use for all production deploys** |
+| `./scripts/deploy-to-railway.sh` | **RECOMMENDED** - Prep + Railway MCP deploy | Deploy from Cursor (then use MCP deploy api/web) |
+| `./scripts/deploy-to-production.sh` | Version + preflight + git push | Deploy by pushing to main (no MCP) |
 | `./scripts/preflight-build.sh` | Full Railway simulation | Manual preflight check (if not using deploy script) |
 | `./scripts/debug-railway-build.sh` | Debug failed builds | After Railway fails |
 | `./scripts/test-railway-mcp.sh` | **STANDARD** - Test Railway MCP | Before using Railway MCP for logs/errors |
