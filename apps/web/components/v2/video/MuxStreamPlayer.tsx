@@ -6,28 +6,28 @@
  * Uses @mux/mux-player-react which provides:
  * - Automatic signed URL token refresh
  * - Mux Data analytics integration
- * - Thumbnail previews on seek bar (storyboard sprites)
- * - Built-in seek forward/backward buttons
  * - Stream type awareness (live vs on-demand vs DVR)
- * - Seek protection: large seeks show confirmation; Go Live when behind live edge (DVR/live).
+ * - Go Live button when behind live edge (DVR/live)
+ *
+ * Seek controls are provided by the SeekOverlay (tap-to-reveal buttons).
+ * The built-in seek bar and skip buttons are hidden via mux-overrides.css.
  */
 
 import { useRef, useState, useCallback } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 
 import type { PlayerStatus } from './VidstackPlayer';
-import { SeekConfirmOverlay } from './SeekConfirmOverlay';
 import { GoLiveButton } from './GoLiveButton';
+import { SeekOverlay } from './SeekOverlay';
 import {
-  SeekDecision,
   LiveEdgeDetector,
   DEFAULT_SEEK_PROTECTION_CONFIG,
 } from '@/lib/v2/seek-protection';
 
-const seekDecision = new SeekDecision(DEFAULT_SEEK_PROTECTION_CONFIG);
+import './mux-overrides.css';
+
 const liveEdgeDetector = new LiveEdgeDetector();
 const liveThreshold = DEFAULT_SEEK_PROTECTION_CONFIG.liveEdgeThresholdSeconds;
-const confirmTimeoutMs = DEFAULT_SEEK_PROTECTION_CONFIG.confirmTimeoutMs;
 
 export interface MuxStreamPlayerProps {
   /** Mux playback ID (e.g., "abc123") */
@@ -67,11 +67,10 @@ export function MuxStreamPlayer({
   metadata,
   'data-testid': testId = 'mux-player',
 }: MuxStreamPlayerProps) {
-  const playerRef = useRef<{ currentTime: number } | null>(null);
-  const prevTimeRef = useRef<number>(0);
+  const playerRef = useRef<{ currentTime: number; play(): void; pause(): void; paused: boolean } | null>(null);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [pendingSeek, setPendingSeek] = useState<number | null>(null);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
 
   const handleWaiting = useCallback(() => {
     onStatusChange?.('loading');
@@ -83,13 +82,17 @@ export function MuxStreamPlayer({
 
   const handlePlaying = useCallback(() => {
     onStatusChange?.('playing');
+    setIsPaused(false);
   }, [onStatusChange]);
+
+  const handlePause = useCallback(() => {
+    setIsPaused(true);
+  }, []);
 
   const handleTimeUpdate = useCallback(
     (evt: Event) => {
       const el = evt.target as HTMLMediaElement;
       const t = el.currentTime;
-      prevTimeRef.current = t;
       setCurrentTime(t);
       onTimeUpdate?.(t);
     },
@@ -107,38 +110,29 @@ export function MuxStreamPlayer({
     [onDurationChange]
   );
 
-  const handleSeeked = useCallback(
-    (evt: Event) => {
-      const el = evt.target as HTMLMediaElement;
-      const newTime = el.currentTime;
-      const prev = prevTimeRef.current;
-      if (seekDecision.shouldConfirm(prev, newTime, duration)) {
-        const player = playerRef.current;
-        if (player && typeof player.currentTime === 'number') {
-          player.currentTime = prev;
-        }
-        setPendingSeek(newTime);
-        setCurrentTime(prev);
-      } else {
-        prevTimeRef.current = newTime;
+  // SeekOverlay callbacks
+  const handleSeek = useCallback(
+    (deltaSeconds: number) => {
+      const player = playerRef.current;
+      if (player && typeof player.currentTime === 'number') {
+        const newTime = Math.max(0, player.currentTime + deltaSeconds);
+        player.currentTime = Number.isFinite(duration) ? Math.min(newTime, duration) : newTime;
       }
     },
     [duration]
   );
 
-  const handleSeekConfirm = useCallback(() => {
-    if (pendingSeek === null) return;
+  const handleTogglePause = useCallback(() => {
     const player = playerRef.current;
-    if (player && typeof player.currentTime === 'number') {
-      player.currentTime = pendingSeek;
+    if (!player) return;
+    if (player.paused) {
+      player.play();
+    } else {
+      player.pause();
     }
-    setPendingSeek(null);
-  }, [pendingSeek]);
-
-  const handleSeekCancel = useCallback(() => {
-    setPendingSeek(null);
   }, []);
 
+  // Go Live logic
   const showGoLive =
     (streamType.includes('dvr') || streamType.includes('live')) &&
     Number.isFinite(duration) &&
@@ -155,7 +149,6 @@ export function MuxStreamPlayer({
   return (
     <div className="relative" data-testid="mux-player-wrapper">
       <MuxPlayer
-        // MuxPlayerElement has currentTime; we use it for seek-back and go-live
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ref={playerRef as any}
         playbackId={playbackId}
@@ -166,28 +159,21 @@ export function MuxStreamPlayer({
         tokens={playbackToken ? { playback: playbackToken } : undefined}
         metadata={metadata}
         accentColor="var(--fv-color-primary-500, #3B82F6)"
-        forwardSeekOffset={10}
-        backwardSeekOffset={10}
         onWaiting={handleWaiting}
         onError={handleError}
         onPlaying={handlePlaying}
+        onPause={handlePause}
         onTimeUpdate={handleTimeUpdate}
         onDurationChange={handleDurationChange}
-        onSeeked={handleSeeked}
         className={className}
         data-testid={testId}
         style={{ aspectRatio: '16 / 9', width: '100%' }}
       />
-      {pendingSeek !== null && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <SeekConfirmOverlay
-            targetTime={pendingSeek}
-            onConfirm={handleSeekConfirm}
-            onCancel={handleSeekCancel}
-            timeoutMs={confirmTimeoutMs}
-          />
-        </div>
-      )}
+      <SeekOverlay
+        onSeek={handleSeek}
+        onTogglePause={handleTogglePause}
+        isPaused={isPaused}
+      />
       <GoLiveButton visible={showGoLive} onClick={handleGoLive} />
     </div>
   );

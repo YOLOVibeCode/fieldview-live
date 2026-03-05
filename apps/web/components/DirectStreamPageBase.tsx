@@ -180,7 +180,7 @@ export interface DirectStreamPageConfig {
   
   // Callbacks
   onBootstrapLoaded?: (bootstrap: Bootstrap) => void;
-  onStreamStatusChange?: (status: 'loading' | 'playing' | 'offline' | 'error') => void;
+  onStreamStatusChange?: (status: 'loading' | 'playing' | 'offline' | 'incoming' | 'error') => void;
 }
 
 interface DirectStreamPageBaseProps {
@@ -194,7 +194,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'incoming' | 'error'>('loading');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
   const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(false);
@@ -219,6 +219,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const [showNotifyMe, setShowNotifyMe] = useState(false);
   const isPortrait = isMobile && orientation === 'portrait';
+
+  const isScheduledWithinMinutes = (scheduledAt: string | null | undefined, minutes: number): boolean => {
+    if (!scheduledAt) return false;
+    const at = new Date(scheduledAt).getTime();
+    const now = Date.now();
+    return at >= now && at - now <= minutes * 60 * 1000;
+  };
 
   // Paywall hook - manages paywall state based on bootstrap
   const paywall = usePaywall({
@@ -378,7 +385,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   if (data.streamUrl) {
                     setStreamUrl(data.streamUrl);
                   } else {
-                    setStatus('offline');
+                    setStatus(isScheduledWithinMinutes(data.scheduledStartAt, 30) ? 'incoming' : 'offline');
                   }
                 } else {
                   // Server says no access - localStorage is invalid
@@ -413,7 +420,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             setStreamUrl(data.streamUrl);
           } else {
             console.warn('[DirectStream] ⚠️ No streamUrl in bootstrap data');
-            setStatus('offline');
+            setStatus(isScheduledWithinMinutes(data.scheduledStartAt, 30) ? 'incoming' : 'offline');
           }
         }
       })
@@ -422,6 +429,25 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         setStatus('offline');
       });
   }, [config.bootstrapUrl]);
+
+  // Auto-refresh bootstrap every 30s when status is incoming (stream not yet live)
+  useEffect(() => {
+    if (status !== 'incoming' || !config.bootstrapUrl) return;
+    const fullUrl = `${API_URL}${config.bootstrapUrl}`;
+    const intervalId = setInterval(() => {
+      fetch(fullUrl)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: Bootstrap | null) => {
+          if (data?.streamUrl) {
+            setBootstrap(data);
+            setStreamUrl(data.streamUrl);
+            setStatus('loading');
+          }
+        })
+        .catch(() => {});
+    }, 30_000);
+    return () => clearInterval(intervalId);
+  }, [status, config.bootstrapUrl]);
 
   // Chat integration
   // Use real gameId if available, otherwise generate hash-based temporary gameId
@@ -824,6 +850,22 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {/* Status overlays */}
+              {status === 'incoming' && !isEditing && (
+                <div className="absolute inset-0 flex items-center justify-center z-20" data-testid="incoming-overlay">
+                  <div className="text-center text-white px-4">
+                    <div className="w-14 h-14 mx-auto mb-3 bg-blue-600/30 rounded-full flex items-center justify-center animate-pulse">
+                      <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-bold mb-1">Stream Starting Soon</h2>
+                    <p className="text-gray-400 text-xs mb-2">We&apos;re connecting to the live feed. This page will auto-update.</p>
+                    {bootstrap?.scheduledStartAt && (
+                      <p className="text-blue-400 text-xs">Scheduled: {new Date(bootstrap.scheduledStartAt).toLocaleString()}</p>
+                    )}
+                  </div>
+                </div>
+              )}
               {status === 'offline' && !isEditing && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
                   <div className="text-center text-white px-4">
@@ -1371,6 +1413,26 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     >
                       Unlock Stream
                     </TouchButton>
+                  </div>
+                </div>
+              )}
+
+              {status === 'incoming' && !isEditing && (
+                <div className="absolute inset-0 flex items-center justify-center z-20" data-testid="incoming-overlay">
+                  <div className="text-center text-white max-w-md mx-auto px-4">
+                    <div className="mb-6 relative">
+                      <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-600/30 to-blue-900/30 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
+                        <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="absolute inset-0 w-20 h-20 mx-auto bg-blue-500/10 rounded-full blur-xl animate-pulse" />
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-bold mb-3 tracking-tight">Stream Starting Soon</h2>
+                    <p className="text-gray-400 text-sm md:text-base mb-4">We&apos;re connecting to the live feed. This page will auto-update.</p>
+                    {bootstrap?.scheduledStartAt && (
+                      <p className="text-blue-400 text-sm">Scheduled: {new Date(bootstrap.scheduledStartAt).toLocaleString()}</p>
+                    )}
                   </div>
                 </div>
               )}

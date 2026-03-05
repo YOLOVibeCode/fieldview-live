@@ -7,6 +7,7 @@ import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { validateAdminToken } from '../middleware/admin-jwt';
 import { generateViewerToken } from '../lib/viewer-jwt';
+import { verifyToken } from '../lib/jwt';
 import { ensureGameForDirectStream } from '../lib/ensure-game';
 import { getChatPubSub } from '../lib/chat-pubsub';
 import {
@@ -212,7 +213,7 @@ router.get(
   }
 );
 
-// POST /api/direct/:slug/unlock-admin - Unlock admin panel with password, return JWT
+// POST /api/direct/:slug/unlock-admin - Unlock admin panel with password or owner JWT, return JWT
 router.post(
   '/:slug/unlock-admin',
   (req: Request, res: Response, next: NextFunction) => {
@@ -224,20 +225,6 @@ router.post(
           return res.status(400).json({ error: 'Slug is required' });
         }
 
-        // Validate request body
-        const schema = z.object({
-          password: z.string().min(1, 'Password is required'),
-        });
-        
-        const parsed = schema.safeParse(req.body);
-        if (!parsed.success) {
-          return res.status(400).json({ 
-            error: 'Invalid request', 
-            details: parsed.error.errors 
-          });
-        }
-
-        const { password } = parsed.data;
         const key = slug.toLowerCase();
 
         // Find the DirectStream record (include fields needed for ensureGame)
@@ -258,9 +245,68 @@ router.post(
           return res.status(404).json({ error: 'Stream not found' });
         }
 
-        // Verify password with bcrypt
-        const isValid = await bcrypt.compare(password, directStream.adminPassword);
+        // Optional: accept OwnerUser JWT as alternative to password
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+          const ownerToken = authHeader.substring(7);
+          const payload = verifyToken(ownerToken);
+          if (payload?.ownerAccountId && payload.ownerAccountId === directStream.ownerAccountId) {
+            // Owner owns this stream: issue admin JWT without password
+            const jwtSecret = process.env.JWT_SECRET;
+            if (!jwtSecret) {
+              logger.error('JWT_SECRET not configured');
+              return res.status(500).json({ error: 'Server configuration error' });
+            }
+            const token = jwt.sign(
+              { slug: key, role: 'admin' },
+              jwtSecret,
+              { expiresIn: '1h' }
+            );
+            const adminEmail = `admin@${key}.fieldview.live`;
+            const adminDisplayName = `${directStream.title || key} Admin`;
+            const gameId = directStream.gameId || await ensureGameForDirectStream(key, directStream);
+            const adminViewer = await prisma.viewerIdentity.upsert({
+              where: { email: adminEmail },
+              create: {
+                email: adminEmail,
+                firstName: adminDisplayName,
+                lastName: '',
+                wantsReminders: false,
+              },
+              update: {
+                firstName: adminDisplayName,
+                lastSeenAt: new Date(),
+              },
+            });
+            const viewerToken = generateViewerToken({
+              viewerId: adminViewer.id,
+              gameId,
+              slug: key,
+              displayName: adminDisplayName,
+            });
+            return res.json({
+              token,
+              viewerToken,
+              viewerId: adminViewer.id,
+              displayName: adminDisplayName,
+              gameId,
+            });
+          }
+        }
 
+        // Fall back to password
+        const schema = z.object({
+          password: z.string().min(1, 'Password is required'),
+        });
+        const parsed = schema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ 
+            error: 'Invalid request', 
+            details: parsed.error.errors 
+          });
+        }
+        const { password } = parsed.data;
+        const isValid = await bcrypt.compare(password, directStream.adminPassword);
         if (!isValid) {
           return res.status(401).json({ error: 'Invalid password' });
         }

@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -101,6 +101,46 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastError, setBroadcastError] = useState('');
+
+  const ownerUnlockAttempted = useRef(false);
+
+  // Auto-unlock with owner JWT when available (no password prompt)
+  useEffect(() => {
+    if (isUnlocked || ownerUnlockAttempted.current || typeof window === 'undefined') return;
+    const ownerToken = localStorage.getItem('owner_token');
+    if (!ownerToken) return;
+    ownerUnlockAttempted.current = true;
+    setIsUnlocking(true);
+    const fullSlug = slug.toLowerCase();
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+    const url = `${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`;
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({}),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok && data.token) {
+          setAdminToken(data.token);
+          setIsUnlocked(true);
+          const viewerInfo = data.viewerToken
+            ? {
+                viewerToken: data.viewerToken as string,
+                viewerId: data.viewerId as string,
+                displayName: data.displayName as string,
+                gameId: data.gameId as string,
+              }
+            : undefined;
+          onAuthSuccess?.(data.token, viewerInfo);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsUnlocking(false));
+  }, [isUnlocked, slug, onAuthSuccess]);
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
