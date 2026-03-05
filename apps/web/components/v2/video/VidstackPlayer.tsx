@@ -9,17 +9,14 @@
  *
  * Features:
  * - HLS streaming with automatic quality adaptation
- * - Built-in seeking controls (+-10s buttons, arrows for +-5s)
- * - Precision seeking via comma/period for +-1s
- * - Mobile double-tap gestures for +-10s
  * - Full keyboard accessibility (Space, M, F, arrows)
+ * - Seek controls via SeekOverlay (tap-to-reveal buttons)
  */
 
-import { useRef, useCallback, type ReactNode } from 'react';
+import { useRef, useState, useCallback, type ReactNode } from 'react';
 import {
   MediaPlayer,
   MediaProvider,
-  Gesture,
   type MediaPlayerInstance,
 } from '@vidstack/react';
 import {
@@ -31,9 +28,8 @@ import '@vidstack/react/player/styles/default/theme.css';
 import '@vidstack/react/player/styles/default/layouts/video.css';
 import './vidstack-theme.css';
 
-import { SeekBackwardButton, SeekForwardButton } from './SeekButtons';
-import { SafeTimeSlider } from './SafeTimeSlider';
 import { VidstackGoLiveButton } from './VidstackGoLiveButton';
+import { SeekOverlay } from './SeekOverlay';
 
 export type PlayerStatus = 'loading' | 'playing' | 'offline' | 'error';
 
@@ -74,6 +70,7 @@ export function VidstackPlayer({
 }: VidstackPlayerProps) {
   const internalRef = useRef<MediaPlayerInstance>(null);
   const playerRef = externalRef ?? internalRef;
+  const [isPaused, setIsPaused] = useState(false);
 
   // Track status changes
   const handleCanPlay = useCallback(() => {
@@ -90,7 +87,34 @@ export function VidstackPlayer({
 
   const handlePlaying = useCallback(() => {
     onStatusChange?.('playing');
+    setIsPaused(false);
   }, [onStatusChange]);
+
+  const handlePause = useCallback(() => {
+    setIsPaused(true);
+  }, []);
+
+  // SeekOverlay callbacks
+  const handleSeek = useCallback(
+    (deltaSeconds: number) => {
+      const player = playerRef.current;
+      if (!player) return;
+      const cur = player.currentTime ?? 0;
+      const dur = player.duration ?? Infinity;
+      player.currentTime = Math.max(0, Math.min(cur + deltaSeconds, dur));
+    },
+    [playerRef]
+  );
+
+  const handleTogglePause = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (player.paused) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [playerRef]);
 
   return (
     <MediaPlayer
@@ -103,6 +127,7 @@ export function VidstackPlayer({
       onWaiting={handleWaiting}
       onError={handleError}
       onPlaying={handlePlaying}
+      onPause={handlePause}
       onTimeUpdate={(detail) => onTimeUpdate?.(detail.currentTime)}
       onDurationChange={(detail) => onDurationChange?.(detail)}
       className={className}
@@ -116,25 +141,20 @@ export function VidstackPlayer({
     >
       <MediaProvider />
 
-      {/* Mobile gestures: double-tap left half for -10s, right half for +10s */}
-      <Gesture
-        className="absolute inset-y-0 left-0 w-1/2 z-0"
-        event="dblpointerup"
-        action="seek:-10"
-      />
-      <Gesture
-        className="absolute inset-y-0 right-0 w-1/2 z-0"
-        event="dblpointerup"
-        action="seek:10"
-      />
-
       <DefaultVideoLayout
         icons={defaultLayoutIcons}
         slots={{
-          beforePlayButton: <SeekBackwardButton />,
-          afterPlayButton: <SeekForwardButton />,
-          timeSlider: <SafeTimeSlider />,
+          // Seek buttons and timeline removed; seeking is done via SeekOverlay
+          timeSlider: null,
+          beforePlayButton: null,
+          afterPlayButton: null,
         }}
+      />
+
+      <SeekOverlay
+        onSeek={handleSeek}
+        onTogglePause={handleTogglePause}
+        isPaused={isPaused}
       />
 
       <VidstackGoLiveButton />

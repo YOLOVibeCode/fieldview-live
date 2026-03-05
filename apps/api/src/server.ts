@@ -15,6 +15,7 @@ import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import { sendStreamReminders } from './jobs/send-stream-reminders';
 import { autoPurgeDeletedStreams } from './jobs/auto-purge-streams';
+import { checkAndPollVeoStreams } from './jobs/veo-stream-poll';
 import { createAdminRouter } from './routes/admin';
 import { createAdminCouponsRouter } from './routes/admin.coupons';
 import { createAdminPlatformRouter } from './routes/admin.platform';
@@ -186,7 +187,18 @@ cron.schedule('0 3 * * *', async () => {
   }
 });
 
-logger.info('Cron jobs initialized: stream reminders (every minute), auto-purge (daily at 3 AM)');
+// Veo stream polling: start session-cached pollers for upcoming events (every minute)
+cron.schedule('* * * * *', async () => {
+  try {
+    await checkAndPollVeoStreams();
+  } catch (error) {
+    logger.error({ error }, 'Veo stream poll cron job failed');
+  }
+});
+
+logger.info(
+  'Cron jobs initialized: stream reminders (every minute), auto-purge (daily at 3 AM), Veo stream poll (every minute)'
+);
 
 // Initialize cleanup jobs (DVR video cleanup)
 import { initializeCleanupJobs } from './jobs/cleanup';

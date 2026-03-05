@@ -65,9 +65,3 @@
   }
 }
 
-/* Spacing between control buttons and timeline on mobile to reduce accidental seeks */
-@media (max-width: 640px) {
-  :where([data-media-player]) :where([data-media-time-slider]) {
-    margin-bottom: 8px;
-  }
-}
