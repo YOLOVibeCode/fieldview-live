@@ -141,4 +141,27 @@ describe('ViewerIdentityBar', () => {
     expect(signOut.tagName).toBe('BUTTON');
     expect(signOut).toHaveAttribute('type', 'button');
   });
+
+  it('should show account link with correct href and ARIA when authenticated', () => {
+    vi.mocked(useGlobalViewerAuth).mockReturnValue({
+      viewerName: 'Jane Doe',
+      viewerEmail: 'jane@example.com',
+      isAuthenticated: true,
+      clearViewerAuth: mockClearViewerAuth,
+      isLoading: false,
+      viewerIdentityId: 'v-5',
+      viewerFirstName: 'Jane',
+      viewerLastName: 'Doe',
+      setViewerAuth: vi.fn(),
+    });
+
+    render(<ViewerIdentityBar />);
+
+    const link = screen.getByTestId('link-account');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/account');
+    expect(link).toHaveAttribute('aria-label', 'View account settings');
+    expect(link.tagName).toBe('A');
+    expect(link).toHaveTextContent('Jane Doe');
+  });
 });

@@ -139,10 +139,10 @@ describe('ScoreEditModal', () => {
     const input = screen.getByTestId('input-score-edit');
     fireEvent.change(input, { target: { value: '-3' } });
 
-    const saveButton = screen.getByTestId('btn-save-score');
-    fireEvent.click(saveButton);
+    const form = screen.getByTestId('modal-score-edit').querySelector('form');
+    expect(form).toBeTruthy();
+    fireEvent.submit(form!);
 
-    // Should save as 0, not negative
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledWith('home', 0);
     });

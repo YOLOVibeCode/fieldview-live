@@ -2,11 +2,39 @@ import { renderHook, act } from '@testing-library/react';
 import { useScoreboardData } from '../useScoreboardData';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// jsdom does not provide EventSource; hook uses it for SSE when enabled + slug
+class MockEventSource {
+  url: string;
+  readyState = 0;
+  onerror: (() => void) | null = null;
+  private listeners: Map<string, (e: { data?: string }) => void> = new Map();
+
+  constructor(url: string) {
+    this.url = url;
+  }
+
+  addEventListener(type: string, handler: (e: { data?: string }) => void) {
+    this.listeners.set(type, handler);
+  }
+
+  close() {
+    this.readyState = 2;
+  }
+}
+vi.stubGlobal('EventSource', MockEventSource);
+
 const mockApiResponse = {
-  homeTeam: { name: 'Eagles', abbreviation: 'EAG', score: 14, color: '#004C54' },
-  awayTeam: { name: 'Hawks', abbreviation: 'HWK', score: 7, color: '#FF0000' },
-  period: '2nd',
-  time: '5:30',
+  homeTeamName: 'Eagles',
+  awayTeamName: 'Hawks',
+  homeJerseyColor: '#004C54',
+  awayJerseyColor: '#FF0000',
+  homeScore: 14,
+  awayScore: 7,
+  clockMode: 'running',
+  clockSeconds: 330,
+  clockStartedAt: null,
+  lastEditedBy: null,
+  lastEditedAt: null,
 };
 
 describe('useScoreboardData', () => {
@@ -50,12 +78,10 @@ describe('useScoreboardData', () => {
     });
 
     expect(result.current.homeTeam.name).toBe('Eagles');
-    expect(result.current.homeTeam.abbreviation).toBe('EAG');
     expect(result.current.homeTeam.score).toBe(14);
     expect(result.current.homeTeam.color).toBe('#004C54');
     expect(result.current.awayTeam.name).toBe('Hawks');
     expect(result.current.awayTeam.score).toBe(7);
-    expect(result.current.period).toBe('2nd');
     expect(result.current.time).toBe('5:30');
   });
 
@@ -140,20 +166,17 @@ describe('useScoreboardData', () => {
   describe('updateScore', () => {
     it('should call the correct API endpoint', async () => {
       global.fetch = vi.fn()
-        // Initial fetch
         .mockResolvedValueOnce({
           ok: true,
           json: async () => mockApiResponse,
         })
-        // updateScore call
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({}),
         })
-        // Refresh fetch
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ ...mockApiResponse, homeTeam: { ...mockApiResponse.homeTeam, score: 21 } }),
+          json: async () => ({ ...mockApiResponse, homeScore: 21 }),
         }) as any;
 
       const { result } = renderHook(() =>
@@ -200,10 +223,6 @@ describe('useScoreboardData', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({}),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockApiResponse,
         }) as any;
 
       const { result } = renderHook(() =>
@@ -219,12 +238,11 @@ describe('useScoreboardData', () => {
         await vi.advanceTimersByTimeAsync(100);
       });
 
-      // Should not throw even without viewerToken
       await act(async () => {
         await result.current.updateScore('away', 14);
       });
 
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('should throw when no viewerToken and allowAnonymousEdit is false', async () => {
