@@ -38,11 +38,12 @@ bump_version() {
   local bump_type=$1
   
   # Parse version (supports both 1.2.3 and 1.2.3.005 format)
+  # Use 10# to force decimal and avoid octal (e.g. 009)
   IFS='.' read -ra VERSION_PARTS <<< "$current_version"
-  local major=${VERSION_PARTS[0]}
-  local minor=${VERSION_PARTS[1]}
-  local patch=${VERSION_PARTS[2]}
-  local build=${VERSION_PARTS[3]:-0}
+  local major=$((10#${VERSION_PARTS[0]:-0}))
+  local minor=$((10#${VERSION_PARTS[1]:-0}))
+  local patch=$((10#${VERSION_PARTS[2]:-0}))
+  local build=$((10#${VERSION_PARTS[3]:-0}))
   
   case $bump_type in
     patch)
