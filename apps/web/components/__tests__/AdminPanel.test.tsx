@@ -16,6 +16,16 @@ describe('AdminPanel', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
     vi.stubGlobal('console', { log: vi.fn(), error: vi.fn(), warn: vi.fn() });
+    // AdminPanel reads localStorage.getItem('owner_token') for auto-unlock
+    const storageMock: Storage = {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+      length: 0,
+      key: vi.fn().mockReturnValue(null),
+    };
+    Object.defineProperty(globalThis, 'localStorage', { value: storageMock, writable: true });
   });
 
   describe('unlock flow', () => {
