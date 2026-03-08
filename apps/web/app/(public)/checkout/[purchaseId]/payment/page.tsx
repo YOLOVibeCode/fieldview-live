@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { dataEventBus, DataEvents } from '@/lib/event-bus';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface SquareTokenizeResult {
   status: 'OK' | 'ERROR';
@@ -364,9 +365,7 @@ export default function PaymentPage() {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-                {error}
-              </div>
+              <ErrorBanner message={error} onDismiss={() => setError(null)} />
             )}
 
             {squareApplicationId && squareLocationId ? (

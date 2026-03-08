@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { TouchButton } from '@/components/v2/primitives';
 import { PasswordInput } from './PasswordInput';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 export interface LoginFormData {
   email: string;
@@ -84,12 +85,10 @@ export function LoginForm({
     >
       {/* Server Error */}
       {error && (
-        <div
-          role="alert"
-          className="p-3 rounded-lg bg-[var(--fv-color-error)]/10 border border-[var(--fv-color-error)] text-sm text-[var(--fv-color-error)]"
-        >
-          {error}
-        </div>
+        <ErrorBanner 
+          message={error} 
+          data-testid="error-login"
+        />
       )}
       
       {/* Email */}

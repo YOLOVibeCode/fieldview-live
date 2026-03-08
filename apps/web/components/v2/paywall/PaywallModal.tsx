@@ -18,6 +18,9 @@ import { useState, useEffect } from 'react';
 import { AlertCircle, CreditCard, Lock, ShieldCheck } from 'lucide-react';
 import { BottomSheet, TouchButton } from '@/components/v2/primitives';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 export interface PaywallModalProps {
   slug: string;
@@ -76,13 +79,10 @@ export function PaywallModal({
 
   const checkSavedPayment = async () => {
     try {
-      const response = await fetch(
-        `${apiUrl}/api/direct/${slug}/payment-methods?email=${encodeURIComponent(email)}`
+      const data = await apiRequest<SavedPaymentMethod>(
+        `/api/direct/${slug}/payment-methods?email=${encodeURIComponent(email)}`,
+        { retries: 1 }
       );
-
-      if (!response.ok) return;
-
-      const data: SavedPaymentMethod = await response.json();
       setSavedPayment(data);
       
       if (data.hasSavedCard) {
@@ -111,28 +111,23 @@ export function PaywallModal({
     setError(null);
 
     try {
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          firstName,
-          lastName,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
-      }
-
-      const { purchaseId, checkoutUrl } = await response.json();
+      const { purchaseId, checkoutUrl } = await apiRequest<{ purchaseId: string; checkoutUrl: string }>(
+        `/api/direct/${slug}/checkout`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            firstName,
+            lastName,
+          }),
+        }
+      );
 
       // Redirect to Square checkout page
       window.location.href = checkoutUrl;
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      setError(getUserFriendlyMessage(err));
       setLoading(false);
     }
   };
@@ -216,14 +211,11 @@ export function PaywallModal({
 
         {/* Error Message */}
         {error && (
-          <div
+          <ErrorBanner
+            message={error}
+            onDismiss={() => setError(null)}
             data-testid="error-paywall"
-            className="flex items-center gap-3 p-4 bg-red-500/10 border-2 border-red-500/20 rounded-xl"
-            role="alert"
-          >
-            <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
+          />
         )}
 
         {/* Step 1: User Info */}

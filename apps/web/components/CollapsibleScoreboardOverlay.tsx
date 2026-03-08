@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { ScoreEditModal } from '@/components/ScoreEditModal';
 import { MinimalScoreboard } from '@/components/v2/scoreboard/MinimalScoreboard';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 /**
  * ISP: Segregated interfaces for scoreboard data and rendering
@@ -67,8 +69,6 @@ export function CollapsibleScoreboardOverlay({
   
   // Score editing state
   const [editingTeam, setEditingTeam] = useState<'home' | 'away' | null>(null);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
   // Only render in fullscreen mode
   if (!isFullscreen) {
@@ -197,14 +197,8 @@ export function CollapsibleScoreboardOverlay({
 
   const fetchScoreboard = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`);
+      const data = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard`, { retries: 1 });
       
-      if (!response.ok) {
-        setLoading(false);
-        return;
-      }
-
-      const data = await response.json();
       setScoreboard(data);
       setLoading(false);
     } catch (err) {
@@ -255,26 +249,19 @@ export function CollapsibleScoreboardOverlay({
         ? { homeScore: newScore }
         : { awayScore: newScore };
 
-      const headers: HeadersInit = { 
-        'Content-Type': 'application/json',
-      };
+      const headers: HeadersInit = {};
       
       // Add auth header if viewer token is available
       if (viewerToken) {
         headers['Authorization'] = `Bearer ${viewerToken}`;
       }
 
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`, {
+      const updated = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard`, {
         method: 'POST',
         headers,
         body: JSON.stringify(updateData),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update score');
-      }
-
-      const updated = await response.json();
       setScoreboard(updated);
     } catch (error) {
       console.error('Failed to update score:', error);

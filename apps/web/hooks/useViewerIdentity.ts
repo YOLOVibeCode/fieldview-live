@@ -17,6 +17,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 const STORAGE_KEY = 'fieldview_viewer_identity';
@@ -121,25 +123,17 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
     try {
       // Use direct stream endpoint if slug is provided, otherwise use game endpoint
       const endpoint = slug 
-        ? `${API_URL}/api/public/direct/${slug}/viewer/unlock`
-        : `${API_URL}/api/public/games/${gameId}/viewer/unlock`;
+        ? `/api/public/direct/${slug}/viewer/unlock`
+        : `/api/public/games/${gameId}/viewer/unlock`;
       
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      const result = await apiRequest<{ viewerToken: string; viewer?: { id: string } }>(
+        endpoint,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Failed to unlock' } }));
-        // Handle both string errors and structured error objects
-        const errorMessage = typeof errorData.error === 'string' 
-          ? errorData.error 
-          : errorData.error?.message || `Unlock failed: ${response.status}`;
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
       const viewerToken = result.viewerToken;
       const viewerIdFromApi = result.viewer?.id; // Extract viewerId from response
 
@@ -181,7 +175,7 @@ export function useViewerIdentity({ gameId, slug }: UseViewerIdentityProps) {
       // Return the values for immediate use
       return { viewerId: viewerIdFromApi || null, viewerToken };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to unlock stream';
+      const message = getUserFriendlyMessage(err);
       setError(message);
       console.error('Unlock error:', err);
       // Re-throw to let the form handle it

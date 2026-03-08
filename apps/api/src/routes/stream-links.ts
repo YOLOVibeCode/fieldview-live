@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod';
 
 import { logger } from '../lib/logger';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '../lib/errors';
 
 /**
  * Stream Links (POC)
@@ -40,16 +41,16 @@ router.get(
 
         const streamUrl = streamStore.get(key);
         if (!streamUrl) {
-          return res.status(404).json({ error: 'No stream configured' });
+          throw new NotFoundError('No stream configured');
         }
 
         return res.json({ streamUrl });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return res.status(400).json({ error: 'Invalid request', details: error.errors });
+          next(new BadRequestError('Invalid request', error.errors));
+        } else {
+          next(error);
         }
-        logger.error({ error, params: req.params }, 'Failed to get stream URL');
-        next(error);
       }
     })();
   }
@@ -68,7 +69,7 @@ router.post(
           process.env.STREAM_LINK_ADMIN_PASSWORD || process.env.TCHS_ADMIN_PASSWORD || 'tchs2026';
 
         if (body.password !== expectedPassword) {
-          return res.status(401).json({ error: 'Invalid password' });
+          throw new UnauthorizedError('Invalid password');
         }
 
         const key = keyFor(params.org, params.team);
@@ -78,10 +79,10 @@ router.post(
         return res.json({ success: true, streamUrl: body.streamUrl });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return res.status(400).json({ error: 'Invalid request', details: error.errors });
+          next(new BadRequestError('Invalid request', error.errors));
+        } else {
+          next(error);
         }
-        logger.error({ error, params: req.params }, 'Failed to update stream URL');
-        next(error);
       }
     })();
   }

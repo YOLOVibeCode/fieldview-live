@@ -21,6 +21,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BottomSheet, TouchButton } from '@/components/v2/primitives';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 export interface ViewerAuthModalProps {
   isOpen: boolean;
@@ -133,12 +134,10 @@ export function ViewerAuthModal({
 
         {/* Error message */}
         {error && (
-          <div
-            role="alert"
-            className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
-          >
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
+          <ErrorBanner 
+            message={error} 
+            data-testid="error-viewer-auth"
+          />
         )}
 
         {/* Registration Form */}
@@ -180,14 +179,12 @@ export function ViewerAuthModal({
               aria-describedby={nameError ? 'name-error' : undefined}
             />
             {nameError && (
-              <p
-                id="name-error"
-                role="alert"
-                className="text-sm text-red-500 mt-1"
-                data-testid="error-name"
-              >
-                {nameError}
-              </p>
+              <div className="mt-1">
+                <ErrorBanner 
+                  message={nameError} 
+                  data-testid="error-name"
+                />
+              </div>
             )}
           </div>
 
@@ -228,14 +225,12 @@ export function ViewerAuthModal({
               aria-describedby={emailError ? 'email-error' : undefined}
             />
             {emailError && (
-              <p
-                id="email-error"
-                role="alert"
-                className="text-sm text-red-500 mt-1"
-                data-testid="error-email"
-              >
-                {emailError}
-              </p>
+              <div className="mt-1">
+                <ErrorBanner 
+                  message={emailError} 
+                  data-testid="error-email"
+                />
+              </div>
             )}
           </div>
 

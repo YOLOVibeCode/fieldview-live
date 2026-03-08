@@ -12,6 +12,7 @@ import {
   DirectStreamRegisterSchema,
   ResendVerificationSchema,
 } from '@fieldview/data-model';
+import { BadRequestError, NotFoundError } from '../lib/errors';
 import { DirectStreamRegistrationRepository } from '../repositories/implementations/DirectStreamRegistrationRepository';
 import { EmailVerificationRepository } from '../repositories/implementations/EmailVerificationRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
@@ -61,10 +62,7 @@ router.post(
         const validation = DirectStreamRegisterSchema.safeParse(req.body);
 
         if (!validation.success) {
-          return res.status(400).json({
-            error: 'Validation failed',
-            details: validation.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
-          });
+          throw new BadRequestError('Validation failed', validation.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`));
         }
 
         const { email, firstName, lastName, wantsReminders } = validation.data;
@@ -75,7 +73,7 @@ router.post(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Register
@@ -111,7 +109,7 @@ router.get('/verify', (req: Request, res: Response, next: NextFunction) => {
       const { token } = req.query;
 
       if (!token || typeof token !== 'string') {
-        return res.status(400).json({ error: 'Token is required' });
+        throw new BadRequestError('Token is required');
       }
 
       const result = await verificationService.verifyToken(token);
@@ -158,7 +156,7 @@ router.post(
         const validation = ResendVerificationSchema.safeParse(req.body);
 
         if (!validation.success) {
-          return res.status(400).json({ error: 'Email is required' });
+          throw new BadRequestError('Email is required');
         }
 
         const { email } = validation.data;
@@ -169,7 +167,7 @@ router.post(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Resend
@@ -181,7 +179,7 @@ router.post(
       } catch (error: any) {
         logger.error({ error, slug: req.params.slug }, 'Failed to resend verification');
         if (error.message.includes('not found')) {
-          return res.status(404).json({ error: 'Viewer not found. Please register first.' });
+          throw new NotFoundError('Viewer not found. Please register first.');
         }
         next(error);
       }

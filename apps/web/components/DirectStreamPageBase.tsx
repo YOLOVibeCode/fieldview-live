@@ -26,8 +26,12 @@ import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { usePaywall } from '@/hooks/usePaywall';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 import type { ChatMessage } from '@/hooks/useGameChat';
 import { hashSlugSync } from '@/lib/hashSlug';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { InlineError } from '@/components/v2/InlineError';
 // Legacy components (needed for Admin Panel)
 import { AdminPanel } from '@/components/AdminPanel';
 import { SocialProducerPanel } from '@/components/SocialProducerPanel';
@@ -38,9 +42,10 @@ import { StreamPlayer } from '@/components/v2/video/StreamPlayer';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat } from '@/components/v2/chat';
 import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
-import { Scoreboard } from '@/components/v2/scoreboard';
+import { MiniScoreOverlay, Scoreboard } from '@/components/v2/scoreboard';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
+import { GuestNamePrompt } from '@/components/v2/chat/GuestNamePrompt';
 import { TouchButton, Badge } from '@/components/v2/primitives';
 import { BottomSheet } from '@/components/v2/primitives/BottomSheet';
 import { useResponsive } from '@/hooks/v2/useResponsive';
@@ -208,6 +213,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Bookmark panel uses useCollapsiblePanel (bookmarkPanel) instead of local state
   const [guestDisplayName, setGuestDisplayName] = useState<string | null>(null);
   const [isEditingGuestName, setIsEditingGuestName] = useState(false);
+  const [showGuestNamePrompt, setShowGuestNamePrompt] = useState(false);
 
   // Fullscreen hook (v2)
   const { isFullscreen } = useFullscreen(containerRef.current);
@@ -313,27 +319,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Load bootstrap data
   useEffect(() => {
-    const fullUrl = `${API_URL}${config.bootstrapUrl}`;
-    console.log('[DirectStream] 🚀 Fetching bootstrap from:', fullUrl);
+    console.log('[DirectStream] 🚀 Fetching bootstrap from:', config.bootstrapUrl);
     setStatus('loading');
     
-    fetch(fullUrl)
-      .then((res) => {
-        console.log('[DirectStream] 📡 Bootstrap response:', {
-          status: res.status,
-          statusText: res.statusText,
-          ok: res.ok,
-          url: res.url
-        });
+    apiRequest<Bootstrap>(config.bootstrapUrl, { retries: 1 })
+      .then((data: Bootstrap) => {
+        console.log('[DirectStream] 📡 Bootstrap response received');
         
-        if (res.status === 404) {
-          console.warn('[DirectStream] 404: Stream not found');
-          setStatus('offline');
-          return null;
-        }
-        return res.json();
-      })
-      .then((data: Bootstrap | null) => {
         if (!data) {
           console.log('[DirectStream] No bootstrap data returned');
           return;
@@ -372,8 +364,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             else if (email) params.append('email', email);
             
             // Verify access with server
-            fetch(`${API_URL}/api/direct/${data.slug}/verify-access?${params.toString()}`)
-              .then(res => res.json())
+            apiRequest<{
+              hasAccess: boolean;
+              reason?: string;
+              entitlement?: { expiresAt: string };
+            }>(`/api/direct/${data.slug}/verify-access?${params.toString()}`, { retries: 1 })
               .then(verifyResult => {
                 if (verifyResult.hasAccess) {
                   console.log('[DirectStream] ✅ Server verified access, initializing player');
@@ -426,6 +421,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       })
       .catch((err) => {
         console.error('[DirectStream] ❌ Bootstrap fetch error:', err);
+        if (err.status === 404) {
+          console.warn('[DirectStream] 404: Stream not found');
+        }
         setStatus('offline');
       });
   }, [config.bootstrapUrl]);
@@ -433,18 +431,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Auto-refresh bootstrap every 30s when status is incoming (stream not yet live)
   useEffect(() => {
     if (status !== 'incoming' || !config.bootstrapUrl) return;
-    const fullUrl = `${API_URL}${config.bootstrapUrl}`;
     const intervalId = setInterval(() => {
-      fetch(fullUrl)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data: Bootstrap | null) => {
+      apiRequest<Bootstrap>(config.bootstrapUrl, { retries: 1 })
+        .then((data: Bootstrap) => {
           if (data?.streamUrl) {
             setBootstrap(data);
             setStreamUrl(data.streamUrl);
             setStatus('loading');
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error('Bootstrap refresh failed:', err);
+        });
     }, 30_000);
     return () => clearInterval(intervalId);
   }, [status, config.bootstrapUrl]);
@@ -480,21 +478,22 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
     const autoRegister = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/public/direct/viewer/auto-register`, {
+        const data = await apiRequest<{
+          isNewRegistration: boolean;
+          registration?: {
+            viewerIdentity: {
+              email: string;
+              firstName?: string;
+              lastName?: string;
+            };
+          };
+        }>(`/api/public/direct/viewer/auto-register`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             directStreamSlug: bootstrap.slug,
             viewerIdentityId: globalAuth.viewerIdentityId,
           }),
         });
-
-        if (!response.ok) {
-          console.error('Auto-registration failed:', response.status);
-          return;
-        }
-
-        const data = await response.json();
         
         // Auto-registration completed, now unlock the viewer locally
         // This will call the unlock API which generates a viewer token
@@ -540,7 +539,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   useEffect(() => {
     if (!bootstrap || viewer.isUnlocked || !bootstrap.allowAnonymousChat) return;
 
-    const connectAnonymous = async () => {
+    const connectAnonymous = async (displayName?: string) => {
       try {
         // Get or create a persistent session ID
         const storageKey = 'fieldview_anon_session';
@@ -550,24 +549,21 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           localStorage.setItem(storageKey, sessionId);
         }
 
-        // Check for a saved guest name for this stream
-        const savedName = localStorage.getItem(`fieldview_guest_name_${bootstrap.slug}`);
+        const data = await apiRequest<{
+          viewerToken: string;
+          viewer: {
+            id: string;
+            displayName: string;
+          };
+          gameId: string;
+        }>(`/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`, {
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId,
+            displayName: displayName || undefined,
+          }),
+        });
 
-        const response = await fetch(
-          `${API_URL}/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              displayName: savedName || undefined,
-            }),
-          }
-        );
-
-        if (!response.ok) return;
-
-        const data = await response.json();
         viewer.setExternalIdentity({
           viewerToken: data.viewerToken,
           viewerId: data.viewer.id,
@@ -581,7 +577,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       }
     };
 
-    void connectAnonymous();
+    // Check for a saved guest name for this stream
+    const savedName = localStorage.getItem(`fieldview_guest_name_${bootstrap.slug}`);
+    
+    if (savedName) {
+      // User has a saved name, connect with it
+      void connectAnonymous(savedName);
+    } else {
+      // No saved name, show the prompt
+      setShowGuestNamePrompt(true);
+    }
   }, [bootstrap, viewer.isUnlocked]);
 
   // Check if current viewer is anonymous (for guest name change UI)
@@ -609,16 +614,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     if (!sessionId) return;
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, displayName: trimmed }),
-        }
-      );
-      if (!response.ok) return;
-      const data = await response.json();
+      const data = await apiRequest<{
+        viewerToken: string;
+        viewer: {
+          id: string;
+          displayName: string;
+        };
+        gameId: string;
+      }>(`/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`, {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, displayName: trimmed }),
+      });
+      
       viewer.setExternalIdentity({
         viewerToken: data.viewerToken,
         viewerId: data.viewer.id,
@@ -628,6 +635,49 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
       });
     } catch (err) {
       console.error('[DirectStreamPageBase] Guest name change failed:', err);
+    }
+  }, [bootstrap, viewer]);
+
+  // Handler for guest name submission from prompt
+  const handleGuestNameSubmit = useCallback(async (name: string) => {
+    if (!bootstrap) return;
+    
+    setShowGuestNamePrompt(false);
+    
+    try {
+      // Get or create a persistent session ID
+      const storageKey = 'fieldview_anon_session';
+      let sessionId = localStorage.getItem(storageKey);
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        localStorage.setItem(storageKey, sessionId);
+      }
+
+      const data = await apiRequest<{
+        viewerToken: string;
+        viewer: {
+          id: string;
+          displayName: string;
+        };
+        gameId: string;
+      }>(`/api/public/direct/${encodeURIComponent(bootstrap.slug)}/viewer/anonymous-token`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId,
+          displayName: name,
+        }),
+      });
+
+      viewer.setExternalIdentity({
+        viewerToken: data.viewerToken,
+        viewerId: data.viewer.id,
+        displayName: data.viewer.displayName,
+        gameId: data.gameId,
+        email: `anon-${sessionId}@guest.fieldview.live`,
+      });
+      setGuestDisplayName(data.viewer.displayName);
+    } catch (err) {
+      console.error('[DirectStreamPageBase] Anonymous connect with name failed:', err);
     }
   }, [bootstrap, viewer]);
 
@@ -654,14 +704,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         });
         // Auto-subscribe to stream reminders when stream is scheduled
         if (bootstrap?.scheduledStartAt && bootstrap?.sendReminders !== false) {
-          void fetch(
-            `${API_URL}/api/public/direct/${bootstrap.slug}/notify-me`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ viewerIdentityId: result.viewerId }),
-            },
-          ).catch(() => { /* best-effort */ });
+          void apiRequest<void>(`/api/public/direct/${bootstrap.slug}/notify-me`, {
+            method: 'POST',
+            body: JSON.stringify({ viewerIdentityId: result.viewerId }),
+          }).catch(() => { /* best-effort */ });
         }
       }
 
@@ -940,6 +986,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     player_name: 'FieldView.Live',
                   }}
                 >
+                  {bootstrap?.scoreboardEnabled && (
+                    <MiniScoreOverlay
+                      homeTeam={scoreboardData.homeTeam}
+                      awayTeam={scoreboardData.awayTeam}
+                      period={scoreboardData.period}
+                      time={scoreboardData.time}
+                    />
+                  )}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
                     <BookmarkMarkers
                       bookmarks={bookmarkMarkers.bookmarks}
@@ -991,7 +1045,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
           // Chat
           chatContent={
-            viewer.isUnlocked ? (
+            showGuestNamePrompt ? (
+              <div className="flex-1 flex items-center justify-center p-4">
+                <GuestNamePrompt 
+                  slug={bootstrap.slug} 
+                  onSubmit={handleGuestNameSubmit}
+                  data-testid="guest-name-prompt-portrait"
+                />
+              </div>
+            ) : viewer.isUnlocked ? (
               <Chat
                 messages={chatV2.messages}
                 onSend={chatV2.sendMessage}
@@ -1556,6 +1618,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     player_name: 'FieldView.Live',
                   }}
                 >
+                  {bootstrap?.scoreboardEnabled && (
+                    <MiniScoreOverlay
+                      homeTeam={scoreboardData.homeTeam}
+                      awayTeam={scoreboardData.awayTeam}
+                      period={scoreboardData.period}
+                      time={scoreboardData.time}
+                    />
+                  )}
                   {/* Bookmark markers overlaid on the timeline */}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
                     <BookmarkMarkers
@@ -1813,7 +1883,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
                   {/* Chat content */}
                   <div className="flex-1 min-h-0 flex flex-col overflow-hidden -mx-6 pb-[env(safe-area-inset-bottom,0px)]">
-                    {viewer.isUnlocked ? (
+                    {showGuestNamePrompt ? (
+                      <div className="flex-1 flex items-center justify-center p-6">
+                        <GuestNamePrompt 
+                          slug={bootstrap.slug} 
+                          onSubmit={handleGuestNameSubmit}
+                          data-testid="guest-name-prompt-mobile"
+                        />
+                      </div>
+                    ) : viewer.isUnlocked ? (
                       <Chat
                         messages={chatV2.messages}
                         onSend={chatV2.sendMessage}
@@ -1831,7 +1909,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       <div className="flex-1 flex flex-col">
                         <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
                           {chat.error && (
-                            <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">{chat.error}</div>
+                            <ErrorBanner message={chat.error} />
                           )}
                           {chat.messages.length === 0 ? (
                             <p className="text-center text-muted-foreground py-8 text-sm">No messages yet. Be the first to chat!</p>
@@ -1860,7 +1938,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                 <Input name="displayName" type="text" placeholder="Your name" required className="w-full bg-background/80 border-outline text-white placeholder:text-white/50" data-testid="input-name" defaultValue={globalAuth.viewerFirstName && globalAuth.viewerLastName ? `${globalAuth.viewerFirstName} ${globalAuth.viewerLastName}` : globalAuth.viewerFirstName || ''} />
                                 <Input name="email" type="email" placeholder="you@example.com" required className="w-full bg-background/80 border-outline text-white placeholder:text-white/50" data-testid="input-email" defaultValue={globalAuth.viewerEmail || ''} />
                                 <TouchButton type="submit" disabled={viewer.isLoading || globalAuth.isLoading} variant="primary" className="w-full" data-testid="btn-submit-viewer-register">{viewer.isLoading || globalAuth.isLoading ? 'Registering...' : 'Register'}</TouchButton>
-                                {viewer.error && <p className="text-xs text-destructive text-center" role="alert">{viewer.error}</p>}
+                                {viewer.error && (
+                                  <div className="flex justify-center">
+                                    <InlineError message={viewer.error} />
+                                  </div>
+                                )}
                               </form>
                             </div>
                           )}
@@ -1975,7 +2057,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
                     {/* Content */}
                     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                      {viewer.isUnlocked ? (
+                      {showGuestNamePrompt ? (
+                        <div className="flex-1 flex items-center justify-center p-6">
+                          <GuestNamePrompt 
+                            slug={bootstrap.slug} 
+                            onSubmit={handleGuestNameSubmit}
+                            data-testid="guest-name-prompt-desktop"
+                          />
+                        </div>
+                      ) : viewer.isUnlocked ? (
                         <Chat
                           messages={chatV2.messages}
                           onSend={chatV2.sendMessage}
@@ -1993,7 +2083,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         <div className="flex-1 flex flex-col">
                           <div className="flex-1 overflow-y-auto p-4 space-y-2" data-testid="list-chat-messages">
                             {chat.error && (
-                              <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" role="alert">{chat.error}</div>
+                              <ErrorBanner message={chat.error} />
                             )}
                             {chat.messages.length === 0 ? (
                               <p className="text-center text-muted-foreground py-8 text-sm">No messages yet. Be the first to chat!</p>
@@ -2045,7 +2135,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                                     {viewer.isLoading || globalAuth.isLoading ? 'Registering...' : 'Register'}
                                   </TouchButton>
                                   {viewer.error && (
-                                    <p className="text-xs text-destructive text-center" role="alert">{viewer.error}</p>
+                                    <div className="flex justify-center">
+                                      <InlineError message={viewer.error} />
+                                    </div>
                                   )}
                                   <p className="text-xs text-muted-foreground text-center">
                                     We&apos;ll send you a secure link to verify your email. No password required!

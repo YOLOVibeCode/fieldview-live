@@ -33,6 +33,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 const unlockSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -213,13 +214,10 @@ export function ViewerUnlockForm({
             </div>
 
             {error && (
-              <div
+              <ErrorBanner
+                message={error}
                 data-testid="unlock-error"
-                className="bg-destructive/10 text-destructive px-3 py-2 rounded text-sm sm:text-base leading-relaxed"
-                role="alert"
-              >
-                {error}
-              </div>
+              />
             )}
 
             <Button

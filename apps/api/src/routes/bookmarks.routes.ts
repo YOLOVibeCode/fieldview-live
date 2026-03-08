@@ -4,7 +4,7 @@
  * API endpoints for bookmark management + SSE real-time stream.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { DVRService } from '../services/DVRService';
 import { ClipRepository } from '../repositories/ClipRepository';
@@ -18,6 +18,7 @@ import {
 } from '@fieldview/data-model';
 import { getBookmarkPubSub } from '../lib/bookmark-pubsub';
 import { logger } from '../lib/logger';
+import { BadRequestError, NotFoundError } from '../lib/errors';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -93,7 +94,7 @@ router.get('/stream/:slug', (req: Request, res: Response) => {
  * POST /api/bookmarks
  * Create a new bookmark
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = createBookmarkSchema.parse(req.body);
 
@@ -119,10 +120,9 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (error: unknown) {
     const err = error as { name?: string; errors?: unknown };
     if (err.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      next(new BadRequestError('Validation failed', err.errors));
     } else {
-      logger.error({ error }, 'Failed to create bookmark');
-      res.status(500).json({ error: 'Failed to create bookmark' });
+      next(error);
     }
   }
 });
@@ -131,7 +131,7 @@ router.post('/', async (req: Request, res: Response) => {
  * GET /api/bookmarks
  * List bookmarks with filters
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = listBookmarksSchema.parse(req.query);
 
@@ -148,10 +148,9 @@ router.get('/', async (req: Request, res: Response) => {
   } catch (error: unknown) {
     const err = error as { name?: string; errors?: unknown };
     if (err.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      next(new BadRequestError('Validation failed', err.errors));
     } else {
-      logger.error({ error }, 'Failed to list bookmarks');
-      res.status(500).json({ error: 'Failed to list bookmarks' });
+      next(error);
     }
   }
 });
@@ -160,25 +159,23 @@ router.get('/', async (req: Request, res: Response) => {
  * GET /api/bookmarks/:bookmarkId
  * Get bookmark by ID
  */
-router.get('/:bookmarkId', async (req: Request, res: Response) => {
+router.get('/:bookmarkId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
 
     const bookmark = await dvrService.getBookmark(bookmarkId);
 
     if (!bookmark) {
-      res.status(404).json({ error: 'Bookmark not found' });
-      return;
+      throw new NotFoundError('Bookmark not found');
     }
 
     res.status(200).json({ bookmark });
   } catch (error: unknown) {
     const err = error as { name?: string; errors?: unknown };
     if (err.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      next(new BadRequestError('Validation failed', err.errors));
     } else {
-      logger.error({ error }, 'Failed to get bookmark');
-      res.status(500).json({ error: 'Failed to get bookmark' });
+      next(error);
     }
   }
 });
@@ -187,7 +184,7 @@ router.get('/:bookmarkId', async (req: Request, res: Response) => {
  * PATCH /api/bookmarks/:bookmarkId
  * Update bookmark
  */
-router.patch('/:bookmarkId', async (req: Request, res: Response) => {
+router.patch('/:bookmarkId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
     const updates = updateBookmarkSchema.parse(req.body);
@@ -206,10 +203,9 @@ router.patch('/:bookmarkId', async (req: Request, res: Response) => {
   } catch (error: unknown) {
     const err = error as { name?: string; errors?: unknown };
     if (err.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      next(new BadRequestError('Validation failed', err.errors));
     } else {
-      logger.error({ error }, 'Failed to update bookmark');
-      res.status(500).json({ error: 'Failed to update bookmark' });
+      next(error);
     }
   }
 });
@@ -218,7 +214,7 @@ router.patch('/:bookmarkId', async (req: Request, res: Response) => {
  * DELETE /api/bookmarks/:bookmarkId
  * Delete bookmark
  */
-router.delete('/:bookmarkId', async (req: Request, res: Response) => {
+router.delete('/:bookmarkId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
 
@@ -239,10 +235,9 @@ router.delete('/:bookmarkId', async (req: Request, res: Response) => {
   } catch (error: unknown) {
     const err = error as { name?: string; errors?: unknown };
     if (err.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      next(new BadRequestError('Validation failed', err.errors));
     } else {
-      logger.error({ error }, 'Failed to delete bookmark');
-      res.status(500).json({ error: 'Failed to delete bookmark' });
+      next(error);
     }
   }
 });

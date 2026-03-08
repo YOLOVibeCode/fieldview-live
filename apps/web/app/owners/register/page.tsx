@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AbuseDetectedModal, type AbuseMessage } from '@/components/v2/AbuseDetectedModal';
 import { generateFingerprint } from '@/lib/fingerprint';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -266,9 +267,7 @@ export default function OwnerRegisterPage() {
             </div>
 
             {error && (
-              <div role="alert" data-testid="error-form" className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive">
-                {error}
-              </div>
+              <ErrorBanner message={error} onDismiss={() => setError(null)} data-testid="error-form" />
             )}
 
             <Button

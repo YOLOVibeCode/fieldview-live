@@ -14,8 +14,9 @@ import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface Organization {
   id: string;
@@ -79,19 +80,15 @@ export default function CoachDashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Get owner user ID (we'll need to fetch this from a /me endpoint)
-      // For now, we'll fetch memberships for all orgs the user has access to
-      const membershipsResponse = await fetch(`${API_URL}/api/owners/me/memberships`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!membershipsResponse.ok) {
-        throw new Error('Failed to load memberships');
-      }
-
-      const membershipsData = (await membershipsResponse.json()) as { memberships: Membership[] };
+      const membershipsData = await apiRequest<{ memberships: Membership[] }>(
+        '/api/owners/me/memberships',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          retries: 1,
+        }
+      );
       setMemberships(membershipsData.memberships || []);
 
       // Load channels and events for each organization
@@ -101,7 +98,7 @@ export default function CoachDashboardPage() {
         // For now, we'll show a placeholder
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(getUserFriendlyMessage(err));
     } finally {
       setLoading(false);
     }
@@ -140,9 +137,7 @@ export default function CoachDashboardPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-md" data-testid="error-message">
-            {error}
-          </div>
+          <ErrorBanner message={error} onDismiss={() => setError(null)} data-testid="error-message" />
         )}
 
         {memberships.length === 0 ? (

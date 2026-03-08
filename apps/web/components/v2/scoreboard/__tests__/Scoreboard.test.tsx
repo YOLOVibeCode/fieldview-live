@@ -120,5 +120,78 @@ describe('Scoreboard', () => {
       expect(screen.getByLabelText(/scoreboard/i)).toBeInTheDocument();
     });
   });
+
+  describe('error handling', () => {
+    it('should show fetch error banner when error prop is provided', () => {
+      render(<Scoreboard {...defaultProps} error="Server error. Please try again in a moment." />);
+      expect(screen.getByTestId('error-banner')).toBeInTheDocument();
+      expect(screen.getByText('Server error. Please try again in a moment.')).toBeInTheDocument();
+    });
+
+    it('should show dismiss button on error banner', () => {
+      render(<Scoreboard {...defaultProps} error="Network error" onClearError={() => {}} />);
+      const dismissButton = screen.getByTestId('btn-dismiss-error');
+      expect(dismissButton).toBeInTheDocument();
+    });
+
+    it('should dismiss error when dismiss button is clicked', () => {
+      const handleClearError = vi.fn();
+      render(<Scoreboard {...defaultProps} error="Network error" onClearError={handleClearError} />);
+      
+      const dismissButton = screen.getByTestId('btn-dismiss-error');
+      fireEvent.click(dismissButton);
+      
+      expect(handleClearError).toHaveBeenCalled();
+    });
+
+    it('should show save error toast when saveError prop is provided', () => {
+      render(<Scoreboard {...defaultProps} saveError="You do not have permission to edit scores." />);
+      expect(screen.getByTestId('error-toast')).toBeInTheDocument();
+      expect(screen.getByText('You do not have permission to edit scores.')).toBeInTheDocument();
+    });
+
+    it('should auto-dismiss save error after 5 seconds', () => {
+      vi.useFakeTimers();
+      try {
+        const handleClearSaveError = vi.fn();
+        render(
+          <Scoreboard {...defaultProps} saveError="Save failed" onClearSaveError={handleClearSaveError} />
+        );
+        
+        expect(screen.getByTestId('error-toast')).toBeInTheDocument();
+        
+        // Fast-forward 5 seconds
+        vi.advanceTimersByTime(5000);
+        
+        expect(handleClearSaveError).toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should show retry button in error toast', () => {
+      render(<Scoreboard {...defaultProps} saveError="Network error" onRetry={() => {}} />);
+      expect(screen.getByTestId('btn-retry')).toBeInTheDocument();
+    });
+
+    it('should not block score editing when error banner is shown', async () => {
+      const handleUpdate = vi.fn().mockResolvedValue(undefined);
+      const { getAllByTestId } = render(
+        <Scoreboard {...defaultProps} error="Fetch error" editable onScoreUpdate={handleUpdate} />
+      );
+      
+      // Error banner should be visible
+      expect(screen.getByTestId('error-banner')).toBeInTheDocument();
+      
+      // But editing should still work
+      const homeCards = getAllByTestId('score-card-button');
+      expect(homeCards.length).toBeGreaterThan(0);
+      fireEvent.click(homeCards[0]);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Edit Score')).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+  });
 });
 

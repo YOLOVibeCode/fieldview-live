@@ -7,6 +7,7 @@
 
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+import { BadRequestError, NotFoundError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { createNotifyMeService } from '../services/notify-me.implementations';
@@ -42,17 +43,14 @@ router.get(
         const { slug } = req.params;
         const query = NotifyMeStatusQuerySchema.safeParse(req.query);
         if (!query.success) {
-          return res.status(400).json({
-            error: 'Validation failed',
-            details: query.error.errors.map((e) => e.message),
-          });
+          throw new BadRequestError('Validation failed', query.error.errors.map((e) => e.message));
         }
         const result = await notifyMeService.checkSubscription(slug, query.data.viewerIdentityId);
         return res.json(result);
       } catch (error: unknown) {
         const err = error as Error;
         if (err.message?.startsWith('Stream not found')) {
-          return res.status(404).json({ error: err.message });
+          throw new NotFoundError(err.message);
         }
         logger.error({ error, slug: req.params.slug }, 'Failed to check notify-me status');
         next(error);
@@ -74,10 +72,7 @@ router.post(
         const validation = NotifyMePostSchema.safeParse(req.body);
 
         if (!validation.success) {
-          return res.status(400).json({
-            error: 'Validation failed',
-            details: validation.error.errors.map((e) => e.message),
-          });
+          throw new BadRequestError('Validation failed', validation.error.errors.map((e) => e.message));
         }
 
         const { email, viewerIdentityId } = validation.data;
@@ -97,10 +92,10 @@ router.post(
       } catch (error: unknown) {
         const err = error as Error;
         if (err.message?.startsWith('Stream not found')) {
-          return res.status(404).json({ error: err.message });
+          throw new NotFoundError(err.message);
         }
         if (err.message === 'Viewer not found') {
-          return res.status(404).json({ error: err.message });
+          throw new NotFoundError(err.message);
         }
         logger.error({ error, slug: req.params.slug }, 'Failed to process notify-me');
         next(error);
@@ -122,10 +117,7 @@ router.delete(
         const validation = NotifyMeDeleteSchema.safeParse(req.body);
 
         if (!validation.success) {
-          return res.status(400).json({
-            error: 'Validation failed',
-            details: validation.error.errors.map((e) => e.message),
-          });
+          throw new BadRequestError('Validation failed', validation.error.errors.map((e) => e.message));
         }
 
         const result = await notifyMeService.unsubscribe({
@@ -134,7 +126,7 @@ router.delete(
         });
 
         if (result.status === 'not_found') {
-          return res.status(404).json({ error: 'Subscription not found', status: result.status });
+          throw new NotFoundError('Subscription not found');
         }
 
         logger.info(
@@ -146,7 +138,7 @@ router.delete(
       } catch (error: unknown) {
         const err = error as Error;
         if (err.message?.startsWith('Stream not found')) {
-          return res.status(404).json({ error: err.message });
+          throw new NotFoundError(err.message);
         }
         logger.error({ error, slug: req.params.slug }, 'Failed to process notify-me unsubscribe');
         next(error);

@@ -20,7 +20,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { SubscribeForm } from '@/components/SubscribeForm';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, ApiError, apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 /**
  * Public watch link viewer
@@ -194,20 +196,13 @@ export default function WatchLinkPage() {
     setError(null);
     setBootstrap(null);
 
-    const url = new URL(`${API_URL}/api/public/watch-links/${encodeURIComponent(org)}/${encodeURIComponent(team)}`);
-    if (eventCode) url.searchParams.set('code', eventCode);
-
     void (async () => {
       try {
-        const res = await fetch(url.toString(), { method: 'GET' });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-          throw new Error(body?.error?.message || `Failed to load stream (${res.status})`);
-        }
-        const data = (await res.json()) as Bootstrap;
+        const endpoint = `/api/public/watch-links/${encodeURIComponent(org)}/${encodeURIComponent(team)}${eventCode ? `?code=${encodeURIComponent(eventCode)}` : ''}`;
+        const data = await apiRequest<Bootstrap>(endpoint, { retries: 1 });
         if (!cancelled) setBootstrap(data);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load stream');
+        if (!cancelled) setError(getUserFriendlyMessage(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -278,9 +273,7 @@ export default function WatchLinkPage() {
             )}
 
             {error && (
-              <div role="alert" data-testid="error-watch-link" className="rounded-md bg-destructive/10 p-3 sm:p-4 text-sm sm:text-base text-destructive leading-relaxed">
-                {error}
-              </div>
+              <ErrorBanner message={error} onDismiss={() => setError(null)} data-testid="error-watch-link" />
             )}
 
             {/* Paywall - Show when payment required */}
@@ -525,9 +518,7 @@ export default function WatchLinkPage() {
                     })()}
 
                     {checkoutError && (
-                      <div className="rounded-md bg-destructive/10 p-3 sm:p-4 text-sm sm:text-base text-destructive leading-relaxed" role="alert" data-testid="error-checkout">
-                        {checkoutError}
-                      </div>
+                      <ErrorBanner message={checkoutError} onDismiss={() => setCheckoutError(null)} data-testid="error-checkout" />
                     )}
 
                     <Button

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { InlineError } from '@/components/v2/InlineError';
 
 export interface NotifyMeFormProps {
   slug: string;
@@ -41,11 +44,13 @@ export function NotifyMeForm({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(
-          `${apiBase}/api/public/direct/${slug}/notify-me/status?viewerIdentityId=${encodeURIComponent(viewerIdentityId)}`,
+        const data = await apiRequest<{ subscribed?: boolean }>(
+          `/api/public/direct/${slug}/notify-me/status?viewerIdentityId=${encodeURIComponent(viewerIdentityId)}`,
+          {
+            retries: 1,
+          }
         );
-        if (!cancelled && res.ok) {
-          const data = (await res.json()) as { subscribed?: boolean };
+        if (!cancelled) {
           if (data.subscribed) {
             setStatus('success');
           }
@@ -73,21 +78,14 @@ export function NotifyMeForm({
       const body = useId
         ? { viewerIdentityId }
         : { email: effectiveEmail };
-      const res = await fetch(
-        `${apiBase}/api/public/direct/${slug}/notify-me`,
+      const data = await apiRequest<{ status: string; viewerId: string }>(
+        `/api/public/direct/${slug}/notify-me`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-        },
+        }
       );
 
-      if (!res.ok) {
-        setStatus('error');
-        return;
-      }
-
-      const data = (await res.json()) as { status: string; viewerId: string };
       setStatus('success');
       // Only notify parent when user subscribed with email (lightweight registration)
       if (!useId && data.viewerId && effectiveEmail && onViewerCreated) {
@@ -111,17 +109,14 @@ export function NotifyMeForm({
     if (!viewerIdentityId || status === 'loading') return;
     setStatus('loading');
     try {
-      const res = await fetch(
-        `${apiBase}/api/public/direct/${slug}/notify-me`,
+      await apiRequest<void>(
+        `/api/public/direct/${slug}/notify-me`,
         {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ viewerIdentityId }),
-        },
+        }
       );
-      if (res.ok || res.status === 404) {
-        setStatus('idle');
-      }
+      setStatus('idle');
     } catch {
       setStatus('success'); // Keep success UI on network error
     }
@@ -187,9 +182,7 @@ export function NotifyMeForm({
           {status === 'loading' ? 'Subscribing...' : 'Subscribe'}
         </button>
         {status === 'error' && (
-          <p className="text-red-400 text-xs" data-testid="error-notify-me" role="alert">
-            Something went wrong. Please try again.
-          </p>
+          <InlineError message="Something went wrong. Please try again." data-testid="error-notify-me" />
         )}
       </div>
     );
@@ -223,9 +216,9 @@ export function NotifyMeForm({
         {status === 'loading' ? 'Sending...' : 'Notify Me'}
       </button>
       {status === 'error' && (
-        <p id="notify-me-error" className="text-red-400 text-xs" data-testid="error-notify-me" role="alert">
-          Something went wrong. Please try again.
-        </p>
+        <div id="notify-me-error">
+          <InlineError message="Something went wrong. Please try again." data-testid="error-notify-me" />
+        </div>
       )}
     </div>
   );

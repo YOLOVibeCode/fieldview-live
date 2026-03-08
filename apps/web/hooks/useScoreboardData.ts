@@ -3,6 +3,8 @@
  *
  * Fetches scoreboard data from API and provides it in v2 Scoreboard format.
  * Uses SSE for real-time push updates, with polling as fallback.
+ * 
+ * Refactored to use centralized scoreboardApi client with retry logic and error handling.
  *
  * Usage:
  * ```tsx
@@ -23,6 +25,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { TeamData } from '@/components/v2/scoreboard/Scoreboard';
+import { scoreboardApi } from '@/lib/api/scoreboard';
+import { ApiError } from '@/lib/api-client';
+import type { ScoreboardData as ApiScoreboardData } from '@/lib/api/scoreboard/types';
 
 interface UseScoreboardDataOptions {
   slug: string | null;
@@ -48,56 +53,30 @@ interface UseScoreboardDataReturn extends ScoreboardData {
   saveError: string | null;
 }
 
-interface ApiScoreboardResponse {
-  homeTeamName: string;
-  awayTeamName: string;
-  homeJerseyColor: string;
-  awayJerseyColor: string;
-  homeScore: number;
-  awayScore: number;
-  clockMode: string;
-  clockSeconds: number;
-  clockStartedAt: string | null;
-  lastEditedBy: string | null;
-  lastEditedAt: string | null;
-}
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-
 /**
- * Default team colors (cinema theme)
- */
-const DEFAULT_HOME_COLOR = '#3B82F6'; // Blue
-const DEFAULT_AWAY_COLOR = '#EF4444'; // Red
-
-/**
- * Apply a scoreboard data payload to the local state setters.
+ * Apply scoreboard data from API to local state setters.
+ * Also stores raw clock data for live ticking.
  */
 function applyScoreboardData(
-  data: ApiScoreboardResponse,
+  data: ApiScoreboardData,
   setHomeTeam: React.Dispatch<React.SetStateAction<TeamData>>,
   setAwayTeam: React.Dispatch<React.SetStateAction<TeamData>>,
+  setPeriod: React.Dispatch<React.SetStateAction<string | undefined>>,
   setTime: React.Dispatch<React.SetStateAction<string | undefined>>,
+  setClockMode: React.Dispatch<React.SetStateAction<string | undefined>>,
+  setBaseClockSeconds: React.Dispatch<React.SetStateAction<number | undefined>>,
+  setClockStartedAt: React.Dispatch<React.SetStateAction<string | null | undefined>>,
+  rawResponse: any, // ApiScoreboardResponse from API
 ) {
-  setHomeTeam(prev => ({
-    ...prev,
-    name: data.homeTeamName || prev.name,
-    score: data.homeScore ?? prev.score,
-    color: data.homeJerseyColor || prev.color,
-  }));
-
-  setAwayTeam(prev => ({
-    ...prev,
-    name: data.awayTeamName || prev.name,
-    score: data.awayScore ?? prev.score,
-    color: data.awayJerseyColor || prev.color,
-  }));
-
-  if (data.clockMode === 'running' || data.clockSeconds > 0) {
-    const mins = Math.floor(data.clockSeconds / 60);
-    const secs = data.clockSeconds % 60;
-    setTime(`${mins}:${secs.toString().padStart(2, '0')}`);
-  }
+  setHomeTeam(data.homeTeam);
+  setAwayTeam(data.awayTeam);
+  setPeriod(data.period);
+  setTime(data.time);
+  
+  // Store raw clock data for live ticking
+  setClockMode(rawResponse.clockMode);
+  setBaseClockSeconds(rawResponse.clockSeconds);
+  setClockStartedAt(rawResponse.clockStartedAt);
 }
 
 /**
@@ -114,13 +93,13 @@ export function useScoreboardData({
   const [homeTeam, setHomeTeam] = useState<TeamData>({
     name: 'Home',
     score: 0,
-    color: DEFAULT_HOME_COLOR,
+    color: '#3B82F6',
   });
 
   const [awayTeam, setAwayTeam] = useState<TeamData>({
     name: 'Away',
     score: 0,
-    color: DEFAULT_AWAY_COLOR,
+    color: '#EF4444',
   });
 
   const [period, setPeriod] = useState<string | undefined>(undefined);
@@ -129,9 +108,15 @@ export function useScoreboardData({
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const sseConnectedRef = useRef(false);
+  
+  // Raw clock data for live ticking
+  const [clockMode, setClockMode] = useState<string | undefined>(undefined);
+  const [baseClockSeconds, setBaseClockSeconds] = useState<number | undefined>(undefined);
+  const [clockStartedAt, setClockStartedAt] = useState<string | null | undefined>(undefined);
 
   /**
    * Fetch scoreboard data from API (initial load + fallback poll)
+   * Now uses centralized scoreboardApi with retry logic
    */
   const fetchScoreboard = useCallback(async () => {
     if (!slug || !enabled) return;
@@ -140,38 +125,33 @@ export function useScoreboardData({
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard`, {
-        headers: viewerToken
-          ? { Authorization: `Bearer ${viewerToken}` }
-          : {},
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log(`[Scoreboard] No data for ${slug}, using defaults`);
-          setError(null);
-          return;
-        }
-        if (response.status >= 500) {
-          throw new Error(`Failed to fetch scoreboard: ${response.statusText}`);
-        }
-        console.log(`[Scoreboard] Non-critical response ${response.status} for ${slug}, using defaults`);
-        setError(null);
-        return;
-      }
-
-      const data: ApiScoreboardResponse = await response.json();
-      applyScoreboardData(data, setHomeTeam, setAwayTeam, setTime);
+      const data = await scoreboardApi.fetch(slug);
+      applyScoreboardData(
+        data,
+        setHomeTeam,
+        setAwayTeam,
+        setPeriod,
+        setTime,
+        setClockMode,
+        setBaseClockSeconds,
+        setClockStartedAt,
+        {} // No raw response from fetch (only from SSE)
+      );
     } catch (err) {
       console.error('[Scoreboard] Fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [slug, enabled, viewerToken]);
+  }, [slug, enabled]);
 
   /**
    * Update score (for editable scoreboards)
+   * Now uses centralized scoreboardApi with retry logic and user-friendly errors
    */
   const updateScore = useCallback(async (team: 'home' | 'away', newScore: number) => {
     if (!slug) {
@@ -182,32 +162,10 @@ export function useScoreboardData({
     }
 
     try {
-      const field = team === 'home' ? 'homeScore' : 'awayScore';
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      // Prefer admin token over viewer token for Authorization header
-      const authToken = adminToken || viewerToken;
-      if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`;
-      }
-
-      const response = await fetch(`${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard/viewer-update`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          viewerToken: viewerToken || undefined,
-          field,
-          value: newScore,
-        }),
+      const data = await scoreboardApi.updateScore(slug, team, newScore, {
+        viewerToken: viewerToken || undefined,
+        adminToken: adminToken || undefined,
       });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        const msg = body.error || `Failed to update score (${response.status})`;
-        setSaveError(msg);
-        throw new Error(msg);
-      }
 
       // Clear any previous save error on success
       setSaveError(null);
@@ -223,61 +181,79 @@ export function useScoreboardData({
       // If SSE is disconnected, the fallback poll will catch it
     } catch (err) {
       console.error('[Scoreboard] Update error:', err);
-      if (!saveError) {
-        setSaveError(err instanceof Error ? err.message : 'Score update failed');
-      }
+      const errorMessage = err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+        ? err.message
+        : 'Score update failed';
+      setSaveError(errorMessage);
       throw err;
     }
   }, [slug, viewerToken, adminToken, allowAnonymousEdit]);
 
   /**
    * SSE subscription for real-time scoreboard push
+   * Now uses scoreboardApi.streamUpdates() with disconnect/reconnect callbacks
    */
   useEffect(() => {
     if (!enabled || !slug) return;
 
-    const sseUrl = `${API_URL}/api/direct/${encodeURIComponent(slug)}/scoreboard/stream`;
-    let es: EventSource | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
-
-    function connect() {
-      es = new EventSource(sseUrl);
-
-      es.addEventListener('scoreboard_snapshot', (event) => {
-        try {
-          const data: ApiScoreboardResponse = JSON.parse(event.data);
-          applyScoreboardData(data, setHomeTeam, setAwayTeam, setTime);
+    const cleanup = scoreboardApi.streamUpdates(
+      slug,
+      (data, rawResponse) => {
+        applyScoreboardData(
+          data,
+          setHomeTeam,
+          setAwayTeam,
+          setPeriod,
+          setTime,
+          setClockMode,
+          setBaseClockSeconds,
+          setClockStartedAt,
+          rawResponse
+        );
+      },
+      {
+        onDisconnect: () => {
+          sseConnectedRef.current = false;
+        },
+        onReconnect: () => {
           sseConnectedRef.current = true;
-        } catch (err) {
-          console.error('[Scoreboard SSE] snapshot parse error:', err);
-        }
-      });
-
-      es.addEventListener('scoreboard_update', (event) => {
-        try {
-          const data: ApiScoreboardResponse = JSON.parse(event.data);
-          applyScoreboardData(data, setHomeTeam, setAwayTeam, setTime);
-        } catch (err) {
-          console.error('[Scoreboard SSE] update parse error:', err);
-        }
-      });
-
-      es.onerror = () => {
-        sseConnectedRef.current = false;
-        es?.close();
-        // Reconnect after 5s
-        reconnectTimer = setTimeout(connect, 5000);
-      };
-    }
-
-    connect();
+        },
+      }
+    );
 
     return () => {
       sseConnectedRef.current = false;
-      clearTimeout(reconnectTimer);
-      es?.close();
+      cleanup();
     };
   }, [enabled, slug]);
+
+  /**
+   * Live clock tick effect
+   * Updates displayed time every 1s when clockMode === 'running'
+   */
+  useEffect(() => {
+    if (clockMode !== 'running' || baseClockSeconds === undefined || !clockStartedAt) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const elapsedMs = Date.now() - new Date(clockStartedAt).getTime();
+      const totalSeconds = baseClockSeconds + Math.floor(elapsedMs / 1000);
+      
+      // Format as MM:SS
+      const absSeconds = Math.abs(totalSeconds);
+      const minutes = Math.floor(absSeconds / 60);
+      const secs = absSeconds % 60;
+      const sign = totalSeconds < 0 ? '-' : '';
+      const formattedTime = `${sign}${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      
+      setTime(formattedTime);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [clockMode, baseClockSeconds, clockStartedAt]);
 
   /**
    * Initial fetch + fallback polling (only when SSE is disconnected)

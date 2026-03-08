@@ -68,6 +68,7 @@ export function DirectHlsAdminPage(props: {
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setStatus('playing');
+        // Intentional: browser autoplay policy may reject play()
         video.play().catch(() => {
           // Autoplay blocked
         });
@@ -86,6 +87,7 @@ export function DirectHlsAdminPage(props: {
       video.src = url;
       video.addEventListener('loadedmetadata', () => {
         setStatus('playing');
+        // Intentional: browser autoplay policy may reject play()
         void video.play().catch(() => {});
       });
       video.addEventListener('error', () => {

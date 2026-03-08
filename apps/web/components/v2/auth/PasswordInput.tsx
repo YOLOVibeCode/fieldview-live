@@ -21,6 +21,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/v2/primitives';
+import { InlineError } from '@/components/v2/InlineError';
 
 export interface PasswordInputProps {
   name: string;
@@ -134,13 +135,9 @@ export function PasswordInput({
       
       {/* Error Message */}
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-xs text-[var(--fv-color-error)]"
-        >
-          {error}
-        </p>
+        <div id={errorId}>
+          <InlineError message={error} />
+        </div>
       )}
     </div>
   );

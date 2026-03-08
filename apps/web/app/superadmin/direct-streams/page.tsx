@@ -20,6 +20,7 @@ import {
 } from '@tanstack/react-table';
 import { apiRequest, ApiError } from '../../../lib/api-client';
 import { EventManagement } from './EventManagement';
+import { ErrorToast } from '@/components/v2/ErrorToast';
 
 interface DirectStream {
   id: string;
@@ -51,6 +52,7 @@ export default function SuperAdminDirectStreamsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [selectedStream, setSelectedStream] = useState<DirectStream | null>(null);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
 
   // Fetch streams
   const fetchStreams = async () => {
@@ -211,13 +213,15 @@ export default function SuperAdminDirectStreamsPage() {
       window.open(`/${slug}`, '_blank');
     } catch (error) {
       console.error('Failed to impersonate:', error);
-      alert('Failed to generate admin token');
+      setToastError('Failed to generate admin token');
     }
   };
 
   return (
-    <div className="min-h-screen bg-background p-8" data-testid="page-superadmin-streams">
-      <div className="max-w-7xl mx-auto">
+    <>
+      {toastError && <ErrorToast message={toastError} onDismiss={() => setToastError(null)} />}
+      <div className="min-h-screen bg-background p-8" data-testid="page-superadmin-streams">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -367,6 +371,7 @@ export default function SuperAdminDirectStreamsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

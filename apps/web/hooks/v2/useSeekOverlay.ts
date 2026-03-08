@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 export interface UseSeekOverlayOptions {
   /** How long a press must be held to trigger the overlay (ms). Default: 2000 */
   longPressMs?: number;
-  /** How long before the overlay auto-dismisses after no interaction (ms). Default: 5000 */
+  /** How long before the overlay auto-dismisses after no interaction (ms). Default: 3000 */
   autoDismissMs?: number;
 }
 
@@ -24,7 +24,7 @@ export interface UseSeekOverlayReturn {
 
 export function useSeekOverlay({
   longPressMs = 2000,
-  autoDismissMs = 5000,
+  autoDismissMs = 3000,
 }: UseSeekOverlayOptions = {}): UseSeekOverlayReturn {
   const [isVisible, setIsVisible] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

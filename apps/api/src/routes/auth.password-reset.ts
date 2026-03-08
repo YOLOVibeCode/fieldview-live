@@ -2,13 +2,14 @@
  * Password Reset API Routes
  * Public routes for password reset functionality
  */
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { PasswordResetService } from '../services/PasswordResetService';
 import { PasswordResetTokenRepository } from '../repositories/implementations/PasswordResetTokenRepository';
 import { validateRequest } from '../middleware/validation';
 import { z } from 'zod';
 import { logger } from '../lib/logger';
+import { BadRequestError } from '../lib/errors';
 import type { Router as ExpressRouter } from 'express';
 
 const router: ExpressRouter = Router();
@@ -41,7 +42,7 @@ const passwordResetConfirmSchema = z.object({
 router.post(
   '/request',
   validateRequest({ body: passwordResetRequestSchema }),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, userType } = req.body;
       const ipAddress = req.ip || req.socket.remoteAddress;
@@ -62,10 +63,7 @@ router.post(
       return res.status(200).json(result);
     } catch (error) {
       logger.error({ error }, 'Error handling password reset request');
-      return res.status(500).json({
-        success: false,
-        message: 'An error occurred. Please try again later.',
-      });
+      next(error);
     }
   }
 );
@@ -74,16 +72,12 @@ router.post(
  * GET /api/auth/password-reset/verify/:token
  * Verify a password reset token
  */
-router.get('/verify/:token', async (req: Request, res: Response) => {
+router.get('/verify/:token', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { token } = req.params;
 
     if (!token) {
-      return res.status(400).json({
-        valid: false,
-        message: 'Token is required',
-        error: 'TOKEN_REQUIRED',
-      });
+      throw new BadRequestError('Token is required');
     }
 
     const result = await passwordResetService.verifyToken(token);
@@ -91,10 +85,7 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
     return res.status(200).json(result);
   } catch (error) {
     logger.error({ error }, 'Error verifying password reset token');
-    return res.status(500).json({
-      valid: false,
-      error: 'An error occurred. Please try again.',
-    });
+    next(error);
   }
 });
 
@@ -105,7 +96,7 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
 router.post(
   '/confirm',
   validateRequest({ body: passwordResetConfirmSchema }),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { token, newPassword } = req.body;
 
@@ -121,10 +112,7 @@ router.post(
       return res.status(200).json(result);
     } catch (error) {
       logger.error({ error }, 'Error confirming password reset');
-      return res.status(500).json({
-        success: false,
-        error: 'An error occurred. Please try again later.',
-      });
+      next(error);
     }
   }
 );

@@ -4,7 +4,7 @@
  * API endpoints for clip management
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { DVRService } from '../services/DVRService';
 import { ClipRepository } from '../repositories/ClipRepository';
@@ -16,6 +16,7 @@ import {
   listClipsSchema,
   clipIdSchema,
 } from '@fieldview/data-model';
+import { BadRequestError, NotFoundError } from '../lib/errors';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -30,7 +31,7 @@ const dvrService = new DVRService(mockProvider, clipRepo, bookmarkRepo);
  * POST /api/clips
  * Create a new clip from recording
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = createClipSchema.parse(req.body);
 
@@ -53,10 +54,9 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({ clip });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to create clip:', error);
-      res.status(500).json({ error: 'Failed to create clip' });
+      next(error);
     }
   }
 });
@@ -65,7 +65,7 @@ router.post('/', async (req: Request, res: Response) => {
  * POST /api/clips/from-bookmark
  * Create a clip from a bookmark
  */
-router.post('/from-bookmark', async (req: Request, res: Response) => {
+router.post('/from-bookmark', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = createClipFromBookmarkSchema.parse(req.body);
 
@@ -80,10 +80,9 @@ router.post('/from-bookmark', async (req: Request, res: Response) => {
     res.status(201).json({ clip });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to create clip from bookmark:', error);
-      res.status(500).json({ error: 'Failed to create clip from bookmark' });
+      next(error);
     }
   }
 });
@@ -92,7 +91,7 @@ router.post('/from-bookmark', async (req: Request, res: Response) => {
  * GET /api/clips
  * List clips with filters
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = listClipsSchema.parse(req.query);
 
@@ -110,10 +109,9 @@ router.get('/', async (req: Request, res: Response) => {
     res.status(200).json({ clips });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to list clips:', error);
-      res.status(500).json({ error: 'Failed to list clips' });
+      next(error);
     }
   }
 });
@@ -122,24 +120,22 @@ router.get('/', async (req: Request, res: Response) => {
  * GET /api/clips/:clipId
  * Get clip by ID
  */
-router.get('/:clipId', async (req: Request, res: Response) => {
+router.get('/:clipId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
     const clip = await dvrService.getClip(clipId);
 
     if (!clip) {
-      res.status(404).json({ error: 'Clip not found' });
-      return;
+      throw new NotFoundError('Clip not found');
     }
 
     res.status(200).json({ clip });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to get clip:', error);
-      res.status(500).json({ error: 'Failed to get clip' });
+      next(error);
     }
   }
 });
@@ -148,7 +144,7 @@ router.get('/:clipId', async (req: Request, res: Response) => {
  * DELETE /api/clips/:clipId
  * Delete clip
  */
-router.delete('/:clipId', async (req: Request, res: Response) => {
+router.delete('/:clipId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
@@ -157,12 +153,11 @@ router.delete('/:clipId', async (req: Request, res: Response) => {
     res.status(204).send();
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else if (error.message?.includes('not found')) {
-      res.status(404).json({ error: 'Clip not found' });
+      next(new NotFoundError('Clip not found'));
     } else {
-      console.error('Failed to delete clip:', error);
-      res.status(500).json({ error: 'Failed to delete clip' });
+      next(error);
     }
   }
 });
@@ -171,7 +166,7 @@ router.delete('/:clipId', async (req: Request, res: Response) => {
  * POST /api/clips/:clipId/view
  * Track clip view
  */
-router.post('/:clipId/view', async (req: Request, res: Response) => {
+router.post('/:clipId/view', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
@@ -180,10 +175,9 @@ router.post('/:clipId/view', async (req: Request, res: Response) => {
     res.status(200).json({ success: true });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to track view:', error);
-      res.status(500).json({ error: 'Failed to track view' });
+      next(error);
     }
   }
 });
@@ -192,7 +186,7 @@ router.post('/:clipId/view', async (req: Request, res: Response) => {
  * POST /api/clips/:clipId/share
  * Track clip share
  */
-router.post('/:clipId/share', async (req: Request, res: Response) => {
+router.post('/:clipId/share', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
@@ -201,10 +195,9 @@ router.post('/:clipId/share', async (req: Request, res: Response) => {
     res.status(200).json({ success: true });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to track share:', error);
-      res.status(500).json({ error: 'Failed to track share' });
+      next(error);
     }
   }
 });

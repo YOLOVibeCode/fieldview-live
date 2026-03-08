@@ -5,7 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Lock, Play, Pause, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, ArrowLeftRight, Lock, Play, Pause, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { scoreboardApi } from '@/lib/api/scoreboard';
 
 interface GameScoreboard {
   id: string;
@@ -39,36 +43,45 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+  const [awayColorTouched, setAwayColorTouched] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Fetch scoreboard data
   useEffect(() => {
     fetchScoreboard();
   }, [slug]);
 
+  // Subscribe to real-time scoreboard updates
+  useEffect(() => {
+    if (!slug || !scoreboard) return;
+    
+    const cleanup = scoreboardApi.streamUpdates(slug, (data) => {
+      // Only apply updates if not actively editing
+      if (!isEditing) {
+        setScoreboard(prev => prev ? {
+          ...prev,
+          homeTeamName: data.homeTeam.name,
+          awayTeamName: data.awayTeam.name,
+          homeScore: data.homeTeam.score,
+          awayScore: data.awayTeam.score,
+          homeJerseyColor: data.homeTeam.color,
+          awayJerseyColor: data.awayTeam.color,
+        } : null);
+      }
+    });
+    
+    return cleanup;
+  }, [slug, isEditing, scoreboard]);
+
   const fetchScoreboard = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`);
       
-      // Handle 404 gracefully - no scoreboard is not an error
-      if (response.status === 404) {
-        console.log('[SocialProducerPanel] No scoreboard found, showing empty state');
-        setScoreboard(null);
-        setError(null);
-        setLoading(false);
-        return;
-      }
+      const data = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard`, { retries: 1 });
       
-      if (!response.ok) {
-        // Only show error for actual errors (5xx), not missing data
-        throw new Error(`Failed to load scoreboard: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       setScoreboard(data);
       setError(null);
+      setAwayColorTouched(false);
       
       // Check if panel is publicly accessible
       if (data.editMode === 'public') {
@@ -76,11 +89,13 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
       }
     } catch (err) {
       // Only set error for real errors, not missing data or network issues
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      if (errorMessage.includes('Failed to fetch')) {
-        console.warn('[SocialProducerPanel] Network error, will retry:', errorMessage);
-        setError(null); // Don't show red error for network issues
+      if (err.status === 404) {
+        console.log('[SocialProducerPanel] No scoreboard found, showing empty state');
+        setScoreboard(null);
+        setError(null);
       } else {
+        const errorMessage = getUserFriendlyMessage(err);
+        console.warn('[SocialProducerPanel] Error fetching scoreboard:', errorMessage);
         setError(errorMessage);
       }
     } finally {
@@ -101,21 +116,15 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
     // For password-protected panels
     if (scoreboard.editMode === 'password') {
       try {
-        const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard/validate`, {
+        await apiRequest<void>(`/api/direct/${slug}/scoreboard/validate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ producerPassword: password }),
         });
-
-        if (!response.ok) {
-          setPasswordError('Incorrect password');
-          return;
-        }
 
         setIsLocked(false);
         setPasswordError(null);
       } catch (err) {
-        setPasswordError('Failed to validate password');
+        setPasswordError(getUserFriendlyMessage(err));
       }
     }
   };
@@ -125,9 +134,7 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
 
     try {
       setSaving(true);
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+      const headers: Record<string, string> = {};
 
       // Include admin JWT if available
       if (isAdmin && adminJwt) {
@@ -140,20 +147,15 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
         body.producerPassword = password;
       }
 
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`, {
+      const updated = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update scoreboard');
-      }
-
-      const updated = await response.json();
       setScoreboard(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update');
+      setError(getUserFriendlyMessage(err));
     } finally {
       setSaving(false);
     }
@@ -161,9 +163,7 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
 
   const controlClock = async (action: 'start' | 'pause' | 'reset') => {
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+      const headers: Record<string, string> = {};
 
       if (isAdmin && adminJwt) {
         headers['Authorization'] = `Bearer ${adminJwt}`;
@@ -174,20 +174,15 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
         body.producerPassword = password;
       }
 
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard/clock/${action}`, {
+      const updated = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard/clock/${action}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to ${action} clock`);
-      }
-
-      const updated = await response.json();
       setScoreboard(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to ${action} clock`);
+      setError(getUserFriendlyMessage(err));
     }
   };
 
@@ -330,14 +325,15 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
       </CardHeader>
       <CardContent className="space-y-6">
         {error && (
-          <div data-testid="error-update" className="flex items-center gap-2 text-destructive text-sm" role="alert">
-            <AlertCircle className="h-4 w-4" />
-            <p>{error}</p>
-          </div>
+          <ErrorBanner
+            message={error}
+            onDismiss={() => setError(null)}
+            data-testid="error-update"
+          />
         )}
 
         {/* Team Names and Colors */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2">
           <div className="space-y-2">
             <Label htmlFor="home-team-name">Home Team</Label>
             <Input
@@ -345,6 +341,8 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
               data-testid="input-home-team-name"
               value={scoreboard.homeTeamName}
               onChange={(e) => updateScoreboard({ homeTeamName: e.target.value })}
+              onFocus={() => setIsEditing(true)}
+              onBlur={() => setIsEditing(false)}
               disabled={saving}
             />
             <Label htmlFor="home-jersey-color">Jersey Color</Label>
@@ -354,7 +352,12 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
                 data-testid="input-home-jersey-color"
                 type="color"
                 value={scoreboard.homeJerseyColor}
-                onChange={(e) => updateScoreboard({ homeJerseyColor: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  updateScoreboard(!awayColorTouched ? { homeJerseyColor: v, awayJerseyColor: '#FFFFFF' } : { homeJerseyColor: v });
+                }}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => setIsEditing(false)}
                 disabled={saving}
                 className="w-20 h-10"
               />
@@ -362,12 +365,38 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
                 data-testid="input-home-jersey-color-text"
                 type="text"
                 value={scoreboard.homeJerseyColor}
-                onChange={(e) => updateScoreboard({ homeJerseyColor: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  updateScoreboard(!awayColorTouched ? { homeJerseyColor: v, awayJerseyColor: '#FFFFFF' } : { homeJerseyColor: v });
+                }}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => setIsEditing(false)}
                 disabled={saving}
                 placeholder="#1E40AF"
               />
             </div>
           </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 shrink-0 self-end"
+            onClick={() => {
+              updateScoreboard({
+                homeTeamName: scoreboard.awayTeamName,
+                awayTeamName: scoreboard.homeTeamName,
+                homeJerseyColor: scoreboard.awayJerseyColor,
+                awayJerseyColor: scoreboard.homeJerseyColor,
+              });
+              setAwayColorTouched(true);
+            }}
+            disabled={saving}
+            data-testid="btn-swap-colors"
+            aria-label="Swap home and away"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+          </Button>
 
           <div className="space-y-2">
             <Label htmlFor="away-team-name">Away Team</Label>
@@ -376,6 +405,8 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
               data-testid="input-away-team-name"
               value={scoreboard.awayTeamName}
               onChange={(e) => updateScoreboard({ awayTeamName: e.target.value })}
+              onFocus={() => setIsEditing(true)}
+              onBlur={() => setIsEditing(false)}
               disabled={saving}
             />
             <Label htmlFor="away-jersey-color">Jersey Color</Label>
@@ -385,7 +416,12 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
                 data-testid="input-away-jersey-color"
                 type="color"
                 value={scoreboard.awayJerseyColor}
-                onChange={(e) => updateScoreboard({ awayJerseyColor: e.target.value })}
+                onChange={(e) => {
+                  setAwayColorTouched(true);
+                  updateScoreboard({ awayJerseyColor: e.target.value });
+                }}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => setIsEditing(false)}
                 disabled={saving}
                 className="w-20 h-10"
               />
@@ -393,9 +429,14 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
                 data-testid="input-away-jersey-color-text"
                 type="text"
                 value={scoreboard.awayJerseyColor}
-                onChange={(e) => updateScoreboard({ awayJerseyColor: e.target.value })}
+                onChange={(e) => {
+                  setAwayColorTouched(true);
+                  updateScoreboard({ awayJerseyColor: e.target.value });
+                }}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => setIsEditing(false)}
                 disabled={saving}
-                placeholder="#DC2626"
+                placeholder="#FFFFFF"
               />
             </div>
           </div>
@@ -421,6 +462,8 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
                 type="number"
                 value={scoreboard.homeScore}
                 onChange={(e) => updateScoreboard({ homeScore: parseInt(e.target.value) || 0 })}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => setIsEditing(false)}
                 disabled={saving}
                 className="text-center text-2xl font-bold"
                 aria-label="Home team score"
@@ -456,6 +499,8 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
                 type="number"
                 value={scoreboard.awayScore}
                 onChange={(e) => updateScoreboard({ awayScore: parseInt(e.target.value) || 0 })}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => setIsEditing(false)}
                 disabled={saving}
                 className="text-center text-2xl font-bold"
                 aria-label="Away team score"

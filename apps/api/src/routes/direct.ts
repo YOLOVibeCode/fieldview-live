@@ -10,6 +10,7 @@ import { generateViewerToken } from '../lib/viewer-jwt';
 import { verifyToken } from '../lib/jwt';
 import { ensureGameForDirectStream } from '../lib/ensure-game';
 import { getChatPubSub } from '../lib/chat-pubsub';
+import { NotFoundError, BadRequestError, UnauthorizedError, AppError } from '../lib/errors';
 import {
   SavePaymentMethodSchema,
   GetPaymentMethodsQuerySchema,
@@ -60,7 +61,7 @@ router.get(
         const { slug } = req.params;
         
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         const key = slug.toLowerCase();
@@ -108,7 +109,7 @@ router.get(
           });
 
           if (!defaultOwner) {
-            return res.status(500).json({ error: 'No owner account found. Please create an owner account first.' });
+            throw new AppError('INTERNAL_ERROR', 'No owner account found. Please create an owner account first.', 500);
           }
 
           // Find or create a game for chat
@@ -222,7 +223,7 @@ router.post(
         const { slug } = req.params;
         
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         const key = slug.toLowerCase();
@@ -242,7 +243,7 @@ router.post(
         });
 
         if (!directStream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Optional: accept OwnerUser JWT as alternative to password
@@ -255,7 +256,7 @@ router.post(
             const jwtSecret = process.env.JWT_SECRET;
             if (!jwtSecret) {
               logger.error('JWT_SECRET not configured');
-              return res.status(500).json({ error: 'Server configuration error' });
+              throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
             }
             const token = jwt.sign(
               { slug: key, role: 'admin' },
@@ -300,22 +301,19 @@ router.post(
         });
         const parsed = schema.safeParse(req.body);
         if (!parsed.success) {
-          return res.status(400).json({ 
-            error: 'Invalid request', 
-            details: parsed.error.errors 
-          });
+          throw new BadRequestError('Invalid request', parsed.error.errors);
         }
         const { password } = parsed.data;
         const isValid = await bcrypt.compare(password, directStream.adminPassword);
         if (!isValid) {
-          return res.status(401).json({ error: 'Invalid password' });
+          throw new UnauthorizedError('Invalid password');
         }
 
         // Generate admin JWT token
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) {
           logger.error('JWT_SECRET not configured');
-          return res.status(500).json({ error: 'Server configuration error' });
+          throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
         }
 
         const token = jwt.sign(
@@ -376,7 +374,7 @@ router.post(
         const { slug } = req.params;
         
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         // Validate request body (password no longer required)
@@ -407,10 +405,7 @@ router.post(
 
         const parsed = schema.safeParse(req.body);
         if (!parsed.success) {
-          return res.status(400).json({ 
-            error: 'Invalid request', 
-            details: parsed.error.errors 
-          });
+          throw new BadRequestError('Invalid request', parsed.error.errors);
         }
 
         const body = parsed.data;
@@ -422,7 +417,7 @@ router.post(
         });
 
         if (!existingStream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Build update data (ISP: only update provided fields)
@@ -523,7 +518,7 @@ router.post(
         });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return res.status(400).json({ error: 'Invalid request', details: error.errors });
+          throw new BadRequestError('Invalid request', error.errors);
         }
         logger.error({ error, slug: req.params.slug }, 'Failed to update settings');
         next(error);
@@ -544,11 +539,11 @@ router.post(
       try {
         const slug = (req.params.slug ?? '').toLowerCase();
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
         const parsed = AdminBroadcastSchema.safeParse(req.body);
         if (!parsed.success) {
-          return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+          throw new BadRequestError('Invalid request', parsed.error.errors);
         }
         const { message } = parsed.data;
 
@@ -557,7 +552,7 @@ router.post(
           select: { gameId: true },
         });
         if (!directStream?.gameId) {
-          return res.status(400).json({ error: 'Stream has no chat game linked; cannot broadcast' });
+          throw new BadRequestError('Stream has no chat game linked; cannot broadcast');
         }
 
         const pubsub = getChatPubSub();
@@ -582,7 +577,7 @@ router.get(
         const { slug } = req.params;
         
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         const key = slug.toLowerCase();
@@ -595,7 +590,7 @@ router.get(
           return res.json({ streamUrl: directStream.streamUrl });
         }
 
-        res.status(404).json({ error: 'No stream configured' });
+        throw new NotFoundError('No stream configured');
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get stream URL');
         next(error);
@@ -614,11 +609,11 @@ router.post(
         const { streamUrl, password } = req.body;
         
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
         
         if (!streamUrl || typeof streamUrl !== 'string') {
-          return res.status(400).json({ error: 'streamUrl is required' });
+          throw new BadRequestError('streamUrl is required');
         }
 
         const key = slug.toLowerCase();
@@ -631,12 +626,12 @@ router.post(
         if (existingStream) {
           // Validate password for existing stream
           if (!password) {
-            return res.status(401).json({ error: 'Password required' });
+            throw new UnauthorizedError('Password required');
           }
           const isValid = await bcrypt.compare(password, existingStream.adminPassword);
           if (!isValid) {
             logger.warn({ slug }, 'Invalid password attempt (legacy endpoint)');
-          return res.status(401).json({ error: 'Invalid password' });
+            throw new UnauthorizedError('Invalid password');
           }
           
           // Update existing stream
@@ -655,7 +650,7 @@ router.post(
         });
 
         if (!defaultOwner) {
-          return res.status(500).json({ error: 'No owner account found' });
+          throw new AppError('INTERNAL_ERROR', 'No owner account found', 500);
         }
 
         const defaultHashedPassword = await bcrypt.hash(password || 'admin2026', 10);
@@ -695,7 +690,7 @@ router.post(
         
         if (!slug) {
           console.log('[CHECKOUT] ERROR: No slug');
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
         
         // Validate request body
@@ -703,10 +698,7 @@ router.post(
         const validation = DirectStreamCheckoutSchema.safeParse(req.body);
         if (!validation.success) {
           console.log('[CHECKOUT] Validation failed:', validation.error);
-          return res.status(400).json({ 
-            error: 'Invalid request',
-            details: validation.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')
-          });
+          throw new BadRequestError('Invalid request', validation.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', '));
         }
 
         const { email, firstName, lastName, phone, returnUrl } = validation.data;
@@ -751,14 +743,8 @@ router.post(
           email: req.body?.email
         }, 'Failed to create checkout session');
         
-        // Return user-friendly error messages
-        if (error.name === 'NotFoundError') {
-          return res.status(404).json({ error: error.message });
-        }
-        if (error.name === 'BadRequestError') {
-          return res.status(400).json({ error: error.message });
-        }
-        
+        // AppError instances are already thrown and handled by middleware
+        // Just pass them through to next()
         next(error);
       }
     })();
@@ -775,7 +761,7 @@ router.get(
         
         const validation = GetPaymentMethodsQuerySchema.safeParse(req.query);
         if (!validation.success) {
-          return res.status(400).json({ error: 'Email parameter is required' });
+          throw new BadRequestError('Email parameter is required');
         }
 
         const { email } = validation.data;
@@ -786,7 +772,7 @@ router.get(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Find viewer by email
@@ -845,10 +831,7 @@ router.post(
 
         const validation = SavePaymentMethodSchema.safeParse(req.body);
         if (!validation.success) {
-          return res.status(400).json({
-            error: 'Invalid request',
-            details: validation.error.errors,
-          });
+          throw new BadRequestError('Invalid request', validation.error.errors);
         }
 
         const { email, firstName, lastName, squareCustomerId } = validation.data;
@@ -859,7 +842,7 @@ router.post(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Find or create owner account (for ViewerSquareCustomer relation)
@@ -868,7 +851,7 @@ router.post(
         });
 
         if (!owner) {
-          return res.status(500).json({ error: 'No owner account found' });
+          throw new AppError('INTERNAL_ERROR', 'No owner account found', 500);
         }
 
         // Find or create viewer
@@ -934,7 +917,7 @@ router.get(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Get viewers active within last 2 minutes, scoped to this stream
@@ -994,7 +977,7 @@ router.post(
         const { email, firstName, lastName } = req.body;
 
         if (!email) {
-          return res.status(400).json({ error: 'Email is required' });
+          throw new BadRequestError('Email is required');
         }
 
         // Check if stream exists
@@ -1003,7 +986,7 @@ router.post(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Upsert viewer with updated lastSeenAt
@@ -1052,11 +1035,7 @@ router.get(
         });
 
         if (!stream) {
-          return res.status(404).json({
-            error: 'Stream not found',
-            hasAccess: false,
-            reason: 'stream_not_found',
-          });
+          throw new NotFoundError('Stream not found');
         }
 
         // 2. If paywall not enabled, allow access
@@ -1155,10 +1134,10 @@ router.get(
 // GET /api/direct/:slug/viewer-count - Get live viewer count (public, no auth)
 router.get(
   '/:slug/viewer-count',
-  (req: Request, res: Response) => {
+  (req: Request, res: Response, next: NextFunction) => {
     const { slug } = req.params;
     if (!slug) {
-      return res.status(400).json({ error: 'Slug is required' });
+      throw new BadRequestError('Slug is required');
     }
 
     // Look up the game for this stream and count SSE subscribers

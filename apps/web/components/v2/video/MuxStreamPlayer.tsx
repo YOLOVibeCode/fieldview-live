@@ -132,6 +132,13 @@ export function MuxStreamPlayer({
     }
   }, []);
 
+  const handleGoToStart = useCallback(() => {
+    const player = playerRef.current;
+    if (player) {
+      player.currentTime = 0;
+    }
+  }, []);
+
   // Go Live logic
   const showGoLive =
     (streamType.includes('dvr') || streamType.includes('live')) &&
@@ -172,6 +179,8 @@ export function MuxStreamPlayer({
       <SeekOverlay
         onSeek={handleSeek}
         onTogglePause={handleTogglePause}
+        onGoToStart={handleGoToStart}
+        onGoLive={handleGoLive}
         isPaused={isPaused}
       />
       <GoLiveButton visible={showGoLive} onClick={handleGoLive} />

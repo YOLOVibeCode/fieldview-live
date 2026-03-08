@@ -5,6 +5,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { BadRequestError, NotFoundError, ForbiddenError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { DirectStreamEventRepository } from '../repositories/DirectStreamEventRepository';
 import { DirectStreamEventService } from '../services/DirectStreamEventService';
@@ -31,7 +32,7 @@ router.get(
       try {
         const { slug, eventSlug } = req.params;
         if (!slug || !eventSlug) {
-          return res.status(400).json({ error: 'slug and eventSlug are required' });
+          throw new BadRequestError('slug and eventSlug are required');
         }
         
         logger.info({ slug, eventSlug }, 'Fetching event bootstrap config');
@@ -39,12 +40,12 @@ router.get(
         const config = await eventService.getEffectiveConfig(slug, eventSlug);
         
         if (!config) {
-          return res.status(404).json({ error: 'Event not found' });
+          throw new NotFoundError('Event not found');
         }
         
         // Check if event is listed (public) or if viewer has access
         if (!config.allowAnonymousView && !req.query.token) {
-          return res.status(403).json({ error: 'Authentication required' });
+          throw new ForbiddenError('Authentication required');
         }
         
         // Transform to Bootstrap format (flat structure expected by frontend)

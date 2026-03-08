@@ -28,6 +28,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -148,20 +150,17 @@ export function usePaywall({
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/public/direct/${slug}/bootstrap`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch paywall config: ${response.statusText}`);
-      }
-
-      const data: PaywallConfigResponse = await response.json();
+      const data = await apiRequest<PaywallConfigResponse>(
+        `/api/public/direct/${slug}/bootstrap`,
+        { retries: 1 }
+      );
       
       setPaywallEnabled(data.paywallEnabled || false);
       setPriceInCents(data.priceInCents || 0);
       setCustomMessage(data.paywallMessage || null);
       setAllowSavePayment(data.allowSavePayment || false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = getUserFriendlyMessage(err);
       console.error('[usePaywall] Fetch error:', errorMessage);
       setError(errorMessage);
     } finally {

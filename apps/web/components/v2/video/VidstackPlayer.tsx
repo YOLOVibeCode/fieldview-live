@@ -116,6 +116,20 @@ export function VidstackPlayer({
     }
   }, [playerRef]);
 
+  const handleGoToStart = useCallback(() => {
+    const player = playerRef.current;
+    if (player) {
+      player.currentTime = 0;
+    }
+  }, [playerRef]);
+
+  const handleGoLive = useCallback(() => {
+    const player = playerRef.current;
+    if (player && Number.isFinite(player.duration)) {
+      player.currentTime = player.duration;
+    }
+  }, [playerRef]);
+
   return (
     <MediaPlayer
       ref={playerRef}
@@ -154,6 +168,8 @@ export function VidstackPlayer({
       <SeekOverlay
         onSeek={handleSeek}
         onTogglePause={handleTogglePause}
+        onGoToStart={handleGoToStart}
+        onGoLive={handleGoLive}
         isPaused={isPaused}
       />
 

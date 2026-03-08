@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { TouchButton } from './primitives/TouchButton';
 import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api-client';
+import { InlineError } from '@/components/v2/InlineError';
 
 export interface ComingSoonModalProps {
   isOpen: boolean;
@@ -157,9 +158,9 @@ export function ComingSoonModal({
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-500 text-center" data-testid="error-message">
-                    {error}
-                  </p>
+                  <div className="flex justify-center">
+                    <InlineError message={error} data-testid="error-message" />
+                  </div>
                 )}
 
                 <TouchButton

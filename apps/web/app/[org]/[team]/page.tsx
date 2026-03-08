@@ -67,6 +67,7 @@ export default function OrgTeamStreamPage() {
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setStatus('playing');
+        // Intentional: browser autoplay policy may reject play()
         video.play().catch(() => {});
       });
 
@@ -81,6 +82,7 @@ export default function OrgTeamStreamPage() {
       video.src = url;
       video.addEventListener('loadedmetadata', () => {
         setStatus('playing');
+        // Intentional: browser autoplay policy may reject play()
         video.play().catch(() => {});
       });
       video.addEventListener('error', () => setStatus('error'));

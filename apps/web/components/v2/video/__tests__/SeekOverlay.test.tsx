@@ -5,63 +5,86 @@ import { SeekOverlay } from '../SeekOverlay';
 describe('SeekOverlay', () => {
   const onSeek = vi.fn();
   const onTogglePause = vi.fn();
+  const onGoToStart = vi.fn();
+  const onGoLive = vi.fn();
+
+  const defaultProps = {
+    onSeek,
+    onTogglePause,
+    onGoToStart,
+    onGoLive,
+    isPaused: false,
+  };
 
   beforeEach(() => {
     vi.useFakeTimers();
     onSeek.mockClear();
     onTogglePause.mockClear();
+    onGoToStart.mockClear();
+    onGoLive.mockClear();
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('does not show buttons initially', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
-    expect(screen.queryByTestId('seek-overlay-buttons')).not.toBeInTheDocument();
+  /** Helper: the backdrop has opacity-0 when hidden, opacity-100 when visible */
+  function expectHidden() {
+    const backdrop = screen.getByTestId('seek-overlay-backdrop');
+    expect(backdrop.className).toContain('opacity-0');
+  }
+
+  function expectVisible() {
+    const backdrop = screen.getByTestId('seek-overlay-backdrop');
+    expect(backdrop.className).toContain('opacity-100');
+  }
+
+  it('starts hidden (opacity-0)', () => {
+    render(<SeekOverlay {...defaultProps} />);
+    expectHidden();
   });
 
   it('shows buttons when center trigger is clicked', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
   });
 
   it('dismisses when backdrop is clicked', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
 
-    // Click directly on the backdrop (not on a button)
     fireEvent.click(screen.getByTestId('seek-overlay-backdrop'));
-    expect(screen.queryByTestId('seek-overlay-buttons')).not.toBeInTheDocument();
+    expectHidden();
   });
 
-  it('toggles visibility on repeated center taps', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+  it('toggles visibility on repeated center taps and backdrop clicks', () => {
+    render(<SeekOverlay {...defaultProps} />);
     const trigger = screen.getByTestId('seek-overlay-trigger');
 
     fireEvent.click(trigger);
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
 
-    // The trigger zone is behind the backdrop when visible, so tapping trigger again
-    // won't directly work. Instead, click backdrop to dismiss.
     fireEvent.click(screen.getByTestId('seek-overlay-backdrop'));
-    expect(screen.queryByTestId('seek-overlay-buttons')).not.toBeInTheDocument();
+    expectHidden();
   });
 
-  it('calls onSeek with correct deltas for each button', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+  it('renders all 9 segment buttons', () => {
+    render(<SeekOverlay {...defaultProps} />);
+    expect(screen.getByTestId('seek-overlay-btn-start')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn--30')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn--10')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn--1')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn-pause')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn-1')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn-10')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn-30')).toBeInTheDocument();
+    expect(screen.getByTestId('seek-overlay-btn-live')).toBeInTheDocument();
+  });
+
+  it('calls onSeek with correct deltas for seek buttons', () => {
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
 
     fireEvent.click(screen.getByTestId('seek-overlay-btn--30'));
@@ -84,85 +107,99 @@ describe('SeekOverlay', () => {
   });
 
   it('calls onTogglePause when pause button is clicked', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
     fireEvent.click(screen.getByTestId('seek-overlay-btn-pause'));
     expect(onTogglePause).toHaveBeenCalledTimes(1);
     expect(onSeek).not.toHaveBeenCalled();
   });
 
-  it('shows PLAY label when isPaused is true', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={true} />
-    );
+  it('calls onGoToStart when start button is clicked', () => {
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
-    const btn = screen.getByTestId('seek-overlay-btn-pause');
-    expect(btn.textContent).toBe('PLAY');
+    fireEvent.click(screen.getByTestId('seek-overlay-btn-start'));
+    expect(onGoToStart).toHaveBeenCalledTimes(1);
+    expect(onSeek).not.toHaveBeenCalled();
   });
 
-  it('shows PAUSE label when isPaused is false', () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+  it('calls onGoLive when live button is clicked', () => {
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
-    const btn = screen.getByTestId('seek-overlay-btn-pause');
-    expect(btn.textContent).toBe('PAUSE');
+    fireEvent.click(screen.getByTestId('seek-overlay-btn-live'));
+    expect(onGoLive).toHaveBeenCalledTimes(1);
+    expect(onSeek).not.toHaveBeenCalled();
   });
 
-  it('auto-dismisses after 5 seconds of inactivity', async () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+  it('pause button has aria-label "Play" when isPaused is true', () => {
+    render(<SeekOverlay {...defaultProps} isPaused={true} />);
+    const btn = screen.getByTestId('seek-overlay-btn-pause');
+    expect(btn.getAttribute('aria-label')).toBe('Play');
+  });
+
+  it('pause button has aria-label "Pause" when isPaused is false', () => {
+    render(<SeekOverlay {...defaultProps} isPaused={false} />);
+    const btn = screen.getByTestId('seek-overlay-btn-pause');
+    expect(btn.getAttribute('aria-label')).toBe('Pause');
+  });
+
+  it('auto-dismisses after 3 seconds of inactivity', async () => {
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(3000);
     });
-    expect(screen.queryByTestId('seek-overlay-buttons')).not.toBeInTheDocument();
+    expectHidden();
   });
 
   it('button press resets auto-dismiss timer', async () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+    render(<SeekOverlay {...defaultProps} />);
     fireEvent.click(screen.getByTestId('seek-overlay-trigger'));
 
-    // Advance 4 seconds
+    // Advance 2 seconds
     await act(async () => {
-      vi.advanceTimersByTime(4000);
+      vi.advanceTimersByTime(2000);
     });
-    // Press a button — should reset the timer
+    // Press a button - should reset the timer
     fireEvent.click(screen.getByTestId('seek-overlay-btn--1'));
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
 
-    // Advance another 4 seconds (total 8s from start, but 4s from last action)
+    // Advance 2.5 seconds (not yet 3s since last action)
     await act(async () => {
-      vi.advanceTimersByTime(4000);
+      vi.advanceTimersByTime(2500);
     });
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
 
-    // Advance 1 more second (5s since last button press)
+    // Advance 0.5 more seconds (3s since last button press)
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(500);
     });
-    expect(screen.queryByTestId('seek-overlay-buttons')).not.toBeInTheDocument();
+    expectHidden();
   });
 
   it('long press (2s) shows the overlay', async () => {
-    render(
-      <SeekOverlay onSeek={onSeek} onTogglePause={onTogglePause} isPaused={false} />
-    );
+    render(<SeekOverlay {...defaultProps} />);
     const zone = screen.getByTestId('seek-overlay-longpress-zone');
 
     fireEvent.pointerDown(zone, { button: 0 });
     await act(async () => {
       vi.advanceTimersByTime(2000);
     });
-    expect(screen.getByTestId('seek-overlay-buttons')).toBeInTheDocument();
+    expectVisible();
 
     fireEvent.pointerUp(zone);
+  });
+
+  it('pointer-events-none on root container by default', () => {
+    render(<SeekOverlay {...defaultProps} />);
+    const root = screen.getByTestId('seek-overlay-root');
+    expect(root.className).toContain('pointer-events-none');
+  });
+
+  it('long-press zone excludes bottom 60px for native controls', () => {
+    render(<SeekOverlay {...defaultProps} />);
+    const zone = screen.getByTestId('seek-overlay-longpress-zone');
+    expect(zone.className).toContain('bottom-[60px]');
   });
 });

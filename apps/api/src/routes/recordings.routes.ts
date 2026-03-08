@@ -4,7 +4,7 @@
  * API endpoints for recording management
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { DVRService } from '../services/DVRService';
 import { ClipRepository } from '../repositories/ClipRepository';
@@ -14,6 +14,7 @@ import {
   startRecordingSchema,
   recordingIdSchema,
 } from '@fieldview/data-model';
+import { BadRequestError, NotFoundError } from '../lib/errors';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -28,7 +29,7 @@ const dvrService = new DVRService(mockProvider, clipRepo, bookmarkRepo);
  * POST /api/recordings/start
  * Start a new recording
  */
-router.post('/start', async (req: Request, res: Response) => {
+router.post('/start', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = startRecordingSchema.parse(req.body);
 
@@ -37,10 +38,9 @@ router.post('/start', async (req: Request, res: Response) => {
     res.status(200).json(result);
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else {
-      console.error('Failed to start recording:', error);
-      res.status(500).json({ error: 'Failed to start recording' });
+      next(error);
     }
   }
 });
@@ -49,7 +49,7 @@ router.post('/start', async (req: Request, res: Response) => {
  * POST /api/recordings/:recordingId/stop
  * Stop a recording
  */
-router.post('/:recordingId/stop', async (req: Request, res: Response) => {
+router.post('/:recordingId/stop', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { recordingId } = recordingIdSchema.parse(req.params);
 
@@ -58,12 +58,11 @@ router.post('/:recordingId/stop', async (req: Request, res: Response) => {
     res.status(200).json({ success: true });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else if (error.message?.includes('not found')) {
-      res.status(404).json({ error: 'Recording not found' });
+      next(new NotFoundError('Recording not found'));
     } else {
-      console.error('Failed to stop recording:', error);
-      res.status(500).json({ error: 'Failed to stop recording' });
+      next(error);
     }
   }
 });
@@ -72,7 +71,7 @@ router.post('/:recordingId/stop', async (req: Request, res: Response) => {
  * GET /api/recordings/:recordingId/status
  * Get recording status
  */
-router.get('/:recordingId/status', async (req: Request, res: Response) => {
+router.get('/:recordingId/status', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { recordingId } = recordingIdSchema.parse(req.params);
 
@@ -81,12 +80,11 @@ router.get('/:recordingId/status', async (req: Request, res: Response) => {
     res.status(200).json(status);
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      next(new BadRequestError('Validation failed', error.errors));
     } else if (error.message?.includes('not found')) {
-      res.status(404).json({ error: 'Recording not found' });
+      next(new NotFoundError('Recording not found'));
     } else {
-      console.error('Failed to get recording status:', error);
-      res.status(500).json({ error: 'Failed to get recording status' });
+      next(error);
     }
   }
 });

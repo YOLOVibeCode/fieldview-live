@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCreateBookmark, type VideoBookmark } from '@/lib/hooks/useDVR';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 // Import validation constants from data-model
 const BOOKMARK_LIMITS = {
@@ -220,9 +221,10 @@ export function BookmarkButton({
               </div>
 
               {error && (
-                <div data-testid="error-bookmark" className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
-                  {error}
-                </div>
+                <ErrorBanner 
+                  message={error} 
+                  data-testid="error-bookmark"
+                />
               )}
 
               <div className="flex gap-3">

@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { useListBookmarks, useDeleteBookmark, useCreateClipFromBookmark, type VideoBookmark } from '@/lib/hooks/useDVR';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface BookmarksListProps {
   viewerId?: string;
@@ -91,8 +92,12 @@ export function BookmarksList({
 
   if (error) {
     return (
-      <div data-testid="error-bookmarks" className={`p-4 ${className}`}>
-        <p className="text-red-400">Error: {error}</p>
+      <div className={`p-4 ${className}`}>
+        <ErrorBanner 
+          message={error} 
+          onRetry={fetchBookmarks}
+          data-testid="error-bookmarks"
+        />
       </div>
     );
   }

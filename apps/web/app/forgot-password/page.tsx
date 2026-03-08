@@ -5,6 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { InlineError } from '@/components/v2/InlineError';
 
 // Validation schema
 const requestResetSchema = z.object({
@@ -100,14 +102,7 @@ export default function RequestPasswordResetPage() {
 
         {/* Error Message */}
         {submitState === 'error' && errorMessage && (
-          <div
-            className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg"
-            data-testid="error-message"
-          >
-            <p className="text-red-400 text-sm">
-              ✕ {errorMessage}
-            </p>
-          </div>
+          <ErrorBanner message={errorMessage} onDismiss={() => setErrorMessage('')} data-testid="error-message" />
         )}
 
         {/* Form */}
@@ -144,9 +139,9 @@ export default function RequestPasswordResetPage() {
               </label>
             </div>
             {errors.userType && (
-              <p className="mt-2 text-sm text-red-400" data-testid="error-userType">
-                {errors.userType.message}
-              </p>
+              <div className="mt-2">
+                <InlineError message={errors.userType.message!} data-testid="error-userType" />
+              </div>
             )}
           </div>
 
@@ -169,9 +164,9 @@ export default function RequestPasswordResetPage() {
               data-testid="input-email"
             />
             {errors.email && (
-              <p className="mt-2 text-sm text-red-400" data-testid="error-email">
-                {errors.email.message}
-              </p>
+              <div className="mt-2">
+                <InlineError message={errors.email.message!} data-testid="error-email" />
+              </div>
             )}
           </div>
 

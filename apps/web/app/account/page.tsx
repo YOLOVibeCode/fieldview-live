@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useGlobalViewerAuth } from '@/hooks/useGlobalViewerAuth';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface Subscription {
   slug: string;
@@ -112,11 +113,11 @@ export default function AccountPage() {
     if (!viewerIdentityId) return;
     void (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/public/viewer/${viewerIdentityId}/subscriptions`);
-        if (res.ok) {
-          const data = await res.json();
-          setSubscriptions(data.subscriptions || []);
-        }
+        const data = await apiRequest<{ subscriptions: Subscription[] }>(
+          `/api/public/viewer/${viewerIdentityId}/subscriptions`,
+          { retries: 1 }
+        );
+        setSubscriptions(data.subscriptions || []);
       } catch { /* ignore */ } finally {
         setSubsLoading(false);
       }
@@ -127,11 +128,11 @@ export default function AccountPage() {
     if (!viewerIdentityId) return;
     void (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/public/viewer/${viewerIdentityId}/purchases`);
-        if (res.ok) {
-          const data = await res.json();
-          setPurchases(data.purchases || []);
-        }
+        const data = await apiRequest<{ purchases: Purchase[] }>(
+          `/api/public/viewer/${viewerIdentityId}/purchases`,
+          { retries: 1 }
+        );
+        setPurchases(data.purchases || []);
       } catch { /* ignore */ } finally {
         setPurchasesLoading(false);
       }
@@ -144,15 +145,13 @@ export default function AccountPage() {
     setProfileError(null);
     setProfileSaved(false);
     try {
-      const res = await fetch(`${API_URL}/api/public/viewer/${viewerIdentityId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to update profile');
-      }
+      await apiRequest<{ success: boolean }>(
+        `/api/public/viewer/${viewerIdentityId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
+        }
+      );
       setProfileSaved(true);
       setProfileDirty(false);
       setViewerAuth({
@@ -162,8 +161,8 @@ export default function AccountPage() {
         lastName: lastName.trim(),
       });
       setTimeout(() => setProfileSaved(false), 3000);
-    } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Failed to update');
+    } catch (error) {
+      setProfileError(getUserFriendlyMessage(error));
     } finally {
       setProfileSaving(false);
     }
@@ -172,14 +171,14 @@ export default function AccountPage() {
   const handleUnsubscribe = useCallback(async (slug: string) => {
     if (!viewerIdentityId) return;
     try {
-      const res = await fetch(`${API_URL}/api/public/direct/${slug}/notify-me`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ viewerIdentityId }),
-      });
-      if (res.ok || res.status === 404) {
-        setSubscriptions((prev) => prev.filter((s) => s.slug !== slug));
-      }
+      await apiRequest<{ success: boolean }>(
+        `/api/public/direct/${slug}/notify-me`,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({ viewerIdentityId }),
+        }
+      );
+      setSubscriptions((prev) => prev.filter((s) => s.slug !== slug));
     } catch { /* ignore */ }
   }, [viewerIdentityId]);
 
@@ -187,11 +186,13 @@ export default function AccountPage() {
     if (!viewerEmail || accessLinkSending) return;
     setAccessLinkSending(true);
     try {
-      await fetch(`${API_URL}/api/auth/viewer-refresh/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: viewerEmail }),
-      });
+      await apiRequest<{ success: boolean }>(
+        '/api/auth/viewer-refresh/request',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email: viewerEmail }),
+        }
+      );
       setAccessLinkSent(true);
     } catch { /* ignore */ } finally {
       setAccessLinkSending(false);
@@ -278,8 +279,8 @@ export default function AccountPage() {
                   </button>
                 )}
                 {profileSaved && <span className="text-green-400 text-sm" data-testid="profile-saved">Saved</span>}
-                {profileError && <span className="text-red-400 text-sm" role="alert" data-testid="error-profile">{profileError}</span>}
               </div>
+              {profileError && <ErrorBanner message={profileError} onDismiss={() => setProfileError(null)} data-testid="error-profile" />}
             </div>
           )}
         </section>

@@ -5,6 +5,8 @@
  */
 
 import { useState, useCallback } from 'react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 // ========================================
 // Types
@@ -70,29 +72,6 @@ export interface CreateBookmarkInput {
 }
 
 // ========================================
-// API Client Utilities
-// ========================================
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-
-async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `Request failed: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// ========================================
 // Clips Hooks
 // ========================================
 
@@ -109,9 +88,10 @@ export function useCreateClip() {
         body: JSON.stringify(input),
       });
       return result.clip;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err) {
+      const errorMsg = getUserFriendlyMessage(err);
+      setError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -134,9 +114,10 @@ export function useCreateClipFromBookmark() {
           body: JSON.stringify({ bookmarkId, ...options }),
         });
         return result.clip;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
+      } catch (err) {
+        const errorMsg = getUserFriendlyMessage(err);
+        setError(errorMsg);
+        throw new Error(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -168,13 +149,15 @@ export function useListClips(options?: {
       if (options?.publicOnly) params.append('publicOnly', 'true');
 
       const result = await apiRequest<{ clips: VideoClip[] }>(
-        `/api/clips?${params.toString()}`
+        `/api/clips?${params.toString()}`,
+        { retries: 1 }
       );
       setClips(result.clips);
       return result.clips;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err) {
+      const errorMsg = getUserFriendlyMessage(err);
+      setError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -220,9 +203,10 @@ export function useCreateBookmark() {
         body: JSON.stringify(input),
       });
       return result.bookmark;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err) {
+      const errorMsg = getUserFriendlyMessage(err);
+      setError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -252,13 +236,15 @@ export function useListBookmarks(options?: {
       if (options?.includeShared) params.append('includeShared', 'true');
 
       const result = await apiRequest<{ bookmarks: VideoBookmark[] }>(
-        `/api/bookmarks?${params.toString()}`
+        `/api/bookmarks?${params.toString()}`,
+        { retries: 1 }
       );
       setBookmarks(result.bookmarks);
       return result.bookmarks;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err) {
+      const errorMsg = getUserFriendlyMessage(err);
+      setError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -292,9 +278,10 @@ export function useUpdateBookmark() {
           }
         );
         return result.bookmark;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
+      } catch (err) {
+        const errorMsg = getUserFriendlyMessage(err);
+        setError(errorMsg);
+        throw new Error(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -316,9 +303,10 @@ export function useDeleteBookmark() {
       await apiRequest(`/api/bookmarks/${bookmarkId}`, {
         method: 'DELETE',
       });
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err) {
+      const errorMsg = getUserFriendlyMessage(err);
+      setError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }

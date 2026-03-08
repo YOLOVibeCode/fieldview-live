@@ -19,3 +19,6 @@ export type { GameClockProps } from './GameClock';
 export { CompactScoreBar } from './CompactScoreBar';
 export type { CompactScoreBarProps } from './CompactScoreBar';
 
+export { MiniScoreOverlay } from './MiniScoreOverlay';
+export type { MiniScoreOverlayProps } from './MiniScoreOverlay';
+

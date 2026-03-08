@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { apiRequest } from '../../../lib/api-client';
+import { ErrorToast } from '@/components/v2/ErrorToast';
 
 interface DirectStreamEvent {
   id: string;
@@ -41,6 +42,7 @@ export function EventManagement({ parentStreamId, parentSlug }: EventManagementP
     streamUrl: '',
     listed: true,
   });
+  const [toastError, setToastError] = useState<string | null>(null);
 
   // Fetch events
   const fetchEvents = async () => {
@@ -89,7 +91,7 @@ export function EventManagement({ parentStreamId, parentSlug }: EventManagementP
       setShowCreateForm(false);
       await fetchEvents();
     } catch (error: any) {
-      alert(`Failed to create event: ${error.message}`);
+      setToastError(`Failed to create event: ${error.message}`);
     }
   };
 
@@ -104,7 +106,7 @@ export function EventManagement({ parentStreamId, parentSlug }: EventManagementP
       );
       await fetchEvents();
     } catch (error: any) {
-      alert(`Failed to archive event: ${error.message}`);
+      setToastError(`Failed to archive event: ${error.message}`);
     }
   };
 
@@ -123,7 +125,7 @@ export function EventManagement({ parentStreamId, parentSlug }: EventManagementP
       );
       await fetchEvents();
     } catch (error: any) {
-      alert(`Failed to delete event: ${error.message}`);
+      setToastError(`Failed to delete event: ${error.message}`);
     }
   };
 
@@ -136,7 +138,9 @@ export function EventManagement({ parentStreamId, parentSlug }: EventManagementP
   }
 
   return (
-    <div className="bg-secondary/30 p-4 rounded-lg border-l-4 border-primary" data-testid={`events-section-${parentSlug}`}>
+    <>
+      {toastError && <ErrorToast message={toastError} onDismiss={() => setToastError(null)} />}
+      <div className="bg-secondary/30 p-4 rounded-lg border-l-4 border-primary" data-testid={`events-section-${parentSlug}`}>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-foreground">
           Sub-Events ({events.length})
@@ -308,6 +312,7 @@ export function EventManagement({ parentStreamId, parentSlug }: EventManagementP
         </div>
       )}
     </div>
+    </>
   );
 }
 

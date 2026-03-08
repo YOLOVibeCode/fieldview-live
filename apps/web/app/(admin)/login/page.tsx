@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -112,9 +113,7 @@ export default function AdminLoginPage() {
               </div>
             )}
             {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive" role="alert">
-                {error}
-              </div>
+              <ErrorBanner message={error} onDismiss={() => setError(null)} />
             )}
             <Button type="submit" className="w-full h-11 sm:h-12 text-base font-semibold" size="lg" aria-label="Sign in">
               Sign in

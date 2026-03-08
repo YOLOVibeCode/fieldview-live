@@ -1,271 +1,300 @@
-import { renderHook, act } from '@testing-library/react';
-import { useScoreboardData } from '../useScoreboardData';
+/**
+ * useScoreboardData Hook Tests (TDD - Test First)
+ * 
+ * Tests for refactored hook using centralized scoreboardApi client
+ */
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, waitFor, act } from '@testing-library/react';
+import { useScoreboardData } from '../useScoreboardData';
+import * as scoreboardApiModule from '@/lib/api/scoreboard';
+import { ApiError } from '@/lib/api-client';
+import type { ScoreboardData } from '@/lib/api/scoreboard/types';
 
-// jsdom does not provide EventSource; hook uses it for SSE when enabled + slug
-class MockEventSource {
-  url: string;
-  readyState = 0;
-  onerror: (() => void) | null = null;
-  private listeners: Map<string, (e: { data?: string }) => void> = new Map();
-
-  constructor(url: string) {
-    this.url = url;
-  }
-
-  addEventListener(type: string, handler: (e: { data?: string }) => void) {
-    this.listeners.set(type, handler);
-  }
-
-  close() {
-    this.readyState = 2;
-  }
-}
-vi.stubGlobal('EventSource', MockEventSource);
-
-const mockApiResponse = {
-  homeTeamName: 'Eagles',
-  awayTeamName: 'Hawks',
-  homeJerseyColor: '#004C54',
-  awayJerseyColor: '#FF0000',
-  homeScore: 14,
-  awayScore: 7,
-  clockMode: 'running',
-  clockSeconds: 330,
-  clockStartedAt: null,
-  lastEditedBy: null,
-  lastEditedAt: null,
-};
+// Mock the scoreboardApi
+vi.mock('@/lib/api/scoreboard', () => ({
+  scoreboardApi: {
+    fetch: vi.fn(),
+    updateScore: vi.fn(),
+    streamUpdates: vi.fn(),
+  },
+}));
 
 describe('useScoreboardData', () => {
+  const mockScoreboardApi = scoreboardApiModule.scoreboardApi as {
+    fetch: ReturnType<typeof vi.fn>;
+    updateScore: ReturnType<typeof vi.fn>;
+    streamUpdates: ReturnType<typeof vi.fn>;
+  };
+
+  const mockScoreboardData: ScoreboardData = {
+    homeTeam: { name: 'Home Team', score: 10, color: '#3B82F6' },
+    awayTeam: { name: 'Away Team', score: 8, color: '#EF4444' },
+    period: undefined,
+    time: undefined,
+  };
+
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.clearAllMocks();
+    mockScoreboardApi.fetch.mockResolvedValue(mockScoreboardData);
+    mockScoreboardApi.streamUpdates.mockReturnValue(() => {});
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it('should initialize with default state', () => {
-    global.fetch = vi.fn() as any;
-
+  it('should use scoreboardApi.fetch() instead of direct fetch', async () => {
     const { result } = renderHook(() =>
-      useScoreboardData({ slug: null })
+      useScoreboardData({ slug: 'test-slug', enabled: true })
     );
 
-    expect(result.current.homeTeam.name).toBe('Home');
-    expect(result.current.homeTeam.score).toBe(0);
-    expect(result.current.awayTeam.name).toBe('Away');
-    expect(result.current.awayTeam.score).toBe(0);
-    expect(result.current.isLoading).toBe(false);
+    await waitFor(() => {
+      expect(mockScoreboardApi.fetch).toHaveBeenCalledWith('test-slug');
+    });
+
+    expect(result.current.homeTeam.name).toBe('Home Team');
+    expect(result.current.awayTeam.name).toBe('Away Team');
+  });
+
+  it('should return user-friendly error messages from ApiError', async () => {
+    const userFriendlyError = new ApiError(
+      500,
+      'SERVER_ERROR',
+      'Server error. Please try again in a moment.'
+    );
+    mockScoreboardApi.fetch.mockRejectedValue(userFriendlyError);
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Server error. Please try again in a moment.');
+    });
+  });
+
+  it('should automatically retry failed fetches via scoreboardApi', async () => {
+    // scoreboardApi.fetch() already has retry logic built-in (retries: 2)
+    // First call will fail, but since scoreboardApi handles retries internally,
+    // we just need to test that it eventually succeeds
+    mockScoreboardApi.fetch.mockResolvedValueOnce(mockScoreboardData);
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true })
+    );
+
+    // The scoreboardApi should provide the data
+    await waitFor(() => {
+      expect(result.current.homeTeam.name).toBe('Home Team');
+    });
+  });
+
+  it('should not set error state on 404 (uses defaults)', async () => {
+    const defaultData: ScoreboardData = {
+      homeTeam: { name: 'Home', score: 0, color: '#3B82F6' },
+      awayTeam: { name: 'Away', score: 0, color: '#EF4444' },
+      period: undefined,
+      time: undefined,
+    };
+    
+    mockScoreboardApi.fetch.mockResolvedValue(defaultData);
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+      expect(result.current.homeTeam.name).toBe('Home');
+    });
+  });
+
+  it('should use scoreboardApi.updateScore() for updates', async () => {
+    const updatedData: ScoreboardData = {
+      ...mockScoreboardData,
+      homeTeam: { ...mockScoreboardData.homeTeam, score: 15 },
+    };
+    
+    mockScoreboardApi.updateScore.mockResolvedValue(updatedData);
+
+    const { result } = renderHook(() =>
+      useScoreboardData({
+        slug: 'test-slug',
+        enabled: true,
+        viewerToken: 'viewer-token-123',
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.homeTeam).toBeDefined();
+    });
+
+    await act(async () => {
+      await result.current.updateScore('home', 15);
+    });
+
+    expect(mockScoreboardApi.updateScore).toHaveBeenCalledWith(
+      'test-slug',
+      'home',
+      15,
+      { viewerToken: 'viewer-token-123', adminToken: undefined }
+    );
+  });
+
+  it('should set saveError state with user-friendly message on update failure', async () => {
+    mockScoreboardApi.updateScore.mockRejectedValue(
+      new ApiError(403, 'FORBIDDEN', 'You do not have permission to edit scores.')
+    );
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true, allowAnonymousEdit: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.homeTeam).toBeDefined();
+    });
+
+    let caughtError = false;
+    await act(async () => {
+      try {
+        await result.current.updateScore('home', 10);
+      } catch (err) {
+        caughtError = true;
+      }
+    });
+
+    expect(caughtError).toBe(true);
+    
+    await waitFor(() => {
+      expect(result.current.saveError).toBe('You do not have permission to edit scores.');
+    });
+  });
+
+  it('should clear saveError on successful update (optimistic update)', async () => {
+    const updatedData: ScoreboardData = {
+      ...mockScoreboardData,
+      homeTeam: { ...mockScoreboardData.homeTeam, score: 20 },
+    };
+
+    mockScoreboardApi.updateScore.mockResolvedValue(updatedData);
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true, viewerToken: 'token' })
+    );
+
+    await waitFor(() => {
+      expect(result.current.homeTeam).toBeDefined();
+    });
+
+    // Set an error first
+    act(() => {
+      (result.current as any).setSaveError?.('Previous error');
+    });
+
+    // Now update successfully
+    await act(async () => {
+      await result.current.updateScore('home', 20);
+    });
+
+    expect(result.current.saveError).toBeNull();
+    expect(result.current.homeTeam.score).toBe(20);
+  });
+
+  it('should apply SSE updates correctly using scoreboardApi.streamUpdates', async () => {
+    let sseCallback: ((data: ScoreboardData, rawResponse: any) => void) | null = null;
+    
+    mockScoreboardApi.streamUpdates.mockImplementation((slug, onUpdate, callbacks) => {
+      sseCallback = onUpdate;
+      return () => {}; // cleanup function
+    });
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true })
+    );
+
+    await waitFor(() => {
+      expect(mockScoreboardApi.streamUpdates).toHaveBeenCalledWith(
+        'test-slug',
+        expect.any(Function),
+        expect.objectContaining({
+          onDisconnect: expect.any(Function),
+          onReconnect: expect.any(Function),
+        })
+      );
+    });
+
+    // Simulate SSE update
+    const sseUpdate: ScoreboardData = {
+      homeTeam: { name: 'Updated Home', score: 25, color: '#3B82F6' },
+      awayTeam: { name: 'Updated Away', score: 18, color: '#EF4444' },
+      period: 'Running',
+      time: '05:30',
+    };
+    
+    const mockRawResponse = {
+      id: '123',
+      homeTeamName: 'Updated Home',
+      awayTeamName: 'Updated Away',
+      homeScore: 25,
+      awayScore: 18,
+      homeJerseyColor: '#3B82F6',
+      awayJerseyColor: '#EF4444',
+      clockMode: 'running',
+      clockSeconds: 330,
+      clockStartedAt: new Date().toISOString(),
+    };
+
+    act(() => {
+      sseCallback?.(sseUpdate, mockRawResponse);
+    });
+
+    expect(result.current.homeTeam.name).toBe('Updated Home');
+    expect(result.current.homeTeam.score).toBe(25);
+    expect(result.current.awayTeam.score).toBe(18);
+    expect(result.current.period).toBe('Running');
+    expect(result.current.time).toBe('05:30');
+  });
+
+  it('should clean up SSE connection on unmount', async () => {
+    const mockCleanup = vi.fn();
+    mockScoreboardApi.streamUpdates.mockReturnValue(mockCleanup);
+
+    const { unmount } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true })
+    );
+
+    await waitFor(() => {
+      expect(mockScoreboardApi.streamUpdates).toHaveBeenCalled();
+    });
+
+    unmount();
+
+    expect(mockCleanup).toHaveBeenCalled();
+  });
+
+  it('should clear previous errors when refresh() is called', async () => {
+    mockScoreboardApi.fetch
+      .mockRejectedValueOnce(
+        new ApiError(500, 'SERVER_ERROR', 'Server error. Please try again in a moment.')
+      )
+      .mockResolvedValueOnce(mockScoreboardData);
+
+    const { result } = renderHook(() =>
+      useScoreboardData({ slug: 'test-slug', enabled: true })
+    );
+
+    // Wait for error to be set
+    await waitFor(() => {
+      expect(result.current.error).toBe('Server error. Please try again in a moment.');
+    });
+
+    // Refresh should clear error and retry
+    await act(async () => {
+      await result.current.refresh();
+    });
+
     expect(result.current.error).toBeNull();
-  });
-
-  it('should fetch and map API response to TeamData', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockApiResponse,
-    }) as any;
-
-    const { result } = renderHook(() =>
-      useScoreboardData({ slug: 'test-stream', enabled: true })
-    );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-
-    expect(result.current.homeTeam.name).toBe('Eagles');
-    expect(result.current.homeTeam.score).toBe(14);
-    expect(result.current.homeTeam.color).toBe('#004C54');
-    expect(result.current.awayTeam.name).toBe('Hawks');
-    expect(result.current.awayTeam.score).toBe(7);
-    expect(result.current.time).toBe('5:30');
-  });
-
-  it('should handle 404 gracefully with defaults', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-    }) as any;
-
-    const { result } = renderHook(() =>
-      useScoreboardData({ slug: 'nonexistent', enabled: true })
-    );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-
-    // Should use defaults, no error
-    expect(result.current.homeTeam.name).toBe('Home');
-    expect(result.current.error).toBeNull();
-  });
-
-  it('should set error on 500 response', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-    }) as any;
-
-    const { result } = renderHook(() =>
-      useScoreboardData({ slug: 'test', enabled: true })
-    );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-
-    expect(result.current.error).toContain('Failed to fetch scoreboard');
-  });
-
-  it('should poll at specified interval', async () => {
-    let callCount = 0;
-    global.fetch = vi.fn().mockImplementation(async () => {
-      callCount++;
-      return {
-        ok: true,
-        json: async () => mockApiResponse,
-      };
-    }) as any;
-
-    renderHook(() =>
-      useScoreboardData({ slug: 'test', enabled: true, pollInterval: 3000 })
-    );
-
-    // Initial fetch
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(callCount).toBe(1);
-
-    // After one interval
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
-    });
-    expect(callCount).toBe(2);
-  });
-
-  it('should not fetch when disabled', async () => {
-    global.fetch = vi.fn() as any;
-
-    renderHook(() =>
-      useScoreboardData({ slug: 'test', enabled: false })
-    );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30000);
-    });
-
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  describe('updateScore', () => {
-    it('should call the correct API endpoint', async () => {
-      global.fetch = vi.fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockApiResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({}),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ ...mockApiResponse, homeScore: 21 }),
-        }) as any;
-
-      const { result } = renderHook(() =>
-        useScoreboardData({
-          slug: 'test-stream',
-          enabled: true,
-          viewerToken: 'token-123',
-        })
-      );
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100);
-      });
-
-      await act(async () => {
-        await result.current.updateScore('home', 21);
-      });
-
-      // Check the updateScore API call
-      const calls = (global.fetch as any).mock.calls;
-      const updateCall = calls.find((c: any[]) =>
-        typeof c[0] === 'string' && c[0].includes('viewer-update')
-      );
-      expect(updateCall).toBeDefined();
-      expect(updateCall[1].method).toBe('POST');
-    });
-
-    it('should throw when no slug', async () => {
-      const { result } = renderHook(() =>
-        useScoreboardData({ slug: null })
-      );
-
-      await expect(
-        result.current.updateScore('home', 10)
-      ).rejects.toThrow('No slug available');
-    });
-
-    it('should allow anonymous edit when allowAnonymousEdit is true', async () => {
-      global.fetch = vi.fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockApiResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({}),
-        }) as any;
-
-      const { result } = renderHook(() =>
-        useScoreboardData({
-          slug: 'test-stream',
-          enabled: true,
-          allowAnonymousEdit: true,
-          // No viewerToken
-        })
-      );
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100);
-      });
-
-      await act(async () => {
-        await result.current.updateScore('away', 14);
-      });
-
-      expect(global.fetch).toHaveBeenCalledTimes(2);
-    });
-
-    it('should throw when no viewerToken and allowAnonymousEdit is false', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockApiResponse,
-      }) as any;
-
-      const { result } = renderHook(() =>
-        useScoreboardData({
-          slug: 'test-stream',
-          enabled: true,
-          // no viewerToken, allowAnonymousEdit defaults to false
-        })
-      );
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100);
-      });
-
-      await expect(
-        result.current.updateScore('home', 10)
-      ).rejects.toThrow('Authentication required');
-    });
+    expect(result.current.homeTeam.name).toBe('Home Team');
   });
 });

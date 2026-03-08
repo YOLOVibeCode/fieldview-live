@@ -154,5 +154,107 @@ describe('ScoreEditSheet', () => {
       });
     });
   });
+
+  describe('error handling', () => {
+    it('should display error message when onSave fails', async () => {
+      const handleSave = vi.fn().mockRejectedValue(
+        new Error('You do not have permission to edit scores.')
+      );
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      fireEvent.click(screen.getByText('Save'));
+      
+      await waitFor(() => {
+        expect(screen.getByText('You do not have permission to edit scores.')).toBeInTheDocument();
+      });
+    });
+
+    it('should style error message with error colors', async () => {
+      const handleSave = vi.fn().mockRejectedValue(new Error('Server error'));
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      fireEvent.click(screen.getByText('Save'));
+      
+      await waitFor(() => {
+        const errorElement = screen.getByTestId('error-message');
+        expect(errorElement).toHaveClass('bg-red-50', 'border-red-200');
+      });
+    });
+
+    it('should show retry button after error', async () => {
+      const handleSave = vi.fn().mockRejectedValue(new Error('Network error'));
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      fireEvent.click(screen.getByText('Save'));
+      
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-retry')).toBeInTheDocument();
+      });
+    });
+
+    it('should call onSave again when retry button is clicked', async () => {
+      const handleSave = vi.fn()
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce(undefined);
+      
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      fireEvent.click(screen.getByText('Save'));
+      
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-retry')).toBeInTheDocument();
+      });
+      
+      fireEvent.click(screen.getByTestId('btn-retry'));
+      
+      await waitFor(() => {
+        expect(handleSave).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('should clear error on successful retry', async () => {
+      const handleSave = vi.fn()
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce(undefined);
+      
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      fireEvent.click(screen.getByText('Save'));
+      
+      await waitFor(() => {
+        expect(screen.getByText('Network error')).toBeInTheDocument();
+      });
+      
+      fireEvent.click(screen.getByTestId('btn-retry'));
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Network error')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should show loading state during save', async () => {
+      const handleSave = vi.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      const saveButton = screen.getByText('Save').closest('button');
+      fireEvent.click(saveButton!);
+      
+      await waitFor(() => {
+        expect(saveButton).toHaveAttribute('data-loading', 'true');
+      });
+    });
+
+    it('should disable save button while saving', async () => {
+      const handleSave = vi.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+      render(<ScoreEditSheet {...defaultProps} onSave={handleSave} />);
+      
+      const saveButton = screen.getByText('Save').closest('button');
+      fireEvent.click(saveButton!);
+      
+      await waitFor(() => {
+        expect(saveButton).toBeDisabled();
+      });
+    });
+  });
 });
 

@@ -8,6 +8,7 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
+import { UnauthorizedError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
@@ -55,7 +56,7 @@ router.post(
     void (async () => {
       try {
         if (!req.ownerAccountId) {
-          return next(new Error('Owner account ID not found'));
+          return next(new UnauthorizedError('Owner account ID not found'));
         }
 
         const squareService = getSquareService();
@@ -109,7 +110,7 @@ router.get('/me/square/status', requireOwnerAuth, (req: AuthRequest, res, next) 
   void (async () => {
     try {
       if (!req.ownerAccountId) {
-        return next(new Error('Owner account ID not found'));
+        return next(new UnauthorizedError('Owner account ID not found'));
       }
 
       const ownerAccountRepo = new OwnerAccountRepository(prisma);

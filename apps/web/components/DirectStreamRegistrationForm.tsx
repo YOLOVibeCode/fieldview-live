@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { apiRequest, ApiError } from '../lib/api-client';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface DirectStreamRegistrationFormProps {
   streamSlug: string;
@@ -83,12 +84,11 @@ export default function DirectStreamRegistrationForm({
       </p>
 
       {error && (
-        <div
-          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
+        <ErrorBanner
+          message={error}
+          onDismiss={() => setError('')}
           data-testid="error-registration"
-        >
-          {error}
-        </div>
+        />
       )}
 
       <div className="space-y-4">
