@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/hooks/useGameChat';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface FullscreenChatOverlayProps {
   chat: {
@@ -310,12 +311,11 @@ export function FullscreenChatOverlay({
 
         {/* Error message */}
         {chat.error && (
-          <div 
-            className="mx-4 mt-2 p-3 bg-destructive/20 backdrop-blur-md border border-destructive/30 text-destructive rounded-lg text-sm"
-            data-testid="chat-error"
-            role="alert"
-          >
-            {chat.error}
+          <div className="mx-4 mt-2">
+            <ErrorBanner 
+              message={chat.error} 
+              data-testid="chat-error"
+            />
           </div>
         )}
 

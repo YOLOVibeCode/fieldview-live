@@ -9,6 +9,7 @@ import { clearAdminSessionToken, getAdminSessionToken } from '@/lib/admin-sessio
 import { dataEventBus, DataEvents } from '@/lib/event-bus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 function formatCents(cents: number): string {
   return (cents / 100).toLocaleString('en-US', {
@@ -97,9 +98,7 @@ export default function RevenueDashboardPage() {
         )}
 
         {error && (
-          <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive" role="alert">
-            {error}
-          </div>
+          <ErrorBanner message={error} onDismiss={() => setError(null)} />
         )}
 
         {stats && (

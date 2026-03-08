@@ -5,9 +5,10 @@
  * Following CDD: Contract matches OpenAPI spec.
  */
 
-import express, { type Router } from 'express';
+import express, { type Router, type NextFunction } from 'express';
 import { z } from 'zod';
 
+import { NotFoundError, BadRequestError, UnauthorizedError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { requireAdminAuth } from '../middleware/adminAuth';
 import { auditLog } from '../middleware/auditLog';
@@ -108,12 +109,12 @@ router.post('/login', validateRequest({ body: LoginSchema }), (req, res, next) =
  * 
  * Setup MFA for admin account.
  */
-router.post('/mfa/setup', requireAdminAuth, (req: AuthRequest, res, next) => {
+router.post('/mfa/setup', requireAdminAuth, (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const adminAccountId = req.adminUserId;
       if (!adminAccountId) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        throw new UnauthorizedError('Unauthorized');
       }
 
       const adminAuthService = getAdminAuthService();
@@ -130,7 +131,7 @@ router.post('/mfa/setup', requireAdminAuth, (req: AuthRequest, res, next) => {
  * 
  * Verify MFA token and enable MFA.
  */
-router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySchema }), (req: AuthRequest, res, next) => {
+router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySchema }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const adminAccountId = req.adminUserId;
@@ -138,7 +139,7 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
       const { token } = req.body;
 
       if (!adminAccountId) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        throw new UnauthorizedError('Unauthorized');
       }
 
       const adminAuthService = getAdminAuthService();
@@ -146,7 +147,7 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
       const verified = await adminAuthService.verifyMfa(adminAccountId, token);
 
       if (!verified) {
-        return res.status(401).json({ error: 'Invalid MFA token' });
+        throw new UnauthorizedError('Invalid MFA token');
       }
 
       res.json({ success: true });
@@ -161,14 +162,14 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
  * 
  * Global search for viewers, games, and purchases.
  */
-router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetType: 'search' }), (req: AuthRequest, res, next) => {
+router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetType: 'search' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const query = req.query.q as string;
       const adminRole = req.role || 'support_admin';
 
       if (!query) {
-        return res.status(400).json({ error: 'Query parameter q is required' });
+        throw new BadRequestError('Query parameter q is required');
       }
 
       const adminService = getAdminService();
@@ -185,14 +186,14 @@ router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetT
  * 
  * Get purchase timeline with all events.
  */
-router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next) => {
+router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const purchaseId = req.params.purchaseId;
       const adminRole = req.role || 'support_admin';
 
       if (!purchaseId) {
-        return res.status(400).json({ error: 'Purchase ID is required' });
+        throw new BadRequestError('Purchase ID is required');
       }
 
       const adminService = getAdminService();
@@ -210,7 +211,7 @@ router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'v
  * 
  * Get game audience (SuperAdmin sees full emails, SupportAdmin sees masked).
  */
-router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog({ actionType: 'view_audience', targetType: 'game' }), (req: AuthRequest, res, next) => {
+router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog({ actionType: 'view_audience', targetType: 'game' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const ownerId = req.params.ownerId;
@@ -218,7 +219,7 @@ router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog
       const adminRole = req.role || 'support_admin';
 
       if (!ownerId || !gameId) {
-        return res.status(400).json({ error: 'Owner ID and Game ID are required' });
+        throw new BadRequestError('Owner ID and Game ID are required');
       }
 
       const adminService = getAdminService();
@@ -248,7 +249,7 @@ const ListPurchasesQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-router.get('/purchases', requireAdminAuth, auditLog({ actionType: 'view_purchases', targetType: 'purchase' }), validateRequest({ query: ListPurchasesQuerySchema }), (req: AuthRequest, res, next) => {
+router.get('/purchases', requireAdminAuth, auditLog({ actionType: 'view_purchases', targetType: 'purchase' }), validateRequest({ query: ListPurchasesQuerySchema }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const query = req.query as unknown as z.infer<typeof ListPurchasesQuerySchema>;
@@ -380,7 +381,7 @@ router.get('/purchases', requireAdminAuth, auditLog({ actionType: 'view_purchase
  * 
  * Get detailed purchase breakdown with recipient information.
  */
-router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next) => {
+router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const { purchaseId } = req.params;
@@ -409,7 +410,7 @@ router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'v
       });
       
       if (!purchase) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Purchase not found' } });
+        throw new NotFoundError('Purchase not found');
       }
       
       // Determine recipient identity

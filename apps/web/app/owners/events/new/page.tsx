@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -185,9 +186,7 @@ function CreateEventForm() {
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-md" data-testid="error-message">
-            {error}
-          </div>
+          <ErrorBanner message={error} onDismiss={() => setError(null)} data-testid="error-message" />
         )}
 
         {createdEvent ? (

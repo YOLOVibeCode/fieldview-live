@@ -20,11 +20,13 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScoreCard } from './ScoreCard';
 import { ScoreEditSheet } from './ScoreEditSheet';
 import { GameClock } from './GameClock';
+import { ErrorToast } from '../ErrorToast';
 
 export interface TeamData {
   name: string;
@@ -41,6 +43,11 @@ export interface ScoreboardProps {
   mode?: 'floating' | 'sidebar' | 'minimal';
   editable?: boolean;
   onScoreUpdate?: (team: 'home' | 'away', newScore: number) => void;
+  error?: string | null;
+  saveError?: string | null;
+  onClearError?: () => void;
+  onClearSaveError?: () => void;
+  onRetry?: () => void;
   className?: string;
   'data-testid'?: string;
 }
@@ -58,10 +65,25 @@ export function Scoreboard({
   mode = 'floating',
   editable = false,
   onScoreUpdate,
+  error,
+  saveError,
+  onClearError,
+  onClearSaveError,
+  onRetry,
   className,
   'data-testid': dataTestId,
 }: ScoreboardProps) {
   const [editingTeam, setEditingTeam] = useState<'home' | 'away' | null>(null);
+  
+  // Auto-dismiss save error after 5 seconds
+  useEffect(() => {
+    if (saveError && onClearSaveError) {
+      const timer = setTimeout(() => {
+        onClearSaveError();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveError, onClearSaveError]);
   
   // Determine winning team
   const homeWinning = homeTeam.score > awayTeam.score;
@@ -96,6 +118,29 @@ export function Scoreboard({
           className
         )}
       >
+        {/* Fetch Error Banner */}
+        {error && (
+          <div
+            data-testid="error-banner"
+            className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start justify-between"
+            role="alert"
+          >
+            <p className="text-sm text-red-600 font-medium flex-1">
+              {error}
+            </p>
+            {onClearError && (
+              <button
+                onClick={onClearError}
+                data-testid="btn-dismiss-error"
+                className="ml-2 text-red-600 hover:text-red-800 transition-colors"
+                aria-label="Dismiss error"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+        
         {/* Game Clock (top) */}
         {(period || time) && (
           <div className="mb-4">
@@ -147,6 +192,16 @@ export function Scoreboard({
           />
         </div>
       </div>
+      
+      {/* Save Error Toast */}
+      {saveError && (
+        <ErrorToast
+          message={saveError}
+          onDismiss={onClearSaveError}
+          onRetry={onRetry}
+          data-testid="error-toast"
+        />
+      )}
       
       {/* Edit Sheet */}
       {editable && editingTeam && (

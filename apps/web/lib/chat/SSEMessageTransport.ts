@@ -44,6 +44,8 @@ import type {
   AdminBroadcastEvent,
   UnsubscribeFn,
 } from './IMessageTransport';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -154,24 +156,20 @@ export class SSEMessageTransport implements IMessageTransport {
       throw new Error('Not connected. Call connect() first.');
     }
     
-    const response = await fetch(
-      `${API_URL}/api/public/games/${this.gameId}/chat/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.viewerToken}`,
-        },
-        body: JSON.stringify({ message: text }),
-      }
-    );
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to send message' }));
-      throw new Error(errorData.error || `Failed to send message: ${response.status}`);
+    try {
+      return await apiRequest<ChatMessageEvent>(
+        `/api/public/games/${this.gameId}/chat/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.viewerToken}`,
+          },
+          body: JSON.stringify({ message: text }),
+        }
+      );
+    } catch (error) {
+      throw new Error(getUserFriendlyMessage(error));
     }
-    
-    return response.json();
   }
   
   /**

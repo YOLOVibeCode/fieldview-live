@@ -15,8 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 const SubscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -56,29 +57,26 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/public/subscriptions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: values.email,
-          phoneE164: values.phoneE164 || undefined,
-          organizationId,
-          channelId,
-          eventId,
-          preference: values.preference,
-        }),
-      });
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-        throw new Error(body?.error?.message || 'Failed to subscribe');
-      }
+      await apiRequest<{ success: boolean; message: string }>(
+        '/api/public/subscriptions',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: values.email,
+            phoneE164: values.phoneE164 || undefined,
+            organizationId,
+            channelId,
+            eventId,
+            preference: values.preference,
+          }),
+        }
+      );
 
       setSuccess(true);
       form.reset();
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to subscribe');
+      setError(getUserFriendlyMessage(err));
     } finally {
       setLoading(false);
     }
@@ -104,9 +102,11 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
       <CardContent>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} data-testid="form-subscribe">
           {error && (
-            <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm sm:text-base leading-relaxed" data-testid="error-subscribe" role="alert">
-              {error}
-            </div>
+            <ErrorBanner
+              message={error}
+              onDismiss={() => setError(null)}
+              data-testid="error-subscribe"
+            />
           )}
 
           <div className="space-y-1">

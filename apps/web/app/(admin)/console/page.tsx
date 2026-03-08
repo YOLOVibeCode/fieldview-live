@@ -9,6 +9,7 @@ import { dataEventBus, DataEvents } from '@/lib/event-bus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 export default function AdminConsolePage() {
   const router = useRouter();
@@ -98,9 +99,7 @@ export default function AdminConsolePage() {
               </Button>
             </div>
             {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive" role="alert">
-                {error}
-              </div>
+              <ErrorBanner message={error} onDismiss={() => setError(null)} />
             )}
           </CardContent>
         </Card>

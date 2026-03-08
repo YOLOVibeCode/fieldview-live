@@ -3,6 +3,8 @@
  * 
  * Client for making API requests to the backend.
  * Types will be generated from OpenAPI spec.
+ * 
+ * Enhanced with retry logic and exponential backoff for transient failures.
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
@@ -19,30 +21,112 @@ export class ApiError extends Error {
   }
 }
 
+interface ApiRequestOptions extends RequestInit {
+  retries?: number;
+}
+
+/**
+ * Check if an HTTP status code or error is retryable
+ */
+function isRetryable(statusOrError: number | Error): boolean {
+  // Network errors are retryable
+  if (statusOrError instanceof Error) return true;
+  
+  // 502 Bad Gateway and 503 Service Unavailable are retryable
+  if (statusOrError === 502 || statusOrError === 503) return true;
+  
+  // 4xx client errors are NOT retryable
+  if (statusOrError >= 400 && statusOrError < 500) return false;
+  
+  // 500 and 501 are NOT retryable (server bugs, not transient)
+  if (statusOrError === 500 || statusOrError === 501) return false;
+  
+  // Other 5xx errors are retryable
+  if (statusOrError >= 500) return true;
+  
+  return false;
+}
+
+/**
+ * Calculate exponential backoff delay
+ */
+function getRetryDelay(attempt: number): number {
+  // 100ms * 2^attempt = 100ms, 200ms, 400ms, 800ms, etc.
+  return Math.min(100 * Math.pow(2, attempt), 3200);
+}
+
+/**
+ * Sleep for a given number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function apiRequest<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: ApiRequestOptions
 ): Promise<T> {
+  const { retries = 0, ...fetchOptions } = options || {};
   const url = `${API_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
+  
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers: {
+          'Content-Type': 'application/json',
+          ...fetchOptions?.headers,
+        },
+      });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new ApiError(
-      response.status,
-      error.error?.code || 'UNKNOWN_ERROR',
-      error.error?.message || 'An error occurred',
-      error.error?.details
-    );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        const apiError = new ApiError(
+          response.status,
+          error.error?.code || 'UNKNOWN_ERROR',
+          error.error?.message || 'An error occurred',
+          error.error?.details
+        );
+        
+        // Check if we should retry
+        if (attempt < retries && isRetryable(response.status)) {
+          lastError = apiError;
+          await sleep(getRetryDelay(attempt));
+          continue;
+        }
+        
+        throw apiError;
+      }
+
+      return response.json();
+    } catch (err) {
+      // Network error or fetch failure
+      if (err instanceof ApiError) {
+        throw err; // Already handled above
+      }
+      
+      const networkError = new ApiError(
+        0,
+        'NETWORK_ERROR',
+        err instanceof Error ? err.message : 'Network request failed',
+        { originalError: err }
+      );
+      
+      // Check if we should retry
+      if (attempt < retries && isRetryable(networkError)) {
+        lastError = networkError;
+        await sleep(getRetryDelay(attempt));
+        continue;
+      }
+      
+      throw networkError;
+    }
   }
-
-  return response.json();
+  
+  // Should never reach here, but just in case
+  throw lastError || new ApiError(0, 'UNKNOWN_ERROR', 'Request failed after retries');
 }
 
 function withBearerToken(token: string | null | undefined): HeadersInit | undefined {

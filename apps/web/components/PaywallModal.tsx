@@ -18,6 +18,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, CreditCard, Lock } from 'lucide-react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 interface PaywallModalProps {
   slug: string;
@@ -70,13 +73,10 @@ export function PaywallModal({
 
   const checkSavedPayment = async () => {
     try {
-      const response = await fetch(
-        `${apiUrl}/api/direct/${slug}/payment-methods?email=${encodeURIComponent(email)}`
+      const data = await apiRequest<SavedPaymentMethod>(
+        `/api/direct/${slug}/payment-methods?email=${encodeURIComponent(email)}`,
+        { retries: 1 }
       );
-
-      if (!response.ok) return;
-
-      const data: SavedPaymentMethod = await response.json();
       setSavedPayment(data);
       
       // Auto-select saved card if available
@@ -106,29 +106,23 @@ export function PaywallModal({
     setError(null);
 
     try {
-      // Call the DirectStream checkout API
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          firstName,
-          lastName,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
-      }
-
-      const { purchaseId, checkoutUrl } = await response.json();
+      const { purchaseId, checkoutUrl } = await apiRequest<{ purchaseId: string; checkoutUrl: string }>(
+        `/api/direct/${slug}/checkout`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            firstName,
+            lastName,
+          }),
+        }
+      );
 
       // Redirect to Square checkout page
       window.location.href = checkoutUrl;
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      setError(getUserFriendlyMessage(err));
       setLoading(false);
     }
   };
@@ -178,14 +172,11 @@ export function PaywallModal({
           )}
 
           {error && (
-            <div
+            <ErrorBanner
+              message={error}
+              onDismiss={() => setError(null)}
               data-testid="error-paywall"
-              className="flex items-center gap-2 text-destructive text-sm p-3 bg-destructive/10 rounded-lg"
-              role="alert"
-            >
-              <AlertCircle className="h-4 w-4" />
-              <p>{error}</p>
-            </div>
+            />
           )}
 
           {/* Step 1: User Info */}

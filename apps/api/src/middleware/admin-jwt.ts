@@ -8,6 +8,7 @@
 import { type Request, type Response, type NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../lib/logger';
+import { UnauthorizedError, ForbiddenError, AppError } from '../lib/errors';
 
 export interface AdminJwtPayload {
   slug: string;
@@ -31,8 +32,7 @@ export const validateAdminToken = (req: Request, res: Response, next: NextFuncti
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Missing or invalid authorization header' });
-      return;
+      throw new UnauthorizedError('Missing or invalid authorization header');
     }
 
     const token = authHeader.substring(7); // Remove "Bearer " prefix
@@ -40,8 +40,7 @@ export const validateAdminToken = (req: Request, res: Response, next: NextFuncti
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       logger.error('JWT_SECRET not configured');
-      res.status(500).json({ error: 'Server configuration error' });
-      return;
+      throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
     }
 
     // Verify and decode the token
@@ -50,8 +49,7 @@ export const validateAdminToken = (req: Request, res: Response, next: NextFuncti
     // Verify the slug in the token matches the slug in the URL
     const urlSlug = req.params.slug?.toLowerCase();
     if (urlSlug && decoded.slug !== urlSlug) {
-      res.status(403).json({ error: 'Token not valid for this stream' });
-      return;
+      throw new ForbiddenError('Token not valid for this stream');
     }
 
     // Attach admin data to request
@@ -59,17 +57,17 @@ export const validateAdminToken = (req: Request, res: Response, next: NextFuncti
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({ error: 'Token expired' });
+      next(new UnauthorizedError('Token expired'));
       return;
     }
     
     if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({ error: 'Invalid token' });
+      next(new UnauthorizedError('Invalid token'));
       return;
     }
 
     logger.error({ error }, 'Error validating admin token');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 };
 

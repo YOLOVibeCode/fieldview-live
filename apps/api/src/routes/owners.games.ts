@@ -8,6 +8,7 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
+import { UnauthorizedError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
@@ -79,7 +80,7 @@ router.post(
     void (async () => {
       try {
         if (!req.ownerAccountId) {
-          return next(new Error('Owner account ID not found'));
+          return next(new UnauthorizedError('Owner account ID not found'));
         }
 
         const gameService = getGameService();
@@ -107,7 +108,7 @@ router.get(
     void (async () => {
       try {
         if (!req.ownerAccountId) {
-          return next(new Error('Owner account ID not found'));
+          return next(new UnauthorizedError('Owner account ID not found'));
         }
 
         const gameService = getGameService();
@@ -146,7 +147,7 @@ router.get(
     void (async () => {
       try {
         if (!req.ownerAccountId) {
-          return next(new Error('Owner account ID not found'));
+          return next(new UnauthorizedError('Owner account ID not found'));
         }
 
         const gameId = req.params.id;
@@ -182,7 +183,7 @@ router.patch(
     void (async () => {
       try {
         if (!req.ownerAccountId) {
-          return next(new Error('Owner account ID not found'));
+          return next(new UnauthorizedError('Owner account ID not found'));
         }
 
         const gameId = req.params.id;
@@ -214,7 +215,7 @@ router.delete(
     void (async () => {
       try {
         if (!req.ownerAccountId) {
-          return next(new Error('Owner account ID not found'));
+          return next(new UnauthorizedError('Owner account ID not found'));
         }
 
         const gameId = req.params.id;

@@ -14,6 +14,7 @@ import {
   CreateDirectStreamSchema,
   UpdateDirectStreamSchema,
 } from '@fieldview/data-model';
+import { NotFoundError, BadRequestError, ConflictError, AppError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { hashPassword } from '../lib/encryption';
 import { generateAdminJwt } from '../lib/admin-jwt';
@@ -132,10 +133,7 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
       const validation = CreateDirectStreamSchema.safeParse(req.body);
 
       if (!validation.success) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
-        });
+        throw new BadRequestError('Validation failed', validation.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`));
       }
 
       const data = validation.data;
@@ -146,7 +144,7 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
       });
 
       if (existing) {
-        return res.status(409).json({ error: 'Slug already exists' });
+        throw new ConflictError('Slug already exists');
       }
 
       // Hash admin password
@@ -158,7 +156,7 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
       });
 
       if (!defaultOwner) {
-        return res.status(500).json({ error: 'No owner account found. Please create one first.' });
+        throw new AppError('INTERNAL_ERROR', 'No owner account found. Please create one first.', 500);
       }
 
       // 🆕 Auto-create Game record for DirectStream (required for viewer registration/chat)
@@ -253,10 +251,7 @@ router.patch('/:id', (req: Request, res: Response, next: NextFunction) => {
       const validation = UpdateDirectStreamSchema.safeParse(req.body);
 
       if (!validation.success) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
-        });
+        throw new BadRequestError('Validation failed', validation.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`));
       }
 
       const data = validation.data;
@@ -312,7 +307,7 @@ router.patch('/:id', (req: Request, res: Response, next: NextFunction) => {
     } catch (error: any) {
       logger.error({ error, id: req.params.id }, 'Failed to update DirectStream');
       if (error.code === 'P2025') {
-        return res.status(404).json({ error: 'DirectStream not found' });
+        throw new NotFoundError('DirectStream not found');
       }
       next(error);
     }
@@ -329,7 +324,7 @@ router.get('/:id/registrations', (req: Request, res: Response, next: NextFunctio
       const { id } = req.params;
 
       if (!id) {
-        return res.status(400).json({ error: 'Stream ID is required' });
+        throw new BadRequestError('Stream ID is required');
       }
 
       // Verify stream exists
@@ -339,7 +334,7 @@ router.get('/:id/registrations', (req: Request, res: Response, next: NextFunctio
       });
 
       if (!stream) {
-        return res.status(404).json({ error: 'DirectStream not found' });
+        throw new NotFoundError('DirectStream not found');
       }
 
       // Get registrations
@@ -368,7 +363,7 @@ router.post('/:slug/impersonate', (req: Request, res: Response, next: NextFuncti
       const { slug } = req.params;
 
       if (!slug) {
-        return res.status(400).json({ error: 'Slug is required' });
+        throw new BadRequestError('Slug is required');
       }
 
       // Fetch stream
@@ -377,7 +372,7 @@ router.post('/:slug/impersonate', (req: Request, res: Response, next: NextFuncti
       });
 
       if (!stream) {
-        return res.status(404).json({ error: 'DirectStream not found' });
+        throw new NotFoundError('DirectStream not found');
       }
 
       // Generate stream admin JWT (1-hour expiry)

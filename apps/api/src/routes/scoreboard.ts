@@ -13,6 +13,7 @@ import {
   ValidateProducerPasswordSchema,
 } from '@fieldview/data-model';
 import { getScoreboardPubSub, type ScoreboardEvent } from '../lib/scoreboard-pubsub';
+import { NotFoundError, BadRequestError, UnauthorizedError, ForbiddenError, ConflictError } from '../lib/errors';
 
 const router: Router = Router();
 
@@ -20,7 +21,7 @@ const router: Router = Router();
  * GET /api/direct/:slug/scoreboard
  * Public - Get current scoreboard state
  */
-router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
+router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
@@ -30,7 +31,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
     });
 
     if (!stream) {
-      return res.status(404).json({ error: 'Stream not found' });
+      throw new NotFoundError('Stream not found');
     }
 
     // Auto-create scoreboard with 0-0 score if it doesn't exist
@@ -84,7 +85,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response) => {
     res.json(response);
   } catch (error) {
     logger.error({ error, slug }, 'Failed to fetch scoreboard');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -165,13 +166,13 @@ router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
  * POST /api/direct/:slug/scoreboard/validate
  * Validate producer password
  */
-router.post('/:slug/scoreboard/validate', async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard/validate', async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
     const validation = ValidateProducerPasswordSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: 'Producer password is required' });
+      throw new BadRequestError('Producer password is required');
     }
 
     const stream = await prisma.directStream.findUnique({
@@ -180,7 +181,7 @@ router.post('/:slug/scoreboard/validate', async (req: Request, res: Response) =>
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     const { producerPassword } = validation.data;
@@ -195,7 +196,7 @@ router.post('/:slug/scoreboard/validate', async (req: Request, res: Response) =>
     res.json({ valid: isValid });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to validate producer password');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -213,7 +214,7 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     // Try to extract admin JWT if present
@@ -243,19 +244,19 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
     const { producerPassword } = req.body;
 
     if (!producerPassword) {
-      return res.status(401).json({ error: 'Producer password required' });
+      throw new UnauthorizedError('Producer password required');
     }
 
     const isValid = await comparePassword(producerPassword, scoreboard.producerPassword);
 
     if (!isValid) {
-      return res.status(401).json({ error: 'Invalid password' });
+      throw new UnauthorizedError('Invalid password');
     }
 
     next();
   } catch (error) {
     logger.error({ error, slug }, 'Producer access validation failed');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 }
 
@@ -264,7 +265,7 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
  * Update scoreboard fields
  * Access: Admin JWT OR correct producer password OR open (if no password)
  */
-router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
@@ -272,10 +273,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
     if (!validation.success) {
       const firstError = validation.error.errors[0];
       const errorMessage = firstError ? `${firstError.path.join('.')}: ${firstError.message}` : 'Invalid request';
-      return res.status(400).json({
-        error: errorMessage,
-        details: validation.error.errors,
-      });
+      throw new BadRequestError(errorMessage, validation.error.errors);
     }
 
     const stream = await prisma.directStream.findUnique({
@@ -284,7 +282,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     // Remove producerPassword from update data (it's only for validation)
@@ -320,7 +318,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to update scoreboard');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -328,7 +326,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
  * POST /api/direct/:slug/scoreboard/clock/start
  * Start or resume game clock
  */
-router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
@@ -338,7 +336,7 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     const now = new Date();
@@ -366,7 +364,7 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to start clock');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -374,7 +372,7 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
  * POST /api/direct/:slug/scoreboard/clock/pause
  * Pause game clock
  */
-router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
@@ -384,7 +382,7 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     const { scoreboard } = stream;
@@ -414,7 +412,7 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to pause clock');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -422,7 +420,7 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
  * POST /api/direct/:slug/scoreboard/clock/reset
  * Reset clock to 00:00
  */
-router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
@@ -432,7 +430,7 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     const updatedScoreboard = await prisma.gameScoreboard.update({
@@ -453,7 +451,7 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to reset clock');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -461,7 +459,7 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
  * POST /api/direct/:slug/scoreboard/setup
  * Admin-only: Create scoreboard with optional producer password
  */
-router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
 
   try {
@@ -471,11 +469,11 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
     });
 
     if (!stream) {
-      return res.status(404).json({ error: 'Stream not found' });
+      throw new NotFoundError('Stream not found');
     }
 
     if (stream.scoreboard) {
-      return res.status(409).json({ error: 'Scoreboard already exists' });
+      throw new ConflictError('Scoreboard already exists');
     }
 
     const { producerPassword, ...scoreboardData } = req.body;
@@ -502,7 +500,7 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to create scoreboard');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 
@@ -511,19 +509,19 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
  * Viewer scoreboard update (requires registration & admin permission)
  * Access: Registered viewer with valid token
  */
-router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Response) => {
+router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Response, next: NextFunction) => {
   const { slug } = req.params;
   const { viewerToken, field, value } = req.body;
 
   try {
     if (!field || value === undefined) {
-      return res.status(400).json({ error: 'Field and value required' });
+      throw new BadRequestError('Field and value required');
     }
 
     // Validate field name
     const allowedFields = ['homeScore', 'awayScore', 'homeTeamName', 'awayTeamName'];
     if (!allowedFields.includes(field)) {
-      return res.status(400).json({ error: 'Invalid field' });
+      throw new BadRequestError('Invalid field');
     }
 
     // Find stream and scoreboard
@@ -533,7 +531,7 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     });
 
     if (!stream || !stream.scoreboard) {
-      return res.status(404).json({ error: 'Scoreboard not found' });
+      throw new NotFoundError('Scoreboard not found');
     }
 
     // Check for admin JWT — admins bypass viewer permission checks
@@ -556,17 +554,17 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     const isNameField = field === 'homeTeamName' || field === 'awayTeamName';
 
     if (!isAdmin && isScoreField && !stream.allowViewerScoreEdit) {
-      return res.status(403).json({ error: 'Viewer score editing is disabled' });
+      throw new ForbiddenError('Viewer score editing is disabled');
     }
 
     if (!isAdmin && isNameField && !stream.allowViewerNameEdit) {
-      return res.status(403).json({ error: 'Viewer name editing is disabled' });
+      throw new ForbiddenError('Viewer name editing is disabled');
     }
 
     // Auth check: require viewerToken unless anonymous editing is enabled or admin
     const isAnonymousAllowed = isScoreField && stream.allowAnonymousScoreEdit;
     if (!isAdmin && !viewerToken && !isAnonymousAllowed) {
-      return res.status(401).json({ error: 'Viewer token required' });
+      throw new UnauthorizedError('Viewer token required');
     }
 
     const viewerName = isAdmin ? 'Admin' : (viewerToken ? 'Viewer' : 'Guest');
@@ -581,7 +579,7 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     if (isScoreField) {
       const score = parseInt(value as string, 10);
       if (isNaN(score) || score < 0 || score > 999) {
-        return res.status(400).json({ error: 'Score must be between 0 and 999' });
+        throw new BadRequestError('Score must be between 0 and 999');
       }
       sanitizedValue = score;
     }
@@ -589,7 +587,7 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     if (isNameField) {
       const name = value as string;
       if (!name || name.trim().length === 0 || name.length > 30) {
-        return res.status(400).json({ error: 'Team name must be 1-30 characters' });
+        throw new BadRequestError('Team name must be 1-30 characters');
       }
       sanitizedValue = name.trim();
     }
@@ -634,7 +632,7 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to update scoreboard (viewer)');
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 });
 

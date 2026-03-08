@@ -4,13 +4,14 @@
  * Handles email collection for launch notifications
  */
 
-import express, { type Request, type Response, type Router } from 'express';
+import express, { type Request, type Response, type Router, type NextFunction } from 'express';
 import { z } from 'zod';
 
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { sendEmail } from '../lib/email';
 import { validateRequest } from '../middleware/validation';
+import { AppError } from '../lib/errors';
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ const EarlyAccessSignupSchema = z.object({
 router.post(
   '/signup',
   validateRequest({ body: EarlyAccessSignupSchema }),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, name, source } = req.body as z.infer<typeof EarlyAccessSignupSchema>;
 
@@ -116,8 +117,7 @@ router.post(
         id: signup.id,
       });
     } catch (error) {
-      logger.error({ error }, 'Early access signup failed');
-      res.status(500).json({ error: 'Failed to register' });
+      next(error);
     }
   }
 );
@@ -126,13 +126,12 @@ router.post(
  * GET /api/early-access/count
  * Get signup count (public)
  */
-router.get('/count', async (_req: Request, res: Response) => {
+router.get('/count', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const count = await prisma.earlyAccessSignup.count();
     res.json({ count });
   } catch (error) {
-    logger.error({ error }, 'Failed to get signup count');
-    res.status(500).json({ error: 'Failed to get count' });
+    next(error);
   }
 });
 

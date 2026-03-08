@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { InlineError } from '@/components/v2/InlineError';
 
 // Validation schema
 const requestAccessSchema = z.object({
@@ -40,37 +44,24 @@ export function AccessExpiredOverlay({
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/auth/viewer-refresh/request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: data.email,
-          directStreamId: streamId,
-          redirectUrl: window.location.pathname,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.status === 429) {
-        // Rate limited
-        setSubmitState('error');
-        setErrorMessage(result.message || 'Too many requests. Please try again later.');
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send access link');
-      }
+      await apiRequest<{ success: boolean; message?: string }>(
+        '/api/auth/viewer-refresh/request',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: data.email,
+            directStreamId: streamId,
+            redirectUrl: window.location.pathname,
+          }),
+        }
+      );
 
       // Always show success (email enumeration protection)
       setSubmitState('success');
       reset();
     } catch (error) {
       setSubmitState('error');
-      setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.');
+      setErrorMessage(getUserFriendlyMessage(error));
     }
   };
 
@@ -153,14 +144,7 @@ export function AccessExpiredOverlay({
 
             {/* Error Message */}
             {submitState === 'error' && errorMessage && (
-              <div
-                className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg"
-                data-testid="error-message"
-              >
-                <p className="text-red-400 text-sm">
-                  ✕ {errorMessage}
-                </p>
-              </div>
+              <ErrorBanner message={errorMessage} onDismiss={() => setErrorMessage('')} data-testid="error-message" />
             )}
 
             {/* Form */}
@@ -184,9 +168,9 @@ export function AccessExpiredOverlay({
                   data-testid="input-email"
                 />
                 {errors.email && (
-                  <p className="mt-2 text-sm text-red-400" data-testid="error-email">
-                    {errors.email.message}
-                  </p>
+                  <div className="mt-2">
+                    <InlineError message={errors.email.message!} data-testid="error-email" />
+                  </div>
                 )}
               </div>
 

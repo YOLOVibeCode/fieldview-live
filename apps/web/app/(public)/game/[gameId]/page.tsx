@@ -26,6 +26,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 // Form schema: email required, phone optional (E.164), coupon optional
 const checkoutSchema = z.object({
@@ -397,9 +398,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {error && (
-                  <div className="rounded-lg bg-destructive/10 p-3 sm:p-4 text-sm text-destructive" role="alert">
-                    {error}
-                  </div>
+                  <ErrorBanner message={error} onDismiss={() => setError(null)} />
                 )}
 
                 <Button

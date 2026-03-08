@@ -7,7 +7,7 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
-import { BadRequestError } from '../lib/errors';
+import { BadRequestError, NotFoundError, ForbiddenError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { validateRequest } from '../middleware/validation';
 import { generateViewerToken, formatDisplayName } from '../lib/viewer-jwt';
@@ -204,19 +204,7 @@ router.post(
         // Return 201 for new registration, 200 for existing
         res.status(result.isNewRegistration ? 201 : 200).json(response);
       } catch (error) {
-        // Handle specific errors
-        if (error instanceof Error) {
-          if (error.message.includes('Stream not found')) {
-            return res.status(404).json({ error: error.message });
-          }
-          if (error.message.includes('Viewer identity not found')) {
-            return res.status(404).json({ error: error.message });
-          }
-        }
-
-        // Log and return generic error
-        logger.error({ error, body: req.body }, 'Auto-registration failed');
-        res.status(500).json({ error: 'Auto-registration failed' });
+        next(error);
       }
     })();
   }
@@ -264,7 +252,7 @@ router.post(
         }
 
         if (!directStream.allowAnonymousChat) {
-          return res.status(403).json({ error: 'Anonymous chat is not enabled for this stream' });
+          throw new ForbiddenError('Anonymous chat is not enabled for this stream');
         }
 
         const gameId = await ensureGameForDirectStream(slug, directStream);

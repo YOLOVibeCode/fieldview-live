@@ -29,10 +29,8 @@ describe('useSeekOverlay', () => {
     expect(result.current.isVisible).toBe(false);
   });
 
-  it('auto-dismisses after autoDismissMs', async () => {
-    const { result } = renderHook(() =>
-      useSeekOverlay({ autoDismissMs: 3000 })
-    );
+  it('auto-dismisses after default 3000ms', async () => {
+    const { result } = renderHook(() => useSeekOverlay());
     act(() => result.current.show());
     expect(result.current.isVisible).toBe(true);
 

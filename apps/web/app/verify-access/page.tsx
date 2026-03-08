@@ -3,6 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 function VerifyAccessContent() {
   const router = useRouter();
@@ -25,10 +27,12 @@ function VerifyAccessContent() {
     const verifyToken = async () => {
       setVerifyState('verifying');
       try {
-        const response = await fetch(`/api/auth/viewer-refresh/verify/${token}`);
-        const result = await response.json();
+        const result = await apiRequest<{ valid: boolean; redirectUrl?: string; error?: string }>(
+          `/api/auth/viewer-refresh/verify/${token}`,
+          { retries: 1 }
+        );
 
-        if (response.ok && result.valid) {
+        if (result.valid) {
           setVerifyState('success');
           setRedirectUrl(result.redirectUrl || '/');
           
@@ -51,7 +55,7 @@ function VerifyAccessContent() {
         }
       } catch (error) {
         setVerifyState('error');
-        setErrorMessage('Failed to verify access link. Please try again.');
+        setErrorMessage(getUserFriendlyMessage(error));
       }
     };
 

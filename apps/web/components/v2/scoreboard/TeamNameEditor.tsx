@@ -19,6 +19,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { InlineError } from '@/components/v2/InlineError';
 
 export interface TeamNameEditorProps {
   teamName: string;
@@ -130,9 +131,7 @@ export function TeamNameEditor({
           
           {/* Error Message */}
           {error && (
-            <span className="text-red-500" role="alert" data-testid="team-name-error">
-              {error}
-            </span>
+            <InlineError message={error} data-testid="team-name-error" />
           )}
         </div>
       </div>

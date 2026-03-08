@@ -8,6 +8,7 @@ import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { validateAdminToken } from '../middleware/admin-jwt';
 import { getBookmarkPubSub } from '../lib/bookmark-pubsub';
+import { NotFoundError, BadRequestError } from '../lib/errors';
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.post(
         const { slug } = req.params;
 
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         const stream = await prisma.directStream.findUnique({
@@ -38,15 +39,15 @@ router.post(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         if (stream.status === 'archived') {
-          return res.status(400).json({ error: 'Stream already archived' });
+          throw new BadRequestError('Stream already archived');
         }
 
         if (stream.status === 'deleted') {
-          return res.status(400).json({ error: 'Cannot archive deleted stream' });
+          throw new BadRequestError('Cannot archive deleted stream');
         }
 
         // Archive the stream
@@ -104,7 +105,7 @@ router.delete(
         const { permanent } = req.query; // ?permanent=true for immediate hard delete
 
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         const stream = await prisma.directStream.findUnique({
@@ -116,7 +117,7 @@ router.delete(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         // Hard delete (permanent)
@@ -202,7 +203,7 @@ router.post(
         const { slug } = req.params;
 
         if (!slug) {
-          return res.status(400).json({ error: 'Slug is required' });
+          throw new BadRequestError('Slug is required');
         }
 
         const stream = await prisma.directStream.findUnique({
@@ -210,11 +211,11 @@ router.post(
         });
 
         if (!stream) {
-          return res.status(404).json({ error: 'Stream not found' });
+          throw new NotFoundError('Stream not found');
         }
 
         if (stream.status === 'active') {
-          return res.status(400).json({ error: 'Stream is already active' });
+          throw new BadRequestError('Stream is already active');
         }
 
         // Restore to active status

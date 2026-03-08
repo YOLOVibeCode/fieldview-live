@@ -45,12 +45,15 @@ export function ScoreEditSheet({
   onClose,
 }: ScoreEditSheetProps) {
   const [score, setScore] = useState(currentScore);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Reset score when sheet opens
+  // Reset score and error when sheet opens
   useEffect(() => {
     if (isOpen) {
       setScore(currentScore);
+      setError(null);
       // Focus input after animation
       setTimeout(() => {
         inputRef.current?.focus();
@@ -72,8 +75,17 @@ export function ScoreEditSheet({
   };
   
   const handleSave = async () => {
-    await onSave(score);
-    onClose();
+    try {
+      setIsLoading(true);
+      setError(null);
+      await onSave(score);
+      onClose();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save score';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -146,6 +158,19 @@ export function ScoreEditSheet({
           </TouchButton>
         </div>
         
+        {/* Error Message */}
+        {error && (
+          <div
+            data-testid="error-message"
+            className="p-3 rounded-lg bg-red-50 border border-red-200"
+            role="alert"
+          >
+            <p className="text-sm text-red-600 font-medium text-center">
+              {error}
+            </p>
+          </div>
+        )}
+        
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
           <TouchButton
@@ -153,17 +178,34 @@ export function ScoreEditSheet({
             size="lg"
             onClick={onClose}
             className="flex-1"
+            disabled={isLoading}
           >
             Cancel
           </TouchButton>
-          <TouchButton
-            variant="primary"
-            size="lg"
-            onClick={handleSave}
-            className="flex-1"
-          >
-            Save
-          </TouchButton>
+          {error ? (
+            <TouchButton
+              variant="primary"
+              size="lg"
+              onClick={handleSave}
+              className="flex-1"
+              data-testid="btn-retry"
+              disabled={isLoading}
+              data-loading={isLoading}
+            >
+              {isLoading ? 'Retrying...' : 'Retry'}
+            </TouchButton>
+          ) : (
+            <TouchButton
+              variant="primary"
+              size="lg"
+              onClick={handleSave}
+              className="flex-1"
+              disabled={isLoading}
+              data-loading={isLoading}
+            >
+              {isLoading ? 'Saving...' : 'Save'}
+            </TouchButton>
+          )}
         </div>
       </div>
     </BottomSheet>

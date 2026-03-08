@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { ScoreEditModal } from './ScoreEditModal';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 
 interface GameScoreboard {
   id: string;
@@ -47,7 +49,6 @@ export function ScoreboardOverlay({
   // Score edit modal state
   const [editingTeam, setEditingTeam] = useState<'home' | 'away' | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
   const storageKey = `scoreboard-position-${slug}`;
 
   // Load position from localStorage
@@ -77,12 +78,7 @@ export function ScoreboardOverlay({
 
   const fetchScoreboard = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`);
-      if (!response.ok) {
-        setLoading(false);
-        return;
-      }
-      const data = await response.json();
+      const data = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard`, { retries: 1 });
       setScoreboard(data);
       setLoading(false);
     } catch {
@@ -193,17 +189,11 @@ export function ScoreboardOverlay({
         ? { homeScore: newScore }
         : { awayScore: newScore };
 
-      const response = await fetch(`${apiUrl}/api/direct/${slug}/scoreboard`, {
+      const updated = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update score');
-      }
-
-      const updated = await response.json();
       setScoreboard(updated);
     } catch (error) {
       console.error('Failed to update score:', error);

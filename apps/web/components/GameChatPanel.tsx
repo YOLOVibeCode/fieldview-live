@@ -17,6 +17,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { ErrorToast } from '@/components/v2/ErrorToast';
 import type { ChatMessage } from '@/hooks/useGameChat';
 
 interface GameChatPanelProps {
@@ -54,6 +56,7 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium', canSe
   const fontClasses = FONT_SIZES[fontSize];
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +70,7 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium', canSe
       setMessageText('');
     } catch (err) {
       console.error('Failed to send message:', err);
-      alert(err instanceof Error ? err.message : 'Failed to send message');
+      setToastError(err instanceof Error ? err.message : 'Failed to send message');
     } finally {
       setIsSending(false);
     }
@@ -84,8 +87,10 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium', canSe
   const canSend = messageText.trim().length > 0 && !isSending;
 
   return (
-    <Card className={className} data-testid="panel-chat">
-      <CardHeader className="pb-3">
+    <>
+      {toastError && <ErrorToast message={toastError} onDismiss={() => setToastError(null)} />}
+      <Card className={className} data-testid="panel-chat">
+        <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base sm:text-lg">Chat</CardTitle>
@@ -109,13 +114,10 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium', canSe
       <CardContent className="space-y-3 sm:space-y-4">
         {/* Error message */}
         {chat.error && (
-          <div 
-            className="p-3 bg-destructive/10 text-destructive rounded-md text-sm leading-relaxed"
+          <ErrorBanner 
+            message={chat.error}
             data-testid="chat-error"
-            role="alert"
-          >
-            {chat.error}
-          </div>
+          />
         )}
 
         {/* Messages list (newest first) - Mobile optimized */}
@@ -184,5 +186,6 @@ export function GameChatPanel({ chat, className = '', fontSize = 'medium', canSe
         )}
       </CardContent>
     </Card>
+    </>
   );
 }

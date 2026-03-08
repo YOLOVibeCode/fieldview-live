@@ -6,6 +6,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { InlineError } from '@/components/v2/InlineError';
 
 // Password validation schema (matches backend)
 const resetPasswordSchema = z.object({
@@ -57,10 +61,12 @@ function ResetPasswordContent() {
     const verifyToken = async () => {
       setVerifyState('verifying');
       try {
-        const response = await fetch(`/api/auth/password-reset/verify/${token}`);
-        const result = await response.json();
+        const result = await apiRequest<{ success: boolean; message?: string }>(
+          `/api/auth/password-reset/verify/${token}`,
+          { retries: 1 }
+        );
 
-        if (response.ok && result.success) {
+        if (result.success) {
           setVerifyState('valid');
         } else {
           setVerifyState('invalid');
@@ -68,7 +74,7 @@ function ResetPasswordContent() {
         }
       } catch (error) {
         setVerifyState('invalid');
-        setErrorMessage('Failed to verify reset link');
+        setErrorMessage(getUserFriendlyMessage(error));
       }
     };
 
@@ -82,22 +88,16 @@ function ResetPasswordContent() {
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/auth/password-reset/confirm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          newPassword: data.newPassword,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to reset password');
-      }
+      await apiRequest<{ success: boolean }>(
+        '/api/auth/password-reset/confirm',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            token,
+            newPassword: data.newPassword,
+          }),
+        }
+      );
 
       setSubmitState('success');
       
@@ -107,7 +107,7 @@ function ResetPasswordContent() {
       }, 2000);
     } catch (error) {
       setSubmitState('error');
-      setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.');
+      setErrorMessage(getUserFriendlyMessage(error));
     }
   };
 
@@ -194,14 +194,7 @@ function ResetPasswordContent() {
           <>
             {/* Error Message */}
             {submitState === 'error' && errorMessage && (
-              <div
-                className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg"
-                data-testid="error-message"
-              >
-                <p className="text-red-400 text-sm">
-                  ✕ {errorMessage}
-                </p>
-              </div>
+              <ErrorBanner message={errorMessage} onDismiss={() => setErrorMessage('')} data-testid="error-message" />
             )}
 
             <form
@@ -238,9 +231,9 @@ function ResetPasswordContent() {
                   </button>
                 </div>
                 {errors.newPassword && (
-                  <p className="mt-2 text-sm text-red-400" data-testid="error-new-password">
-                    {errors.newPassword.message}
-                  </p>
+                  <div className="mt-2">
+                    <InlineError message={errors.newPassword.message!} data-testid="error-new-password" />
+                  </div>
                 )}
 
                 {/* Password Strength Indicator */}
@@ -300,9 +293,9 @@ function ResetPasswordContent() {
                   </button>
                 </div>
                 {errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-red-400" data-testid="error-confirm-password">
-                    {errors.confirmPassword.message}
-                  </p>
+                  <div className="mt-2">
+                    <InlineError message={errors.confirmPassword.message!} data-testid="error-confirm-password" />
+                  </div>
                 )}
               </div>
 

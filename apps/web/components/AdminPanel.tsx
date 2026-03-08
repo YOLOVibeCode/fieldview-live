@@ -17,7 +17,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Eye, EyeOff, Lock } from 'lucide-react';
+import { ArrowLeftRight, Eye, EyeOff, Lock } from 'lucide-react';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { ErrorToast } from '@/components/v2/ErrorToast';
 
 interface AdminPanelProps {
   slug: string;
@@ -76,6 +79,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const [awayTeamName, setAwayTeamName] = useState(initialSettings?.awayTeamName || '');
   const [homeJerseyColor, setHomeJerseyColor] = useState(initialSettings?.homeJerseyColor || '#003366');
   const [awayJerseyColor, setAwayJerseyColor] = useState(initialSettings?.awayJerseyColor || '#CC0000');
+  const [awayColorTouched, setAwayColorTouched] = useState(false);
   // Viewer editing permissions
   const [allowViewerScoreEdit, setAllowViewerScoreEdit] = useState(initialSettings?.allowViewerScoreEdit ?? false);
   const [allowViewerNameEdit, setAllowViewerNameEdit] = useState(initialSettings?.allowViewerNameEdit ?? false);
@@ -96,6 +100,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [toastError, setToastError] = useState<string | null>(null);
 
   // Broadcast message (admin-only, visible to all viewers)
   const [broadcastMessage, setBroadcastMessage] = useState('');
@@ -112,19 +117,22 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
     ownerUnlockAttempted.current = true;
     setIsUnlocking(true);
     const fullSlug = slug.toLowerCase();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-    const url = `${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`;
-    fetch(url, {
+    
+    apiRequest<{
+      token: string;
+      viewerToken?: string;
+      viewerId?: string;
+      displayName?: string;
+      gameId?: string;
+    }>(`/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${ownerToken}`,
       },
       body: JSON.stringify({}),
     })
-      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (ok && data.token) {
+      .then((data) => {
+        if (data.token) {
           setAdminToken(data.token);
           setIsUnlocked(true);
           const viewerInfo = data.viewerToken
@@ -138,7 +146,9 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           onAuthSuccess?.(data.token, viewerInfo);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        setToastError(getUserFriendlyMessage(err));
+      })
       .finally(() => setIsUnlocking(false));
   }, [isUnlocked, slug, onAuthSuccess]);
 
@@ -160,45 +170,23 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
     setUnlockError('');
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-      const url = `${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`;
-      
-      console.log('[AdminPanel] 📡 Sending unlock request', {
-        url,
+      const data = await apiRequest<{
+        token: string;
+        viewerToken?: string;
+        viewerId?: string;
+        displayName?: string;
+        gameId?: string;
+        error?: string;
+      }>(`/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`, {
         method: 'POST',
-        hasPassword: !!password
-      });
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ password }),
       });
 
       console.log('[AdminPanel] 📥 Unlock response received', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
-      const data = await response.json();
-      
-      console.log('[AdminPanel] 📦 Unlock response data', {
         hasToken: !!data.token,
         hasError: !!data.error,
         error: data.error
       });
-
-      if (!response.ok) {
-        console.error('[AdminPanel] ❌ Unlock failed', {
-          status: response.status,
-          error: data.error,
-          data
-        });
-        throw new Error(data.error || 'Failed to unlock admin panel');
-      }
 
       // Store the JWT token and unlock the panel
       setAdminToken(data.token);
@@ -216,7 +204,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
       } : undefined;
       onAuthSuccess?.(data.token, viewerInfo);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to unlock admin panel';
+      const errorMessage = getUserFriendlyMessage(error);
       console.error('[AdminPanel] ❌ Unlock error caught', {
         error,
         errorMessage,
@@ -293,25 +281,20 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
       });
 
       // Use full slug for settings endpoint (JWT token is for full slug)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-      const url = `${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/settings`;
-      
-      const response = await fetch(url, {
+      const data = await apiRequest<{
+        success: boolean;
+        settings?: { streamUrl?: string };
+        error?: string;
+        details?: unknown;
+      }>(`/api/direct/${encodeURIComponent(fullSlug)}/settings`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`,
         },
         body: JSON.stringify(payload),
       });
 
-      console.log('[AdminPanel] 📥 Settings response received', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
-      const data = await response.json();
+      console.log('[AdminPanel] 📥 Settings response received');
       
       console.log('[AdminPanel] 📦 Settings response data', {
         success: data.success,
@@ -320,22 +303,6 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         streamUrlSaved: data.settings?.streamUrl
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.error('[AdminPanel] ❌ Token expired (401)', { data });
-          // Token expired or invalid, require re-authentication
-          setIsUnlocked(false);
-          setAdminToken(null);
-          setUnlockError('Session expired. Please log in again.');
-        }
-        console.error('[AdminPanel] ❌ Settings save failed', {
-          status: response.status,
-          error: data.error,
-          details: data.details
-        });
-        throw new Error(data.error || 'Failed to save settings');
-      }
-
       // If scoreboard is enabled, initialize it with custom values
       if (scoreboardEnabled) {
         console.log('[AdminPanel] 📊 Setting up scoreboard', {
@@ -343,33 +310,31 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           awayTeam: awayTeamName || 'Away'
         });
         
-        const scoreboardResponse = await fetch(`${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/scoreboard/setup`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({
-            homeTeamName: homeTeamName || 'Home',
-            awayTeamName: awayTeamName || 'Away',
-            homeJerseyColor: homeJerseyColor || '#003366',
-            awayJerseyColor: awayJerseyColor || '#CC0000',
-            homeScore: 0,
-            awayScore: 0,
-            clockMode: 'stopped',
-            clockSeconds: 0,
-            isVisible: true,
-            position: 'top',
-            editMode: homeTeamName || awayTeamName ? 'admin_only' : 'public', // If coach set names, lock it. Otherwise, public!
-          }),
-        });
-
-        if (!scoreboardResponse.ok) {
-          const scoreboardData = await scoreboardResponse.json();
-          // Don't fail the whole save, just warn
-          console.warn('[AdminPanel] ⚠️ Failed to setup scoreboard:', scoreboardData);
-        } else {
+        try {
+          await apiRequest<unknown>(`/api/direct/${encodeURIComponent(fullSlug)}/scoreboard/setup`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${adminToken}`,
+            },
+            body: JSON.stringify({
+              homeTeamName: homeTeamName || 'Home',
+              awayTeamName: awayTeamName || 'Away',
+              homeJerseyColor: homeJerseyColor || '#003366',
+              awayJerseyColor: awayJerseyColor || '#CC0000',
+              homeScore: 0,
+              awayScore: 0,
+              clockMode: 'stopped',
+              clockSeconds: 0,
+              isVisible: true,
+              position: 'top',
+              editMode: homeTeamName || awayTeamName ? 'admin_only' : 'public', // If coach set names, lock it. Otherwise, public!
+            }),
+          });
+          
           console.log('[AdminPanel] ✅ Scoreboard setup successful');
+        } catch (scoreboardError) {
+          // Don't fail the whole save, just warn
+          console.warn('[AdminPanel] ⚠️ Failed to setup scoreboard:', scoreboardError);
         }
       }
 
@@ -380,12 +345,21 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         window.location.reload(); // Refresh to show new settings
       }, 1000);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save settings';
+      const errorMessage = getUserFriendlyMessage(error);
       console.error('[AdminPanel] ❌ Save settings error', {
         error,
         errorMessage,
         errorType: error?.constructor?.name
       });
+      
+      // Check for token expiration
+      if (error.status === 401) {
+        console.error('[AdminPanel] ❌ Token expired (401)');
+        setIsUnlocked(false);
+        setAdminToken(null);
+        setUnlockError('Session expired. Please log in again.');
+      }
+      
       setSaveError(errorMessage);
     } finally {
       setIsSaving(false);
@@ -398,6 +372,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
 
   if (!isUnlocked) {
     return (
+      <>
       <Card className="glass border border-primary/20 shadow-elevation-2" data-testid="admin-panel-unlock">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -476,11 +451,20 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
           </form>
         </CardContent>
       </Card>
+      {toastError && (
+        <ErrorToast
+          message={toastError}
+          onDismiss={() => setToastError(null)}
+          data-testid="error-toast-admin-unlock"
+        />
+      )}
+      </>
     );
   }
 
   // Admin panel unlocked - show settings
   return (
+    <>
     <Card className="glass border border-primary/20 shadow-elevation-2" data-testid="admin-panel-settings">
       <CardHeader>
         <CardTitle>Stream Settings</CardTitle>
@@ -540,20 +524,17 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                 setIsBroadcasting(true);
                 setBroadcastError('');
                 try {
-                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-                  const res = await fetch(`${apiUrl}/api/direct/${encodeURIComponent(fullSlug)}/admin-broadcast`, {
+                  await apiRequest<unknown>(`/api/direct/${encodeURIComponent(fullSlug)}/admin-broadcast`, {
                     method: 'POST',
                     headers: {
-                      'Content-Type': 'application/json',
                       'Authorization': `Bearer ${adminToken}`,
                     },
                     body: JSON.stringify({ message: broadcastMessage.trim() }),
                   });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || 'Broadcast failed');
+                  
                   setBroadcastMessage('');
                 } catch (err) {
-                  setBroadcastError(err instanceof Error ? err.message : 'Broadcast failed');
+                  setBroadcastError(getUserFriendlyMessage(err));
                 } finally {
                   setIsBroadcasting(false);
                 }
@@ -751,7 +732,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                 <div className="space-y-2">
                   <label htmlFor="home-jersey-color" className="text-sm font-medium">
                     Home Color
@@ -762,7 +743,11 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                       name="home-jersey-color"
                       type="color"
                       value={homeJerseyColor}
-                      onChange={(e) => setHomeJerseyColor(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setHomeJerseyColor(v);
+                        if (!awayColorTouched) setAwayJerseyColor('#FFFFFF');
+                      }}
                       className="w-16 h-10 cursor-pointer"
                       data-testid="home-jersey-color-input"
                       aria-label="Home jersey color"
@@ -770,12 +755,34 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                     <Input
                       type="text"
                       value={homeJerseyColor}
-                      onChange={(e) => setHomeJerseyColor(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setHomeJerseyColor(v);
+                        if (!awayColorTouched) setAwayJerseyColor('#FFFFFF');
+                      }}
                       placeholder="#003366"
                       className="flex-1 bg-background border-muted"
                     />
                   </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => {
+                    setHomeJerseyColor(awayJerseyColor);
+                    setAwayJerseyColor(homeJerseyColor);
+                    setHomeTeamName(awayTeamName);
+                    setAwayTeamName(homeTeamName);
+                    setAwayColorTouched(true);
+                  }}
+                  data-testid="btn-swap-colors"
+                  aria-label="Swap home and away"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                </Button>
 
                 <div className="space-y-2">
                   <label htmlFor="away-jersey-color" className="text-sm font-medium">
@@ -787,7 +794,10 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                       name="away-jersey-color"
                       type="color"
                       value={awayJerseyColor}
-                      onChange={(e) => setAwayJerseyColor(e.target.value)}
+                      onChange={(e) => {
+                        setAwayJerseyColor(e.target.value);
+                        setAwayColorTouched(true);
+                      }}
                       className="w-16 h-10 cursor-pointer"
                       data-testid="away-jersey-color-input"
                       aria-label="Away jersey color"
@@ -795,8 +805,11 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
                     <Input
                       type="text"
                       value={awayJerseyColor}
-                      onChange={(e) => setAwayJerseyColor(e.target.value)}
-                      placeholder="#CC0000"
+                      onChange={(e) => {
+                        setAwayJerseyColor(e.target.value);
+                        setAwayColorTouched(true);
+                      }}
+                      placeholder="#FFFFFF"
                       className="flex-1 bg-background border-muted"
                     />
                   </div>
@@ -1026,5 +1039,13 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         </div>
       </CardContent>
     </Card>
+    {toastError && (
+      <ErrorToast
+        message={toastError}
+        onDismiss={() => setToastError(null)}
+        data-testid="error-toast-admin-unlock"
+      />
+    )}
+    </>
   );
 }
