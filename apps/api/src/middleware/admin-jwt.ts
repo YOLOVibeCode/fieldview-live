@@ -47,9 +47,14 @@ export const validateAdminToken = (req: Request, res: Response, next: NextFuncti
     const decoded = jwt.verify(token, jwtSecret) as AdminJwtPayload;
 
     // Verify the slug in the token matches the slug in the URL
-    const urlSlug = req.params.slug?.toLowerCase();
-    if (urlSlug && decoded.slug !== urlSlug) {
-      throw new ForbiddenError('Token not valid for this stream');
+    // For event slugs like "parent/event", compare against the parent portion
+    const rawSlug = req.params.slug?.toLowerCase();
+    if (rawSlug) {
+      const parts = rawSlug.split('/');
+      const parentSlug = parts.length >= 2 ? parts[0] : rawSlug;
+      if (decoded.slug !== parentSlug) {
+        throw new ForbiddenError('Token not valid for this stream');
+      }
     }
 
     // Attach admin data to request
