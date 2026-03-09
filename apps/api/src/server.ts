@@ -48,6 +48,7 @@ import { createPublicViewerAccountRouter } from './routes/public.viewer-account'
 import { createAdminDirectStreamsRouter } from './routes/admin.direct-streams';
 import { createAdminDirectStreamEventsRouter } from './routes/admin.direct-stream-events';
 import { createAdminSeedRouter } from './routes/admin.seed';
+import { createSeedTchsMar09Router } from './routes/admin.seed-tchs-mar09';
 import { createPublicGameViewerRouter } from './routes/public.game-viewer';
 import { createPublicGameChatRouter } from './routes/public.game-chat';
 import { createPublicCouponsRouter } from './routes/public.coupons';
@@ -121,6 +122,7 @@ app.use('/api/admin/setup', createAdminSetupRouter());
 app.use('/api/admin/direct-streams', createAdminDirectStreamsRouter());
 app.use('/api/admin/direct-streams', createAdminDirectStreamEventsRouter());
 app.use('/api/admin/seed', createAdminSeedRouter());
+app.use('/api/admin', createSeedTchsMar09Router());
 app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersAnalyticsRouter());
 app.use('/api/owners', createOwnersGamesRouter());
