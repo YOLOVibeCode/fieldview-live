@@ -201,12 +201,20 @@ router.get(
           });
         }
 
+        // Use event-specific stream URL if available, otherwise parent's
+        const effectiveStreamUrl = (isEvent && directStreamEvent?.streamUrl) ? directStreamEvent.streamUrl : directStream.streamUrl;
+
         // Resolve stream provider metadata from StreamSource or URL inference
         const streamSource = directStream.game?.streamSource ?? null;
         const knownProviders = ['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed'];
         const rawType = streamSource?.type;
-        const streamProvider = (rawType && knownProviders.includes(rawType)) ? rawType : (rawType ? 'unknown' : inferStreamProvider(directStream.streamUrl));
-        const muxPlaybackId = streamSource?.muxPlaybackId ?? extractMuxPlaybackId(directStream.streamUrl);
+        const hasEventOverride = isEvent && directStreamEvent?.streamUrl;
+        const streamProvider = hasEventOverride
+          ? inferStreamProvider(effectiveStreamUrl)
+          : (rawType && knownProviders.includes(rawType)) ? rawType : (rawType ? 'unknown' : inferStreamProvider(effectiveStreamUrl));
+        const muxPlaybackId = hasEventOverride
+          ? extractMuxPlaybackId(effectiveStreamUrl)
+          : (streamSource?.muxPlaybackId ?? extractMuxPlaybackId(effectiveStreamUrl));
         const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
 
         const responseData: any = {
@@ -214,7 +222,7 @@ router.get(
           parentSlug: isEvent ? directStream.slug : undefined,
           directStreamId: directStream.id,
           gameId: directStream.gameId,
-          streamUrl: isEvent && directStreamEvent?.streamUrl ? directStreamEvent.streamUrl : directStream.streamUrl,
+          streamUrl: effectiveStreamUrl,
           chatEnabled: isEvent ? (directStreamEvent?.chatEnabled ?? directStream.chatEnabled) : directStream.chatEnabled,
           title: isEvent && directStreamEvent?.title ? directStreamEvent.title : directStream.title,
           paywallEnabled: directStream.paywallEnabled,
