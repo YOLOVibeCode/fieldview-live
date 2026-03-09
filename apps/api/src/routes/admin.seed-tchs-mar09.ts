@@ -23,6 +23,7 @@ export function createSeedTchsMar09Router(): Router {
             type: 'owner',
             name: 'Default Owner',
             contactEmail: 'owner@fieldview.live',
+            status: 'active',
           },
         });
       }
