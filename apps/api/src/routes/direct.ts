@@ -209,10 +209,10 @@ router.get(
         const muxPlaybackId = streamSource?.muxPlaybackId ?? extractMuxPlaybackId(directStream.streamUrl);
         const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
 
-        // 🆕 Merge event-specific overrides if this is an event
         const responseData: any = {
           slug: isEvent ? key : directStream.slug,
-          parentSlug: isEvent ? directStream.slug : undefined, // 🆕 Critical for admin auth
+          parentSlug: isEvent ? directStream.slug : undefined,
+          directStreamId: directStream.id,
           gameId: directStream.gameId,
           streamUrl: isEvent && directStreamEvent?.streamUrl ? directStreamEvent.streamUrl : directStream.streamUrl,
           chatEnabled: isEvent ? (directStreamEvent?.chatEnabled ?? directStream.chatEnabled) : directStream.chatEnabled,
@@ -1013,10 +1013,12 @@ router.get(
     void (async () => {
       try {
         const { slug } = req.params;
+        const key = slug.toLowerCase();
+        const parts = key.split('/');
+        const parentSlug = parts.length >= 2 ? parts[0] : key;
 
-        // Check if stream exists
         const stream = await prisma.directStream.findUnique({
-          where: { slug },
+          where: { slug: parentSlug },
         });
 
         if (!stream) {
@@ -1083,9 +1085,12 @@ router.post(
           throw new BadRequestError('Email is required');
         }
 
-        // Check if stream exists
+        const key = slug.toLowerCase();
+        const parts = key.split('/');
+        const parentSlug = parts.length >= 2 ? parts[0] : key;
+
         const stream = await prisma.directStream.findUnique({
-          where: { slug },
+          where: { slug: parentSlug },
         });
 
         if (!stream) {
@@ -1243,9 +1248,10 @@ router.get(
       throw new BadRequestError('Slug is required');
     }
 
-    // Look up the game for this stream and count SSE subscribers
     const key = slug.toLowerCase();
-    const gameTitle = `Direct Stream: ${key}`;
+    const parts = key.split('/');
+    const parentSlug = parts.length >= 2 ? parts[0] : key;
+    const gameTitle = `Direct Stream: ${parentSlug}`;
 
     void (async () => {
       try {

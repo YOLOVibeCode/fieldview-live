@@ -17,12 +17,18 @@ import { NotFoundError, BadRequestError, UnauthorizedError, ForbiddenError, Conf
 
 const router: Router = Router();
 
+function resolveParentSlug(slug: string): string {
+  const key = slug.toLowerCase();
+  const parts = key.split('/');
+  return parts.length >= 2 ? parts[0] : key;
+}
+
 /**
  * GET /api/direct/:slug/scoreboard
  * Public - Get current scoreboard state
  */
 router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     let stream = await prisma.directStream.findUnique({
@@ -113,7 +119,7 @@ function toScoreboardEvent(sb: any): ScoreboardEvent {
  * SSE endpoint for real-time scoreboard updates.
  */
 router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   // SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
@@ -167,7 +173,7 @@ router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
  * Validate producer password
  */
 router.post('/:slug/scoreboard/validate', async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const validation = ValidateProducerPasswordSchema.safeParse(req.body);
@@ -205,7 +211,7 @@ router.post('/:slug/scoreboard/validate', async (req: Request, res: Response, ne
  * Allows if: (1) Admin JWT, (2) Correct producer password, (3) No password set
  */
 async function validateProducerAccess(req: Request, res: Response, next: NextFunction) {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const stream = await prisma.directStream.findUnique({
@@ -266,7 +272,7 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
  * Access: Admin JWT OR correct producer password OR open (if no password)
  */
 router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const validation = UpdateGameScoreboardSchema.safeParse(req.body);
@@ -327,7 +333,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
  * Start or resume game clock
  */
 router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const stream = await prisma.directStream.findUnique({
@@ -373,7 +379,7 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
  * Pause game clock
  */
 router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const stream = await prisma.directStream.findUnique({
@@ -421,7 +427,7 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
  * Reset clock to 00:00
  */
 router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const stream = await prisma.directStream.findUnique({
@@ -460,7 +466,7 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
  * Admin-only: Create scoreboard with optional producer password
  */
 router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
 
   try {
     const stream = await prisma.directStream.findUnique({
@@ -510,7 +516,7 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
  * Access: Registered viewer with valid token
  */
 router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Response, next: NextFunction) => {
-  const { slug } = req.params;
+  const slug = resolveParentSlug(req.params.slug);
   const { viewerToken, field, value } = req.body;
 
   try {

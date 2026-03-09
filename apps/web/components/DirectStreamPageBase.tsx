@@ -754,7 +754,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Bookmark markers for the timeline (with SSE real-time + toast callback)
   const bookmarkMarkers = useBookmarkMarkers({
-    directStreamId: bootstrap?.slug,
+    directStreamId: bootstrap?.directStreamId,
     viewerId: viewer.viewerId || undefined,
     enabled: !!streamUrl && !isPaywallBlocked,
     onBookmarkReceived: useCallback((bookmark: { id: string; viewerIdentityId?: string | null; timestampSeconds: number; label: string }) => {
