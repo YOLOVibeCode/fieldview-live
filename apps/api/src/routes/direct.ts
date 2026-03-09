@@ -66,11 +66,45 @@ router.get(
 
         const key = slug.toLowerCase();
         
-        // Try to find existing DirectStream in DB (only active streams)
-        let directStream = await prisma.directStream.findUnique({
-          where: { slug: key },
-          include: { game: { include: { streamSource: true } } },
-        });
+        // 🆕 Check if this is a hierarchical event slug (parent/event)
+        const parts = key.split('/');
+        let directStream: any;
+        let directStreamEvent: any = null;
+        let isEvent = false;
+        
+        if (parts.length === 2) {
+          // Try to find as DirectStreamEvent first
+          const [parentSlug, eventSlug] = parts;
+          const parent = await prisma.directStream.findUnique({
+            where: { slug: parentSlug },
+            include: { game: { include: { streamSource: true } } },
+          });
+          
+          if (parent) {
+            directStreamEvent = await prisma.directStreamEvent.findUnique({
+              where: {
+                directStreamId_eventSlug: {
+                  directStreamId: parent.id,
+                  eventSlug,
+                },
+              },
+            });
+            
+            if (directStreamEvent) {
+              directStream = parent;
+              isEvent = true;
+              logger.info({ parentSlug, eventSlug }, 'Found DirectStreamEvent');
+            }
+          }
+        }
+        
+        // If not found as event, try as regular DirectStream
+        if (!directStream) {
+          directStream = await prisma.directStream.findUnique({
+            where: { slug: key },
+            include: { game: { include: { streamSource: true } } },
+          });
+        }
 
         // Check if stream is deleted or archived
         if (directStream && directStream.status !== 'active') {
@@ -93,7 +127,7 @@ router.get(
           if (existingGame) {
             // Link the existing Game to the DirectStream
             directStream = await prisma.directStream.update({
-              where: { slug: key },
+              where: { slug: isEvent ? directStream.slug : key },
               data: { gameId: existingGame.id },
               include: { game: { include: { streamSource: true } } },
             });
@@ -175,24 +209,26 @@ router.get(
         const muxPlaybackId = streamSource?.muxPlaybackId ?? extractMuxPlaybackId(directStream.streamUrl);
         const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
 
-        return res.json({
-          slug: directStream.slug,
+        // 🆕 Merge event-specific overrides if this is an event
+        const responseData: any = {
+          slug: isEvent ? key : directStream.slug,
+          parentSlug: isEvent ? directStream.slug : undefined, // 🆕 Critical for admin auth
           gameId: directStream.gameId,
-          streamUrl: directStream.streamUrl,
-          chatEnabled: directStream.chatEnabled,
-          title: directStream.title,
+          streamUrl: isEvent && directStreamEvent?.streamUrl ? directStreamEvent.streamUrl : directStream.streamUrl,
+          chatEnabled: isEvent ? (directStreamEvent?.chatEnabled ?? directStream.chatEnabled) : directStream.chatEnabled,
+          title: isEvent && directStreamEvent?.title ? directStreamEvent.title : directStream.title,
           paywallEnabled: directStream.paywallEnabled,
           priceInCents: directStream.priceInCents,
           paywallMessage: directStream.paywallMessage,
           allowSavePayment: directStream.allowSavePayment,
-          scoreboardEnabled: directStream.scoreboardEnabled,
+          scoreboardEnabled: isEvent ? (directStreamEvent?.scoreboardEnabled ?? directStream.scoreboardEnabled) : directStream.scoreboardEnabled,
           scoreboardHomeTeam: directStream.scoreboardHomeTeam,
           scoreboardAwayTeam: directStream.scoreboardAwayTeam,
           scoreboardHomeColor: directStream.scoreboardHomeColor,
           scoreboardAwayColor: directStream.scoreboardAwayColor,
           welcomeMessage: directStream.welcomeMessage,
-          // Scheduling & reminders
-          scheduledStartAt: directStream.scheduledStartAt,
+          // Scheduling & reminders (event-specific if available)
+          scheduledStartAt: isEvent && directStreamEvent?.scheduledStartAt ? directStreamEvent.scheduledStartAt : directStream.scheduledStartAt,
           sendReminders: directStream.sendReminders,
           reminderMinutes: directStream.reminderMinutes,
           // Viewer editing permissions
@@ -205,7 +241,9 @@ router.get(
           streamProvider,
           muxPlaybackId,
           protectionLevel,
-        });
+        };
+
+        return res.json(responseData);
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
         next(error);
@@ -228,9 +266,13 @@ router.post(
 
         const key = slug.toLowerCase();
 
+        // 🆕 Handle hierarchical event slugs (parent/event) - use parent for auth
+        const parts = key.split('/');
+        const authSlug = parts.length === 2 ? parts[0] : key; // Use parent slug for auth
+
         // Find the DirectStream record (include fields needed for ensureGame)
         const directStream = await prisma.directStream.findUnique({
-          where: { slug: key },
+          where: { slug: authSlug },
           select: {
             id: true,
             title: true,
@@ -259,13 +301,13 @@ router.post(
               throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
             }
             const token = jwt.sign(
-              { slug: key, role: 'admin' },
+              { slug: authSlug, role: 'admin' }, // 🆕 Use parent slug in JWT
               jwtSecret,
               { expiresIn: '1h' }
             );
-            const adminEmail = `admin@${key}.fieldview.live`;
-            const adminDisplayName = `${directStream.title || key} Admin`;
-            const gameId = directStream.gameId || await ensureGameForDirectStream(key, directStream);
+            const adminEmail = `admin@${authSlug}.fieldview.live`;
+            const adminDisplayName = `${directStream.title || authSlug} Admin`;
+            const gameId = directStream.gameId || await ensureGameForDirectStream(authSlug, directStream);
             const adminViewer = await prisma.viewerIdentity.upsert({
               where: { email: adminEmail },
               create: {
@@ -282,7 +324,7 @@ router.post(
             const viewerToken = generateViewerToken({
               viewerId: adminViewer.id,
               gameId,
-              slug: key,
+              slug: authSlug,
               displayName: adminDisplayName,
             });
             return res.json({
@@ -317,16 +359,16 @@ router.post(
         }
 
         const token = jwt.sign(
-          { slug: key, role: 'admin' },
+          { slug: authSlug, role: 'admin' }, // 🆕 Use parent slug in JWT
           jwtSecret,
           { expiresIn: '1h' }
         );
 
         // Auto-login admin as viewer: upsert ViewerIdentity + generate viewer JWT
-        const adminEmail = `admin@${key}.fieldview.live`;
-        const adminDisplayName = `${directStream.title || key} Admin`;
+        const adminEmail = `admin@${authSlug}.fieldview.live`;
+        const adminDisplayName = `${directStream.title || authSlug} Admin`;
 
-        const gameId = directStream.gameId || await ensureGameForDirectStream(key, directStream);
+        const gameId = directStream.gameId || await ensureGameForDirectStream(authSlug, directStream);
 
         const adminViewer = await prisma.viewerIdentity.upsert({
           where: { email: adminEmail },
@@ -345,7 +387,7 @@ router.post(
         const viewerToken = generateViewerToken({
           viewerId: adminViewer.id,
           gameId,
-          slug: key,
+          slug: authSlug,
           displayName: adminDisplayName,
         });
 

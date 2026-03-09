@@ -1226,6 +1226,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
                 <AdminPanel
                   slug={bootstrap?.slug || ''}
+                  parentSlug={bootstrap?.parentSlug} // 🆕 For DirectStreamEvents
                   initialSettings={{
                     streamUrl: bootstrap?.streamUrl,
                     chatEnabled: bootstrap?.chatEnabled,

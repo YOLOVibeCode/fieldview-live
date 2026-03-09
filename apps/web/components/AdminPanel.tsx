@@ -24,6 +24,7 @@ import { ErrorToast } from '@/components/v2/ErrorToast';
 
 interface AdminPanelProps {
   slug: string;
+  parentSlug?: string; // 🆕 For DirectStreamEvents, use parent slug for auth
   initialSettings?: {
     streamUrl?: string | null;
     chatEnabled?: boolean;
@@ -51,12 +52,16 @@ interface AdminPanelProps {
   onAuthSuccess?: (token: string, viewerInfo?: { viewerToken: string; viewerId: string; displayName: string; gameId: string }) => void;
 }
 
-export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelProps) {
+export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }: AdminPanelProps) {
   console.log('[AdminPanel] 🎬 Component mounted/rendered', {
     slug,
+    parentSlug,
     hasInitialSettings: !!initialSettings,
     initialStreamUrl: initialSettings?.streamUrl || null
   });
+  
+  // 🆕 Use parentSlug for auth if provided (DirectStreamEvents), otherwise use slug
+  const authSlug = parentSlug || slug;
   
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
@@ -116,7 +121,6 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
     if (!ownerToken) return;
     ownerUnlockAttempted.current = true;
     setIsUnlocking(true);
-    const fullSlug = slug.toLowerCase();
     
     apiRequest<{
       token: string;
@@ -124,7 +128,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
       viewerId?: string;
       displayName?: string;
       gameId?: string;
-    }>(`/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`, {
+    }>(`/api/direct/${encodeURIComponent(authSlug)}/unlock-admin`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${ownerToken}`,
@@ -155,13 +159,9 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Use full slug for unlock endpoint (e.g., "tchs/soccer-20260122-jv2")
-    // The API will find the DirectStream by full slug
-    const fullSlug = slug.toLowerCase();
-    
     console.log('[AdminPanel] 🔐 Unlock attempt started', {
       slug,
-      fullSlug,
+      authSlug,
       passwordLength: password.length,
       hasPassword: password.length > 0
     });
@@ -177,7 +177,7 @@ export function AdminPanel({ slug, initialSettings, onAuthSuccess }: AdminPanelP
         displayName?: string;
         gameId?: string;
         error?: string;
-      }>(`/api/direct/${encodeURIComponent(fullSlug)}/unlock-admin`, {
+      }>(`/api/direct/${encodeURIComponent(authSlug)}/unlock-admin`, {
         method: 'POST',
         body: JSON.stringify({ password }),
       });
