@@ -453,97 +453,158 @@ router.post(
         const body = parsed.data;
         const key = slug.toLowerCase();
 
-        // Find existing DirectStream
+        // 🆕 Handle hierarchical event slugs (parent/event)
+        const parts = key.split('/');
+        const authSlug = parts.length === 2 ? parts[0] : key; // Use parent slug for updates
+
+        // Find existing DirectStream (use parent slug for events)
         const existingStream = await prisma.directStream.findUnique({
-          where: { slug: key },
+          where: { slug: authSlug },
         });
 
         if (!existingStream) {
           throw new NotFoundError('Stream not found');
         }
 
-        // Build update data (ISP: only update provided fields)
-        const updateData: any = {};
-        
-        if (body.streamUrl !== undefined) {
-          updateData.streamUrl = body.streamUrl;
+        // 🆕 If this is an event, check if DirectStreamEvent exists
+        let directStreamEvent = null;
+        if (parts.length === 2) {
+          const [parentSlug, eventSlug] = parts;
+          directStreamEvent = await prisma.directStreamEvent.findUnique({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: existingStream.id,
+                eventSlug,
+              },
+            },
+          });
+          
+          if (!directStreamEvent) {
+            throw new NotFoundError('Stream event not found');
+          }
         }
+
+        // Build update data (ISP: only update provided fields)
+        const parentUpdateData: any = {};
+        const eventUpdateData: any = {};
+        
+        // 🆕 Event-specific fields (save to DirectStreamEvent if applicable)
+        if (directStreamEvent) {
+          if (body.streamUrl !== undefined) {
+            eventUpdateData.streamUrl = body.streamUrl;
+          }
+          if (body.scheduledStartAt !== undefined) {
+            eventUpdateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
+          }
+          if (body.chatEnabled !== undefined) {
+            eventUpdateData.chatEnabled = body.chatEnabled;
+          }
+          if (body.scoreboardEnabled !== undefined) {
+            eventUpdateData.scoreboardEnabled = body.scoreboardEnabled;
+          }
+        } else {
+          // Parent stream fields
+          if (body.streamUrl !== undefined) {
+            parentUpdateData.streamUrl = body.streamUrl;
+          }
+          if (body.scheduledStartAt !== undefined) {
+            parentUpdateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
+          }
+        }
+        
+        // Shared parent fields (always update parent)
         if (body.paywallEnabled !== undefined) {
-          updateData.paywallEnabled = body.paywallEnabled;
+          parentUpdateData.paywallEnabled = body.paywallEnabled;
         }
         if (body.priceInCents !== undefined) {
-          updateData.priceInCents = body.priceInCents;
+          parentUpdateData.priceInCents = body.priceInCents;
         }
         if (body.paywallMessage !== undefined) {
-          updateData.paywallMessage = body.paywallMessage;
+          parentUpdateData.paywallMessage = body.paywallMessage;
         }
         if (body.allowSavePayment !== undefined) {
-          updateData.allowSavePayment = body.allowSavePayment;
+          parentUpdateData.allowSavePayment = body.allowSavePayment;
         }
-        if (body.chatEnabled !== undefined) {
-          updateData.chatEnabled = body.chatEnabled;
+        if (!directStreamEvent && body.chatEnabled !== undefined) {
+          parentUpdateData.chatEnabled = body.chatEnabled;
         }
-        if (body.scoreboardEnabled !== undefined) {
-          updateData.scoreboardEnabled = body.scoreboardEnabled;
+        if (!directStreamEvent && body.scoreboardEnabled !== undefined) {
+          parentUpdateData.scoreboardEnabled = body.scoreboardEnabled;
         }
         if (body.scoreboardHomeTeam !== undefined) {
-          updateData.scoreboardHomeTeam = body.scoreboardHomeTeam;
+          parentUpdateData.scoreboardHomeTeam = body.scoreboardHomeTeam;
         }
         if (body.scoreboardAwayTeam !== undefined) {
-          updateData.scoreboardAwayTeam = body.scoreboardAwayTeam;
+          parentUpdateData.scoreboardAwayTeam = body.scoreboardAwayTeam;
         }
         if (body.scoreboardHomeColor !== undefined) {
-          updateData.scoreboardHomeColor = body.scoreboardHomeColor;
+          parentUpdateData.scoreboardHomeColor = body.scoreboardHomeColor;
         }
         if (body.scoreboardAwayColor !== undefined) {
-          updateData.scoreboardAwayColor = body.scoreboardAwayColor;
+          parentUpdateData.scoreboardAwayColor = body.scoreboardAwayColor;
         }
         // Viewer editing permissions
         if (body.allowViewerScoreEdit !== undefined) {
-          updateData.allowViewerScoreEdit = body.allowViewerScoreEdit;
+          parentUpdateData.allowViewerScoreEdit = body.allowViewerScoreEdit;
         }
         if (body.allowViewerNameEdit !== undefined) {
-          updateData.allowViewerNameEdit = body.allowViewerNameEdit;
+          parentUpdateData.allowViewerNameEdit = body.allowViewerNameEdit;
         }
         // Anonymous feature flags
         if (body.allowAnonymousChat !== undefined) {
-          updateData.allowAnonymousChat = body.allowAnonymousChat;
+          parentUpdateData.allowAnonymousChat = body.allowAnonymousChat;
         }
         if (body.allowAnonymousScoreEdit !== undefined) {
-          updateData.allowAnonymousScoreEdit = body.allowAnonymousScoreEdit;
+          parentUpdateData.allowAnonymousScoreEdit = body.allowAnonymousScoreEdit;
         }
         if (body.welcomeMessage !== undefined) {
-          updateData.welcomeMessage = body.welcomeMessage;
+          parentUpdateData.welcomeMessage = body.welcomeMessage;
         }
-        // Scheduling & reminders
-        if (body.scheduledStartAt !== undefined) {
-          updateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
-        }
+        // Reminders (parent only)
         if (body.sendReminders !== undefined) {
-          updateData.sendReminders = body.sendReminders;
+          parentUpdateData.sendReminders = body.sendReminders;
         }
         if (body.reminderMinutes !== undefined) {
-          updateData.reminderMinutes = body.reminderMinutes;
+          parentUpdateData.reminderMinutes = body.reminderMinutes;
         }
 
         // Update in database
-        const updated = await prisma.directStream.update({
-          where: { slug: key },
-          data: updateData,
-        });
+        let updated = null;
+        if (Object.keys(parentUpdateData).length > 0) {
+          updated = await prisma.directStream.update({
+            where: { slug: authSlug }, // 🆕 Use parent slug
+            data: parentUpdateData,
+          });
+        } else {
+          updated = existingStream;
+        }
+        
+        // 🆕 Update event-specific fields if this is an event
+        let updatedEvent = null;
+        if (directStreamEvent && Object.keys(eventUpdateData).length > 0) {
+          updatedEvent = await prisma.directStreamEvent.update({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: existingStream.id,
+                eventSlug: parts[1],
+              },
+            },
+            data: eventUpdateData,
+          });
+        }
 
-        logger.info({ slug, updates: Object.keys(updateData) }, 'Direct stream settings updated');
+        logger.info({ slug, parentUpdates: Object.keys(parentUpdateData), eventUpdates: Object.keys(eventUpdateData) }, 'Direct stream settings updated');
 
         return res.json({
           success: true,
           settings: {
-            streamUrl: updated.streamUrl,
+            streamUrl: updatedEvent?.streamUrl ?? updated.streamUrl,
             paywallEnabled: updated.paywallEnabled,
             priceInCents: updated.priceInCents,
             paywallMessage: updated.paywallMessage,
             allowSavePayment: updated.allowSavePayment,
-            chatEnabled: updated.chatEnabled,
-            scoreboardEnabled: updated.scoreboardEnabled,
+            chatEnabled: updatedEvent?.chatEnabled ?? updated.chatEnabled,
+            scoreboardEnabled: updatedEvent?.scoreboardEnabled ?? updated.scoreboardEnabled,
             scoreboardHomeTeam: updated.scoreboardHomeTeam,
             scoreboardAwayTeam: updated.scoreboardAwayTeam,
             scoreboardHomeColor: updated.scoreboardHomeColor,
@@ -553,7 +614,7 @@ router.post(
             allowViewerNameEdit: updated.allowViewerNameEdit,
             welcomeMessage: updated.welcomeMessage,
             // Scheduling & reminders
-            scheduledStartAt: updated.scheduledStartAt,
+            scheduledStartAt: updatedEvent?.scheduledStartAt ?? updated.scheduledStartAt,
             sendReminders: updated.sendReminders,
             reminderMinutes: updated.reminderMinutes,
           },
