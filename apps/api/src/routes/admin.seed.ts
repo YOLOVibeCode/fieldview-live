@@ -13,6 +13,13 @@ import { logger } from '../lib/logger';
 
 const router = express.Router();
 
+/** TCHS March 13, 2026 events - POST /api/admin/seed/tchs-mar13 (idempotent) */
+const TCHS_MAR13_EVENTS = [
+  { eventSlug: 'soccer-20260313-jv2', title: 'TCHS Soccer - JV2 (Mar 13, 2026)', scheduledStartAt: new Date('2026-03-13T16:30:00-05:00') },
+  { eventSlug: 'soccer-20260313-jv', title: 'TCHS Soccer - JV (Mar 13, 2026)', scheduledStartAt: new Date('2026-03-13T18:00:00-05:00') },
+  { eventSlug: 'soccer-20260313-varsity', title: 'TCHS Soccer - Varsity (Mar 13, 2026)', scheduledStartAt: new Date('2026-03-13T19:30:00-05:00') },
+];
+
 // Seed data
 const directStreams = [
   {
@@ -197,6 +204,81 @@ router.post('/direct-streams', (_req: Request, res: Response, next: NextFunction
       });
     } catch (error: any) {
       logger.error({ error }, 'DirectStream seed failed');
+      next(error);
+    }
+  })();
+});
+
+/**
+ * POST /api/admin/seed/tchs-mar13
+ * Seed TCHS March 13, 2026 DirectStreamEvents (idempotent).
+ * URLs: /direct/tchs/soccer-20260313-jv2, soccer-20260313-jv, soccer-20260313-varsity
+ */
+router.post('/tchs-mar13', (_req: Request, res: Response, next: NextFunction) => {
+  void (async () => {
+    try {
+      logger.info('Starting TCHS March 13 seed...');
+
+      let ownerAccount = await prisma.ownerAccount.findFirst();
+      if (!ownerAccount) {
+        ownerAccount = await prisma.ownerAccount.create({
+          data: {
+            type: 'owner',
+            name: 'System Owner',
+            status: 'active',
+            contactEmail: 'owner@fieldview.live',
+          },
+        });
+      }
+
+      const tchsStream = await prisma.directStream.upsert({
+        where: { slug: 'tchs' },
+        update: {},
+        create: {
+          slug: 'tchs',
+          title: 'TCHS Live Stream',
+          ownerAccountId: ownerAccount.id,
+          adminPassword: await hashPassword('tchs2026'),
+          chatEnabled: true,
+          scoreboardEnabled: true,
+          paywallEnabled: false,
+          allowAnonymousView: true,
+          sendReminders: true,
+        },
+      });
+
+      const events: { eventSlug: string; title: string; action: string }[] = [];
+      for (const event of TCHS_MAR13_EVENTS) {
+        const created = await prisma.directStreamEvent.upsert({
+          where: {
+            directStreamId_eventSlug: {
+              directStreamId: tchsStream.id,
+              eventSlug: event.eventSlug,
+            },
+          },
+          update: { title: event.title, scheduledStartAt: event.scheduledStartAt },
+          create: {
+            directStreamId: tchsStream.id,
+            eventSlug: event.eventSlug,
+            title: event.title,
+            scheduledStartAt: event.scheduledStartAt,
+            chatEnabled: true,
+            scoreboardEnabled: true,
+          },
+        });
+        events.push({ eventSlug: created.eventSlug, title: created.title, action: 'upserted' });
+      }
+
+      logger.info({ events: events.length }, 'TCHS March 13 seed complete');
+
+      res.json({
+        success: true,
+        message: 'TCHS March 13 events seeded',
+        events: events.map((e) => ({ slug: `tchs/${e.eventSlug}`, url: `https://fieldview.live/direct/tchs/${e.eventSlug}` })),
+        adminPassword: 'tchs2026',
+      });
+    } catch (error: any) {
+      logger.error({ error }, 'TCHS March 13 seed failed');
       next(error);
     }
   })();
