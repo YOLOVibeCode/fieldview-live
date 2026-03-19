@@ -68,7 +68,7 @@ export class EmailVerificationService implements IEmailVerificationService {
 
     if (!token) {
       // Check if token exists but is expired/used (for auto-resend)
-      const expiredToken = await this.findExpiredToken();
+      const expiredToken = await this.tokenReader.findExpiredToken(tokenHash);
       
       if (expiredToken) {
         // Auto-resend logic
@@ -146,13 +146,6 @@ export class EmailVerificationService implements IEmailVerificationService {
   }
 
   // PRIVATE HELPERS
-
-  private async findExpiredToken(/* tokenHash: string */): Promise<any> {
-    // Direct Prisma query to find expired/used tokens
-    // This is a workaround since our IEmailVerificationReader only has findValidToken
-    // In production, you might want to add this to the interface
-    return null; // Simplified for now - the service will handle via issueToken on re-registration
-  }
 
   private renderVerificationEmail(
     viewerName: string,

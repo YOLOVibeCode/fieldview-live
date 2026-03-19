@@ -24,6 +24,7 @@ import { RegistrationService } from '../services/RegistrationService';
 import { EmailVerificationRepository } from '../repositories/implementations/EmailVerificationRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { EmailVerificationService } from '../services/EmailVerificationService';
+import { DirectStreamTitleRepository } from '../repositories/implementations/DirectStreamTitleRepository';
 import { getEmailProvider } from '../lib/email';
 import { requireAdminAuth } from '../middleware/adminAuth';
 import { requireSuperAdmin } from '../middleware/adminAuth';
@@ -50,12 +51,15 @@ const verificationService = new EmailVerificationService(
   emailProvider
 );
 
+const streamTitleReader = new DirectStreamTitleRepository(prisma);
+
 const registrationService = new RegistrationService(
   registrationReader,
   registrationWriter,
   viewerReader,
   viewerWriter,
-  verificationService
+  verificationService,
+  streamTitleReader
 );
 
 /**

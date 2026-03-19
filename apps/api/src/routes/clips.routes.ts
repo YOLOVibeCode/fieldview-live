@@ -5,7 +5,6 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { DVRService } from '../services/DVRService';
 import { ClipRepository } from '../repositories/ClipRepository';
 import { BookmarkRepository } from '../repositories/BookmarkRepository';
@@ -16,16 +15,28 @@ import {
   listClipsSchema,
   clipIdSchema,
 } from '@fieldview/data-model';
+import { prisma } from '../lib/prisma';
 import { BadRequestError, NotFoundError } from '../lib/errors';
 
 const router = Router();
-const prisma = new PrismaClient();
 
-// Initialize DVR service
-const clipRepo = new ClipRepository(prisma);
-const bookmarkRepo = new BookmarkRepository(prisma);
-const mockProvider = new MockDVRService();
-const dvrService = new DVRService(mockProvider, clipRepo, bookmarkRepo);
+// Lazy initialization
+let serviceInstance: DVRService | null = null;
+
+function getDVRService(): DVRService {
+  if (!serviceInstance) {
+    const clipRepo = new ClipRepository(prisma);
+    const bookmarkRepo = new BookmarkRepository(prisma);
+    const mockProvider = new MockDVRService();
+    serviceInstance = new DVRService(mockProvider, clipRepo, bookmarkRepo);
+  }
+  return serviceInstance;
+}
+
+// Export for testing (allows test to inject mock service)
+export function setClipsDVRService(service: DVRService): void {
+  serviceInstance = service;
+}
 
 /**
  * POST /api/clips
@@ -35,7 +46,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = createClipSchema.parse(req.body);
 
-    const clip = await dvrService.createClipFromRecording({
+    const clip = await getDVRService().createClipFromRecording({
       gameId: input.gameId,
       directStreamId: input.directStreamId,
       directStreamSlug: input.directStreamSlug,
@@ -69,7 +80,7 @@ router.post('/from-bookmark', async (req: Request, res: Response, next: NextFunc
   try {
     const input = createClipFromBookmarkSchema.parse(req.body);
 
-    const clip = await dvrService.createClipFromBookmark({
+    const clip = await getDVRService().createClipFromBookmark({
       bookmarkId: input.bookmarkId,
       title: input.title,
       description: input.description,
@@ -95,7 +106,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = listClipsSchema.parse(req.query);
 
-    const clips = await dvrService.listClips({
+    const clips = await getDVRService().listClips({
       gameId: query.gameId,
       directStreamId: query.directStreamId,
       directStreamSlug: query.directStreamSlug,
@@ -124,7 +135,7 @@ router.get('/:clipId', async (req: Request, res: Response, next: NextFunction) =
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
-    const clip = await dvrService.getClip(clipId);
+    const clip = await getDVRService().getClip(clipId);
 
     if (!clip) {
       throw new NotFoundError('Clip not found');
@@ -148,7 +159,7 @@ router.delete('/:clipId', async (req: Request, res: Response, next: NextFunction
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
-    await dvrService.deleteClip(clipId);
+    await getDVRService().deleteClip(clipId);
 
     res.status(204).send();
   } catch (error: any) {
@@ -170,7 +181,7 @@ router.post('/:clipId/view', async (req: Request, res: Response, next: NextFunct
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
-    await dvrService.trackClipView(clipId);
+    await getDVRService().trackClipView(clipId);
 
     res.status(200).json({ success: true });
   } catch (error: any) {
@@ -190,7 +201,7 @@ router.post('/:clipId/share', async (req: Request, res: Response, next: NextFunc
   try {
     const { clipId } = clipIdSchema.parse(req.params);
 
-    await dvrService.trackClipShare(clipId);
+    await getDVRService().trackClipShare(clipId);
 
     res.status(200).json({ success: true });
   } catch (error: any) {

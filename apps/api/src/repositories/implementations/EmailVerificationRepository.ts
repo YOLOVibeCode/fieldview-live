@@ -25,6 +25,16 @@ export class EmailVerificationRepository
     });
   }
 
+  async findExpiredToken(tokenHash: string): Promise<EmailVerificationToken | null> {
+    return prisma.emailVerificationToken.findFirst({
+      where: {
+        tokenHash,
+        expiresAt: { lte: new Date() },
+        usedAt: null,
+      },
+    });
+  }
+
   async findActiveTokensForViewer(
     viewerId: string,
     streamId?: string

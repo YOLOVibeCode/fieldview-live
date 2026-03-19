@@ -23,6 +23,7 @@ describe('EmailVerificationService', () => {
     // Mock repositories
     tokenReader = {
       findValidToken: vi.fn(),
+      findExpiredToken: vi.fn(),
       findActiveTokensForViewer: vi.fn(),
     };
 
@@ -236,13 +237,11 @@ describe('EmailVerificationService', () => {
         emailVerifiedAt: null,
       };
 
-      // First call: find expired token
+      // findValidToken returns null (token is expired, not valid)
       vi.mocked(tokenReader.findValidToken).mockResolvedValue(null);
-      
-      // Fallback: find any token (even expired) to enable auto-resend
-      vi.mocked(tokenReader).findValidToken = vi.fn()
-        .mockResolvedValueOnce(null) // First call returns null (no valid token)
-        .mockResolvedValueOnce(expiredToken); // Fallback finds expired
+
+      // findExpiredToken finds the expired token for auto-resend
+      vi.mocked(tokenReader.findExpiredToken).mockResolvedValue(expiredToken);
 
       vi.mocked(viewerReader.getById).mockResolvedValue(mockViewer);
       vi.mocked(tokenWriter.invalidateTokens).mockResolvedValue(0);

@@ -19,8 +19,8 @@ import type {
   IViewerIdentityWriter,
 } from '../repositories/IViewerIdentityRepository';
 import type { IEmailVerificationService } from './IEmailVerificationService';
+import type { IDirectStreamTitleReader } from '../repositories/IDirectStreamRepository';
 import { logger } from '../lib/logger';
-import { prisma } from '../lib/prisma';
 
 export class RegistrationService implements IRegistrationService {
   constructor(
@@ -28,7 +28,8 @@ export class RegistrationService implements IRegistrationService {
     private registrationWriter: IDirectStreamRegistrationWriter,
     private viewerReader: IViewerIdentityReader,
     private viewerWriter: IViewerIdentityWriter,
-    private verificationService: IEmailVerificationService
+    private verificationService: IEmailVerificationService,
+    private streamReader: IDirectStreamTitleReader
   ) {}
 
   async registerForStream(
@@ -66,10 +67,7 @@ export class RegistrationService implements IRegistrationService {
     const { token } = await this.verificationService.issueToken(viewer.id, streamId);
 
     // Step 4: Fetch stream title for email
-    const stream = await prisma.directStream.findUnique({
-      where: { id: streamId },
-      select: { title: true },
-    });
+    const stream = await this.streamReader.getTitleById(streamId);
 
     if (!stream) {
       throw new Error(`DirectStream ${streamId} not found`);
@@ -102,10 +100,7 @@ export class RegistrationService implements IRegistrationService {
     }
 
     // Fetch stream title
-    const stream = await prisma.directStream.findUnique({
-      where: { id: streamId },
-      select: { title: true },
-    });
+    const stream = await this.streamReader.getTitleById(streamId);
 
     if (!stream) {
       throw new Error(`DirectStream ${streamId} not found`);

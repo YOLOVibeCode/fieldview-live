@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
-import { app } from '../../server';
+import { app } from '@/server';
 
 const prisma = new PrismaClient();
 

@@ -23,6 +23,11 @@ export interface IEmailVerificationReader {
   findValidToken(tokenHash: string): Promise<EmailVerificationToken | null>;
 
   /**
+   * Find an expired (past expiresAt, not used) token by hash
+   */
+  findExpiredToken(tokenHash: string): Promise<EmailVerificationToken | null>;
+
+  /**
    * Find all active (not expired, not used) tokens for a viewer
    */
   findActiveTokensForViewer(

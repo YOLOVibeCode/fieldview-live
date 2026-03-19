@@ -5,7 +5,6 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { DVRService } from '../services/DVRService';
 import { ClipRepository } from '../repositories/ClipRepository';
 import { BookmarkRepository } from '../repositories/BookmarkRepository';
@@ -16,18 +15,30 @@ import {
   listBookmarksSchema,
   bookmarkIdSchema,
 } from '@fieldview/data-model';
+import { prisma } from '../lib/prisma';
 import { getBookmarkPubSub } from '../lib/bookmark-pubsub';
 import { logger } from '../lib/logger';
 import { BadRequestError, NotFoundError } from '../lib/errors';
 
 const router = Router();
-const prisma = new PrismaClient();
 
-// Initialize DVR service
-const clipRepo = new ClipRepository(prisma);
-const bookmarkRepo = new BookmarkRepository(prisma);
-const mockProvider = new MockDVRService();
-const dvrService = new DVRService(mockProvider, clipRepo, bookmarkRepo);
+// Lazy initialization
+let serviceInstance: DVRService | null = null;
+
+function getDVRService(): DVRService {
+  if (!serviceInstance) {
+    const clipRepo = new ClipRepository(prisma);
+    const bookmarkRepo = new BookmarkRepository(prisma);
+    const mockProvider = new MockDVRService();
+    serviceInstance = new DVRService(mockProvider, clipRepo, bookmarkRepo);
+  }
+  return serviceInstance;
+}
+
+// Export for testing (allows test to inject mock service)
+export function setBookmarksDVRService(service: DVRService): void {
+  serviceInstance = service;
+}
 
 /**
  * GET /api/bookmarks/stream/:slug
@@ -98,7 +109,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = createBookmarkSchema.parse(req.body);
 
-    const bookmark = await dvrService.createBookmark({
+    const bookmark = await getDVRService().createBookmark({
       gameId: input.gameId,
       directStreamId: input.directStreamId,
       viewerIdentityId: input.viewerIdentityId,
@@ -135,7 +146,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = listBookmarksSchema.parse(req.query);
 
-    const bookmarks = await dvrService.listBookmarks({
+    const bookmarks = await getDVRService().listBookmarks({
       viewerId: query.viewerId,
       gameId: query.gameId,
       directStreamId: query.directStreamId,
@@ -163,7 +174,7 @@ router.get('/:bookmarkId', async (req: Request, res: Response, next: NextFunctio
   try {
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
 
-    const bookmark = await dvrService.getBookmark(bookmarkId);
+    const bookmark = await getDVRService().getBookmark(bookmarkId);
 
     if (!bookmark) {
       throw new NotFoundError('Bookmark not found');
@@ -189,7 +200,7 @@ router.patch('/:bookmarkId', async (req: Request, res: Response, next: NextFunct
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
     const updates = updateBookmarkSchema.parse(req.body);
 
-    const bookmark = await dvrService.updateBookmark(bookmarkId, updates);
+    const bookmark = await getDVRService().updateBookmark(bookmarkId, updates);
 
     // Publish if bookmark is shared (or was just made shared)
     if (bookmark.isShared && bookmark.directStreamId) {
@@ -219,9 +230,9 @@ router.delete('/:bookmarkId', async (req: Request, res: Response, next: NextFunc
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
 
     // Fetch before delete to get metadata for SSE notification
-    const existing = await dvrService.getBookmark(bookmarkId);
+    const existing = await getDVRService().getBookmark(bookmarkId);
 
-    await dvrService.deleteBookmark(bookmarkId);
+    await getDVRService().deleteBookmark(bookmarkId);
 
     // Publish deletion to SSE subscribers if it was shared
     if (existing?.isShared && existing?.directStreamId) {

@@ -5,7 +5,6 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { DVRService } from '../services/DVRService';
 import { ClipRepository } from '../repositories/ClipRepository';
 import { BookmarkRepository } from '../repositories/BookmarkRepository';
@@ -14,16 +13,28 @@ import {
   startRecordingSchema,
   recordingIdSchema,
 } from '@fieldview/data-model';
+import { prisma } from '../lib/prisma';
 import { BadRequestError, NotFoundError } from '../lib/errors';
 
 const router = Router();
-const prisma = new PrismaClient();
 
-// Initialize DVR service
-const clipRepo = new ClipRepository(prisma);
-const bookmarkRepo = new BookmarkRepository(prisma);
-const mockProvider = new MockDVRService();
-const dvrService = new DVRService(mockProvider, clipRepo, bookmarkRepo);
+// Lazy initialization
+let serviceInstance: DVRService | null = null;
+
+function getDVRService(): DVRService {
+  if (!serviceInstance) {
+    const clipRepo = new ClipRepository(prisma);
+    const bookmarkRepo = new BookmarkRepository(prisma);
+    const mockProvider = new MockDVRService();
+    serviceInstance = new DVRService(mockProvider, clipRepo, bookmarkRepo);
+  }
+  return serviceInstance;
+}
+
+// Export for testing (allows test to inject mock service)
+export function setRecordingsDVRService(service: DVRService): void {
+  serviceInstance = service;
+}
 
 /**
  * POST /api/recordings/start
@@ -33,7 +44,7 @@ router.post('/start', async (req: Request, res: Response, next: NextFunction) =>
   try {
     const input = startRecordingSchema.parse(req.body);
 
-    const result = await dvrService.startRecording(input.streamKey, input.metadata);
+    const result = await getDVRService().startRecording(input.streamKey, input.metadata);
 
     res.status(200).json(result);
   } catch (error: any) {
@@ -53,7 +64,7 @@ router.post('/:recordingId/stop', async (req: Request, res: Response, next: Next
   try {
     const { recordingId } = recordingIdSchema.parse(req.params);
 
-    await dvrService.stopRecording(recordingId);
+    await getDVRService().stopRecording(recordingId);
 
     res.status(200).json({ success: true });
   } catch (error: any) {
@@ -75,7 +86,7 @@ router.get('/:recordingId/status', async (req: Request, res: Response, next: Nex
   try {
     const { recordingId } = recordingIdSchema.parse(req.params);
 
-    const status = await dvrService.getRecordingStatus(recordingId);
+    const status = await getDVRService().getRecordingStatus(recordingId);
 
     res.status(200).json(status);
   } catch (error: any) {

@@ -18,6 +18,7 @@ import { EmailVerificationRepository } from '../repositories/implementations/Ema
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { RegistrationService } from '../services/RegistrationService';
 import { EmailVerificationService } from '../services/EmailVerificationService';
+import { DirectStreamTitleRepository } from '../repositories/implementations/DirectStreamTitleRepository';
 import { getEmailProvider } from '../lib/email';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
@@ -41,12 +42,15 @@ const verificationService = new EmailVerificationService(
   emailProvider
 );
 
+const streamTitleReader = new DirectStreamTitleRepository(prisma);
+
 const registrationService = new RegistrationService(
   registrationReader,
   registrationWriter,
   viewerReader,
   viewerWriter,
-  verificationService
+  verificationService,
+  streamTitleReader
 );
 
 /**

@@ -7,6 +7,7 @@ import { RegistrationService } from '../../../src/services/RegistrationService';
 import type { IDirectStreamRegistrationReader, IDirectStreamRegistrationWriter } from '../../../src/repositories/IDirectStreamRegistrationRepository';
 import type { IViewerIdentityReader, IViewerIdentityWriter } from '../../../src/repositories/IViewerIdentityRepository';
 import type { IEmailVerificationService } from '../../../src/services/IEmailVerificationService';
+import type { IDirectStreamTitleReader } from '../../../src/repositories/IDirectStreamRepository';
 import type { ViewerIdentity, DirectStreamRegistration } from '@prisma/client';
 
 describe('RegistrationService', () => {
@@ -16,6 +17,7 @@ describe('RegistrationService', () => {
   let viewerReader: IViewerIdentityReader;
   let viewerWriter: IViewerIdentityWriter;
   let verificationService: IEmailVerificationService;
+  let streamReader: IDirectStreamTitleReader;
 
   beforeEach(() => {
     registrationReader = {
@@ -53,12 +55,17 @@ describe('RegistrationService', () => {
       sendVerificationEmail: vi.fn(),
     };
 
+    streamReader = {
+      getTitleById: vi.fn().mockResolvedValue({ title: 'Test Stream' }),
+    };
+
     service = new RegistrationService(
       registrationReader,
       registrationWriter,
       viewerReader,
       viewerWriter,
-      verificationService
+      verificationService,
+      streamReader
     );
   });
 
