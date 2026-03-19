@@ -69,11 +69,6 @@ export interface IBookmarkReader {
   listByStreamWithShared(streamId: string, viewerId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]>;
 
   /**
-   * List bookmarks by clip
-   */
-  listByClip(clipId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]>;
-
-  /**
    * List public (shared) bookmarks
    */
   listPublic(options?: BookmarkListOptions): Promise<VideoBookmark[]>;

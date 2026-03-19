@@ -118,17 +118,6 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
     });
   }
 
-  async listByClip(clipId: string, options?: BookmarkListOptions): Promise<VideoBookmark[]> {
-    return this.prisma.videoBookmark.findMany({
-      where: { clipId },
-      take: options?.limit,
-      skip: options?.offset,
-      orderBy: options?.orderBy
-        ? { [options.orderBy]: options.orderDirection ?? 'desc' }
-        : { createdAt: 'desc' },
-    });
-  }
-
   async listByStreamWithShared(
     streamId: string,
     viewerId: string,

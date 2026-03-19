@@ -97,6 +97,16 @@ async function main() {
     console.log(`  ✅ Created: /direct/tchs/${created.eventSlug}`);
   }
 
+  // Clean up stale standalone stream auto-created by earlier bootstrap hit
+  const stale = await prisma.directStream.findUnique({ where: { slug: 'tchs/soccer-20260309-jv2' } });
+  if (stale) {
+    if (stale.gameId) {
+      await prisma.game.delete({ where: { id: stale.gameId } }).catch(() => {});
+    }
+    await prisma.directStream.delete({ where: { slug: 'tchs/soccer-20260309-jv2' } });
+    console.log('  🧹 Cleaned up stale standalone stream: tchs/soccer-20260309-jv2');
+  }
+
   console.log('\n✅ Seeding complete!\n');
   console.log('📋 Summary:');
   console.log('  TCHS March 9: 3 events');

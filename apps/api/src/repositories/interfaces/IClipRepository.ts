@@ -82,16 +82,6 @@ export interface IClipReader {
   listPublic(options?: ClipListOptions): Promise<VideoClip[]>;
 
   /**
-   * Count clips by game
-   */
-  countByGame(gameId: string): Promise<number>;
-
-  /**
-   * Count clips by stream
-   */
-  countByStream(streamId: string): Promise<number>;
-
-  /**
    * Get clip by provider info (for deduplication)
    */
   getByProvider(providerName: string, providerClipId: string): Promise<VideoClip | null>;

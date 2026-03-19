@@ -155,18 +155,6 @@ export class ClipRepository implements IClipReader, IClipWriter {
     });
   }
 
-  async countByGame(gameId: string): Promise<number> {
-    return this.prisma.videoClip.count({
-      where: { gameId },
-    });
-  }
-
-  async countByStream(streamId: string): Promise<number> {
-    return this.prisma.videoClip.count({
-      where: { directStreamId: streamId },
-    });
-  }
-
   async getByProvider(providerName: string, providerClipId: string): Promise<VideoClip | null> {
     return this.prisma.videoClip.findUnique({
       where: {

@@ -8,8 +8,6 @@ export * from './ViewerIdentitySchema';
 export * from './StreamSourceSchema';
 export * from './WatchLinkSchema';
 export * from './EventSchema';
-export * from './OrganizationMemberSchema';
-export * from './LinkPresetSchema';
 export * from './SubscriptionSchema';
 export * from './directStream';
 export * from './directStreamBootstrap';
