@@ -21,3 +21,4 @@ export * from './directStreamAdmin';
 export * from './directStreamEvent';
 export * from './authSchemas';
 export * from './dvrSchemas';
+export * from './ownerDirectStream';
