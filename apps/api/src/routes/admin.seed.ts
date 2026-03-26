@@ -284,6 +284,95 @@ router.post('/tchs-mar13', (_req: Request, res: Response, next: NextFunction) =>
   })();
 });
 
+/** Denton Diablos March 25, 2026 event */
+const DENTON_DIABLOS_MAR25_EVENTS = [
+  { eventSlug: 'soccer-2008-20260325', title: 'Denton Diablos 2008 (Mar 25, 2026)', scheduledStartAt: new Date('2026-03-25T18:00:00-05:00') },
+];
+
+/**
+ * POST /api/admin/seed/denton-diablos-mar25
+ * Seed Denton Diablos parent + March 25 event (idempotent).
+ * URL: /direct/dentondiablos/soccer-2008-20260325
+ */
+router.post('/denton-diablos-mar25', (_req: Request, res: Response, next: NextFunction) => {
+  void (async () => {
+    try {
+      logger.info('Starting Denton Diablos Mar 25 seed...');
+
+      let ownerAccount = await prisma.ownerAccount.findFirst();
+      if (!ownerAccount) {
+        ownerAccount = await prisma.ownerAccount.create({
+          data: {
+            type: 'owner',
+            name: 'System Owner',
+            status: 'active',
+            contactEmail: 'owner@fieldview.live',
+          },
+        });
+      }
+
+      const parentStream = await prisma.directStream.upsert({
+        where: { slug: 'dentondiablos' },
+        update: {},
+        create: {
+          slug: 'dentondiablos',
+          title: 'Denton Diablos',
+          ownerAccountId: ownerAccount.id,
+          adminPassword: await hashPassword('devil2026'),
+          chatEnabled: true,
+          scoreboardEnabled: true,
+          paywallEnabled: false,
+          allowAnonymousView: true,
+          sendReminders: true,
+          scoreboardHomeTeam: 'Denton Diablos',
+          scoreboardAwayTeam: 'Away',
+          scoreboardHomeColor: '#CC0000',
+          scoreboardAwayColor: '#333333',
+        },
+      });
+
+      const events: { eventSlug: string; title: string; action: string }[] = [];
+      for (const event of DENTON_DIABLOS_MAR25_EVENTS) {
+        const created = await prisma.directStreamEvent.upsert({
+          where: {
+            directStreamId_eventSlug: {
+              directStreamId: parentStream.id,
+              eventSlug: event.eventSlug,
+            },
+          },
+          update: { title: event.title, scheduledStartAt: event.scheduledStartAt },
+          create: {
+            directStreamId: parentStream.id,
+            eventSlug: event.eventSlug,
+            title: event.title,
+            scheduledStartAt: event.scheduledStartAt,
+            chatEnabled: true,
+            scoreboardEnabled: true,
+          },
+        });
+        events.push({ eventSlug: created.eventSlug, title: created.title, action: 'upserted' });
+      }
+
+      logger.info({ events: events.length }, 'Denton Diablos Mar 25 seed complete');
+
+      res.json({
+        success: true,
+        message: 'Denton Diablos events seeded',
+        parent: {
+          slug: 'dentondiablos',
+          url: 'https://fieldview.live/direct/dentondiablos',
+        },
+        events: events.map((e) => ({ slug: `dentondiablos/${e.eventSlug}`, url: `https://fieldview.live/direct/dentondiablos/${e.eventSlug}` })),
+        adminPassword: 'devil2026',
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, 'Denton Diablos Mar 25 seed failed');
+      next(error);
+    }
+  })();
+});
+
 export function createAdminSeedRouter(): express.Router {
   return router;
 }
