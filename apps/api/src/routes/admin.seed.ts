@@ -9,8 +9,12 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { hashPassword } from '../lib/encryption';
 import { logger } from '../lib/logger';
+import { requireAdminAuth, requireSuperAdmin } from '../middleware/adminAuth';
 
 const router = express.Router();
+
+router.use(requireAdminAuth);
+router.use(requireSuperAdmin);
 
 const EventInput = z.object({
   eventSlug: z.string().min(1),

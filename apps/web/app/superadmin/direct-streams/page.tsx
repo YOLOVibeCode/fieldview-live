@@ -54,6 +54,84 @@ export default function SuperAdminDirectStreamsPage() {
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [toastError, setToastError] = useState<string | null>(null);
 
+  const [createForm, setCreateForm] = useState({
+    slug: '',
+    title: '',
+    adminPassword: '',
+    streamUrl: '',
+    chatEnabled: true,
+    scoreboardEnabled: false,
+    paywallEnabled: false,
+  });
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [creating, setCreating] = useState(false);
+
+  const resetCreateForm = () => {
+    setCreateForm({
+      slug: '',
+      title: '',
+      adminPassword: '',
+      streamUrl: '',
+      chatEnabled: true,
+      scoreboardEnabled: false,
+      paywallEnabled: false,
+    });
+    setCreateErrors({});
+  };
+
+  const validateCreateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!createForm.slug || createForm.slug.length < 2) {
+      errors.slug = 'Slug must be at least 2 characters';
+    } else if (!/^[a-z0-9/-]+$/.test(createForm.slug)) {
+      errors.slug = 'Slug must be lowercase alphanumeric with dashes or slashes';
+    }
+    if (!createForm.title) {
+      errors.title = 'Title is required';
+    }
+    if (!createForm.adminPassword || createForm.adminPassword.length < 8) {
+      errors.adminPassword = 'Admin password must be at least 8 characters';
+    }
+    if (createForm.streamUrl && !/^https?:\/\/.+/.test(createForm.streamUrl)) {
+      errors.streamUrl = 'Must be a valid URL';
+    }
+    setCreateErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreateStream = async () => {
+    if (!validateCreateForm()) return;
+    try {
+      setCreating(true);
+      const body: Record<string, unknown> = {
+        slug: createForm.slug,
+        title: createForm.title,
+        adminPassword: createForm.adminPassword,
+        chatEnabled: createForm.chatEnabled,
+        scoreboardEnabled: createForm.scoreboardEnabled,
+        paywallEnabled: createForm.paywallEnabled,
+      };
+      if (createForm.streamUrl) {
+        body.streamUrl = createForm.streamUrl;
+      }
+      await apiRequest('/api/admin/direct-streams', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      setShowCreateDrawer(false);
+      resetCreateForm();
+      void fetchStreams();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setToastError(error.message);
+      } else {
+        setToastError('Failed to create stream');
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
   // Fetch streams
   const fetchStreams = async () => {
     try {
@@ -346,26 +424,158 @@ export default function SuperAdminDirectStreamsPage() {
           </div>
         )}
 
-        {/* Create Drawer (simplified placeholder) */}
         {showCreateDrawer && (
           <div
             className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
             data-testid="drawer-create-stream"
-            onClick={() => setShowCreateDrawer(false)}
+            onClick={() => { setShowCreateDrawer(false); resetCreateForm(); }}
           >
             <div
-              className="bg-card p-8 rounded-lg border border-border max-w-2xl w-full"
+              className="bg-card p-8 rounded-lg border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-2xl font-bold text-foreground mb-4">Create Direct Stream</h2>
-              <p className="text-muted-foreground mb-6">Feature coming soon!</p>
-              <button
-                onClick={() => setShowCreateDrawer(false)}
-                className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/80"
-                data-testid="btn-close-create"
+              <h2 className="text-2xl font-bold text-foreground mb-6">Create Direct Stream</h2>
+              <form
+                data-testid="form-create-stream"
+                onSubmit={(e) => { e.preventDefault(); void handleCreateStream(); }}
+                className="space-y-5"
               >
-                Close
-              </button>
+                <div>
+                  <label htmlFor="create-slug" className="block text-sm font-medium text-foreground mb-1">Slug</label>
+                  <input
+                    id="create-slug"
+                    data-testid="input-slug"
+                    type="text"
+                    placeholder="e.g. dentondiablos"
+                    value={createForm.slug}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, slug: e.target.value }))}
+                    className="w-full border border-border rounded px-3 py-2 bg-input text-foreground font-mono"
+                    aria-describedby={createErrors.slug ? 'slug-error' : undefined}
+                  />
+                  {createErrors.slug && (
+                    <span id="slug-error" data-testid="error-slug" role="alert" className="text-red-500 text-sm mt-1 block">
+                      {createErrors.slug}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="create-title" className="block text-sm font-medium text-foreground mb-1">Title</label>
+                  <input
+                    id="create-title"
+                    data-testid="input-title"
+                    type="text"
+                    placeholder="e.g. Denton Diablos"
+                    value={createForm.title}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, title: e.target.value }))}
+                    className="w-full border border-border rounded px-3 py-2 bg-input text-foreground"
+                    aria-describedby={createErrors.title ? 'title-error' : undefined}
+                  />
+                  {createErrors.title && (
+                    <span id="title-error" data-testid="error-title" role="alert" className="text-red-500 text-sm mt-1 block">
+                      {createErrors.title}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="create-password" className="block text-sm font-medium text-foreground mb-1">Admin Password</label>
+                  <input
+                    id="create-password"
+                    data-testid="input-admin-password"
+                    type="password"
+                    placeholder="Minimum 8 characters"
+                    value={createForm.adminPassword}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, adminPassword: e.target.value }))}
+                    className="w-full border border-border rounded px-3 py-2 bg-input text-foreground"
+                    aria-describedby={createErrors.adminPassword ? 'password-error' : undefined}
+                  />
+                  {createErrors.adminPassword && (
+                    <span id="password-error" data-testid="error-admin-password" role="alert" className="text-red-500 text-sm mt-1 block">
+                      {createErrors.adminPassword}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="create-stream-url" className="block text-sm font-medium text-foreground mb-1">
+                    Stream URL <span className="text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <input
+                    id="create-stream-url"
+                    data-testid="input-stream-url"
+                    type="url"
+                    placeholder="https://stream.mux.com/..."
+                    value={createForm.streamUrl}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, streamUrl: e.target.value }))}
+                    className="w-full border border-border rounded px-3 py-2 bg-input text-foreground font-mono text-sm"
+                    aria-describedby={createErrors.streamUrl ? 'streamurl-error' : undefined}
+                  />
+                  {createErrors.streamUrl && (
+                    <span id="streamurl-error" data-testid="error-stream-url" role="alert" className="text-red-500 text-sm mt-1 block">
+                      {createErrors.streamUrl}
+                    </span>
+                  )}
+                </div>
+
+                <div className="border-t border-border pt-4 space-y-3">
+                  <p className="text-sm font-medium text-foreground">Features</p>
+                  <label className="flex items-center gap-3 cursor-pointer" htmlFor="create-chat">
+                    <input
+                      id="create-chat"
+                      data-testid="checkbox-chat-enabled"
+                      type="checkbox"
+                      checked={createForm.chatEnabled}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, chatEnabled: e.target.checked }))}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    <span className="text-sm text-foreground">Chat enabled</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer" htmlFor="create-scoreboard">
+                    <input
+                      id="create-scoreboard"
+                      data-testid="checkbox-scoreboard-enabled"
+                      type="checkbox"
+                      checked={createForm.scoreboardEnabled}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, scoreboardEnabled: e.target.checked }))}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    <span className="text-sm text-foreground">Scoreboard enabled</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer" htmlFor="create-paywall">
+                    <input
+                      id="create-paywall"
+                      data-testid="checkbox-paywall-enabled"
+                      type="checkbox"
+                      checked={createForm.paywallEnabled}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, paywallEnabled: e.target.checked }))}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    <span className="text-sm text-foreground">Paywall enabled</span>
+                  </label>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-border">
+                  <button
+                    type="submit"
+                    data-testid="btn-submit-create"
+                    data-loading={creating}
+                    disabled={creating}
+                    className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 font-semibold disabled:opacity-50"
+                    aria-label="Create direct stream"
+                  >
+                    {creating ? 'Creating...' : 'Create Stream'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreateDrawer(false); resetCreateForm(); }}
+                    className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/80"
+                    data-testid="btn-close-create"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
