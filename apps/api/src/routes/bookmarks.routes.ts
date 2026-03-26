@@ -73,7 +73,8 @@ router.get('/stream/:slug', (req: Request, res: Response) => {
       }
 
       // Fetch all shared bookmarks for this stream
-      const bookmarks = await bookmarkRepo.listByStream(slug, undefined, true);
+      const repo = new BookmarkRepository(prisma);
+      const bookmarks = await repo.listByStream(slug, undefined, true);
       res.write(`event: bookmark_snapshot\n`);
       res.write(`data: ${JSON.stringify({ bookmarks })}\n\n`);
     } catch (error) {

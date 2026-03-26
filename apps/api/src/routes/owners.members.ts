@@ -4,9 +4,13 @@
  * Manage organization memberships (coaches, team managers, org admins).
  */
 
-import { InviteMemberSchema } from '@fieldview/data-model';
 import express, { type Router, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+
+const InviteMemberSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(['org_admin', 'team_manager', 'coach']).default('coach'),
+});
 
 import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
