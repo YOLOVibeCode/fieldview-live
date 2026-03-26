@@ -1,303 +1,83 @@
 /**
- * Admin Seed Route - Trigger DirectStream seeding from API
- * 
- * POST /api/admin/seed/direct-streams
- * 
- * This allows seeding the production database from within Railway's network.
+ * Admin Seed Route — Generic DirectStream + Event provisioning
+ *
+ * POST /api/admin/seed/direct-stream   (body-driven, idempotent)
  */
 
 import express, { type Request, type Response, type NextFunction } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { hashPassword } from '../lib/encryption';
 import { logger } from '../lib/logger';
 
 const router = express.Router();
 
-/** TCHS March 13, 2026 events - POST /api/admin/seed/tchs-mar13 (idempotent) */
-const TCHS_MAR13_EVENTS = [
-  { eventSlug: 'soccer-20260313-jv2', title: 'TCHS Soccer - JV2 (Mar 13, 2026)', scheduledStartAt: new Date('2026-03-13T16:30:00-05:00') },
-  { eventSlug: 'soccer-20260313-jv', title: 'TCHS Soccer - JV (Mar 13, 2026)', scheduledStartAt: new Date('2026-03-13T18:00:00-05:00') },
-  { eventSlug: 'soccer-20260313-varsity', title: 'TCHS Soccer - Varsity (Mar 13, 2026)', scheduledStartAt: new Date('2026-03-13T19:30:00-05:00') },
-];
+const EventInput = z.object({
+  eventSlug: z.string().min(1),
+  title: z.string().min(1),
+  scheduledStartAt: z.string().datetime({ offset: true }).optional(),
+  chatEnabled: z.boolean().optional().default(true),
+  scoreboardEnabled: z.boolean().optional().default(true),
+  scoreboardHomeTeam: z.string().optional(),
+  scoreboardAwayTeam: z.string().optional(),
+  scoreboardHomeColor: z.string().optional(),
+  scoreboardAwayColor: z.string().optional(),
+});
 
-// Seed data
-const directStreams = [
-  {
-    slug: 'tchs',
-    title: 'TCHS Live Stream',
-    streamUrl: null,
-    scheduledStartAt: null,
-    paywallEnabled: false,
-    priceInCents: 0,
-    paywallMessage: null,
-    allowSavePayment: false,
-    adminPassword: 'tchs2026',
-    chatEnabled: true,
-    scoreboardEnabled: true,
-    allowAnonymousView: true,
-    requireEmailVerification: true,
-    listed: true,
-    sendReminders: true,
-    reminderMinutes: 5,
-    scoreboardHomeTeam: null,
-    scoreboardAwayTeam: null,
-    scoreboardHomeColor: null,
-    scoreboardAwayColor: null,
-  },
-  {
-    slug: 'tchs/soccer-20260122-jv2',
-    title: 'TCHS Soccer JV2 - January 22, 2026',
-    streamUrl: null,
-    scheduledStartAt: null,
-    paywallEnabled: false,
-    priceInCents: 0,
-    paywallMessage: null,
-    allowSavePayment: false,
-    adminPassword: 'tchs2026',
-    chatEnabled: true,
-    scoreboardEnabled: true,
-    allowAnonymousView: true,
-    requireEmailVerification: true,
-    listed: true,
-    sendReminders: true,
-    reminderMinutes: 5,
-    scoreboardHomeTeam: 'TCHS JV2',
-    scoreboardAwayTeam: 'Away Team',
-    scoreboardHomeColor: '#003366',
-    scoreboardAwayColor: '#CC0000',
-  },
-];
+const SeedDirectStreamBody = z.object({
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug must be lowercase alphanumeric + dashes'),
+  title: z.string().min(1),
+  adminPassword: z.string().min(4),
 
-/**
- * POST /api/admin/seed/direct-streams
- * Seed DirectStreams (idempotent)
- */
-router.post('/direct-streams', (_req: Request, res: Response, next: NextFunction) => {
-  void (async () => {
-    try {
-      logger.info('Starting DirectStream seed...');
+  chatEnabled: z.boolean().optional().default(true),
+  scoreboardEnabled: z.boolean().optional().default(true),
+  paywallEnabled: z.boolean().optional().default(false),
+  allowAnonymousView: z.boolean().optional().default(true),
+  sendReminders: z.boolean().optional().default(true),
 
-      // Get default owner account
-      const defaultOwner = await prisma.ownerAccount.findFirst({
-        orderBy: { createdAt: 'asc' },
-      });
+  scoreboardHomeTeam: z.string().optional(),
+  scoreboardAwayTeam: z.string().optional(),
+  scoreboardHomeColor: z.string().optional(),
+  scoreboardAwayColor: z.string().optional(),
 
-      if (!defaultOwner) {
-        return res.status(500).json({ 
-          error: 'No OwnerAccount found. Please create one first.' 
-        });
-      }
-
-      let created = 0;
-      let updated = 0;
-      let skipped = 0;
-      const results = [];
-
-      for (const streamData of directStreams) {
-        try {
-          // Check if stream exists
-          const existing = await prisma.directStream.findUnique({
-            where: { slug: streamData.slug },
-          });
-
-          // Hash password
-          const adminPasswordHash = await hashPassword(streamData.adminPassword);
-
-          if (existing) {
-            // Update existing stream
-            await prisma.directStream.update({
-              where: { slug: streamData.slug },
-              data: {
-                title: streamData.title,
-                chatEnabled: streamData.chatEnabled,
-                scoreboardEnabled: streamData.scoreboardEnabled,
-                allowAnonymousView: streamData.allowAnonymousView,
-                requireEmailVerification: streamData.requireEmailVerification,
-                listed: streamData.listed,
-                adminPassword: adminPasswordHash,
-              },
-            });
-            results.push({ slug: streamData.slug, action: 'updated' });
-            updated++;
-            logger.info({ slug: streamData.slug }, 'DirectStream updated');
-          } else {
-            // 🆕 Auto-create Game record for DirectStream (required for viewer registration/chat)
-            const gameTitle = `Direct Stream: ${streamData.slug}`;
-            let game = await prisma.game.findFirst({
-              where: { title: gameTitle },
-              select: { id: true },
-            });
-
-            if (!game) {
-              game = await prisma.game.create({
-                data: {
-                  ownerAccountId: defaultOwner.id,
-                  title: gameTitle,
-                  homeTeam: streamData.title || streamData.slug,
-                  awayTeam: 'TBD',
-                  startsAt: streamData.scheduledStartAt ? new Date(streamData.scheduledStartAt) : new Date(),
-                  priceCents: streamData.priceInCents || 0,
-                  currency: 'USD',
-                  keywordCode: `DIRECT-${streamData.slug.toUpperCase()}-${Date.now()}`,
-                  qrUrl: '',
-                  state: 'active',
-                },
-              });
-              logger.info({ gameId: game.id, slug: streamData.slug }, 'Game auto-created for DirectStream');
-            }
-
-            // Create new stream with Game link
-            await prisma.directStream.create({
-              data: {
-                slug: streamData.slug,
-                title: streamData.title,
-                streamUrl: streamData.streamUrl,
-                scheduledStartAt: streamData.scheduledStartAt,
-                paywallEnabled: streamData.paywallEnabled,
-                priceInCents: streamData.priceInCents,
-                paywallMessage: streamData.paywallMessage,
-                allowSavePayment: streamData.allowSavePayment,
-                adminPassword: adminPasswordHash,
-                chatEnabled: streamData.chatEnabled,
-                scoreboardEnabled: streamData.scoreboardEnabled,
-                allowAnonymousView: streamData.allowAnonymousView,
-                requireEmailVerification: streamData.requireEmailVerification,
-                listed: streamData.listed,
-                sendReminders: streamData.sendReminders,
-                reminderMinutes: streamData.reminderMinutes,
-                scoreboardHomeTeam: streamData.scoreboardHomeTeam,
-                scoreboardAwayTeam: streamData.scoreboardAwayTeam,
-                scoreboardHomeColor: streamData.scoreboardHomeColor,
-                scoreboardAwayColor: streamData.scoreboardAwayColor,
-                ownerAccountId: defaultOwner.id,
-                gameId: game.id, // 🆕 Link to auto-created Game
-              },
-            });
-            results.push({ slug: streamData.slug, action: 'created' });
-            created++;
-            logger.info({ slug: streamData.slug }, 'DirectStream created');
-          }
-        } catch (error: any) {
-          logger.error({ error, slug: streamData.slug }, 'Failed to process DirectStream');
-          results.push({ slug: streamData.slug, action: 'skipped', error: error.message });
-          skipped++;
-        }
-      }
-
-      logger.info({ created, updated, skipped }, 'DirectStream seed complete');
-
-      res.json({
-        success: true,
-        message: 'DirectStream seed complete',
-        summary: {
-          created,
-          updated,
-          skipped,
-          total: created + updated + skipped,
-        },
-        results,
-        ownerAccount: {
-          id: defaultOwner.id,
-          name: defaultOwner.name,
-          contactEmail: defaultOwner.contactEmail,
-        },
-      });
-    } catch (error: any) {
-      logger.error({ error }, 'DirectStream seed failed');
-      next(error);
-    }
-  })();
+  events: z.array(EventInput).optional().default([]),
 });
 
 /**
- * POST /api/admin/seed/tchs-mar13
- * Seed TCHS March 13, 2026 DirectStreamEvents (idempotent).
- * URLs: /direct/tchs/soccer-20260313-jv2, soccer-20260313-jv, soccer-20260313-varsity
+ * POST /api/admin/seed/direct-stream
+ *
+ * Body-driven, idempotent upsert of a DirectStream parent + optional events.
+ * Works for any team — no code change or redeploy needed.
+ *
+ * Example body:
+ * {
+ *   "slug": "dentondiablos",
+ *   "title": "Denton Diablos",
+ *   "adminPassword": "devil2026",
+ *   "scoreboardHomeTeam": "Denton Diablos",
+ *   "scoreboardAwayTeam": "Away",
+ *   "scoreboardHomeColor": "#CC0000",
+ *   "scoreboardAwayColor": "#333333",
+ *   "events": [
+ *     {
+ *       "eventSlug": "soccer-2008-20260325",
+ *       "title": "Denton Diablos 2008 (Mar 25, 2026)",
+ *       "scheduledStartAt": "2026-03-25T18:00:00-05:00"
+ *     }
+ *   ]
+ * }
  */
-router.post('/tchs-mar13', (_req: Request, res: Response, next: NextFunction) => {
+router.post('/direct-stream', (req: Request, res: Response, next: NextFunction) => {
   void (async () => {
     try {
-      logger.info('Starting TCHS March 13 seed...');
-
-      let ownerAccount = await prisma.ownerAccount.findFirst();
-      if (!ownerAccount) {
-        ownerAccount = await prisma.ownerAccount.create({
-          data: {
-            type: 'owner',
-            name: 'System Owner',
-            status: 'active',
-            contactEmail: 'owner@fieldview.live',
-          },
-        });
+      const parsed = SeedDirectStreamBody.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: { code: 'VALIDATION', issues: parsed.error.issues } });
+        return;
       }
+      const body = parsed.data;
 
-      const tchsStream = await prisma.directStream.upsert({
-        where: { slug: 'tchs' },
-        update: {},
-        create: {
-          slug: 'tchs',
-          title: 'TCHS Live Stream',
-          ownerAccountId: ownerAccount.id,
-          adminPassword: await hashPassword('tchs2026'),
-          chatEnabled: true,
-          scoreboardEnabled: true,
-          paywallEnabled: false,
-          allowAnonymousView: true,
-          sendReminders: true,
-        },
-      });
-
-      const events: { eventSlug: string; title: string; action: string }[] = [];
-      for (const event of TCHS_MAR13_EVENTS) {
-        const created = await prisma.directStreamEvent.upsert({
-          where: {
-            directStreamId_eventSlug: {
-              directStreamId: tchsStream.id,
-              eventSlug: event.eventSlug,
-            },
-          },
-          update: { title: event.title, scheduledStartAt: event.scheduledStartAt },
-          create: {
-            directStreamId: tchsStream.id,
-            eventSlug: event.eventSlug,
-            title: event.title,
-            scheduledStartAt: event.scheduledStartAt,
-            chatEnabled: true,
-            scoreboardEnabled: true,
-          },
-        });
-        events.push({ eventSlug: created.eventSlug, title: created.title, action: 'upserted' });
-      }
-
-      logger.info({ events: events.length }, 'TCHS March 13 seed complete');
-
-      res.json({
-        success: true,
-        message: 'TCHS March 13 events seeded',
-        events: events.map((e) => ({ slug: `tchs/${e.eventSlug}`, url: `https://fieldview.live/direct/tchs/${e.eventSlug}` })),
-        adminPassword: 'tchs2026',
-      });
-    } catch (error: any) {
-      logger.error({ error }, 'TCHS March 13 seed failed');
-      next(error);
-    }
-  })();
-});
-
-/** Denton Diablos March 25, 2026 event */
-const DENTON_DIABLOS_MAR25_EVENTS = [
-  { eventSlug: 'soccer-2008-20260325', title: 'Denton Diablos 2008 (Mar 25, 2026)', scheduledStartAt: new Date('2026-03-25T18:00:00-05:00') },
-];
-
-/**
- * POST /api/admin/seed/denton-diablos-mar25
- * Seed Denton Diablos parent + March 25 event (idempotent).
- * URL: /direct/dentondiablos/soccer-2008-20260325
- */
-router.post('/denton-diablos-mar25', (_req: Request, res: Response, next: NextFunction) => {
-  void (async () => {
-    try {
-      logger.info('Starting Denton Diablos Mar 25 seed...');
+      logger.info({ slug: body.slug, eventCount: body.events.length }, 'Seeding DirectStream');
 
       let ownerAccount = await prisma.ownerAccount.findFirst();
       if (!ownerAccount) {
@@ -312,27 +92,38 @@ router.post('/denton-diablos-mar25', (_req: Request, res: Response, next: NextFu
       }
 
       const parentStream = await prisma.directStream.upsert({
-        where: { slug: 'dentondiablos' },
-        update: {},
+        where: { slug: body.slug },
+        update: {
+          title: body.title,
+          chatEnabled: body.chatEnabled,
+          scoreboardEnabled: body.scoreboardEnabled,
+          paywallEnabled: body.paywallEnabled,
+          allowAnonymousView: body.allowAnonymousView,
+          sendReminders: body.sendReminders,
+          scoreboardHomeTeam: body.scoreboardHomeTeam ?? null,
+          scoreboardAwayTeam: body.scoreboardAwayTeam ?? null,
+          scoreboardHomeColor: body.scoreboardHomeColor ?? null,
+          scoreboardAwayColor: body.scoreboardAwayColor ?? null,
+        },
         create: {
-          slug: 'dentondiablos',
-          title: 'Denton Diablos',
+          slug: body.slug,
+          title: body.title,
           ownerAccountId: ownerAccount.id,
-          adminPassword: await hashPassword('devil2026'),
-          chatEnabled: true,
-          scoreboardEnabled: true,
-          paywallEnabled: false,
-          allowAnonymousView: true,
-          sendReminders: true,
-          scoreboardHomeTeam: 'Denton Diablos',
-          scoreboardAwayTeam: 'Away',
-          scoreboardHomeColor: '#CC0000',
-          scoreboardAwayColor: '#333333',
+          adminPassword: await hashPassword(body.adminPassword),
+          chatEnabled: body.chatEnabled,
+          scoreboardEnabled: body.scoreboardEnabled,
+          paywallEnabled: body.paywallEnabled,
+          allowAnonymousView: body.allowAnonymousView,
+          sendReminders: body.sendReminders,
+          scoreboardHomeTeam: body.scoreboardHomeTeam ?? null,
+          scoreboardAwayTeam: body.scoreboardAwayTeam ?? null,
+          scoreboardHomeColor: body.scoreboardHomeColor ?? null,
+          scoreboardAwayColor: body.scoreboardAwayColor ?? null,
         },
       });
 
       const events: { eventSlug: string; title: string; action: string }[] = [];
-      for (const event of DENTON_DIABLOS_MAR25_EVENTS) {
+      for (const event of body.events) {
         const created = await prisma.directStreamEvent.upsert({
           where: {
             directStreamId_eventSlug: {
@@ -340,34 +131,46 @@ router.post('/denton-diablos-mar25', (_req: Request, res: Response, next: NextFu
               eventSlug: event.eventSlug,
             },
           },
-          update: { title: event.title, scheduledStartAt: event.scheduledStartAt },
+          update: {
+            title: event.title,
+            scheduledStartAt: event.scheduledStartAt ? new Date(event.scheduledStartAt) : undefined,
+            chatEnabled: event.chatEnabled,
+            scoreboardEnabled: event.scoreboardEnabled,
+            scoreboardHomeTeam: event.scoreboardHomeTeam,
+            scoreboardAwayTeam: event.scoreboardAwayTeam,
+            scoreboardHomeColor: event.scoreboardHomeColor,
+            scoreboardAwayColor: event.scoreboardAwayColor,
+          },
           create: {
             directStreamId: parentStream.id,
             eventSlug: event.eventSlug,
             title: event.title,
-            scheduledStartAt: event.scheduledStartAt,
-            chatEnabled: true,
-            scoreboardEnabled: true,
+            scheduledStartAt: event.scheduledStartAt ? new Date(event.scheduledStartAt) : undefined,
+            chatEnabled: event.chatEnabled,
+            scoreboardEnabled: event.scoreboardEnabled,
+            scoreboardHomeTeam: event.scoreboardHomeTeam,
+            scoreboardAwayTeam: event.scoreboardAwayTeam,
+            scoreboardHomeColor: event.scoreboardHomeColor,
+            scoreboardAwayColor: event.scoreboardAwayColor,
           },
         });
         events.push({ eventSlug: created.eventSlug, title: created.title, action: 'upserted' });
       }
 
-      logger.info({ events: events.length }, 'Denton Diablos Mar 25 seed complete');
+      logger.info({ slug: body.slug, events: events.length }, 'DirectStream seed complete');
 
+      const baseUrl = `https://fieldview.live/direct/${body.slug}`;
       res.json({
         success: true,
-        message: 'Denton Diablos events seeded',
-        parent: {
-          slug: 'dentondiablos',
-          url: 'https://fieldview.live/direct/dentondiablos',
-        },
-        events: events.map((e) => ({ slug: `dentondiablos/${e.eventSlug}`, url: `https://fieldview.live/direct/dentondiablos/${e.eventSlug}` })),
-        adminPassword: 'devil2026',
+        parent: { slug: body.slug, url: baseUrl },
+        events: events.map((e) => ({
+          slug: `${body.slug}/${e.eventSlug}`,
+          url: `${baseUrl}/${e.eventSlug}`,
+        })),
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, 'Denton Diablos Mar 25 seed failed');
+      logger.error({ error: message }, 'DirectStream seed failed');
       next(error);
     }
   })();
@@ -376,4 +179,3 @@ router.post('/denton-diablos-mar25', (_req: Request, res: Response, next: NextFu
 export function createAdminSeedRouter(): express.Router {
   return router;
 }
-
