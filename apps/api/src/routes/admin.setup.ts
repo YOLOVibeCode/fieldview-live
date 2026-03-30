@@ -96,9 +96,15 @@ router.post(
         const { email, password } = parse.data;
         const existing = await prisma.adminAccount.findUnique({ where: { email } });
         if (existing) {
+          const newHash = await hashPassword(password);
+          await prisma.adminAccount.update({
+            where: { email },
+            data: { passwordHash: newHash },
+          });
+          logger.info({ adminId: existing.id, email }, 'Super admin password updated');
           return res.json({
             success: true,
-            message: 'Super admin already exists',
+            message: 'Super admin password updated',
             email: existing.email,
             role: existing.role,
           });
