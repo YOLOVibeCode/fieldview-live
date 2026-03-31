@@ -63,6 +63,53 @@ function normalizeStreamUpdate(input: z.infer<typeof UpdateWatchChannelStreamSch
 }
 
 /**
+ * GET /api/owners/me/watch-links/orgs
+ * List all organizations (with nested channels) owned by the authenticated owner.
+ */
+router.get(
+  '/me/watch-links/orgs',
+  requireOwnerAuth,
+  (req: AuthRequest, res, next) => {
+    void (async () => {
+      try {
+        const ownerAccountId = requireOwnerId(req);
+
+        const orgs = await prisma.organization.findMany({
+          where: { ownerAccountId },
+          include: { channels: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        res.json({
+          orgs: orgs.map((org) => ({
+            id: org.id,
+            shortName: org.shortName,
+            name: org.name,
+            createdAt: org.createdAt,
+            channels: org.channels.map((ch) => ({
+              id: ch.id,
+              teamSlug: ch.teamSlug,
+              displayName: ch.displayName,
+              streamType: ch.streamType,
+              accessMode: ch.accessMode,
+              priceCents: ch.priceCents,
+              currency: ch.currency,
+              requireEventCode: ch.requireEventCode,
+              muxPlaybackId: ch.muxPlaybackId,
+              hlsManifestUrl: ch.hlsManifestUrl,
+              externalEmbedUrl: ch.externalEmbedUrl,
+              externalProvider: ch.externalProvider,
+            })),
+          })),
+        });
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
  * POST /api/owners/me/watch-links/orgs
  */
 router.post(

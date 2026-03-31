@@ -206,6 +206,69 @@ export async function cleanupTestData(request: APIRequestContext): Promise<void>
   }
 }
 
+/**
+ * Admin session for E2E tests.
+ */
+export interface AdminSession {
+  sessionToken: string;
+  role: string;
+  email: string;
+}
+
+/**
+ * Login as admin via API and return session token.
+ * Uses TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD env vars.
+ * Skips MFA — test accounts should have MFA disabled.
+ */
+export async function loginAsAdmin(request: APIRequestContext): Promise<AdminSession> {
+  const apiBase = process.env.PLAYWRIGHT_API_BASE_URL!;
+  const email = process.env.TEST_ADMIN_EMAIL || 'admin@fieldview.live';
+  const password = process.env.TEST_ADMIN_PASSWORD!;
+
+  if (!password) {
+    throw new Error('TEST_ADMIN_PASSWORD is required for admin login');
+  }
+
+  const response = await request.post(`${apiBase}/api/admin/login`, {
+    data: { email, password },
+  });
+
+  if (!response.ok()) {
+    const text = await response.text();
+    throw new Error(`Admin login failed: ${response.status()} ${text}`);
+  }
+
+  const json = (await response.json()) as any;
+
+  if (json.mfaRequired) {
+    throw new Error('Admin test account has MFA enabled — disable it for E2E tests or provide TEST_ADMIN_MFA_SECRET');
+  }
+
+  return {
+    sessionToken: json.sessionToken,
+    role: json.adminAccount?.role || 'super_admin',
+    email,
+  };
+}
+
+/**
+ * Login as admin via the browser UI and navigate to the console.
+ * Sets localStorage session token so subsequent navigations are authenticated.
+ */
+export async function loginAsAdminUI(
+  page: import('@playwright/test').Page,
+  baseUrl: string
+): Promise<void> {
+  const email = process.env.TEST_ADMIN_EMAIL || 'admin@fieldview.live';
+  const password = process.env.TEST_ADMIN_PASSWORD!;
+
+  await page.goto(`${baseUrl}/admin/login`);
+  await page.getByLabel(/Email/i).fill(email);
+  await page.getByLabel(/Password/i).fill(password);
+  await page.getByRole('button', { name: /Sign in/i }).click();
+  await page.waitForURL(/\/(admin\/)?console/, { timeout: 10000 });
+}
+
 export async function createTestOrg(
   request: APIRequestContext,
   ownerToken: string,

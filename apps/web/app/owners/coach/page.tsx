@@ -91,12 +91,37 @@ export default function CoachDashboardPage() {
       );
       setMemberships(membershipsData.memberships || []);
 
-      // Load channels and events for each organization
-      const orgIds = membershipsData.memberships?.map((m) => m.organizationId) || [];
-      if (orgIds.length > 0) {
-        // TODO: Fetch channels and events for these orgs
-        // For now, we'll show a placeholder
-      }
+      // Load channels from owner's orgs
+      const orgsResp = await apiRequest<{
+        orgs: Array<{
+          id: string;
+          shortName: string;
+          name: string;
+          channels: Array<{ id: string; teamSlug: string; displayName: string }>;
+        }>;
+      }>('/api/owners/me/watch-links/orgs', {
+        headers: { Authorization: `Bearer ${token}` },
+        retries: 1,
+      });
+      const loadedChannels: Channel[] = (orgsResp.orgs || []).flatMap((o) =>
+        o.channels.map((ch) => ({ id: ch.id, teamSlug: ch.teamSlug, displayName: ch.displayName, organizationId: o.id }))
+      );
+      setChannels(loadedChannels);
+
+      // Load events
+      const eventsResp = await apiRequest<{
+        events: Array<{
+          id: string;
+          canonicalPath: string;
+          startsAt: string;
+          state: 'scheduled' | 'live' | 'ended' | 'cancelled';
+          channelId: string;
+        }>;
+      }>('/api/owners/me/events', {
+        headers: { Authorization: `Bearer ${token}` },
+        retries: 1,
+      });
+      setEvents(eventsResp.events || []);
     } catch (err) {
       setError(getUserFriendlyMessage(err));
     } finally {
@@ -162,7 +187,19 @@ export default function CoachDashboardPage() {
                   <div className="flex flex-col gap-4">
                     <div>
                       <h3 className="font-semibold mb-2">Teams</h3>
-                      <p className="text-sm text-muted-foreground">Teams will be listed here</p>
+                      {channels.filter((c) => c.organizationId === membership.organizationId).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No teams configured yet</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {channels
+                            .filter((c) => c.organizationId === membership.organizationId)
+                            .map((ch) => (
+                              <div key={ch.id} className="text-sm p-2 bg-muted/50 rounded flex items-center justify-between">
+                                <span>{ch.displayName} <span className="text-muted-foreground font-mono text-xs">({ch.teamSlug})</span></span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Link

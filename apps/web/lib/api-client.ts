@@ -298,6 +298,30 @@ export interface AdminGameAudienceResponse {
   purchaseToWatchConversionRate: number;
 }
 
+export interface AdminPurchaseListItem {
+  id: string;
+  createdAt: string;
+  paidAt?: string;
+  status: string;
+  gross: number;
+  processorFee: number;
+  platformFee: number;
+  net: number;
+  recipientType: string;
+  recipientIdentity: string;
+  viewer: { email: string; phoneE164?: string };
+  game: { id: string; title: string };
+  channel?: { id: string; teamSlug: string; displayName: string; orgShortName: string } | null;
+  event?: { id: string } | null;
+}
+
+export interface AdminPurchasesListResponse {
+  purchases: AdminPurchaseListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface RevenueByMonth {
   month: string;
   platformFeeCents: number;
@@ -686,6 +710,33 @@ export const apiClient = {
       headers: {
         ...withBearerToken(sessionToken),
       },
+    });
+  },
+
+  /**
+   * List purchases with filters and payout breakdown
+   */
+  async adminListPurchases(
+    sessionToken: string,
+    options?: {
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+      orgShortName?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<AdminPurchasesListResponse> {
+    const params = new URLSearchParams();
+    if (options?.startDate) params.set('startDate', options.startDate);
+    if (options?.endDate) params.set('endDate', options.endDate);
+    if (options?.status) params.set('status', options.status);
+    if (options?.orgShortName) params.set('orgShortName', options.orgShortName);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const qs = params.toString();
+    return apiRequest<AdminPurchasesListResponse>(`/api/admin/purchases${qs ? `?${qs}` : ''}`, {
+      headers: { ...withBearerToken(sessionToken) },
     });
   },
 

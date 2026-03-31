@@ -93,11 +93,11 @@ export default function OwnerDashboardPage() {
             </CardHeader>
             <CardContent className="pt-0">
               <a
-                href="/owners/games/new"
+                href="/owners/games"
                 className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
                 data-testid="link-create-game"
               >
-                Create a game
+                Manage games
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -121,11 +121,11 @@ export default function OwnerDashboardPage() {
             </CardHeader>
             <CardContent className="pt-0">
               <a
-                href="/owners/watch-links/new"
+                href="/owners/watch-links"
                 className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
                 data-testid="link-create-watch-link"
               >
-                Create a watch link
+                Manage watch links
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -154,6 +154,34 @@ export default function OwnerDashboardPage() {
                 data-testid="link-coach-dashboard"
               >
                 Open dashboard
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </CardContent>
+          </Card>
+
+          <Card className="card-interactive" data-testid="card-square">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-base sm:text-lg">Square Payments</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Accept payments from viewers</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <a
+                href="/owners/square"
+                className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
+                data-testid="link-square-connect"
+              >
+                Manage payments
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>

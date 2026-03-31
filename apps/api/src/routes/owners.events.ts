@@ -54,6 +54,57 @@ const coachEventService = new CoachEventService(
 );
 
 /**
+ * GET /api/owners/me/events
+ * List all events for organizations owned by the authenticated owner.
+ */
+router.get(
+  '/me/events',
+  requireOwnerAuth,
+  (req: AuthRequest, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        if (!req.ownerAccountId) {
+          return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+        }
+
+        const events = await prisma.event.findMany({
+          where: {
+            organization: { ownerAccountId: req.ownerAccountId },
+          },
+          include: {
+            organization: { select: { id: true, shortName: true, name: true } },
+            channel: { select: { id: true, teamSlug: true, displayName: true } },
+          },
+          orderBy: { startsAt: 'desc' },
+        });
+
+        res.json({
+          events: events.map((e) => ({
+            id: e.id,
+            organizationId: e.organizationId,
+            channelId: e.channelId,
+            startsAt: e.startsAt,
+            urlKey: e.urlKey,
+            canonicalPath: e.canonicalPath,
+            state: e.state,
+            streamType: e.streamType,
+            accessMode: e.accessMode,
+            priceCents: e.priceCents,
+            createdAt: e.createdAt,
+            wentLiveAt: e.wentLiveAt,
+            endedAt: e.endedAt,
+            organization: e.organization,
+            channel: e.channel,
+          })),
+        });
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
  * POST /api/owners/me/orgs/:orgShortName/channels/:teamSlug/events
  * Create a new event for a channel.
  */

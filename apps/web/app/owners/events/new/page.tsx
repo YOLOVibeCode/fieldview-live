@@ -111,8 +111,34 @@ function CreateEventForm() {
 
   async function loadOrganizationsAndChannels(token: string) {
     try {
-      // TODO: Fetch organizations and channels from API
-      // For now, placeholder
+      const res = await fetch(`${API_URL}/api/owners/me/watch-links/orgs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to load organizations');
+      const data = (await res.json()) as {
+        orgs: Array<{
+          id: string;
+          shortName: string;
+          name: string;
+          channels: Array<{ id: string; teamSlug: string; displayName: string }>;
+        }>;
+      };
+
+      const loadedOrgs: Organization[] = data.orgs.map((o) => ({ id: o.id, shortName: o.shortName, name: o.name }));
+      const loadedChannels: Channel[] = data.orgs.flatMap((o) =>
+        o.channels.map((ch) => ({ id: ch.id, teamSlug: ch.teamSlug, displayName: ch.displayName, organizationId: o.id }))
+      );
+
+      setOrganizations(loadedOrgs);
+      setChannels(loadedChannels);
+
+      // Auto-select org from search params
+      if (orgShortName) {
+        const matchingOrg = loadedOrgs.find((o) => o.shortName === orgShortName);
+        if (matchingOrg) {
+          form.setValue('organizationId', matchingOrg.id);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     }
