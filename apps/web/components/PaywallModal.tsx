@@ -1,15 +1,16 @@
 'use client';
 
 /**
- * Enhanced Paywall Modal
- * 
- * Features:
- * - Admin custom message display
- * - Saved payment method detection
- * - Radio buttons for payment selection
- * - Square Web SDK integration
- * - Option to save payment method
- * - Full automation-friendly (data-testid, ARIA labels)
+ * Paywall Modal
+ *
+ * Two steps, no page navigation:
+ *  1. Collect viewer email + name (required for receipt / viewer identity).
+ *  2. Inline one-tap checkout — Apple Pay / Google Pay / card via the Square Web
+ *     Payments SDK (<SquareWalletPayment>). On success the stream unlocks in place
+ *     (the parent's onSuccess marks paid + fetches the entitled stream URL).
+ *
+ * Replaces the previous mock card form + redirect to /checkout/{id} (a route that
+ * does not exist) with a working, frictionless inline charge.
  */
 
 import { useState, useEffect } from 'react';
@@ -17,16 +18,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, CreditCard, Lock } from 'lucide-react';
+import { CreditCard, Lock } from 'lucide-react';
 import { apiRequest } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { SquareWalletPayment } from '@/components/checkout/SquareWalletPayment';
 
 interface PaywallModalProps {
   slug: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /** Called after a confirmed charge. Receives the email used to pay so the parent
+   *  can resolve the (anonymous) viewer's entitlement and unlock the stream in place. */
+  onSuccess: (email?: string) => void;
   priceInCents: number;
   paywallMessage?: string | null;
   allowSavePayment?: boolean;
@@ -46,29 +50,26 @@ export function PaywallModal({
   onSuccess,
   priceInCents,
   paywallMessage,
-  allowSavePayment = false,
 }: PaywallModalProps) {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [savedPayment, setSavedPayment] = useState<SavedPaymentMethod | null>(null);
-  const [usesSavedCard, setUsesSavedCard] = useState(false);
-  const [savePaymentMethod, setSavePaymentMethod] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [creatingPurchase, setCreatingPurchase] = useState(false);
+  const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'info' | 'payment'>('info');
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
   const priceDisplay = (priceInCents / 100).toFixed(2);
 
-  // Check for saved payment when email changes
+  // Check for a saved card when the email looks valid (informational badge only).
   useEffect(() => {
     if (email && email.includes('@')) {
-      checkSavedPayment();
+      void checkSavedPayment();
     } else {
       setSavedPayment(null);
-      setUsesSavedCard(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
   const checkSavedPayment = async () => {
@@ -78,53 +79,38 @@ export function PaywallModal({
         { retries: 1 }
       );
       setSavedPayment(data);
-      
-      // Auto-select saved card if available
-      if (data.hasSavedCard) {
-        setUsesSavedCard(true);
-      }
-    } catch (err) {
-      // Silently fail - not critical
+    } catch {
+      // Not critical — ignore.
     }
   };
 
-  const handleInfoSubmit = (e: React.FormEvent) => {
+  // Step 1 -> create the purchase server-side, then advance to inline payment.
+  const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!email || !firstName || !lastName) {
       setError('Please fill in all fields');
       return;
     }
-
     setError(null);
-    setStep('payment');
-  };
-
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+    setCreatingPurchase(true);
     try {
-      const { purchaseId, checkoutUrl } = await apiRequest<{ purchaseId: string; checkoutUrl: string }>(
+      const { purchaseId: createdId } = await apiRequest<{ purchaseId: string }>(
         `/api/direct/${slug}/checkout`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            email,
-            firstName,
-            lastName,
-          }),
-        }
+        { method: 'POST', body: JSON.stringify({ email, firstName, lastName }) }
       );
-
-      // Redirect to Square checkout page
-      window.location.href = checkoutUrl;
-
+      setPurchaseId(createdId);
+      setStep('payment');
     } catch (err) {
       setError(getUserFriendlyMessage(err));
-      setLoading(false);
+    } finally {
+      setCreatingPurchase(false);
     }
+  };
+
+  const handleEdit = () => {
+    // Editing contact info invalidates the created purchase — start fresh.
+    setPurchaseId(null);
+    setStep('info');
   };
 
   if (!isOpen) return null;
@@ -160,7 +146,6 @@ export function PaywallModal({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Admin Custom Message */}
           {paywallMessage && (
             <div
               data-testid="paywall-custom-message"
@@ -172,14 +157,10 @@ export function PaywallModal({
           )}
 
           {error && (
-            <ErrorBanner
-              message={error}
-              onDismiss={() => setError(null)}
-              data-testid="error-paywall"
-            />
+            <ErrorBanner message={error} onDismiss={() => setError(null)} data-testid="error-paywall" />
           )}
 
-          {/* Step 1: User Info */}
+          {/* Step 1: Viewer info */}
           {step === 'info' && (
             <form data-testid="form-paywall-info" onSubmit={handleInfoSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -226,7 +207,6 @@ export function PaywallModal({
                 </div>
               </div>
 
-              {/* Saved Card Detection */}
               {savedPayment?.hasSavedCard && (
                 <div
                   data-testid="saved-card-detected"
@@ -247,15 +227,17 @@ export function PaywallModal({
                 type="submit"
                 className="w-full"
                 size="lg"
+                disabled={creatingPurchase}
+                data-loading={creatingPurchase}
               >
-                Continue to Payment
+                {creatingPurchase ? 'Preparing checkout…' : 'Continue to Payment'}
               </Button>
             </form>
           )}
 
-          {/* Step 2: Payment */}
+          {/* Step 2: Inline one-tap payment */}
           {step === 'payment' && (
-            <form data-testid="form-paywall-payment" onSubmit={handlePayment} className="space-y-4">
+            <div data-testid="form-paywall-payment" className="space-y-4">
               <div className="text-sm text-muted">
                 <p>
                   <strong>Email:</strong> {email}
@@ -268,122 +250,27 @@ export function PaywallModal({
                   type="button"
                   variant="link"
                   size="sm"
-                  onClick={() => setStep('info')}
+                  onClick={handleEdit}
                   className="p-0 h-auto"
                 >
                   Edit
                 </Button>
               </div>
 
-              {/* Payment Method Selection */}
-              {savedPayment?.hasSavedCard && (
-                <div className="space-y-3">
-                  <Label>Payment Method</Label>
-                  <div className="space-y-2">
-                    <label
-                      data-testid="radio-saved-card-label"
-                      className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                        usesSavedCard
-                          ? 'border-primary bg-primary/5'
-                          : 'border-outline hover:border-primary/50'
-                      }`}
-                    >
-                      <input
-                        data-testid="radio-saved-card"
-                        type="radio"
-                        name="payment-method"
-                        checked={usesSavedCard}
-                        onChange={() => setUsesSavedCard(true)}
-                        className="w-4 h-4"
-                      />
-                      <div className="flex-1">
-                        <div className="font-semibold">Use Saved Card</div>
-                        <div className="text-sm text-muted">
-                          {savedPayment.cardBrand} •••• {savedPayment.cardLastFour}
-                        </div>
-                      </div>
-                      <CreditCard className="h-5 w-5 text-muted" />
-                    </label>
-
-                    <label
-                      data-testid="radio-new-card-label"
-                      className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                        !usesSavedCard
-                          ? 'border-primary bg-primary/5'
-                          : 'border-outline hover:border-primary/50'
-                      }`}
-                    >
-                      <input
-                        data-testid="radio-new-card"
-                        type="radio"
-                        name="payment-method"
-                        checked={!usesSavedCard}
-                        onChange={() => setUsesSavedCard(false)}
-                        className="w-4 h-4"
-                      />
-                      <div className="flex-1">
-                        <div className="font-semibold">Use Different Card</div>
-                        <div className="text-sm text-muted">Enter new payment details</div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
+              {purchaseId ? (
+                <SquareWalletPayment
+                  purchaseId={purchaseId}
+                  amountCents={priceInCents}
+                  onSuccess={() => onSuccess(email)}
+                  onError={setError}
+                />
+              ) : (
+                <p className="text-sm text-muted">Preparing secure checkout…</p>
               )}
-
-              {/* Square Card Input (Mock) */}
-              {!usesSavedCard && (
-                <div
-                  data-testid="square-card-input"
-                  className="p-6 border-2 border-dashed border-outline rounded-lg bg-background/50"
-                >
-                  <p className="text-sm text-muted text-center">
-                    Square Payment Form will appear here
-                  </p>
-                  <p className="text-xs text-muted text-center mt-2">
-                    (Integration pending)
-                  </p>
-                </div>
-              )}
-
-              {/* Save Payment Option */}
-              {allowSavePayment && !usesSavedCard && (
-                <label
-                  data-testid="checkbox-save-payment-label"
-                  className="flex items-start gap-3 cursor-pointer"
-                >
-                  <input
-                    data-testid="checkbox-save-payment"
-                    type="checkbox"
-                    checked={savePaymentMethod}
-                    onChange={(e) => setSavePaymentMethod(e.target.checked)}
-                    className="mt-1 w-4 h-4"
-                  />
-                  <div className="text-sm">
-                    <div className="font-medium">Save payment information</div>
-                    <div className="text-muted">
-                      Securely save this card for future purchases on this site
-                    </div>
-                  </div>
-                </label>
-              )}
-
-              <div className="pt-4 border-t border-outline">
-                <Button
-                  data-testid="btn-complete-payment"
-                  type="submit"
-                  className="w-full"
-                  size="lg"
-                  disabled={loading}
-                  data-loading={loading}
-                >
-                  {loading ? 'Processing...' : `Pay $${priceDisplay}`}
-                </Button>
-              </div>
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

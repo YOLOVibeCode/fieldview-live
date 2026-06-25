@@ -25,6 +25,7 @@ import { ViewerIdentityRepository } from '../repositories/implementations/Viewer
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
+import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
 
 const router = Router();
 
@@ -217,12 +218,31 @@ router.get(
           : (streamSource?.muxPlaybackId ?? extractMuxPlaybackId(effectiveStreamUrl));
         const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
 
+        // 🔒 Paywall enforcement (server-side): never hand the playable URL — or,
+        // for Mux, the playback id, which alone unlocks the stream via
+        // https://stream.mux.com/<id>.m3u8 — to a caller without a valid
+        // entitlement. Entitled callers receive it by passing their viewerId/email;
+        // otherwise the client obtains it from /verify-access. Fails closed.
+        let deliverStreamUrl: string | null = effectiveStreamUrl ?? null;
+        let deliverMuxPlaybackId: string | null = muxPlaybackId ?? null;
+        let streamLocked = false;
+        if (directStream.paywallEnabled) {
+          const { viewerId, email } = req.query as { viewerId?: string; email?: string };
+          const entitled = await hasValidStreamEntitlement(directStream.id, { viewerId, email });
+          if (!entitled) {
+            deliverStreamUrl = null;
+            deliverMuxPlaybackId = null;
+            streamLocked = true;
+          }
+        }
+
         const responseData: any = {
           slug: isEvent ? key : directStream.slug,
           parentSlug: isEvent ? directStream.slug : undefined,
           directStreamId: directStream.id,
           gameId: directStream.gameId,
-          streamUrl: effectiveStreamUrl,
+          streamUrl: deliverStreamUrl,
+          streamLocked,
           chatEnabled: isEvent ? (directStreamEvent?.chatEnabled ?? directStream.chatEnabled) : directStream.chatEnabled,
           title: isEvent && directStreamEvent?.title ? directStreamEvent.title : directStream.title,
           paywallEnabled: directStream.paywallEnabled,
@@ -245,9 +265,11 @@ router.get(
           // Anonymous feature flags
           allowAnonymousChat: directStream.allowAnonymousChat,
           allowAnonymousScoreEdit: directStream.allowAnonymousScoreEdit,
-          // Stream provider metadata (for player selection)
+          // Stream provider metadata (for player selection). streamProvider /
+          // protectionLevel are non-secret labels and stay; muxPlaybackId is
+          // gated above (it is sufficient to play the stream).
           streamProvider,
-          muxPlaybackId,
+          muxPlaybackId: deliverMuxPlaybackId,
           protectionLevel,
         };
 
@@ -1147,6 +1169,14 @@ router.get(
             gameId: true,
             paywallEnabled: true,
             ownerAccountId: true,
+            streamUrl: true,
+            game: {
+              select: {
+                streamSource: {
+                  select: { muxPlaybackId: true, type: true, protectionLevel: true },
+                },
+              },
+            },
           },
         });
 
@@ -1154,12 +1184,27 @@ router.get(
           throw new NotFoundError('Stream not found');
         }
 
+        // Playable fields to return alongside a GRANTED access decision, so the
+        // client can obtain the URL the bootstrap withheld — without a separate
+        // round-trip. Only ever spread into hasAccess:true responses.
+        const vaStreamSource = stream.game?.streamSource ?? null;
+        const vaMuxPlaybackId = vaStreamSource?.muxPlaybackId ?? extractMuxPlaybackId(stream.streamUrl);
+        const vaStreamProvider = vaStreamSource?.type ?? inferStreamProvider(stream.streamUrl);
+        const vaProtectionLevel = vaStreamSource?.protectionLevel ?? (vaMuxPlaybackId ? 'moderate' : 'none');
+        const grantedStreamFields = {
+          streamUrl: stream.streamUrl,
+          muxPlaybackId: vaMuxPlaybackId,
+          streamProvider: vaStreamProvider,
+          protectionLevel: vaProtectionLevel,
+        };
+
         // 2. If paywall not enabled, allow access
         if (!stream.paywallEnabled) {
           logger.info({ slug }, 'Stream has no paywall, access granted');
           return res.json({
             hasAccess: true,
             reason: 'no_paywall',
+            ...grantedStreamFields,
           });
         }
 
@@ -1224,6 +1269,7 @@ router.get(
               validTo: entitlement.validTo,
               tokenId: entitlement.tokenId,
             },
+            ...grantedStreamFields,
           });
         }
 

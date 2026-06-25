@@ -105,10 +105,14 @@ export interface IEffectiveEventConfig {
   scoreboardHomeColor: string | null;
   scoreboardAwayColor: string | null;
   
-  // 🆕 Viewer editing permissions (resolved from parent + overrides)
+  // Viewer editing permissions (resolved from parent + overrides)
   allowViewerScoreEdit: boolean;
   allowViewerNameEdit: boolean;
-  
+
+  // Anonymous feature flags (from parent)
+  allowAnonymousScoreEdit: boolean;
+  allowAnonymousChat: boolean;
+
   // Metadata
   createdAt: Date;
   updatedAt: Date;

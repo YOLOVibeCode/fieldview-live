@@ -129,6 +129,8 @@ export interface Bootstrap {
   slug: string;
   gameId: string | null;
   streamUrl: string | null;
+  /** True when the server withheld streamUrl because this paywalled stream is not yet entitled. */
+  streamLocked?: boolean;
   chatEnabled: boolean;
   title: string;
   paywallEnabled?: boolean;
@@ -319,10 +321,22 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Load bootstrap data
   useEffect(() => {
-    console.log('[DirectStream] 🚀 Fetching bootstrap from:', config.bootstrapUrl);
+    // Pass the viewer's identity so the server can return the (entitlement-gated)
+    // streamUrl directly for an already-paid viewer. Anonymous callers get a
+    // null streamUrl — the paywall is enforced server-side, not just in the UI.
+    const bootstrapViewerId = globalAuth.viewerIdentityId || viewer.viewerId;
+    const bootstrapEmail = globalAuth.viewerEmail;
+    let bootstrapFetchUrl = config.bootstrapUrl;
+    if (bootstrapViewerId || bootstrapEmail) {
+      const idParams = new URLSearchParams();
+      if (bootstrapViewerId) idParams.append('viewerId', bootstrapViewerId);
+      else if (bootstrapEmail) idParams.append('email', bootstrapEmail);
+      bootstrapFetchUrl += (bootstrapFetchUrl.includes('?') ? '&' : '?') + idParams.toString();
+    }
+    console.log('[DirectStream] 🚀 Fetching bootstrap from:', bootstrapFetchUrl);
     setStatus('loading');
-    
-    apiRequest<Bootstrap>(config.bootstrapUrl, { retries: 1 })
+
+    apiRequest<Bootstrap>(bootstrapFetchUrl, { retries: 1 })
       .then((data: Bootstrap) => {
         console.log('[DirectStream] 📡 Bootstrap response received');
         
@@ -368,6 +382,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               hasAccess: boolean;
               reason?: string;
               entitlement?: { expiresAt: string };
+              streamUrl?: string | null;
+              muxPlaybackId?: string | null;
             }>(`/api/direct/${data.slug}/verify-access?${params.toString()}`, { retries: 1 })
               .then(verifyResult => {
                 if (verifyResult.hasAccess) {
@@ -377,8 +393,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     console.log('[DirectStream] 🎫 Entitlement expires:', verifyResult.entitlement.expiresAt);
                   }
                   setPaywallChecked(true);
-                  if (data.streamUrl) {
-                    setStreamUrl(data.streamUrl);
+                  // streamUrl/muxPlaybackId are withheld from a paywalled bootstrap;
+                  // the entitlement-gated values come back from verify-access.
+                  const unlockedUrl = verifyResult.streamUrl ?? data.streamUrl;
+                  if (verifyResult.muxPlaybackId) {
+                    setBootstrap(prev =>
+                      prev ? { ...prev, muxPlaybackId: verifyResult.muxPlaybackId ?? prev.muxPlaybackId } : prev
+                    );
+                  }
+                  if (unlockedUrl) {
+                    setStreamUrl(unlockedUrl);
                   } else {
                     setStatus(isScheduledWithinMinutes(data.scheduledStartAt, 30) ? 'incoming' : 'offline');
                   }
@@ -432,7 +456,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   useEffect(() => {
     if (status !== 'incoming' || !config.bootstrapUrl) return;
     const intervalId = setInterval(() => {
-      apiRequest<Bootstrap>(config.bootstrapUrl, { retries: 1 })
+      // Carry identity so an entitled viewer waiting on a scheduled paywalled
+      // stream receives the gated streamUrl once it goes live.
+      const refreshViewerId = globalAuth.viewerIdentityId || viewer.viewerId;
+      const refreshEmail = globalAuth.viewerEmail;
+      let refreshUrl = config.bootstrapUrl;
+      if (refreshViewerId || refreshEmail) {
+        const p = new URLSearchParams();
+        if (refreshViewerId) p.append('viewerId', refreshViewerId);
+        else if (refreshEmail) p.append('email', refreshEmail);
+        refreshUrl += (refreshUrl.includes('?') ? '&' : '?') + p.toString();
+      }
+      apiRequest<Bootstrap>(refreshUrl, { retries: 1 })
         .then((data: Bootstrap) => {
           if (data?.streamUrl) {
             setBootstrap(data);
@@ -457,6 +492,38 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Global viewer authentication for cross-stream support
   const globalAuth = useGlobalViewerAuth();
+
+  // After a successful purchase the streamUrl is still gated server-side, so the
+  // client must fetch the now-entitled URL (verify-access) rather than reading it
+  // from the paywalled bootstrap (which returned null). Retries cover the brief
+  // window while the entitlement is being created. Declared after globalAuth/viewer
+  // so its dependency array does not reference them before initialization.
+  const unlockStreamAfterPurchase = useCallback((streamSlug: string, paidEmail?: string) => {
+    // Prefer the email that actually paid — an anonymous viewer who paid via the
+    // modal isn't in globalAuth yet. Fall back to the established identity for
+    // returning/registered viewers.
+    const params = new URLSearchParams();
+    if (paidEmail) {
+      params.append('email', paidEmail);
+    } else {
+      const viewerId = globalAuth.viewerIdentityId || viewer.viewerId;
+      if (viewerId) params.append('viewerId', viewerId);
+      else if (globalAuth.viewerEmail) params.append('email', globalAuth.viewerEmail);
+    }
+    apiRequest<{ hasAccess: boolean; streamUrl?: string | null; muxPlaybackId?: string | null }>(
+      `/api/direct/${streamSlug}/verify-access?${params.toString()}`,
+      { retries: 2 }
+    )
+      .then(result => {
+        if (result.muxPlaybackId) {
+          setBootstrap(prev =>
+            prev ? { ...prev, muxPlaybackId: result.muxPlaybackId ?? prev.muxPlaybackId } : prev
+          );
+        }
+        if (result.streamUrl) setStreamUrl(result.streamUrl);
+      })
+      .catch(err => console.error('[DirectStream] Post-purchase stream unlock failed:', err));
+  }, [globalAuth.viewerIdentityId, globalAuth.viewerEmail, viewer.viewerId]);
 
   // Auto-register if globally authenticated and no paywall
   useEffect(() => {
@@ -1119,9 +1186,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             slug={bootstrap.slug}
             isOpen={paywall.showPaywall}
             onClose={paywall.closePaywall}
-            onSuccess={() => {
+            onSuccess={(paidEmail) => {
               paywall.markAsPaid(bootstrap.slug);
-              if (bootstrap.streamUrl) setStreamUrl(bootstrap.streamUrl);
+              unlockStreamAfterPurchase(bootstrap.slug, paidEmail);
             }}
             priceInCents={bootstrap.priceInCents || 0}
             paywallMessage={bootstrap.paywallMessage}
@@ -1421,15 +1488,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               slug={bootstrap.slug}
               isOpen={paywall.showPaywall}
               onClose={paywall.closePaywall}
-              onSuccess={() => {
+              onSuccess={(paidEmail) => {
                 // Mark as paid in localStorage and close modal
                 paywall.markAsPaid(bootstrap.slug);
 
-                // Set stream URL after successful payment - Vidstack will auto-initialize
-                if (bootstrap.streamUrl) {
-                  console.log('[DirectStream] Payment successful, setting stream URL');
-                  setStreamUrl(bootstrap.streamUrl);
-                }
+                // Stream URL is gated server-side; fetch the now-entitled URL
+                // (verify-access) instead of the withheld bootstrap value.
+                console.log('[DirectStream] Payment successful, unlocking stream URL');
+                unlockStreamAfterPurchase(bootstrap.slug, paidEmail);
               }}
               priceInCents={bootstrap.priceInCents || 0}
               paywallMessage={bootstrap.paywallMessage}

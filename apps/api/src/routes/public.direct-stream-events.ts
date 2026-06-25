@@ -9,6 +9,7 @@ import { BadRequestError, NotFoundError, ForbiddenError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { DirectStreamEventRepository } from '../repositories/DirectStreamEventRepository';
 import { DirectStreamEventService } from '../services/DirectStreamEventService';
+import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
 import { logger } from '../lib/logger';
 
 export function createPublicDirectStreamEventsRouter(): Router {
@@ -48,11 +49,32 @@ router.get(
           throw new ForbiddenError('Authentication required');
         }
         
+        // 🔒 Paywall enforcement (server-side): withhold the playable URL for a
+        // paywalled event unless the caller proves entitlement (via viewerId/email).
+        // Entitlements are tied to the parent direct stream. Fails closed.
+        let deliverStreamUrl: string | null = config.streamUrl ?? null;
+        let streamLocked = false;
+        if (config.paywallEnabled) {
+          const { viewerId, email } = req.query as { viewerId?: string; email?: string };
+          const parent = await prisma.directStream.findUnique({
+            where: { slug: config.parentSlug },
+            select: { id: true },
+          });
+          const entitled = parent
+            ? await hasValidStreamEntitlement(parent.id, { viewerId, email })
+            : false;
+          if (!entitled) {
+            deliverStreamUrl = null;
+            streamLocked = true;
+          }
+        }
+
         // Transform to Bootstrap format (flat structure expected by frontend)
         const bootstrap = {
           slug: config.parentSlug,
           gameId: null, // Events don't have gameIds yet (future feature)
-          streamUrl: config.streamUrl,
+          streamUrl: deliverStreamUrl,
+          streamLocked,
           chatEnabled: config.chatEnabled,
           title: config.title,
           paywallEnabled: config.paywallEnabled,
@@ -64,9 +86,12 @@ router.get(
           scoreboardAwayTeam: config.scoreboardAwayTeam,
           scoreboardHomeColor: config.scoreboardHomeColor,
           scoreboardAwayColor: config.scoreboardAwayColor,
-          // 🆕 Viewer editing permissions
+          // Viewer editing permissions
           allowViewerScoreEdit: config.allowViewerScoreEdit,
           allowViewerNameEdit: config.allowViewerNameEdit,
+          // Anonymous feature flags
+          allowAnonymousScoreEdit: config.allowAnonymousScoreEdit,
+          allowAnonymousChat: config.allowAnonymousChat,
         };
         
         res.json(bootstrap);
