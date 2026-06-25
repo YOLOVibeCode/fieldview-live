@@ -93,6 +93,9 @@ export function SquareWalletPayment({
   const initRef = useRef(false);
   const processingRef = useRef(false);
 
+  // TEMP diagnostic: surface why a wallet button failed to initialize.
+  const [diag, setDiag] = useState<string[]>([]);
+
   const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || '';
   const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '';
   const env = (process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox').toLowerCase();
@@ -140,8 +143,9 @@ export function SquareWalletPayment({
           const applePay = await payments.applePay(buildPaymentRequest());
           applePayInstanceRef.current = applePay;
           setCanApplePay(true);
-        } catch {
-          // Not available on this device/browser — silently skip.
+          setDiag((d) => [...d, 'Apple Pay: available ✓']);
+        } catch (e) {
+          setDiag((d) => [...d, 'Apple Pay: ' + ((e as { message?: string; name?: string })?.message || (e as { name?: string })?.name || 'unavailable on this device')]);
         }
 
         // Google Pay — renders its branded button into the container via .attach().
@@ -152,8 +156,9 @@ export function SquareWalletPayment({
             googlePayInstanceRef.current = googlePay;
             setCanGooglePay(true);
           }
-        } catch {
-          // Not available on this device/browser — silently skip.
+          setDiag((d) => [...d, 'Google Pay: available ✓']);
+        } catch (e) {
+          setDiag((d) => [...d, 'Google Pay: ' + ((e as { message?: string; name?: string })?.message || (e as { name?: string })?.name || 'unavailable on this device')]);
         }
 
         setReady(true);
@@ -235,6 +240,15 @@ export function SquareWalletPayment({
   return (
     <div className="space-y-3" data-testid="square-wallet-payment">
       <Script src={sdkUrl} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} onReady={() => setSdkLoaded(true)} />
+
+      {/* TEMP diagnostic — shows exactly why each wallet did/didn't initialize. */}
+      {diag.length > 0 && (
+        <div data-testid="wallet-diag" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+          {diag.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
 
       {/* One-tap wallets */}
       {(canApplePay || canGooglePay) && (
