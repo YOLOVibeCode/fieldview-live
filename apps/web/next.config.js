@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['traklet', 'lit'],
   // Enable standalone output for Docker/Railway deployment
   output: 'standalone',
   env: {
@@ -8,6 +9,7 @@ const nextConfig = {
     NEXT_PUBLIC_SQUARE_APPLICATION_ID: process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || '',
     NEXT_PUBLIC_SQUARE_LOCATION_ID: process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '',
     NEXT_PUBLIC_SQUARE_ENVIRONMENT: process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox',
+    NEXT_PUBLIC_TRAKLET_GITHUB_TOKEN: process.env.NEXT_PUBLIC_TRAKLET_GITHUB_TOKEN || '',
   },
   // Optimize for production
   poweredByHeader: false,
