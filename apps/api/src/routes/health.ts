@@ -15,6 +15,27 @@ interface HealthCheck {
   latency?: number;
 }
 
+interface EmailProviderCheck {
+  provider: string;
+  configured: boolean;
+  from?: string;
+}
+
+function checkEmailProvider(): EmailProviderCheck {
+  const provider = process.env.EMAIL_PROVIDER || 'mailpit';
+  const isSendGrid = provider.toLowerCase() === 'sendgrid';
+  
+  return {
+    provider,
+    configured: isSendGrid 
+      ? Boolean(process.env.SENDGRID_API_KEY) 
+      : true, // Mailpit doesn't need config
+    from: isSendGrid 
+      ? process.env.SENDGRID_FROM_EMAIL 
+      : process.env.EMAIL_FROM || 'notifications@fieldview.live',
+  };
+}
+
 async function checkDatabase(): Promise<HealthCheck> {
   try {
     const start = Date.now();
@@ -58,6 +79,7 @@ export function createHealthRouter(): Router {
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       checks,
+      email: checkEmailProvider(),
     });
   });
 

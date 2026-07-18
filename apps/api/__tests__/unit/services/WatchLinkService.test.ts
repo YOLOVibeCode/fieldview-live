@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ForbiddenError, UnauthorizedError } from '@/lib/errors';
 import type { IWatchLinkReader, IWatchLinkWriter } from '@/services/IWatchLinkService';
 import { WatchLinkService } from '@/services/WatchLinkService';
+import type { IEventReaderRepo } from '@/repositories/IEventRepository';
 
 describe('WatchLinkService', () => {
   let service: WatchLinkService;
   let mockReader: IWatchLinkReader;
   let mockWriter: IWatchLinkWriter;
+  let mockEventReader: IEventReaderRepo;
 
   beforeEach(() => {
     mockReader = {
@@ -16,7 +18,16 @@ describe('WatchLinkService', () => {
     mockWriter = {
       bindEventCodeToIp: vi.fn(),
     };
-    service = new WatchLinkService(mockReader, mockWriter, {
+    mockEventReader = {
+      getEventById: vi.fn(),
+      getEventByCanonicalPath: vi.fn(),
+      getEventByChannelIdAndUrlKey: vi.fn(),
+      countEventsByChannelIdAndUrlKey: vi.fn(),
+      listEventsByChannel: vi.fn(),
+      listEventsByOrganization: vi.fn(),
+      listUpcomingEvents: vi.fn().mockResolvedValue([]),
+    };
+    service = new WatchLinkService(mockReader, mockWriter, mockEventReader, {
       ipHashSecret: 'test-secret',
       enforceIpBindingWhenCodeProvided: true,
     });
@@ -28,6 +39,9 @@ describe('WatchLinkService', () => {
       orgShortName: 'TCHSKISD',
       teamSlug: 'SoccerJV2',
       requireEventCode: false,
+      accessMode: 'public_free',
+      priceCents: null,
+      currency: 'USD',
       streamType: 'byo_hls',
       hlsManifestUrl: 'https://stream.mux.com/abc.m3u8',
       muxPlaybackId: null,
@@ -54,6 +68,9 @@ describe('WatchLinkService', () => {
       orgShortName: 'TCHSKISD',
       teamSlug: 'SoccerJV2',
       requireEventCode: false,
+      accessMode: 'public_free',
+      priceCents: null,
+      currency: 'USD',
       streamType: 'mux_playback',
       hlsManifestUrl: null,
       muxPlaybackId: 'playback-123',
@@ -102,6 +119,9 @@ describe('WatchLinkService', () => {
       orgShortName: 'TCHSKISD',
       teamSlug: 'SoccerJV2',
       requireEventCode: false,
+      accessMode: 'public_free',
+      priceCents: null,
+      currency: 'USD',
       streamType: 'byo_hls',
       hlsManifestUrl: 'https://example.com/stream.m3u8',
       muxPlaybackId: null,
@@ -132,6 +152,9 @@ describe('WatchLinkService', () => {
       orgShortName: 'TCHSKISD',
       teamSlug: 'SoccerJV2',
       requireEventCode: true,
+      accessMode: 'public_free',
+      priceCents: null,
+      currency: 'USD',
       streamType: 'byo_hls',
       hlsManifestUrl: 'https://example.com/stream.m3u8',
       muxPlaybackId: null,

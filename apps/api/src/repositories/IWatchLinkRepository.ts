@@ -8,7 +8,9 @@ import type { Organization, WatchChannel, WatchEventCode } from '@prisma/client'
 
 export interface IWatchLinkReaderRepo {
   getOrganizationByShortName(shortName: string): Promise<Organization | null>;
+  getOrganizationById(organizationId: string): Promise<Organization | null>;
   getChannelByOrgIdAndTeamSlug(orgId: string, teamSlug: string): Promise<WatchChannel | null>;
+  getChannelById(channelId: string): Promise<WatchChannel | null>;
   getEventCodeByChannelIdAndCode(channelId: string, code: string): Promise<WatchEventCode | null>;
 }
 
@@ -19,11 +21,22 @@ export interface IWatchLinkWriterRepo {
     teamSlug: string;
     displayName: string;
     requireEventCode: boolean;
+    accessMode: string;
+    priceCents: number | null;
+    currency: string | null;
     streamType: string;
     muxPlaybackId: string | null;
     hlsManifestUrl: string | null;
     externalEmbedUrl: string | null;
     externalProvider: string | null;
+  }): Promise<WatchChannel>;
+  updateChannelSettings(input: {
+    channelId: string;
+    displayName?: string;
+    requireEventCode?: boolean;
+    accessMode?: string;
+    priceCents?: number | null;
+    currency?: string | null;
   }): Promise<WatchChannel>;
   updateChannelStream(input: {
     channelId: string;

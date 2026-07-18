@@ -25,6 +25,10 @@ export interface CreateOwnerUserData {
 export interface UpdateOwnerAccountData {
   name?: string;
   payoutProviderRef?: string;
+  squareAccessTokenEncrypted?: string;
+  squareRefreshTokenEncrypted?: string;
+  squareTokenExpiresAt?: Date;
+  squareLocationId?: string | null;
 }
 
 /**

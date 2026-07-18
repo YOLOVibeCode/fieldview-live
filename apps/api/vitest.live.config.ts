@@ -1,5 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
+import { config } from 'dotenv';
+
+// Load .env file for live tests
+config();
 
 export default defineConfig({
   test: {

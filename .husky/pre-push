@@ -1,0 +1,49 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+###############################################################################
+# PRE-PUSH HOOK - Prevents pushing code that will fail on Railway
+#
+# This hook runs BEFORE git push and blocks if:
+# - Prisma Client generation fails
+# - TypeScript compilation fails
+# - API build fails
+#
+# To skip (emergency only): git push --no-verify
+###############################################################################
+
+echo ""
+echo "🔍 Pre-push checks (Railway build simulation)..."
+echo ""
+
+# Generate Prisma Client (critical for Railway)
+echo "⚙️  Generating Prisma Client..."
+pnpm exec prisma generate --schema=packages/data-model/prisma/schema.prisma || {
+    echo ""
+    echo "❌ Prisma generation failed!"
+    echo "   Fix the schema errors before pushing."
+    exit 1
+}
+
+# Build data-model (required for API)
+echo "🏗️  Building data-model..."
+pnpm --filter @fieldview/data-model build || {
+    echo ""
+    echo "❌ data-model build failed!"
+    exit 1
+}
+
+# Type check API (most common failure point)
+echo "🔍 Type-checking API..."
+pnpm --filter api type-check || {
+    echo ""
+    echo "❌ API type-check failed!"
+    echo ""
+    echo "Fix TypeScript errors before pushing."
+    echo "Run: pnpm --filter api type-check"
+    exit 1
+}
+
+echo ""
+echo "✅ Pre-push checks passed! Proceeding with push..."
+echo ""

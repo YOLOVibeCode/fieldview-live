@@ -108,7 +108,7 @@ Point your RTMP source to the Mux URL provided in the response.
 
 Navigate to:
 ```
-http://localhost:3000/poc/stream-viewer
+http://localhost:4300/poc/stream-viewer
 ```
 
 1. Click **"Connect to Stream"**
@@ -125,10 +125,10 @@ http://localhost:3000/poc/stream-viewer
 
 Navigate to:
 ```
-http://localhost:3000/watch/{WATCH_TOKEN}
+http://localhost:4300/watch/{ORG}/{TEAM}/{EVENTCODE}
 ```
 
-The watch token is generated via the purchase/access control system.
+The URL is built from the org short name, team slug, and an optional event code. Access (free vs. pay-per-view) is enforced on the watch page itself via the purchase/access control system.
 
 ---
 
@@ -227,7 +227,7 @@ Content-Type: application/json
 
 ### Get Stream Source (if already created)
 ```
-GET /api/owners/me/games/:gameId/stream-source
+GET /api/owners/me/games/:gameId/streams/credentials
 Authorization: Bearer {OWNER_TOKEN}
 ```
 

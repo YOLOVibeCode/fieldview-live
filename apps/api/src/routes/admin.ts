@@ -5,9 +5,10 @@
  * Following CDD: Contract matches OpenAPI spec.
  */
 
-import express, { type Router } from 'express';
+import express, { type Router, type NextFunction } from 'express';
 import { z } from 'zod';
 
+import { NotFoundError, BadRequestError, UnauthorizedError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { requireAdminAuth } from '../middleware/adminAuth';
 import { auditLog } from '../middleware/auditLog';
@@ -108,12 +109,12 @@ router.post('/login', validateRequest({ body: LoginSchema }), (req, res, next) =
  * 
  * Setup MFA for admin account.
  */
-router.post('/mfa/setup', requireAdminAuth, (req: AuthRequest, res, next) => {
+router.post('/mfa/setup', requireAdminAuth, (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const adminAccountId = req.adminUserId;
       if (!adminAccountId) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        throw new UnauthorizedError('Unauthorized');
       }
 
       const adminAuthService = getAdminAuthService();
@@ -130,7 +131,7 @@ router.post('/mfa/setup', requireAdminAuth, (req: AuthRequest, res, next) => {
  * 
  * Verify MFA token and enable MFA.
  */
-router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySchema }), (req: AuthRequest, res, next) => {
+router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySchema }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const adminAccountId = req.adminUserId;
@@ -138,7 +139,7 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
       const { token } = req.body;
 
       if (!adminAccountId) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        throw new UnauthorizedError('Unauthorized');
       }
 
       const adminAuthService = getAdminAuthService();
@@ -146,7 +147,7 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
       const verified = await adminAuthService.verifyMfa(adminAccountId, token);
 
       if (!verified) {
-        return res.status(401).json({ error: 'Invalid MFA token' });
+        throw new UnauthorizedError('Invalid MFA token');
       }
 
       res.json({ success: true });
@@ -161,14 +162,14 @@ router.post('/mfa/verify', requireAdminAuth, validateRequest({ body: MfaVerifySc
  * 
  * Global search for viewers, games, and purchases.
  */
-router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetType: 'search' }), (req: AuthRequest, res, next) => {
+router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetType: 'search' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const query = req.query.q as string;
       const adminRole = req.role || 'support_admin';
 
       if (!query) {
-        return res.status(400).json({ error: 'Query parameter q is required' });
+        throw new BadRequestError('Query parameter q is required');
       }
 
       const adminService = getAdminService();
@@ -185,14 +186,14 @@ router.get('/search', requireAdminAuth, auditLog({ actionType: 'search', targetT
  * 
  * Get purchase timeline with all events.
  */
-router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next) => {
+router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'view_purchase', targetType: 'purchase' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const purchaseId = req.params.purchaseId;
       const adminRole = req.role || 'support_admin';
 
       if (!purchaseId) {
-        return res.status(400).json({ error: 'Purchase ID is required' });
+        throw new BadRequestError('Purchase ID is required');
       }
 
       const adminService = getAdminService();
@@ -210,7 +211,7 @@ router.get('/purchases/:purchaseId', requireAdminAuth, auditLog({ actionType: 'v
  * 
  * Get game audience (SuperAdmin sees full emails, SupportAdmin sees masked).
  */
-router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog({ actionType: 'view_audience', targetType: 'game' }), (req: AuthRequest, res, next) => {
+router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog({ actionType: 'view_audience', targetType: 'game' }), (req: AuthRequest, res, next: NextFunction) => {
   void (async () => {
     try {
       const ownerId = req.params.ownerId;
@@ -218,13 +219,157 @@ router.get('/owners/:ownerId/games/:gameId/audience', requireAdminAuth, auditLog
       const adminRole = req.role || 'support_admin';
 
       if (!ownerId || !gameId) {
-        return res.status(400).json({ error: 'Owner ID and Game ID are required' });
+        throw new BadRequestError('Owner ID and Game ID are required');
       }
 
       const adminService = getAdminService();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const audience = await adminService.getGameAudience(gameId, ownerId, adminRole);
       res.json(audience);
+    } catch (error) {
+      next(error);
+    }
+  })();
+});
+
+/**
+ * GET /api/admin/purchases
+ * 
+ * List purchases with payout breakdown (gross, fees, net, recipient).
+ * Supports filtering by date range, recipient type, org, and status.
+ */
+const ListPurchasesQuerySchema = z.object({
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  recipientType: z.enum(['personal', 'organization']).optional(),
+  organizationId: z.string().uuid().optional(),
+  orgShortName: z.string().optional(),
+  status: z.enum(['created', 'paid', 'failed', 'refunded', 'partially_refunded']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+router.get('/purchases', requireAdminAuth, auditLog({ actionType: 'view_purchases', targetType: 'purchase' }), validateRequest({ query: ListPurchasesQuerySchema }), (req: AuthRequest, res, next: NextFunction) => {
+  void (async () => {
+    try {
+      const query = req.query as unknown as z.infer<typeof ListPurchasesQuerySchema>;
+      
+      // Build where clause
+      const where: any = {};
+      
+      if (query.startDate || query.endDate) {
+        where.createdAt = {};
+        if (query.startDate) where.createdAt.gte = query.startDate;
+        if (query.endDate) where.createdAt.lte = query.endDate;
+      }
+      
+      if (query.recipientType) {
+        where.recipientType = query.recipientType;
+      }
+      
+      if (query.organizationId) {
+        where.recipientOrganizationId = query.organizationId;
+      }
+      
+      if (query.orgShortName) {
+        // Need to join with Organization to filter by shortName
+        const org = await prisma.organization.findUnique({ where: { shortName: query.orgShortName } });
+        if (org) {
+          where.recipientOrganizationId = org.id;
+        } else {
+          // Return empty result if org not found
+          return res.json({ purchases: [], total: 0 });
+        }
+      }
+      
+      if (query.status) {
+        where.status = query.status;
+      }
+      
+      // Get purchases with related data
+      const [purchases, total] = await Promise.all([
+        prisma.purchase.findMany({
+          where,
+          include: {
+            game: {
+              include: {
+                ownerAccount: true,
+              },
+            },
+            channel: {
+              include: {
+                organization: true,
+              },
+            },
+            event: {
+              include: {
+                organization: true,
+              },
+            },
+            viewer: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: query.limit,
+          skip: query.offset,
+        }),
+        prisma.purchase.count({ where }),
+      ]);
+      
+      // Format response with breakdown
+      const formatted = purchases.map((p: any) => {
+        // Determine recipient identity
+        let recipientIdentity: string | null = null;
+        if (p.recipientType === 'personal' && p.game?.ownerAccount) {
+          recipientIdentity = p.game.ownerAccount.contactEmail;
+        } else if (p.recipientType === 'organization') {
+          if (p.channel?.organization) {
+            recipientIdentity = `${p.channel.organization.name} (${p.channel.organization.shortName})`;
+          } else if (p.event?.organization) {
+            recipientIdentity = `${p.event.organization.name} (${p.event.organization.shortName})`;
+          }
+        }
+        
+        return {
+          id: p.id,
+          createdAt: p.createdAt,
+          paidAt: p.paidAt,
+          status: p.status,
+          gross: p.amountCents,
+          processorFee: p.processorFeeCents,
+          platformFee: p.platformFeeCents,
+          net: p.ownerNetCents,
+          recipientType: p.recipientType,
+          recipientIdentity,
+          recipientOwnerAccountId: p.recipientOwnerAccountId,
+          recipientOrganizationId: p.recipientOrganizationId,
+          viewer: {
+            email: p.viewer.email,
+            phoneE164: p.viewer.phoneE164,
+          },
+          game: p.game ? {
+            id: p.game.id,
+            title: p.game.title,
+          } : null,
+          channel: p.channel ? {
+            id: p.channel.id,
+            teamSlug: p.channel.teamSlug,
+            displayName: p.channel.displayName,
+            orgShortName: p.channel.organization.shortName,
+          } : null,
+          event: p.event ? {
+            id: p.event.id,
+            canonicalPath: p.event.canonicalPath,
+            orgShortName: p.event.organization.shortName,
+          } : null,
+        };
+      });
+      
+      res.json({
+        purchases: formatted,
+        total,
+        limit: query.limit,
+        offset: query.offset,
+      });
     } catch (error) {
       next(error);
     }

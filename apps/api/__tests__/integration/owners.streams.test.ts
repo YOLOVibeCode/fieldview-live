@@ -79,6 +79,8 @@ describe('Owner Stream Source Routes', () => {
 
     // Mock JWT token verification
     mockToken = 'mock-jwt-token';
+    // Ensure no cross-test returnValueOnce() leakage from other files/workers
+    vi.mocked(verifyToken).mockReset();
     vi.mocked(verifyToken).mockReturnValue({
       ownerAccountId: 'owner-1',
       email: 'test@example.com',

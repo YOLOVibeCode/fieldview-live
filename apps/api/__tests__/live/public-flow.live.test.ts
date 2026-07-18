@@ -2,6 +2,44 @@ import { describe, it, expect } from 'vitest';
 import { agent, type SuperTest } from 'supertest';
 import app from '@/server';
 import { prisma } from '@/lib/prisma';
+import { encrypt } from '@/lib/encryption';
+
+/**
+ * Check if we have merchant OAuth credentials for payment tests.
+ * Platform credentials cannot be used for owner payments in Marketplace Model A.
+ */
+function hasMerchantCredentials(): boolean {
+  return Boolean(
+    process.env.SQUARE_MERCHANT_ACCESS_TOKEN &&
+    process.env.SQUARE_MERCHANT_LOCATION_ID
+  );
+}
+
+/**
+ * Sets up Square sandbox credentials for a test owner account.
+ * Uses SQUARE_MERCHANT_* credentials (OAuth tokens from a sandbox merchant).
+ */
+async function setupSquareCredentials(ownerAccountId: string): Promise<void> {
+  const accessToken = process.env.SQUARE_MERCHANT_ACCESS_TOKEN;
+  const locationId = process.env.SQUARE_MERCHANT_LOCATION_ID;
+
+  if (!accessToken || !locationId) {
+    throw new Error(
+      'Payment tests require SQUARE_MERCHANT_ACCESS_TOKEN and SQUARE_MERCHANT_LOCATION_ID'
+    );
+  }
+
+  await prisma.ownerAccount.update({
+    where: { id: ownerAccountId },
+    data: {
+      squareAccessTokenEncrypted: encrypt(accessToken),
+      squareRefreshTokenEncrypted: encrypt('test-refresh-token'),
+      squareLocationId: locationId,
+      payoutProviderRef: 'SANDBOX_MERCHANT',
+      squareTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+}
 
 function itIf(condition: boolean) {
   return condition ? it : it.skip;
@@ -103,11 +141,8 @@ describe('LIVE: public flow (no mocks, real DB)', () => {
     await prisma.ownerAccount.deleteMany({ where: { contactEmail: email } });
   });
 
-  itIf(
-    Boolean(process.env.SQUARE_ACCESS_TOKEN) &&
-      Boolean(process.env.SQUARE_LOCATION_ID) &&
-      (process.env.SQUARE_ENVIRONMENT || 'sandbox') !== 'production'
-  )('processes a sandbox Square payment and boots watch + telemetry flow', async () => {
+  // Requires merchant OAuth credentials - platform credentials cannot process payments for owners
+  itIf(hasMerchantCredentials())('processes a sandbox Square payment and boots watch + telemetry flow', async () => {
     assertLiveTestEnv();
 
     const request: SuperTest<typeof app> = agent(app);
@@ -127,6 +162,15 @@ describe('LIVE: public flow (no mocks, real DB)', () => {
       .expect(201);
 
     const ownerToken: string = registerResp.body.token.token;
+
+    // Get owner account ID and setup Square credentials
+    const meResp = await request
+      .get('/api/owners/me')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    const ownerAccountId: string = meResp.body.id;
+    await setupSquareCredentials(ownerAccountId);
 
     // Create game (start in the past so state becomes live once active)
     const gameResp = await request
@@ -219,13 +263,23 @@ describe('LIVE: public flow (no mocks, real DB)', () => {
     expect(endResp.body.sessionId).toBe(sessionId);
     expect(endResp.body.totalWatchMs).toBe(10_000);
 
-    // Cleanup (best-effort)
+    // Cleanup (best-effort) - order matters for foreign key constraints
     await prisma.playbackSession.deleteMany({ where: { entitlement: { purchase: { gameId } } } });
+    // Get purchase IDs to clean up ledger entries (LedgerEntry uses referenceId, not a relation)
+    const purchases = await prisma.purchase.findMany({ where: { gameId }, select: { id: true } });
+    for (const p of purchases) {
+      await prisma.ledgerEntry.deleteMany({ where: { referenceId: p.id } });
+    }
     await prisma.entitlement.deleteMany({ where: { purchase: { gameId } } });
     await prisma.purchase.deleteMany({ where: { gameId } });
     await prisma.streamSource.deleteMany({ where: { gameId } });
     await prisma.game.deleteMany({ where: { id: gameId } });
     await prisma.viewerIdentity.deleteMany({ where: { email: viewerEmail } });
+    // Clean up ledger entries for the owner account before deleting
+    const ownerAccount = await prisma.ownerAccount.findFirst({ where: { contactEmail: ownerEmail }, select: { id: true } });
+    if (ownerAccount) {
+      await prisma.ledgerEntry.deleteMany({ where: { ownerAccountId: ownerAccount.id } });
+    }
     await prisma.ownerUser.deleteMany({ where: { email: ownerEmail } });
     await prisma.ownerAccount.deleteMany({ where: { contactEmail: ownerEmail } });
   });

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -163,9 +164,7 @@ export default function OwnerCreateGamePage() {
             </form>
 
             {error && (
-              <div role="alert" data-testid="error-create-game" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
+              <ErrorBanner message={error} onDismiss={() => setError(null)} data-testid="error-create-game" />
             )}
 
             {created && (
@@ -201,7 +200,7 @@ export default function OwnerCreateGamePage() {
 
                 {checkoutLink && (
                   <div className="rounded-md border p-3">
-                    <div className="font-semibold">Checkout link (if price > 0)</div>
+                    <div className="font-semibold">Checkout link (if price &gt; 0)</div>
                     <div className="text-sm break-all" data-testid="text-checkout-link">
                       <a className="underline" href={checkoutLink}>
                         {checkoutLink}

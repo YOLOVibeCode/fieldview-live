@@ -1,8 +1,9 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd ../.. && pnpm install && pnpm --filter @fieldview/data-model db:generate && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
+buildCommand = "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @fieldview/data-model exec prisma generate --schema=./prisma/schema.prisma && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
 
 [deploy]
+# Temporarily skip migrations to get server running
 startCommand = "node dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300

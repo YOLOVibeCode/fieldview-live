@@ -34,6 +34,15 @@ export class ViewerIdentityRepository implements IViewerIdentityReader, IViewerI
     });
   }
 
+  async getByEmailVerified(email: string): Promise<ViewerIdentity | null> {
+    return this.prisma.viewerIdentity.findFirst({
+      where: {
+        email,
+        emailVerifiedAt: { not: null },
+      },
+    });
+  }
+
   async create(data: CreateViewerIdentityData): Promise<ViewerIdentity> {
     return this.prisma.viewerIdentity.create({
       data,
@@ -44,6 +53,13 @@ export class ViewerIdentityRepository implements IViewerIdentityReader, IViewerI
     return this.prisma.viewerIdentity.update({
       where: { id },
       data,
+    });
+  }
+
+  async markEmailVerified(id: string): Promise<ViewerIdentity> {
+    return this.prisma.viewerIdentity.update({
+      where: { id },
+      data: { emailVerifiedAt: new Date() },
     });
   }
 }

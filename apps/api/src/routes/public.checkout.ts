@@ -11,10 +11,13 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { checkoutRateLimit } from '../middleware/rateLimit';
 import { validateRequest } from '../middleware/validation';
+import { CouponRepository } from '../repositories/implementations/CouponRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
+import { CouponService } from '../services/CouponService';
 import { PaymentService } from '../services/PaymentService';
 
 const router = express.Router();
@@ -28,6 +31,7 @@ function getPaymentService(): PaymentService {
     const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
     const purchaseRepo = new PurchaseRepository(prisma);
     const entitlementRepo = new EntitlementRepository(prisma);
+    const watchLinkRepo = new WatchLinkRepository(prisma);
     paymentServiceInstance = new PaymentService(
       gameRepo,
       viewerIdentityRepo,
@@ -35,7 +39,8 @@ function getPaymentService(): PaymentService {
       purchaseRepo,
       purchaseRepo,
       entitlementRepo,
-      entitlementRepo
+      entitlementRepo,
+      watchLinkRepo
     );
   }
   return paymentServiceInstance;
@@ -46,11 +51,23 @@ export function setPaymentService(service: PaymentService): void {
   paymentServiceInstance = service;
 }
 
+// Lazy initialization for coupon service
+let couponServiceInstance: CouponService | null = null;
+
+function getCouponService(): CouponService {
+  if (!couponServiceInstance) {
+    const couponRepo = new CouponRepository(prisma);
+    couponServiceInstance = new CouponService(couponRepo, couponRepo);
+  }
+  return couponServiceInstance;
+}
+
 // Checkout request schema (viewerEmail required)
 const CheckoutCreateSchema = z.object({
   viewerEmail: z.string().email(),
   viewerPhone: z.string().regex(/^\+[1-9]\d{1,14}$/).optional(),
   returnUrl: z.string().url().optional(),
+  couponCode: z.string().max(20).optional(),
 });
 
 /**
@@ -72,9 +89,60 @@ router.post(
 
         const body = req.body as z.infer<typeof CheckoutCreateSchema>;
         const paymentService = getPaymentService();
+        const couponService = getCouponService();
 
         const result = await paymentService.createCheckout(
           gameId,
+          body.viewerEmail,
+          body.viewerPhone,
+          body.returnUrl,
+          body.couponCode,
+          couponService
+        );
+
+        res.json(result);
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
+
+/**
+ * POST /api/public/watch-links/:orgShortName/:teamSlug/checkout
+ * 
+ * Create checkout for watch link channel (supports Apple Pay, Google Pay).
+ */
+router.post(
+  '/watch-links/:orgShortName/:teamSlug/checkout',
+  checkoutRateLimit,
+  validateRequest({ body: CheckoutCreateSchema }),
+  (req, res, next) => {
+    void (async () => {
+      try {
+        const orgShortName = req.params.orgShortName;
+        const teamSlug = req.params.teamSlug;
+        if (!orgShortName || !teamSlug) {
+          return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing orgShortName or teamSlug' } });
+        }
+
+        const body = req.body as z.infer<typeof CheckoutCreateSchema>;
+        const paymentService = getPaymentService();
+
+        // Get channel ID from org/team
+        const watchLinkRepo = new WatchLinkRepository(prisma);
+        const org = await watchLinkRepo.getOrganizationByShortName(orgShortName);
+        if (!org) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+        }
+
+        const channel = await watchLinkRepo.getChannelByOrgIdAndTeamSlug(org.id, teamSlug);
+        if (!channel) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Channel not found' } });
+        }
+
+        const result = await paymentService.createChannelCheckout(
+          channel.id,
           body.viewerEmail,
           body.viewerPhone,
           body.returnUrl

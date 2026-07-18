@@ -1,0 +1,25 @@
+/**
+ * Mux Player Overrides
+ * Hides the built-in seek buttons and timeline since SeekOverlay replaces them.
+ * Mux Player v3 uses Media Chrome web components internally.
+ */
+
+/* Hide seek forward/backward buttons */
+mux-player::part(seek-backward button),
+mux-player::part(seek-forward button) {
+  display: none !important;
+}
+
+/* Hide the timeline / progress bar */
+mux-player::part(bottom time range) {
+  display: none !important;
+}
+
+/* Fallback: target by Media Chrome element names if ::part doesn't reach */
+mux-player {
+  --seek-backward-button: none;
+  --seek-forward-button: none;
+  --time-range: none;
+  --bottom-seek-backward-button: none;
+  --bottom-seek-forward-button: none;
+}

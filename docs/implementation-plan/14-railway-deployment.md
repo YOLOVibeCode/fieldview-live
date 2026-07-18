@@ -2,7 +2,7 @@
 
 ## Overview
 
-Railway deployment strategy with staging and production environments, tag-based releases, and environment variable management.
+Railway deployment strategy with staging and production environments, push-based auto-deploys, and environment variable management.
 
 **Platform**: Railway
 
@@ -248,44 +248,59 @@ railway variables set DATABASE_URL=${{Postgres.DATABASE_URL}}
 
 ## Deployment Workflow
 
-### Tag-Based Deployment
+### Push-Based Deployment
 
-**Trigger**: Tag push matching `v*.*.*` on `main` branch
+**Trigger**: Push to the `main` or `develop` branch (or a manual `workflow_dispatch`). Railway watches the connected repository and auto-deploys on push. The GitHub Actions workflow runs the CI gate (Prisma generate, data-model build, type-check, unit tests) and, on `main`, signals that Railway will deploy — it does **not** invoke the Railway CLI (`railway up`) or install it.
 
 **GitHub Actions Workflow**:
 ```yaml
-# .github/workflows/deploy.yml
+# .github/workflows/railway-deploy.yml
 name: Deploy to Railway
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Install pnpm
-        run: npm install -g pnpm
-      
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-      
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build @fieldview/data-model
+        run: pnpm --filter @fieldview/data-model build
+
+      - name: Run type check
+        run: pnpm type-check
+
+      - name: Run tests
+        run: pnpm test:unit
+
       - name: Deploy to Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        if: github.ref == 'refs/heads/main'
         run: |
-          railway login --token $RAILWAY_TOKEN
-          railway up --service web
-          railway up --service api
+          echo "✅ Tests passed - Railway will auto-deploy"
+          echo "Monitor deployment at: https://railway.app"
 ```
 
 ### Manual Deployment (Alternative)
@@ -439,7 +454,7 @@ railway rollback --service api
 - [ ] Environment variables configured
 - [ ] Dockerfiles build successfully
 - [ ] Health checks configured
-- [ ] Tag-based deployment works
+- [ ] Push-based auto-deploy works
 - [ ] Migrations run on deploy
 - [ ] Logs accessible
 

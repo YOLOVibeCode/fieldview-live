@@ -244,7 +244,7 @@ Each requirement includes scope tags, acceptance criteria, and API mappings.
 
 ### API endpoints
 - Internal processing (refund evaluation + issuance)
-- `POST /webhooks/payments/stripe` (refund webhook confirmation)
+- `POST /webhooks/payments/square` (refund webhook confirmation)
 
 ## FR-8 Owner/Association Dashboard
 **Scope**: **Core** (Owner-only), **Association-only** (consolidated reporting)

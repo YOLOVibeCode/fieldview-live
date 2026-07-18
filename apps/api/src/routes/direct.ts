@@ -1,0 +1,1336 @@
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+import { logger } from '../lib/logger';
+import { prisma } from '../lib/prisma';
+import { validateAdminToken } from '../middleware/admin-jwt';
+import { generateViewerToken } from '../lib/viewer-jwt';
+import { verifyToken } from '../lib/jwt';
+import { ensureGameForDirectStream } from '../lib/ensure-game';
+import { getChatPubSub } from '../lib/chat-pubsub';
+import { NotFoundError, BadRequestError, UnauthorizedError, AppError } from '../lib/errors';
+import {
+  SavePaymentMethodSchema,
+  GetPaymentMethodsQuerySchema,
+  DirectStreamCheckoutSchema,  // 🆕
+  inferStreamProvider,
+  extractMuxPlaybackId,
+} from '@fieldview/data-model';
+// 🆕 Payment service dependencies
+import { PaymentService } from '../services/PaymentService';
+import { GameRepository } from '../repositories/implementations/GameRepository';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
+import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
+import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
+
+const router = Router();
+
+// 🆕 Lazy initialization for PaymentService
+let paymentServiceInstance: PaymentService | null = null;
+
+function getPaymentService(): PaymentService {
+  if (!paymentServiceInstance) {
+    const gameRepo = new GameRepository(prisma);
+    const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
+    const purchaseRepo = new PurchaseRepository(prisma);
+    const entitlementRepo = new EntitlementRepository(prisma);
+    const watchLinkRepo = new WatchLinkRepository(prisma);
+    paymentServiceInstance = new PaymentService(
+      gameRepo,
+      viewerIdentityRepo,
+      viewerIdentityRepo,
+      purchaseRepo,
+      purchaseRepo,
+      entitlementRepo,
+      entitlementRepo,
+      watchLinkRepo
+    );
+  }
+  return paymentServiceInstance;
+}
+
+// GET /api/direct/:slug/bootstrap - Get bootstrap data for direct stream page
+router.get(
+  '/:slug/bootstrap',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+
+        const key = slug.toLowerCase();
+        
+        // 🆕 Check if this is a hierarchical event slug (parent/event)
+        const parts = key.split('/');
+        let directStream: any;
+        let directStreamEvent: any = null;
+        let isEvent = false;
+        
+        if (parts.length === 2) {
+          // Try to find as DirectStreamEvent first
+          const [parentSlug, eventSlug] = parts;
+          const parent = await prisma.directStream.findUnique({
+            where: { slug: parentSlug },
+            include: { game: { include: { streamSource: true } } },
+          });
+          
+          if (parent) {
+            directStreamEvent = await prisma.directStreamEvent.findUnique({
+              where: {
+                directStreamId_eventSlug: {
+                  directStreamId: parent.id,
+                  eventSlug,
+                },
+              },
+            });
+            
+            if (directStreamEvent) {
+              directStream = parent;
+              isEvent = true;
+              logger.info({ parentSlug, eventSlug }, 'Found DirectStreamEvent');
+            }
+          }
+        }
+        
+        // If not found as event, try as regular DirectStream
+        if (!directStream) {
+          directStream = await prisma.directStream.findUnique({
+            where: { slug: key },
+            include: { game: { include: { streamSource: true } } },
+          });
+        }
+
+        // Check if stream is deleted or archived
+        if (directStream && directStream.status !== 'active') {
+          return res.status(410).json({ 
+            error: 'Stream not available',
+            status: directStream.status,
+            message: directStream.status === 'archived' 
+              ? 'This stream has been archived' 
+              : 'This stream has been deleted'
+          });
+        }
+
+        // AUTO-HEAL: If DirectStream exists but has no gameId, try to link an existing Game
+        if (directStream && !directStream.gameId) {
+          const existingGame = await prisma.game.findFirst({
+            where: { title: `Direct Stream: ${slug}` },
+            select: { id: true },
+          });
+
+          if (existingGame) {
+            // Link the existing Game to the DirectStream
+            directStream = await prisma.directStream.update({
+              where: { slug: isEvent ? directStream.slug : key },
+              data: { gameId: existingGame.id },
+              include: { game: { include: { streamSource: true } } },
+            });
+            logger.info({ slug, gameId: existingGame.id }, 'Auto-linked existing Game to DirectStream');
+          }
+        }
+
+        // If not found, create a placeholder
+        if (!directStream) {
+          // Get default owner account for new streams
+          const defaultOwner = await prisma.ownerAccount.findFirst({
+            select: { id: true },
+          });
+
+          if (!defaultOwner) {
+            throw new AppError('INTERNAL_ERROR', 'No owner account found. Please create an owner account first.', 500);
+          }
+
+          // Find or create a game for chat
+          let gameId: string | null = null;
+          
+          const existingGame = await prisma.game.findFirst({
+            where: { title: `Direct Stream: ${slug}` },
+            select: { id: true },
+          });
+
+          if (existingGame) {
+            gameId = existingGame.id;
+          } else {
+              const newGame = await prisma.game.create({
+                data: {
+                  ownerAccountId: defaultOwner.id,
+                  title: `Direct Stream: ${slug}`,
+                  homeTeam: slug,
+                  awayTeam: 'TBD',
+                  startsAt: new Date(),
+                  priceCents: 0,
+                  currency: 'USD',
+                  keywordCode: `DIRECT-${slug.toUpperCase()}-${Date.now()}`,
+                  qrUrl: '',
+                  state: 'live',
+                },
+              });
+            gameId = newGame.id;
+          }
+
+          // Hash a default admin password (admin2026)
+          const defaultHashedPassword = await bcrypt.hash('admin2026', 10);
+
+          // Special configuration for e2e-test demo stream
+          const isE2ETest = key === 'e2e-test';
+
+          // Create DirectStream record
+          directStream = await prisma.directStream.create({
+            data: {
+              slug: key,
+              title: isE2ETest ? 'E2E Test Demo Stream' : `Direct Stream: ${slug}`,
+              ownerAccountId: defaultOwner.id,  // 🆕 Required field
+              adminPassword: defaultHashedPassword,
+              gameId,
+              chatEnabled: true,
+              paywallEnabled: false,
+              priceInCents: 0,
+              scoreboardEnabled: isE2ETest ? true : false, // Enable scoreboard for e2e-test
+              scoreboardHomeTeam: isE2ETest ? 'Demo Home' : null,
+              scoreboardAwayTeam: isE2ETest ? 'Demo Away' : null,
+              scoreboardHomeColor: isE2ETest ? '#3B82F6' : null,
+              scoreboardAwayColor: isE2ETest ? '#EF4444' : null,
+            },
+            include: { game: { include: { streamSource: true } } },
+          });
+        }
+
+        // Use event-specific stream URL if available, otherwise parent's
+        const effectiveStreamUrl = (isEvent && directStreamEvent?.streamUrl) ? directStreamEvent.streamUrl : directStream.streamUrl;
+
+        // Resolve stream provider metadata from StreamSource or URL inference
+        const streamSource = directStream.game?.streamSource ?? null;
+        const knownProviders = ['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed'];
+        const rawType = streamSource?.type;
+        const hasEventOverride = isEvent && directStreamEvent?.streamUrl;
+        const streamProvider = hasEventOverride
+          ? inferStreamProvider(effectiveStreamUrl)
+          : (rawType && knownProviders.includes(rawType)) ? rawType : (rawType ? 'unknown' : inferStreamProvider(effectiveStreamUrl));
+        const muxPlaybackId = hasEventOverride
+          ? extractMuxPlaybackId(effectiveStreamUrl)
+          : (streamSource?.muxPlaybackId ?? extractMuxPlaybackId(effectiveStreamUrl));
+        const protectionLevel = streamSource?.protectionLevel ?? (muxPlaybackId ? 'moderate' : 'none');
+
+        // 🔒 Paywall enforcement (server-side): never hand the playable URL — or,
+        // for Mux, the playback id, which alone unlocks the stream via
+        // https://stream.mux.com/<id>.m3u8 — to a caller without a valid
+        // entitlement. Entitled callers receive it by passing their viewerId/email;
+        // otherwise the client obtains it from /verify-access. Fails closed.
+        let deliverStreamUrl: string | null = effectiveStreamUrl ?? null;
+        let deliverMuxPlaybackId: string | null = muxPlaybackId ?? null;
+        let streamLocked = false;
+        if (directStream.paywallEnabled) {
+          const { viewerId, email } = req.query as { viewerId?: string; email?: string };
+          const entitled = await hasValidStreamEntitlement(directStream.id, { viewerId, email });
+          if (!entitled) {
+            deliverStreamUrl = null;
+            deliverMuxPlaybackId = null;
+            streamLocked = true;
+          }
+        }
+
+        const responseData: any = {
+          slug: isEvent ? key : directStream.slug,
+          parentSlug: isEvent ? directStream.slug : undefined,
+          directStreamId: directStream.id,
+          gameId: directStream.gameId,
+          streamUrl: deliverStreamUrl,
+          streamLocked,
+          chatEnabled: isEvent ? (directStreamEvent?.chatEnabled ?? directStream.chatEnabled) : directStream.chatEnabled,
+          title: isEvent && directStreamEvent?.title ? directStreamEvent.title : directStream.title,
+          paywallEnabled: directStream.paywallEnabled,
+          priceInCents: directStream.priceInCents,
+          paywallMessage: directStream.paywallMessage,
+          allowSavePayment: directStream.allowSavePayment,
+          scoreboardEnabled: isEvent ? (directStreamEvent?.scoreboardEnabled ?? directStream.scoreboardEnabled) : directStream.scoreboardEnabled,
+          scoreboardHomeTeam: directStream.scoreboardHomeTeam,
+          scoreboardAwayTeam: directStream.scoreboardAwayTeam,
+          scoreboardHomeColor: directStream.scoreboardHomeColor,
+          scoreboardAwayColor: directStream.scoreboardAwayColor,
+          welcomeMessage: directStream.welcomeMessage,
+          // Scheduling & reminders (event-specific if available)
+          scheduledStartAt: isEvent && directStreamEvent?.scheduledStartAt ? directStreamEvent.scheduledStartAt : directStream.scheduledStartAt,
+          sendReminders: directStream.sendReminders,
+          reminderMinutes: directStream.reminderMinutes,
+          // Viewer editing permissions
+          allowViewerScoreEdit: directStream.allowViewerScoreEdit,
+          allowViewerNameEdit: directStream.allowViewerNameEdit,
+          // Anonymous feature flags
+          allowAnonymousChat: directStream.allowAnonymousChat,
+          allowAnonymousScoreEdit: directStream.allowAnonymousScoreEdit,
+          // Stream provider metadata (for player selection). streamProvider /
+          // protectionLevel are non-secret labels and stay; muxPlaybackId is
+          // gated above (it is sufficient to play the stream).
+          streamProvider,
+          muxPlaybackId: deliverMuxPlaybackId,
+          protectionLevel,
+        };
+
+        return res.json(responseData);
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to get bootstrap data');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/unlock-admin - Unlock admin panel with password or owner JWT, return JWT
+router.post(
+  '/:slug/unlock-admin',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+
+        const key = slug.toLowerCase();
+
+        // 🆕 Handle hierarchical event slugs (parent/event) - use parent for auth
+        const parts = key.split('/');
+        const authSlug = parts.length === 2 ? parts[0] : key; // Use parent slug for auth
+
+        // Find the DirectStream record (include fields needed for ensureGame)
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug: authSlug },
+          select: {
+            id: true,
+            title: true,
+            adminPassword: true,
+            ownerAccountId: true,
+            scheduledStartAt: true,
+            priceInCents: true,
+            gameId: true,
+          },
+        });
+
+        if (!directStream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // Optional: accept OwnerUser JWT as alternative to password
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+          const ownerToken = authHeader.substring(7);
+          const payload = verifyToken(ownerToken);
+          if (payload?.ownerAccountId && payload.ownerAccountId === directStream.ownerAccountId) {
+            // Owner owns this stream: issue admin JWT without password
+            const jwtSecret = process.env.JWT_SECRET;
+            if (!jwtSecret) {
+              logger.error('JWT_SECRET not configured');
+              throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
+            }
+            const token = jwt.sign(
+              { slug: authSlug, role: 'admin' }, // 🆕 Use parent slug in JWT
+              jwtSecret,
+              { expiresIn: '1h' }
+            );
+            const adminEmail = `admin@${authSlug}.fieldview.live`;
+            const adminDisplayName = `${directStream.title || authSlug} Admin`;
+            const gameId = directStream.gameId || await ensureGameForDirectStream(authSlug, directStream);
+            const adminViewer = await prisma.viewerIdentity.upsert({
+              where: { email: adminEmail },
+              create: {
+                email: adminEmail,
+                firstName: adminDisplayName,
+                lastName: '',
+                wantsReminders: false,
+              },
+              update: {
+                firstName: adminDisplayName,
+                lastSeenAt: new Date(),
+              },
+            });
+            const viewerToken = generateViewerToken({
+              viewerId: adminViewer.id,
+              gameId,
+              slug: authSlug,
+              displayName: adminDisplayName,
+            });
+            return res.json({
+              token,
+              viewerToken,
+              viewerId: adminViewer.id,
+              displayName: adminDisplayName,
+              gameId,
+            });
+          }
+        }
+
+        // Fall back to password
+        const schema = z.object({
+          password: z.string().min(1, 'Password is required'),
+        });
+        const parsed = schema.safeParse(req.body);
+        if (!parsed.success) {
+          throw new BadRequestError('Invalid request', parsed.error.errors);
+        }
+        const { password } = parsed.data;
+        const isValid = await bcrypt.compare(password, directStream.adminPassword);
+        if (!isValid) {
+          throw new UnauthorizedError('Invalid password');
+        }
+
+        // Generate admin JWT token
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          logger.error('JWT_SECRET not configured');
+          throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
+        }
+
+        const token = jwt.sign(
+          { slug: authSlug, role: 'admin' }, // 🆕 Use parent slug in JWT
+          jwtSecret,
+          { expiresIn: '1h' }
+        );
+
+        // Auto-login admin as viewer: upsert ViewerIdentity + generate viewer JWT
+        const adminEmail = `admin@${authSlug}.fieldview.live`;
+        const adminDisplayName = `${directStream.title || authSlug} Admin`;
+
+        const gameId = directStream.gameId || await ensureGameForDirectStream(authSlug, directStream);
+
+        const adminViewer = await prisma.viewerIdentity.upsert({
+          where: { email: adminEmail },
+          create: {
+            email: adminEmail,
+            firstName: adminDisplayName,
+            lastName: '',
+            wantsReminders: false,
+          },
+          update: {
+            firstName: adminDisplayName,
+            lastSeenAt: new Date(),
+          },
+        });
+
+        const viewerToken = generateViewerToken({
+          viewerId: adminViewer.id,
+          gameId,
+          slug: authSlug,
+          displayName: adminDisplayName,
+        });
+
+        return res.json({
+          token,
+          viewerToken,
+          viewerId: adminViewer.id,
+          displayName: adminDisplayName,
+          gameId,
+        });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to unlock admin');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/settings - Update admin settings (JWT protected)
+router.post(
+  '/:slug/settings',
+  validateAdminToken, // Middleware validates JWT
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+
+        // Validate request body (password no longer required)
+        const schema = z.object({
+          streamUrl: z.string().url().optional().nullable(),
+          chatEnabled: z.boolean().optional(),
+          paywallEnabled: z.boolean().optional(),
+          priceInCents: z.number().int().min(0).max(99999).optional(),
+          paywallMessage: z.string().max(1000).optional().nullable(),
+          allowSavePayment: z.boolean().optional(),
+          scoreboardEnabled: z.boolean().optional(),
+          scoreboardHomeTeam: z.string().max(50).optional().nullable(),
+          scoreboardAwayTeam: z.string().max(50).optional().nullable(),
+          scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+          scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+          // Viewer editing permissions
+          allowViewerScoreEdit: z.boolean().optional(),
+          allowViewerNameEdit: z.boolean().optional(),
+          // Anonymous feature flags
+          allowAnonymousChat: z.boolean().optional(),
+          allowAnonymousScoreEdit: z.boolean().optional(),
+          welcomeMessage: z.string().max(500).optional().nullable(),
+          // Scheduling & reminders
+          scheduledStartAt: z.string().datetime().optional().nullable(),
+          sendReminders: z.boolean().optional(),
+          reminderMinutes: z.number().int().min(1).max(1440).optional(),
+        });
+
+        const parsed = schema.safeParse(req.body);
+        if (!parsed.success) {
+          throw new BadRequestError('Invalid request', parsed.error.errors);
+        }
+
+        const body = parsed.data;
+        const key = slug.toLowerCase();
+
+        // 🆕 Handle hierarchical event slugs (parent/event)
+        const parts = key.split('/');
+        const authSlug = parts.length === 2 ? parts[0] : key; // Use parent slug for updates
+
+        // Find existing DirectStream (use parent slug for events)
+        const existingStream = await prisma.directStream.findUnique({
+          where: { slug: authSlug },
+        });
+
+        if (!existingStream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // 🆕 If this is an event, check if DirectStreamEvent exists
+        let directStreamEvent = null;
+        if (parts.length === 2) {
+          const [parentSlug, eventSlug] = parts;
+          directStreamEvent = await prisma.directStreamEvent.findUnique({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: existingStream.id,
+                eventSlug,
+              },
+            },
+          });
+          
+          if (!directStreamEvent) {
+            throw new NotFoundError('Stream event not found');
+          }
+        }
+
+        // Build update data (ISP: only update provided fields)
+        const parentUpdateData: any = {};
+        const eventUpdateData: any = {};
+        
+        // 🆕 Event-specific fields (save to DirectStreamEvent if applicable)
+        if (directStreamEvent) {
+          if (body.streamUrl !== undefined) {
+            eventUpdateData.streamUrl = body.streamUrl;
+          }
+          if (body.scheduledStartAt !== undefined) {
+            eventUpdateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
+          }
+          if (body.chatEnabled !== undefined) {
+            eventUpdateData.chatEnabled = body.chatEnabled;
+          }
+          if (body.scoreboardEnabled !== undefined) {
+            eventUpdateData.scoreboardEnabled = body.scoreboardEnabled;
+          }
+        } else {
+          // Parent stream fields
+          if (body.streamUrl !== undefined) {
+            parentUpdateData.streamUrl = body.streamUrl;
+          }
+          if (body.scheduledStartAt !== undefined) {
+            parentUpdateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
+          }
+        }
+        
+        // Shared parent fields (always update parent)
+        if (body.paywallEnabled !== undefined) {
+          parentUpdateData.paywallEnabled = body.paywallEnabled;
+        }
+        if (body.priceInCents !== undefined) {
+          parentUpdateData.priceInCents = body.priceInCents;
+        }
+        if (body.paywallMessage !== undefined) {
+          parentUpdateData.paywallMessage = body.paywallMessage;
+        }
+        if (body.allowSavePayment !== undefined) {
+          parentUpdateData.allowSavePayment = body.allowSavePayment;
+        }
+        if (!directStreamEvent && body.chatEnabled !== undefined) {
+          parentUpdateData.chatEnabled = body.chatEnabled;
+        }
+        if (!directStreamEvent && body.scoreboardEnabled !== undefined) {
+          parentUpdateData.scoreboardEnabled = body.scoreboardEnabled;
+        }
+        if (body.scoreboardHomeTeam !== undefined) {
+          parentUpdateData.scoreboardHomeTeam = body.scoreboardHomeTeam;
+        }
+        if (body.scoreboardAwayTeam !== undefined) {
+          parentUpdateData.scoreboardAwayTeam = body.scoreboardAwayTeam;
+        }
+        if (body.scoreboardHomeColor !== undefined) {
+          parentUpdateData.scoreboardHomeColor = body.scoreboardHomeColor;
+        }
+        if (body.scoreboardAwayColor !== undefined) {
+          parentUpdateData.scoreboardAwayColor = body.scoreboardAwayColor;
+        }
+        // Viewer editing permissions
+        if (body.allowViewerScoreEdit !== undefined) {
+          parentUpdateData.allowViewerScoreEdit = body.allowViewerScoreEdit;
+        }
+        if (body.allowViewerNameEdit !== undefined) {
+          parentUpdateData.allowViewerNameEdit = body.allowViewerNameEdit;
+        }
+        // Anonymous feature flags
+        if (body.allowAnonymousChat !== undefined) {
+          parentUpdateData.allowAnonymousChat = body.allowAnonymousChat;
+        }
+        if (body.allowAnonymousScoreEdit !== undefined) {
+          parentUpdateData.allowAnonymousScoreEdit = body.allowAnonymousScoreEdit;
+        }
+        if (body.welcomeMessage !== undefined) {
+          parentUpdateData.welcomeMessage = body.welcomeMessage;
+        }
+        // Reminders (parent only)
+        if (body.sendReminders !== undefined) {
+          parentUpdateData.sendReminders = body.sendReminders;
+        }
+        if (body.reminderMinutes !== undefined) {
+          parentUpdateData.reminderMinutes = body.reminderMinutes;
+        }
+
+        // Update in database
+        let updated = null;
+        if (Object.keys(parentUpdateData).length > 0) {
+          updated = await prisma.directStream.update({
+            where: { slug: authSlug }, // 🆕 Use parent slug
+            data: parentUpdateData,
+          });
+        } else {
+          updated = existingStream;
+        }
+        
+        // 🆕 Update event-specific fields if this is an event
+        let updatedEvent = null;
+        if (directStreamEvent && Object.keys(eventUpdateData).length > 0) {
+          updatedEvent = await prisma.directStreamEvent.update({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: existingStream.id,
+                eventSlug: parts[1],
+              },
+            },
+            data: eventUpdateData,
+          });
+        }
+
+        logger.info({ slug, parentUpdates: Object.keys(parentUpdateData), eventUpdates: Object.keys(eventUpdateData) }, 'Direct stream settings updated');
+
+        return res.json({
+          success: true,
+          settings: {
+            streamUrl: updatedEvent?.streamUrl ?? updated.streamUrl,
+            paywallEnabled: updated.paywallEnabled,
+            priceInCents: updated.priceInCents,
+            paywallMessage: updated.paywallMessage,
+            allowSavePayment: updated.allowSavePayment,
+            chatEnabled: updatedEvent?.chatEnabled ?? updated.chatEnabled,
+            scoreboardEnabled: updatedEvent?.scoreboardEnabled ?? updated.scoreboardEnabled,
+            scoreboardHomeTeam: updated.scoreboardHomeTeam,
+            scoreboardAwayTeam: updated.scoreboardAwayTeam,
+            scoreboardHomeColor: updated.scoreboardHomeColor,
+            scoreboardAwayColor: updated.scoreboardAwayColor,
+            // 🆕 Viewer editing permissions
+            allowViewerScoreEdit: updated.allowViewerScoreEdit,
+            allowViewerNameEdit: updated.allowViewerNameEdit,
+            welcomeMessage: updated.welcomeMessage,
+            // Scheduling & reminders
+            scheduledStartAt: updatedEvent?.scheduledStartAt ?? updated.scheduledStartAt,
+            sendReminders: updated.sendReminders,
+            reminderMinutes: updated.reminderMinutes,
+          },
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          throw new BadRequestError('Invalid request', error.errors);
+        }
+        logger.error({ error, slug: req.params.slug }, 'Failed to update settings');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/admin-broadcast - Send admin broadcast to all viewers (JWT protected)
+const AdminBroadcastSchema = z.object({
+  message: z.string().min(1).max(240),
+});
+router.post(
+  '/:slug/admin-broadcast',
+  validateAdminToken,
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const slug = (req.params.slug ?? '').toLowerCase();
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+        const parsed = AdminBroadcastSchema.safeParse(req.body);
+        if (!parsed.success) {
+          throw new BadRequestError('Invalid request', parsed.error.errors);
+        }
+        const { message } = parsed.data;
+
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug },
+          select: { gameId: true },
+        });
+        if (!directStream?.gameId) {
+          throw new BadRequestError('Stream has no chat game linked; cannot broadcast');
+        }
+
+        const pubsub = getChatPubSub();
+        await pubsub.publishBroadcast(directStream.gameId, { message });
+        logger.info({ slug, gameId: directStream.gameId }, 'Admin broadcast sent');
+        return res.json({ success: true });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to send admin broadcast');
+        next(error);
+      }
+    })();
+  }
+);
+
+// Legacy endpoints (kept for backwards compatibility, deprecated)
+// GET /api/direct/:slug - Get current stream URL (legacy, keep for compatibility)
+router.get(
+  '/:slug',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+
+        const key = slug.toLowerCase();
+        const directStream = await prisma.directStream.findUnique({
+          where: { slug: key },
+          select: { streamUrl: true },
+        });
+
+        if (directStream && directStream.streamUrl) {
+          return res.json({ streamUrl: directStream.streamUrl });
+        }
+
+        throw new NotFoundError('No stream configured');
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to get stream URL');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug - Update stream URL (legacy, use /settings instead)
+router.post(
+  '/:slug',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        const { streamUrl, password } = req.body;
+        
+        if (!slug) {
+          throw new BadRequestError('Slug is required');
+        }
+        
+        if (!streamUrl || typeof streamUrl !== 'string') {
+          throw new BadRequestError('streamUrl is required');
+        }
+
+        const key = slug.toLowerCase();
+        
+        // Find existing stream to validate password
+        const existingStream = await prisma.directStream.findUnique({
+          where: { slug: key },
+        });
+
+        if (existingStream) {
+          // Validate password for existing stream
+          if (!password) {
+            throw new UnauthorizedError('Password required');
+          }
+          const isValid = await bcrypt.compare(password, existingStream.adminPassword);
+          if (!isValid) {
+            logger.warn({ slug }, 'Invalid password attempt (legacy endpoint)');
+            throw new UnauthorizedError('Invalid password');
+          }
+          
+          // Update existing stream
+          const updated = await prisma.directStream.update({
+            where: { slug: key },
+            data: { streamUrl },
+          });
+          
+          logger.info({ slug, streamUrl }, 'Direct stream URL updated (legacy endpoint)');
+          return res.json({ success: true, streamUrl: updated.streamUrl });
+        }
+        
+        // Create new stream (requires ownerAccount)
+        const defaultOwner = await prisma.ownerAccount.findFirst({
+          select: { id: true },
+        });
+
+        if (!defaultOwner) {
+          throw new AppError('INTERNAL_ERROR', 'No owner account found', 500);
+        }
+
+        const defaultHashedPassword = await bcrypt.hash(password || 'admin2026', 10);
+        
+        const updated = await prisma.directStream.create({
+          data: {
+            slug: key,
+            title: `Direct Stream: ${slug}`,
+            streamUrl,
+            chatEnabled: true,
+            ownerAccountId: defaultOwner.id,
+            adminPassword: defaultHashedPassword,
+          },
+        });
+
+        logger.info({ slug, streamUrl }, 'Direct stream URL updated (legacy endpoint)');
+
+        res.json({ success: true, streamUrl: updated.streamUrl });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to update stream URL (legacy)');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/checkout - Create DirectStream paywall checkout session
+router.post(
+  '/:slug/checkout',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        console.log('[CHECKOUT] Route hit! slug:', req.params.slug);
+        console.log('[CHECKOUT] Body:', JSON.stringify(req.body, null, 2));
+        
+        const { slug } = req.params;
+        
+        if (!slug) {
+          console.log('[CHECKOUT] ERROR: No slug');
+          throw new BadRequestError('Slug is required');
+        }
+        
+        // Validate request body
+        console.log('[CHECKOUT] Validating request body...');
+        const validation = DirectStreamCheckoutSchema.safeParse(req.body);
+        if (!validation.success) {
+          console.log('[CHECKOUT] Validation failed:', validation.error);
+          throw new BadRequestError('Invalid request', validation.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', '));
+        }
+
+        const { email, firstName, lastName, phone, returnUrl } = validation.data;
+        console.log('[CHECKOUT] Validation passed. Getting payment service...');
+
+        // Get payment service
+        const paymentService = getPaymentService();
+        console.log('[CHECKOUT] Payment service obtained. Creating checkout...');
+
+        // Create checkout session
+        const result = await paymentService.createDirectStreamCheckout(
+          slug,
+          email,
+          firstName,
+          lastName,
+          phone,
+          returnUrl
+        );
+
+        console.log('[CHECKOUT] Checkout created successfully:', result.purchaseId);
+
+        logger.info({ 
+          slug, 
+          email, 
+          purchaseId: result.purchaseId 
+        }, 'DirectStream checkout session created');
+
+        res.json(result);
+      } catch (error: any) {
+        // Enhanced error logging for debugging
+        console.error('[CHECKOUT ERROR] Full error:', error);
+        console.error('[CHECKOUT ERROR] Error stack:', error.stack);
+        console.error('[CHECKOUT ERROR] Error name:', error.name);
+        console.error('[CHECKOUT ERROR] Error message:', error.message);
+        
+        logger.error({ 
+          error, 
+          errorName: error.name,
+          errorMessage: error.message,
+          errorStack: error.stack,
+          slug: req.params.slug,
+          email: req.body?.email
+        }, 'Failed to create checkout session');
+        
+        // AppError instances are already thrown and handled by middleware
+        // Just pass them through to next()
+        next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/direct/:slug/payment-methods - Get saved payment methods for email
+router.get(
+  '/:slug/payment-methods',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        
+        const validation = GetPaymentMethodsQuerySchema.safeParse(req.query);
+        if (!validation.success) {
+          throw new BadRequestError('Email parameter is required');
+        }
+
+        const { email } = validation.data;
+
+        // Check if stream exists
+        const stream = await prisma.directStream.findUnique({
+          where: { slug },
+        });
+
+        if (!stream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // Find viewer by email
+        const viewer = await prisma.viewerIdentity.findUnique({
+          where: { email },
+        });
+
+        if (!viewer) {
+          return res.json({ hasSavedCard: false });
+        }
+
+        // Find square customer for this viewer
+        const squareCustomer = await prisma.viewerSquareCustomer.findFirst({
+          where: { viewerId: viewer.id },
+        });
+
+        if (!squareCustomer) {
+          return res.json({ hasSavedCard: false });
+        }
+
+        // Find most recent purchase with saved card info
+        const recentPurchase = await prisma.purchase.findFirst({
+          where: {
+            viewerId: viewer.id,
+            savePaymentMethod: true,
+            cardLastFour: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (!recentPurchase) {
+          return res.json({ hasSavedCard: false });
+        }
+
+        res.json({
+          hasSavedCard: true,
+          cardLastFour: recentPurchase.cardLastFour,
+          cardBrand: recentPurchase.cardBrand,
+          squareCustomerId: squareCustomer.squareCustomerId,
+        });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to get payment methods');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/save-payment-method - Save payment method for viewer
+router.post(
+  '/:slug/save-payment-method',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+
+        const validation = SavePaymentMethodSchema.safeParse(req.body);
+        if (!validation.success) {
+          throw new BadRequestError('Invalid request', validation.error.errors);
+        }
+
+        const { email, firstName, lastName, squareCustomerId } = validation.data;
+
+        // Check if stream exists
+        const stream = await prisma.directStream.findUnique({
+          where: { slug },
+        });
+
+        if (!stream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // Find or create owner account (for ViewerSquareCustomer relation)
+        const owner = await prisma.ownerAccount.findFirst({
+          select: { id: true },
+        });
+
+        if (!owner) {
+          throw new AppError('INTERNAL_ERROR', 'No owner account found', 500);
+        }
+
+        // Find or create viewer
+        let viewer = await prisma.viewerIdentity.findUnique({
+          where: { email },
+        });
+
+        if (!viewer) {
+          viewer = await prisma.viewerIdentity.create({
+            data: {
+              email,
+              firstName: firstName || '',
+              lastName: lastName || '',
+            },
+          });
+        }
+
+        // Upsert ViewerSquareCustomer
+        const existingSquareCustomer = await prisma.viewerSquareCustomer.findFirst({
+          where: {
+            viewerId: viewer.id,
+            ownerAccountId: owner.id,
+          },
+        });
+
+        if (existingSquareCustomer) {
+          await prisma.viewerSquareCustomer.update({
+            where: { id: existingSquareCustomer.id },
+            data: { squareCustomerId },
+          });
+
+          return res.json({ success: true, updated: true });
+        } else {
+          await prisma.viewerSquareCustomer.create({
+            data: {
+              viewerId: viewer.id,
+              ownerAccountId: owner.id,
+              squareCustomerId,
+            },
+          });
+
+          return res.status(201).json({ success: true, created: true });
+        }
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to save payment method');
+        next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/direct/:slug/viewers/active - Get active viewers (last 2 minutes)
+router.get(
+  '/:slug/viewers/active',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        const key = slug.toLowerCase();
+        const parts = key.split('/');
+        const parentSlug = parts.length >= 2 ? parts[0] : key;
+
+        const stream = await prisma.directStream.findUnique({
+          where: { slug: parentSlug },
+        });
+
+        if (!stream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // Get viewers active within last 2 minutes, scoped to this stream
+        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+
+        const registrations = await prisma.directStreamRegistration.findMany({
+          where: {
+            directStreamId: stream.id,
+            viewerIdentity: {
+              lastSeenAt: { gte: twoMinutesAgo },
+            },
+          },
+          select: {
+            viewerIdentity: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                lastSeenAt: true,
+              },
+            },
+          },
+          orderBy: {
+            viewerIdentity: { lastSeenAt: 'desc' },
+          },
+        });
+
+        const activeViewers = registrations.map((r) => r.viewerIdentity);
+
+        // Mark viewers as active or inactive based on 1-minute threshold
+        const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+        const viewersWithStatus = activeViewers.map((viewer: any) => ({
+          ...viewer,
+          isActive: viewer.lastSeenAt ? viewer.lastSeenAt >= oneMinuteAgo : false,
+        }));
+
+        res.json({
+          viewers: viewersWithStatus,
+          totalActive: viewersWithStatus.length,
+        });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to get active viewers');
+        next(error);
+      }
+    })();
+  }
+);
+
+// POST /api/direct/:slug/heartbeat - Update viewer activity timestamp
+router.post(
+  '/:slug/heartbeat',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        const { email, firstName, lastName } = req.body;
+
+        if (!email) {
+          throw new BadRequestError('Email is required');
+        }
+
+        const key = slug.toLowerCase();
+        const parts = key.split('/');
+        const parentSlug = parts.length >= 2 ? parts[0] : key;
+
+        const stream = await prisma.directStream.findUnique({
+          where: { slug: parentSlug },
+        });
+
+        if (!stream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // Upsert viewer with updated lastSeenAt
+        await prisma.viewerIdentity.upsert({
+          where: { email: email.toLowerCase().trim() },
+          update: {
+            lastSeenAt: new Date(),
+          },
+          create: {
+            email: email.toLowerCase().trim(),
+            firstName: firstName || '',
+            lastName: lastName || '',
+            lastSeenAt: new Date(),
+          },
+        });
+
+        res.json({ success: true });
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Failed to update heartbeat');
+        next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/direct/:slug/verify-access - Verify viewer has paid access to stream
+router.get(
+  '/:slug/verify-access',
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const { slug } = req.params;
+        const { viewerId, email } = req.query as { viewerId?: string; email?: string };
+
+        logger.info({ slug, viewerId, email }, 'Verifying stream access');
+
+        // 1. Find DirectStream
+        const stream = await prisma.directStream.findUnique({
+          where: { slug },
+          select: {
+            id: true,
+            gameId: true,
+            paywallEnabled: true,
+            ownerAccountId: true,
+            streamUrl: true,
+            game: {
+              select: {
+                streamSource: {
+                  select: { muxPlaybackId: true, type: true, protectionLevel: true },
+                },
+              },
+            },
+          },
+        });
+
+        if (!stream) {
+          throw new NotFoundError('Stream not found');
+        }
+
+        // Playable fields to return alongside a GRANTED access decision, so the
+        // client can obtain the URL the bootstrap withheld — without a separate
+        // round-trip. Only ever spread into hasAccess:true responses.
+        const vaStreamSource = stream.game?.streamSource ?? null;
+        const vaMuxPlaybackId = vaStreamSource?.muxPlaybackId ?? extractMuxPlaybackId(stream.streamUrl);
+        const vaStreamProvider = vaStreamSource?.type ?? inferStreamProvider(stream.streamUrl);
+        const vaProtectionLevel = vaStreamSource?.protectionLevel ?? (vaMuxPlaybackId ? 'moderate' : 'none');
+        const grantedStreamFields = {
+          streamUrl: stream.streamUrl,
+          muxPlaybackId: vaMuxPlaybackId,
+          streamProvider: vaStreamProvider,
+          protectionLevel: vaProtectionLevel,
+        };
+
+        // 2. If paywall not enabled, allow access
+        if (!stream.paywallEnabled) {
+          logger.info({ slug }, 'Stream has no paywall, access granted');
+          return res.json({
+            hasAccess: true,
+            reason: 'no_paywall',
+            ...grantedStreamFields,
+          });
+        }
+
+        // 3. Find viewer
+        let viewer = null;
+        if (viewerId) {
+          viewer = await prisma.viewerIdentity.findUnique({
+            where: { id: viewerId },
+            select: { id: true, email: true },
+          });
+        } else if (email) {
+          viewer = await prisma.viewerIdentity.findUnique({
+            where: { email },
+            select: { id: true, email: true },
+          });
+        }
+
+        if (!viewer) {
+          logger.info({ slug, viewerId, email }, 'Viewer not found, access denied');
+          return res.json({
+            hasAccess: false,
+            reason: 'viewer_not_found',
+          });
+        }
+
+        // 4. Check for valid entitlement
+        // Entitlement must be:
+        // - For this viewer (through purchase)
+        // - For this direct stream
+        // - Not expired (validTo >= now)
+        const entitlement = await prisma.entitlement.findFirst({
+          where: {
+            purchase: {
+              viewerId: viewer.id,
+              directStreamId: stream.id,
+            },
+            status: 'active',
+            validTo: { gte: new Date() }, // Not expired
+          },
+          select: {
+            id: true,
+            validFrom: true,
+            validTo: true,
+            tokenId: true,
+          },
+          orderBy: { validFrom: 'desc' }, // Most recent first
+        });
+
+        if (entitlement) {
+          logger.info({
+            slug,
+            viewerId: viewer.id,
+            entitlementId: entitlement.id,
+          }, 'Valid entitlement found, access granted');
+          
+          return res.json({
+            hasAccess: true,
+            reason: 'valid_entitlement',
+            entitlement: {
+              id: entitlement.id,
+              validFrom: entitlement.validFrom,
+              validTo: entitlement.validTo,
+              tokenId: entitlement.tokenId,
+            },
+            ...grantedStreamFields,
+          });
+        }
+
+        // 5. No valid entitlement found
+        logger.info({
+          slug,
+          viewerId: viewer.id,
+          gameId: stream.gameId,
+        }, 'No valid entitlement found, access denied');
+        
+        return res.json({
+          hasAccess: false,
+          reason: 'no_entitlement',
+        });
+
+      } catch (error) {
+        logger.error({ error, slug: req.params.slug }, 'Verify access failed');
+        next(error);
+      }
+    })();
+  }
+);
+
+// GET /api/direct/:slug/viewer-count - Get live viewer count (public, no auth)
+router.get(
+  '/:slug/viewer-count',
+  (req: Request, res: Response, next: NextFunction) => {
+    const { slug } = req.params;
+    if (!slug) {
+      throw new BadRequestError('Slug is required');
+    }
+
+    const key = slug.toLowerCase();
+    const parts = key.split('/');
+    const parentSlug = parts.length >= 2 ? parts[0] : key;
+    const gameTitle = `Direct Stream: ${parentSlug}`;
+
+    void (async () => {
+      try {
+        const game = await prisma.game.findFirst({
+          where: { title: gameTitle },
+          select: { id: true },
+        });
+
+        if (!game) {
+          return res.json({ count: 0 });
+        }
+
+        const pubsub = getChatPubSub();
+        const count = pubsub.getSubscriberCount(game.id);
+        return res.json({ count });
+      } catch (error) {
+        logger.error({ error, slug }, 'Failed to get viewer count');
+        return res.json({ count: 0 });
+      }
+    })();
+  }
+);
+
+export function createDirectRouter(): Router {
+  return router;
+}
+
+

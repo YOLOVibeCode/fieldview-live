@@ -90,6 +90,7 @@ describe('Square Connect Routes', () => {
     it('handles Square callback and redirects', async () => {
       mockSquareService.handleConnectCallback.mockResolvedValue({
         merchantId: 'LSWR97SDRBXWK',
+        returnUrl: 'http://localhost:4300/owners/dashboard',
       });
 
       const response = await request
@@ -97,6 +98,7 @@ describe('Square Connect Routes', () => {
         .expect(302);
 
       expect(response.headers.location).toContain('square_connected=true');
+      expect(response.headers.location).toContain('merchant_id=LSWR97SDRBXWK');
     });
 
     it('returns 400 if code or state missing', async () => {

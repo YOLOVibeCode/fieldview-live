@@ -6,6 +6,7 @@
  */
 
 import crypto from 'crypto';
+
 import { SquareClient, SquareEnvironment } from 'square';
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN || '';

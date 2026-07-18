@@ -44,6 +44,20 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class ConflictError extends AppError {
+  constructor(message: string = 'Resource already exists', details?: unknown) {
+    super('CONFLICT', message, 409, details);
+    this.name = 'ConflictError';
+  }
+}
+
+export class RateLimitError extends AppError {
+  constructor(message: string = 'Too many requests', details?: unknown) {
+    super('RATE_LIMIT', message, 429, details);
+    this.name = 'RateLimitError';
+  }
+}
+
 export interface ErrorResponse {
   error: {
     code: string;

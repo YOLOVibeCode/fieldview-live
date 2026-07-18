@@ -62,10 +62,14 @@ export class PurchaseRepository implements IPurchaseReader, IPurchaseWriter {
     return this.prisma.purchase.update({
       where: { id },
       data: {
-        ...data,
-        paidAt: data.paidAt === null ? null : data.paidAt,
-        failedAt: data.failedAt === null ? null : data.failedAt,
-        refundedAt: data.refundedAt === null ? null : data.refundedAt,
+        ...(data.status && { status: data.status }),
+        ...(data.paymentProviderPaymentId !== undefined && { paymentProviderPaymentId: data.paymentProviderPaymentId }),
+        ...(data.paymentProviderCustomerId !== undefined && { paymentProviderCustomerId: data.paymentProviderCustomerId }),
+        ...(data.processorFeeCents !== undefined && { processorFeeCents: data.processorFeeCents }),
+        ...(data.ownerNetCents !== undefined && { ownerNetCents: data.ownerNetCents }),
+        ...(data.paidAt !== undefined && { paidAt: data.paidAt }),
+        ...(data.failedAt !== undefined && { failedAt: data.failedAt }),
+        ...(data.refundedAt !== undefined && { refundedAt: data.refundedAt }),
       },
     });
   }

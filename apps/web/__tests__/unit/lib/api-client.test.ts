@@ -54,6 +54,22 @@ describe('api-client', () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(init?.headers?.Authorization).toBe('Bearer admin_session_abc');
   });
+
+  it('getSavedPaymentMethods calls saved-payments endpoint with purchaseId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ paymentMethods: [] }),
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    global.fetch = fetchMock as any;
+
+    await apiClient.getSavedPaymentMethods('purchase-123');
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain('/api/public/saved-payments?purchaseId=purchase-123');
+  });
 });
 
 

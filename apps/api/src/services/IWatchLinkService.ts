@@ -11,6 +11,9 @@ export interface WatchChannelRecord {
   orgShortName: string;
   teamSlug: string;
   requireEventCode: boolean;
+  accessMode: 'public_free' | 'pay_per_view';
+  priceCents: number | null;
+  currency: string | null;
   streamType: WatchChannelStreamType;
   muxPlaybackId: string | null;
   hlsManifestUrl: string | null;
@@ -31,6 +34,13 @@ export interface WatchLinkBootstrap {
   playerType: 'hls' | 'embed';
   orgShortName: string;
   teamSlug: string;
+  channelId: string;
+  accessMode: 'public_free' | 'pay_per_view';
+  priceCents: number | null;
+  currency: string | null;
+  eventId?: string | null;
+  eventStartsAt?: string | null; // ISO 8601
+  eventTitle?: string | null;
 }
 
 export interface GetWatchLinkBootstrapInput {

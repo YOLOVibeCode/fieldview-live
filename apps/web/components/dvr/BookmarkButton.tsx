@@ -1,0 +1,255 @@
+/**
+ * BookmarkButton Component
+ * 
+ * Button to bookmark a specific timestamp in a video stream
+ */
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useCreateBookmark, type VideoBookmark } from '@/lib/hooks/useDVR';
+import { ErrorBanner } from '@/components/v2/ErrorBanner';
+
+// Import validation constants from data-model
+const BOOKMARK_LIMITS = {
+  LABEL_MAX: 100,
+  NOTES_MAX: 500,
+} as const;
+
+interface BookmarkButtonProps {
+  gameId?: string;
+  directStreamId?: string;
+  viewerIdentityId: string;
+  getCurrentTime: () => number;
+  onSuccess?: () => void;
+  /** Called with the created bookmark for optimistic UI (e.g. timeline markers) */
+  onBookmarkCreated?: (bookmark: VideoBookmark) => void;
+  className?: string;
+}
+
+export function BookmarkButton({
+  gameId,
+  directStreamId,
+  viewerIdentityId,
+  getCurrentTime,
+  onSuccess,
+  onBookmarkCreated,
+  className = '',
+}: BookmarkButtonProps) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [label, setLabel] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isShared, setIsShared] = useState(true);
+  const [bufferSeconds, setBufferSeconds] = useState<1 | 5 | 10>(5);
+  const { createBookmark, loading, error } = useCreateBookmark();
+
+  // Escape key closes dialog
+  useEffect(() => {
+    if (!showDialog) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowDialog(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showDialog]);
+
+  const handleBookmark = async () => {
+    const timestampSeconds = Math.floor(getCurrentTime());
+    setShowDialog(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!label.trim()) {
+      return;
+    }
+
+    try {
+      const bookmark = await createBookmark({
+        gameId,
+        directStreamId,
+        viewerIdentityId,
+        timestampSeconds: Math.floor(getCurrentTime()),
+        label: label.trim(),
+        notes: notes.trim() || undefined,
+        isShared,
+        bufferSeconds,
+      });
+
+      // Reset form
+      setLabel('');
+      setNotes('');
+      setIsShared(true);
+      setBufferSeconds(5);
+      setShowDialog(false);
+
+      onBookmarkCreated?.(bookmark);
+      onSuccess?.();
+    } catch (err) {
+      console.error('Failed to create bookmark:', err);
+    }
+  };
+
+  return (
+    <>
+      <button
+        data-testid="btn-bookmark"
+        onClick={handleBookmark}
+        className={`px-4 py-2 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors ${className}`}
+        aria-label="Bookmark current moment"
+      >
+        <svg
+          className="w-5 h-5 inline-block mr-2"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+          />
+        </svg>
+        Bookmark
+      </button>
+
+      {showDialog && (
+        <div
+          data-testid="modal-bookmark"
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDialog(false);
+            }
+          }}
+        >
+          <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-white mb-4">Create Bookmark</h2>
+
+            <form data-testid="form-bookmark" onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="bookmark-label" className="block text-gray-300">
+                    Label *
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {label.length}/{BOOKMARK_LIMITS.LABEL_MAX}
+                  </span>
+                </div>
+                <input
+                  id="bookmark-label"
+                  data-testid="input-bookmark-label"
+                  type="text"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700 focus:border-amber-500 focus:outline-none"
+                  placeholder="e.g., Amazing goal"
+                  maxLength={BOOKMARK_LIMITS.LABEL_MAX}
+                  required
+                  aria-describedby="label-hint"
+                />
+                <p id="label-hint" className="text-xs text-gray-500 mt-1">
+                  Short, descriptive title for this moment
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="bookmark-notes" className="block text-gray-300">
+                    Notes (optional)
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {notes.length}/{BOOKMARK_LIMITS.NOTES_MAX}
+                  </span>
+                </div>
+                <textarea
+                  id="bookmark-notes"
+                  data-testid="input-bookmark-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700 focus:border-amber-500 focus:outline-none"
+                  placeholder="Add details about this moment..."
+                  rows={3}
+                  maxLength={BOOKMARK_LIMITS.NOTES_MAX}
+                  aria-describedby="notes-hint"
+                />
+                <p id="notes-hint" className="text-xs text-gray-500 mt-1">
+                  Additional details to help you remember this moment
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="flex items-center text-gray-300">
+                  <input
+                    type="checkbox"
+                    data-testid="checkbox-bookmark-shared"
+                    checked={isShared}
+                    onChange={(e) => setIsShared(e.target.checked)}
+                    className="mr-2"
+                  />
+                  Share publicly
+                </label>
+              </div>
+
+              {/* Time window selector */}
+              <div className="mb-6">
+                <label className="block text-gray-300 mb-2">
+                  Clip capture window
+                </label>
+                <div className="flex gap-2" data-testid="buffer-seconds-toggle">
+                  {([1, 5, 10] as const).map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setBufferSeconds(sec)}
+                      className={`flex-1 py-2 rounded text-sm font-medium transition-colors
+                        ${bufferSeconds === sec
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                        }`}
+                      data-testid={`btn-buffer-${sec}s`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Seconds of video captured before and after this moment when creating a clip
+                </p>
+              </div>
+
+              {error && (
+                <ErrorBanner 
+                  message={error} 
+                  data-testid="error-bookmark"
+                />
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  data-testid="btn-cancel-bookmark"
+                  onClick={() => setShowDialog(false)}
+                  className="flex-1 px-4 py-2 min-h-[44px] bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  data-testid="btn-submit-bookmark"
+                  disabled={loading || !label.trim()}
+                  className="flex-1 px-4 py-2 min-h-[44px] bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+                >
+                  {loading ? 'Saving...' : 'Save Bookmark'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+

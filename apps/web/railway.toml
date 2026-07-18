@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd ../.. && pnpm install && pnpm --filter @fieldview/data-model build && pnpm --filter web build"
+buildCommand = "cd ../.. && pnpm install && pnpm --filter @fieldview/data-model db:generate && pnpm --filter @fieldview/data-model build && pnpm --filter web build"
 
 [deploy]
 startCommand = "pnpm start"

@@ -15,10 +15,18 @@ export class WatchLinkRepository implements IWatchLinkReaderRepo, IWatchLinkWrit
     return this.prisma.organization.findUnique({ where: { shortName } });
   }
 
+  async getOrganizationById(organizationId: string) {
+    return this.prisma.organization.findUnique({ where: { id: organizationId } });
+  }
+
   async getChannelByOrgIdAndTeamSlug(orgId: string, teamSlug: string) {
     return this.prisma.watchChannel.findUnique({
       where: { organizationId_teamSlug: { organizationId: orgId, teamSlug } },
     });
+  }
+
+  async getChannelById(channelId: string) {
+    return this.prisma.watchChannel.findUnique({ where: { id: channelId } });
   }
 
   async getEventCodeByChannelIdAndCode(channelId: string, code: string) {
@@ -36,6 +44,9 @@ export class WatchLinkRepository implements IWatchLinkReaderRepo, IWatchLinkWrit
     teamSlug: string;
     displayName: string;
     requireEventCode: boolean;
+    accessMode: string;
+    priceCents: number | null;
+    currency: string | null;
     streamType: string;
     muxPlaybackId: string | null;
     hlsManifestUrl: string | null;
@@ -47,6 +58,27 @@ export class WatchLinkRepository implements IWatchLinkReaderRepo, IWatchLinkWrit
       where: { organizationId_teamSlug: { organizationId, teamSlug } },
       create: { organizationId, teamSlug, ...data },
       update: { ...data },
+    });
+  }
+
+  async updateChannelSettings(input: {
+    channelId: string;
+    displayName?: string;
+    requireEventCode?: boolean;
+    accessMode?: string;
+    priceCents?: number | null;
+    currency?: string | null;
+  }) {
+    const { channelId, ...data } = input;
+    return this.prisma.watchChannel.update({
+      where: { id: channelId },
+      data: {
+        ...(data.displayName !== undefined && { displayName: data.displayName }),
+        ...(data.requireEventCode !== undefined && { requireEventCode: data.requireEventCode }),
+        ...(data.accessMode !== undefined && { accessMode: data.accessMode }),
+        ...(data.priceCents !== undefined && { priceCents: data.priceCents }),
+        ...(data.currency !== undefined && { currency: data.currency }),
+      },
     });
   }
 

@@ -1,13 +1,73 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './__tests__/e2e',
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
+  // Support both local e2e tests and root-level tests
+  testDir: './',
+  testMatch: ['**/__tests__/e2e/**/*.spec.ts', '**/tests/e2e/**/*.spec.ts'],
+  fullyParallel: false, // Run tests sequentially for chat (avoid conflicts)
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1, // One worker for chat tests to avoid race conditions
+  reporter: 'html',
+  
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
-    trace: 'retain-on-failure',
+    baseURL: process.env.WEB_URL || 'http://localhost:4300',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
+
+  projects: [
+    // Desktop
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    // Mobile
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 13'] },
+    },
+    // Tablet
+    {
+      name: 'tablet-safari',
+      use: { ...devices['iPad (gen 7)'] },
+    },
+    {
+      name: 'tablet-safari-landscape',
+      use: { ...devices['iPad (gen 7) landscape'] },
+    },
+  ],
+
+  // Run local dev servers before tests
+  webServer: [
+    {
+      command: 'cd ../api && pnpm dev',
+      url: 'http://localhost:4301/health',
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'pnpm dev',
+      url: 'http://localhost:4300',
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
 });
-
-

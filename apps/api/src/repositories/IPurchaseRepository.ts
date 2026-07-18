@@ -7,7 +7,10 @@
 import type { Purchase } from '@prisma/client';
 
 export interface CreatePurchaseData {
-  gameId: string;
+  gameId?: string | null;
+  channelId?: string | null;
+  eventId?: string | null;
+  directStreamId?: string | null;  // 🆕 For DirectStream paywall purchases
   viewerId: string;
   amountCents: number;
   currency?: string;
@@ -17,12 +20,19 @@ export interface CreatePurchaseData {
   status: string;
   paymentProviderPaymentId?: string;
   paymentProviderCustomerId?: string;
+  recipientOwnerAccountId?: string | null;
+  recipientType?: 'personal' | 'organization' | null;
+  recipientOrganizationId?: string | null;
+  couponCodeId?: string | null;
+  discountCents?: number;
 }
 
 export interface UpdatePurchaseData {
   status?: string;
   paymentProviderPaymentId?: string;
   paymentProviderCustomerId?: string;
+  processorFeeCents?: number;
+  ownerNetCents?: number;
   paidAt?: Date | null;
   failedAt?: Date | null;
   refundedAt?: Date | null;

@@ -19,7 +19,7 @@ This document describes end-to-end user experiences. Each flow maps to functiona
 
 **Maps to**: FR-2 (SMS), FR-3 (Payments), FR-4 (Entitlements), FR-5 (Playback)
 
-**APIs**: `POST /webhooks/sms/inbound`, `POST /public/games/{gameId}/checkout`, `POST /webhooks/payments/square`, `GET /public/watch/{token}`, `POST /public/watch/{token}/sessions`
+**APIs**: `POST /webhooks/sms/inbound`, `POST /public/games/{gameId}/checkout`, `POST /api/webhooks/square`, `GET /public/watch/{token}`, `POST /public/watch/{token}/sessions`
 
 ### Edge cases
 - **Unknown keyword**: reply with friendly error + how to get help (e.g., "Code not found. Check the sign or text HELP.")
@@ -48,7 +48,7 @@ This document describes end-to-end user experiences. Each flow maps to functiona
 
 **Maps to**: FR-3 (Payments), FR-4 (Entitlements), FR-5 (Playback)
 
-**APIs**: `GET /public/games/{gameId}`, `POST /public/games/{gameId}/checkout`, `POST /webhooks/payments/square`, `GET /public/watch/{token}`, `POST /public/watch/{token}/sessions`
+**APIs**: `GET /public/games/{gameId}`, `POST /public/games/{gameId}/checkout`, `POST /api/webhooks/square`, `GET /public/watch/{token}`, `POST /public/watch/{token}/sessions`
 
 ### Edge cases
 - QR scanned for cancelled/expired game: show status + next game
@@ -119,7 +119,7 @@ This document describes end-to-end user experiences. Each flow maps to functiona
 
 **Maps to**: FR-7 (Automatic Refunds)
 
-**APIs**: Internal processing + `POST /webhooks/payments/stripe` (refund webhook)
+**APIs**: Internal processing + `POST /api/webhooks/square` (Square `refund.created` webhook)
 
 ### Edge cases
 - **Multiple sessions**: aggregate telemetry across sessions within entitlement validity
