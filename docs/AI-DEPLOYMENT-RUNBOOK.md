@@ -28,7 +28,7 @@ When you detect this, **follow the flow below**. Prefer **MCP tools first** (Rai
 |------|---------|-----------------|
 | **Railway MCP** | Status, logs, build/deploy info, env vars | In Composer: ask in natural language, e.g. "What’s the deployment status for API and Web?" / "Get latest API logs" / "Show errors from the last 30 minutes" |
 | **Browser MCP** | Is prod up? Health response? UI ok? | In Composer: "Open https://api.fieldview.live/health and show the response" / "Open https://fieldview.live and confirm it loads" |
-| **Scripts** | When user runs them, or when MCP isn’t usable | `./scripts/check-deployment-status.sh`, `./scripts/monitor-deployments-realtime.sh both`, `./scripts/debug-railway-logs.sh api 2000 --errors-only` |
+| **Scripts** | When user runs them, or when MCP isn’t usable | `./scripts/check-deployment-status.sh`, `./scripts/monitor-deployments-realtime.sh both`, `./scripts/_archive/debug-railway-logs.sh api 2000 --errors-only` |
 | **Docs** | Exact commands, flows, troubleshooting | [ERROR-INVESTIGATION-WORKFLOW.md](ERROR-INVESTIGATION-WORKFLOW.md), [DEPLOYMENT_INDEX.md](DEPLOYMENT_INDEX.md), [DEPLOY-WITH-VISIBILITY.md](DEPLOY-WITH-VISIBILITY.md) |
 
 ---
@@ -76,9 +76,9 @@ When you detect this, **follow the flow below**. Prefer **MCP tools first** (Rai
 
 2. **If user will run scripts**  
    - Recent errors:  
-     `./scripts/debug-railway-logs.sh api 2000 --errors-only`  
+     `./scripts/_archive/debug-railway-logs.sh api 2000 --errors-only`  
    - Deploy-related lines:  
-     `./scripts/debug-railway-logs.sh api 5000 --deployments`  
+     `./scripts/_archive/debug-railway-logs.sh api 5000 --deployments`  
    - Live tail:  
      `./scripts/monitor-deployments-realtime.sh both`  
    (From repo root; Railway must be linked from `apps/api` / `apps/web` per [MONITORING-DISTRIBUTION-FLOW.md](MONITORING-DISTRIBUTION-FLOW.md).)
@@ -94,8 +94,8 @@ Use this only as a pattern guide; base your answer on what you actually saw in B
 | What you saw | Suggest |
 |--------------|---------|
 | Build failed (e.g. TypeScript, missing dep) | "Preflight catches this. Run `./scripts/preflight-build.sh` locally, fix the reported errors, then push again." Point to [DEPLOY-WITH-VISIBILITY](DEPLOY-WITH-VISIBILITY.md). |
-| Deploy “success” but 502 / timeout | "App may be crashing after start. Use Railway MCP: 'Get the latest API (or Web) logs after the last deploy' and look for stack traces or exit codes." Or run `./scripts/debug-railway-logs.sh api 3000 --errors-only`. |
-| Health returns non-200 or error body | "API/Web may be unhealthy. Check logs for the service (Railway MCP or `debug-railway-logs.sh ... --errors-only`)." Mention [ERROR-INVESTIGATION-WORKFLOW](ERROR-INVESTIGATION-WORKFLOW.md). |
+| Deploy “success” but 502 / timeout | "App may be crashing after start. Use Railway MCP: 'Get the latest API (or Web) logs after the last deploy' and look for stack traces or exit codes." Or run `./scripts/_archive/debug-railway-logs.sh api 3000 --errors-only`. |
+| Health returns non-200 or error body | "API/Web may be unhealthy. Check logs for the service (Railway MCP or `scripts/_archive/debug-railway-logs.sh ... --errors-only`)." Mention [ERROR-INVESTIGATION-WORKFLOW](ERROR-INVESTIGATION-WORKFLOW.md). |
 | “No linked project” or no logs | "CLI needs to be run from the app that’s linked. Run `cd apps/api && railway link` and `cd apps/web && railway link` once, then rerun the script." Or use Railway MCP, which doesn’t depend on local link. |
 | User wants to “see it live” | "In a separate terminal run `./scripts/monitor-deployments-realtime.sh both` and keep it open. Then push; you’ll see build and deploy logs in that terminal." |
 

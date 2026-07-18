@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive testing strategy with unit, integration, contract, and end-to-end tests. **100% test coverage** required.
+Comprehensive testing strategy with unit, integration, contract, and end-to-end tests. High test coverage is the target; CI collects per-package coverage but does **not** enforce a numeric threshold today (see [Test Coverage Enforcement](#test-coverage-enforcement)).
 
 ## Testing Pyramid
 
@@ -34,7 +34,7 @@ Comprehensive testing strategy with unit, integration, contract, and end-to-end 
 
 ### Coverage Requirement
 
-**100% coverage** enforced in CI.
+High coverage is the target. CI collects per-package coverage via `pnpm test:coverage`, but does **not** enforce a numeric threshold today (see [Test Coverage Enforcement](#test-coverage-enforcement)).
 
 **Example**:
 ```typescript
@@ -65,29 +65,34 @@ describe('maskEmail', () => {
 
 ### Tools
 
-- **Supertest**: HTTP assertions
-- **Test Containers**: Docker containers for Postgres/Redis
-- **Nock**: HTTP mocking (for external APIs)
+- **Supertest**: HTTP assertions against the in-process Express app
+- **Vitest `vi.mock`**: mocks Prisma and services per suite (no real Postgres/Redis; Testcontainers and Nock are **not** installed today)
+
+Integration suites live in `apps/api/__tests__/integration/` (e.g. `public.checkout.test.ts`, `webhooks.square.test.ts`, `admin.test.ts`).
 
 ### Setup
 
+Suites mock Prisma and inject mock services, then drive the imported Express `app` with Supertest:
+
 ```typescript
-// apps/api/__tests__/integration/setup.ts
-import { beforeAll, afterAll } from 'vitest';
-import { PostgreSqlContainer } from '@testcontainers/postgresql';
+// apps/api/__tests__/integration/public.checkout.test.ts
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { agent } from 'supertest';
+import app from '@/server';
+import * as publicCheckoutRoute from '@/routes/public.checkout';
 
-let postgresContainer: PostgreSqlContainer;
+// Mock Prisma (no real database)
+vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 
-beforeAll(async () => {
-  postgresContainer = await new PostgreSqlContainer().start();
-  process.env.DATABASE_URL = postgresContainer.getConnectionUri();
-  
-  // Run migrations
-  await exec('pnpm db:migrate');
-});
+describe('Public Checkout Routes', () => {
+  let request: ReturnType<typeof agent>;
+  let mockPaymentService: { createCheckout: ReturnType<typeof vi.fn> };
 
-afterAll(async () => {
-  await postgresContainer.stop();
+  beforeEach(() => {
+    request = agent(app);
+    mockPaymentService = { createCheckout: vi.fn() };
+    publicCheckoutRoute.setPaymentService(mockPaymentService as any);
+  });
 });
 ```
 
@@ -133,31 +138,34 @@ Ensure API implementation matches OpenAPI specification.
 
 ### Tools
 
-- **openapi-validator**: Validate request/response shapes
-- **Dredd**: Test API against OpenAPI spec
+- **Vitest**: reads the OpenAPI spec (`openapi/api.yaml`, `openapi/components/schemas.yaml`) and asserts required paths/schemas are present and correctly shaped
+
+Contract tests live at `apps/api/__tests__/contract/openapi.test.ts`. Neither Dredd nor openapi-validator is installed today.
 
 ### Implementation
 
 ```typescript
-// apps/api/__tests__/contract/api.test.ts
-import { describe, it } from 'vitest';
-import { validateRequest, validateResponse } from 'openapi-validator';
-import { openapiSpec } from '../../../openapi/api.yaml';
+// apps/api/__tests__/contract/openapi.test.ts
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-describe('Contract Tests', () => {
-  it('POST /api/public/games/{gameId}/checkout matches OpenAPI', async () => {
-    const request = {
-      viewerEmail: 'test@example.com',
-    };
-    
-    // Validate request
-    validateRequest(openapiSpec, '/public/games/{gameId}/checkout', 'post', request);
-    
-    // Make request
-    const response = await api.post('/api/public/games/123/checkout', request);
-    
-    // Validate response
-    validateResponse(openapiSpec, '/public/games/{gameId}/checkout', 'post', response.body);
+describe('OpenAPI Contract Tests', () => {
+  it('OpenAPI spec has required schemas', () => {
+    const schemasPath = join(__dirname, '../../../../openapi/components/schemas.yaml');
+    const schemas = readFileSync(schemasPath, 'utf-8');
+
+    expect(schemas).toContain('CheckoutCreateRequest');
+    expect(schemas).toContain('Game');
+    expect(schemas).toContain('Purchase');
+  });
+
+  it('CheckoutCreateRequest requires viewerEmail', () => {
+    const schemasPath = join(__dirname, '../../../../openapi/components/schemas.yaml');
+    const schemas = readFileSync(schemasPath, 'utf-8');
+    const checkoutSchema = schemas.split('CheckoutCreateRequest:')[1] ?? '';
+    expect(checkoutSchema).toContain('viewerEmail');
+    expect(checkoutSchema).toContain('required:');
   });
 });
 ```
@@ -182,20 +190,22 @@ describe('Contract Tests', () => {
 ### Setup
 
 ```typescript
-// apps/web/__tests__/e2e/playwright.config.ts
-import { defineConfig } from '@playwright/test';
+// apps/web/playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './',
+  testMatch: ['**/__tests__/e2e/**/*.spec.ts', '**/tests/e2e/**/*.spec.ts'],
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.WEB_URL || 'http://localhost:4300',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  // 7 projects: chromium, firefox, webkit, mobile-chrome, mobile-safari,
+  // tablet-safari, tablet-safari-landscape
+  webServer: [
+    { command: 'cd ../api && pnpm dev', url: 'http://localhost:4301/health', reuseExistingServer: !process.env.CI },
+    { command: 'pnpm dev', url: 'http://localhost:4300', reuseExistingServer: !process.env.CI },
+  ],
 });
 ```
 
@@ -284,20 +294,19 @@ test('SuperAdmin Views Full Emails', async ({ page, context }) => {
 ### CI Integration
 
 ```yaml
-# .github/workflows/ci.yml
-- name: Run Tests
+# .github/workflows/ci.yml (test job)
+- run: pnpm test:unit
+- run: pnpm test:coverage
+- name: Check coverage threshold
   run: |
-    pnpm test:coverage
-    
-- name: Check Coverage
-  run: |
-    pnpm exec vitest --coverage --coverage.threshold.lines=100 --coverage.threshold.functions=100 --coverage.threshold.branches=100 --coverage.threshold.statements=100
+    # Soft, per-package coverage — no numeric threshold enforced yet
+    pnpm --filter './packages/*' test:coverage
 ```
 
 ### Coverage Reports
 
 - **Vitest**: Built-in coverage (via `@vitest/coverage-v8`)
-- **Coverage Threshold**: 100% for all metrics
+- **Coverage Threshold**: none enforced today — coverage is reported per package, not gated (100% remains the aspirational target)
 
 ## Performance Testing (Lightweight MVP)
 
@@ -359,7 +368,7 @@ export async function seedTestData() {
 - [ ] Integration tests cover all API endpoints
 - [ ] Contract tests validate OpenAPI compliance
 - [ ] E2E tests cover critical flows (text-to-pay, QR-to-pay, admin)
-- [ ] 100% test coverage enforced in CI
+- [ ] Per-package coverage reported in CI (100% coverage is the aspirational target; no hard threshold enforced yet)
 - [ ] All tests pass before merge
 - [ ] Performance targets met
 

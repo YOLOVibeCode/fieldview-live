@@ -36,7 +36,7 @@
 ## Test File Structure
 
 ```
-apps/e2e/tests/
+apps/web/__tests__/e2e/
 ├── 00-smoke.spec.ts              # Health checks, fail-fast gate
 ├── 01-auth/
 │   ├── owner-login.spec.ts       # Owner auth flow
@@ -92,7 +92,7 @@ test('SM-01: home page loads', async ({ page }) => {
 });
 
 test('SM-02: API health', async ({ request }) => {
-  const res = await request.get('/api/health');
+  const res = await request.get('/health');
   expect(res.status()).toBe(200);
 });
 ```
@@ -365,14 +365,14 @@ test('IP-03: different IP denied', async ({ request }) => {
 ### Environment Variables
 
 ```bash
-# apps/e2e/.env.test
+# apps/web/.env.test
 TEST_OWNER_EMAIL=test-owner@fieldview.live
 TEST_OWNER_PASSWORD=<secure>
 TEST_ADMIN_EMAIL=test-admin@fieldview.live
 TEST_ADMIN_PASSWORD=<secure>
 TEST_ADMIN_MFA_SECRET=<totp-secret>
 SQUARE_SANDBOX_TOKEN=<sandbox-token>
-BASE_URL=http://localhost:3000
+BASE_URL=http://localhost:4300
 API_URL=http://localhost:4301
 ```
 
@@ -430,12 +430,12 @@ jobs:
         run: docker-compose up -d
         
       - name: Run smoke tests first
-        run: pnpm --filter @fieldview/e2e test -- --grep "smoke"
+        run: pnpm --filter web test:live -- --grep "smoke"
         
       - name: Run full E2E suite
-        run: pnpm --filter @fieldview/e2e test
+        run: pnpm --filter web test:live
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: http://localhost:4300
           API_URL: http://localhost:4301
 ```
 

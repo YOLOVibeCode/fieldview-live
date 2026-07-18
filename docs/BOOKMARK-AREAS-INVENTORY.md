@@ -8,7 +8,7 @@
 
 | # | Area | Collapsible? | What it is | Where it lives |
 |---|------|--------------|------------|----------------|
-| **1** | **On-screen bookmark controls** | **No** | Timeline markers + action buttons over the video. Always visible when stream is playing and viewer is unlocked. | Inside the video container (same in portrait and landscape). |
+| **1** | **On-screen bookmark markers** | **No** | Timeline markers over the video. (The on-screen action buttons/toggle were removed — bookmarks are now accessed via the drawer.) Markers show when the stream has bookmarks. | Inside the video container (same in portrait and landscape). |
 | **2** | **Bookmark list panel** | **Yes** | List of bookmarks (My Bookmarks / All Shared) with seek, clip, delete. Shown by opening a panel or switching a tab. | Portrait: tab content. Landscape mobile: bottom sheet. Landscape desktop/tablet: right-edge sidebar. |
 
 ---
@@ -16,19 +16,18 @@
 ## 2. Area 1 – On-Screen (Non-Collapsible)
 
 **Components:**
-- **BookmarkMarkers** (`BookmarkMarkers.tsx`) – Dots/tabs on the video **timeline** (progress bar). Click jumps to that time. Own = amber, shared = blue.
-- **QuickBookmarkButton** – One-click bookmark at current time.
-- **BookmarkButton** – Full bookmark (label, notes, sharing, time window).
-- **Toggle control** – Button that opens the bookmark list (or in portrait, switches to the Bookmarks tab).
+- **BookmarkMarkers** (`BookmarkMarkers.tsx`) – Dots/tabs on the video **timeline** (progress bar). Click jumps to that time. Own = amber, shared = blue. This is the only Area 1 element still rendered over the video.
+
+**Removed:** The on-screen action buttons (`QuickBookmarkButton`, `BookmarkButton`) and the panel toggle no longer render in the video overlay — see the `DirectStreamPageBase.tsx` comment "Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet)". The `QuickBookmarkButton` / `BookmarkButton` components still exist but are only used on the DVR test page (`apps/web/app/test/dvr/page.tsx`).
 
 **Layout:**
-- **Position:** Bottom-right over the player (`absolute z-20 … bottom-14 right-2` or portrait `bottom-14 right-2`).
-- **Visibility:** Only when `streamUrl`, viewer unlocked, `viewerId`, and status not offline/error.
-- **Same in all modes:** Portrait, mobile landscape, tablet, desktop. Only spacing/size differs (e.g. mobile `min-h-[44px] min-w-[44px]`).
+- **Position:** `BookmarkMarkers` overlays the timeline (progress bar) inside the video container; there is no bottom-right control overlay.
+- **Visibility:** Markers render only when the stream has bookmarks (`bookmarkMarkers.bookmarks.length > 0 && duration > 0`).
+- **Same in all modes:** Portrait, mobile landscape, tablet, desktop.
 
 **Files:**
-- `DirectStreamPageBase.tsx` (portrait ~824–855, landscape ~1349–1411)
-- `BookmarkMarkers.tsx`, `QuickBookmarkButton`, `BookmarkButton` (usage in DirectStreamPageBase)
+- `DirectStreamPageBase.tsx` (portrait `<BookmarkMarkers>` ~1065, landscape ~1698)
+- `BookmarkMarkers.tsx` (marker rendering)
 
 ---
 
@@ -66,7 +65,7 @@
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │ VIDEO                                                                 │   │
 │  │   • Timeline: BookmarkMarkers (dots on progress bar)  ← AREA 1        │   │
-│  │   • Bottom-right: QuickBookmark, Bookmark, [Bookmarks tab btn]       │   │
+│  │   • (action buttons removed - use the Bookmarks tab below)          │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │  [ CompactScoreBar ]                                                        │
 │  [ Optional expanded scoreboard ]                                           │
@@ -82,7 +81,7 @@
 │ LANDSCAPE MOBILE                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  [ Main content: header, video, footer ]                                     │
-│  VIDEO: Area 1 same (markers + buttons bottom-right).                       │
+│  VIDEO: Area 1 = timeline markers (buttons removed).                        │
 │  Area 2: Overlay button → opens BottomSheet with bookmark list.              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -91,7 +90,7 @@
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  [ Header ] [ Scoreboard optional ] [ Video + Area 1 ] [ Chat panel ]         │
 │                                                                              │
-│  VIDEO: Area 1 same (markers + buttons bottom-right).                         │
+│  VIDEO: Area 1 = timeline markers (buttons removed).                          │
 │  Right edge: Area 2 = collapsible sidebar OR narrow vertical tab.           │
 │               Expanded: fixed right panel (~360px) with BookmarkPanel.       │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -107,18 +106,18 @@
 2. **Avoid duplicate Area 2 in DOM** ✅  
    **Implemented:** In `DirectStreamPageBase`, the mobile bottom-sheet `BookmarkPanel` is now rendered only when `isMobile && !isPortrait`. Portrait uses only the tab content passed to `PortraitStreamLayout`; mobile landscape uses the sheet. No duplicate bookmark list in portrait.
 
-3. **Naming / test IDs** ✅  
-   **Implemented:** Area 1 container has `data-testid="bookmark-controls-overlay"` (portrait and landscape). Existing IDs in place: timeline `bookmark-markers`; buttons `btn-quick-bookmark`, `btn-bookmark`, `btn-toggle-bookmark-panel`, `btn-portrait-bookmark-tab`; Area 2 `bookmark-panel-inline`, `bookmark-panel`, `portrait-tab-bookmarks`. Use these for cross-platform checks.
+3. **Naming / test IDs**  
+   **Current state:** There is no `bookmark-controls-overlay` container — Area 1's on-screen action controls were removed (`DirectStreamPageBase.tsx`: "Bookmark controls removed — bookmarks accessed via drawer"). The only Area 1 test ID over the video is the timeline `bookmark-markers` (individual dots `bookmark-marker-<id>`). Bookmark-list access IDs: portrait tab `portrait-tab-bookmarks`; desktop/tablet collapsed tab `bookmark-collapsed-tab` with collapse button `btn-collapse-bookmark-panel`. Area 2: `bookmark-panel-inline`, `bookmark-panel`. The `btn-quick-bookmark` / `btn-bookmark` IDs live in `QuickBookmarkButton.tsx` / `BookmarkButton.tsx` (rendered on the DVR test page, not the stream overlay). Use these for cross-platform checks.
 
 4. **Keyboard shortcut** ✅  
    **Verified:** “B” is handled in one place in `DirectStreamPageBase` (`handleKeyDown`): portrait switches tab; landscape/desktop toggles sidebar/sheet. No change needed.
 
 5. **Verification checklist**  
    - [ ] Portrait: Only one bookmark list visible when Bookmarks tab is selected; no extra panel/sheet.  
-   - [ ] Portrait: Area 1 (markers + buttons) visible above the tab bar.  
+   - [ ] Portrait: Area 1 (timeline markers) visible above the tab bar.  
    - [ ] Mobile landscape: Area 1 visible; opening bookmarks opens bottom sheet only.  
    - [ ] Desktop/tablet: Area 1 visible; collapse/expand only the right sidebar (no sheet).  
-   - [ ] All: Bookmark count badges match (tab, sidebar header, overlay button).
+   - [ ] All: Bookmark count badges match (portrait tab, sidebar header, collapsed right-edge tab).
 
 ---
 
@@ -142,6 +141,6 @@
 |----------------|--------|
 | 1. Single source of bookmark list | No change; already one `BookmarkPanel` in all modes. |
 | 2. Avoid duplicate Area 2 | Sheet `BookmarkPanel` now only when `isMobile && !isPortrait`. Portrait uses tab content only. |
-| 3. Naming / test IDs | Added `data-testid="bookmark-controls-overlay"` to Area 1 container (portrait + landscape). Other IDs already present. |
+| 3. Naming / test IDs | No `bookmark-controls-overlay` exists — Area 1 on-screen controls were removed; only timeline `bookmark-markers` remain over the video. List access via `portrait-tab-bookmarks` / `bookmark-collapsed-tab`. |
 | 4. Keyboard shortcut | Confirmed single handler in `DirectStreamPageBase` for “B”. |
 | 5. Verification checklist | Left in doc for manual/E2E verification. |

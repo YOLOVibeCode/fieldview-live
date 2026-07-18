@@ -73,7 +73,7 @@ Authorization: Bearer <owner_token>
 
 ### List Events
 ```http
-GET /api/owners/me/orgs/:orgShortName/events?state=live&page=1&limit=20
+GET /api/owners/me/events
 Authorization: Bearer <owner_token>
 ```
 
@@ -164,7 +164,7 @@ Content-Type: application/json
 
 ### Unsubscribe
 ```http
-POST /api/public/unsubscribe
+POST /api/public/subscriptions/unsubscribe
 Content-Type: application/json
 
 {
@@ -178,7 +178,7 @@ Content-Type: application/json
 
 ### List Purchases with Payout Breakdown
 ```http
-GET /api/admin/purchases?recipientType=organization&startDate=2025-01-01T00:00:00Z&endDate=2025-01-31T23:59:59Z&page=1&limit=20
+GET /api/admin/purchases?recipientType=organization&startDate=2025-01-01T00:00:00Z&endDate=2025-01-31T23:59:59Z&limit=20&offset=0
 Authorization: Bearer <admin_token>
 ```
 

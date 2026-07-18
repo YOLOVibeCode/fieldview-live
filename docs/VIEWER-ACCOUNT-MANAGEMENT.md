@@ -1,7 +1,7 @@
 # Viewer Account Management — Current State & UX Flow
 
 **Date:** February 28, 2026  
-**Status:** Documented — Identifies gaps for future enhancement
+**Status:** Documented — `/account` page shipped (profile, subscriptions, payment history); remaining gaps noted below
 
 ---
 
@@ -11,10 +11,11 @@
 |--------|---------------------|----------------|-------|
 | **View identity** | ✅ Name/email in ViewerIdentityBar | ✅ "Guest" in identity bar | Top-right (all screens) |
 | **Sign out** | ✅ "Sign out" button | ✅ "Sign out" button | ViewerIdentityBar |
-| **Change display name** | ❌ Cannot edit | ✅ "Change name" button | Guest name bar (chat area) |
-| **Change email** | ❌ Cannot edit | N/A | Not implemented |
-| **Manage NotifyMe** | ✅ Unsubscribe button | ❌ No unsubscribe | NotifyMe success state |
-| **Account settings page** | ❌ Does not exist | ❌ Does not exist | Not implemented |
+| **Change display name** | ✅ First/last name on `/account` | ✅ "Change name" button | `/account` (auth) / guest name bar |
+| **Change email** | ❌ Cannot edit (read-only on `/account`) | N/A | Not implemented |
+| **Manage NotifyMe** | ✅ Unsubscribe button | ❌ No unsubscribe | NotifyMe success state + `/account` |
+| **View purchase history** | ✅ Receipts + refunds | N/A | `/account` (Payment History) |
+| **Account settings page** | ✅ Exists | ⚠️ Guest message only | `apps/web/app/account/page.tsx` |
 
 ---
 
@@ -58,8 +59,8 @@
 
 **Limitations:**
 - No dropdown menu
-- No link to profile/settings page
-- No edit name/email action
+- Name label links to the `/account` settings page (no inline edit in the bar)
+- No inline edit name/email action (name is editable on `/account`)
 
 ---
 
@@ -192,35 +193,30 @@ Only for anonymous guests in the chat area:
 
 #### A. Profile Editing for Authenticated Viewers
 
-**Gap:** No UI to edit name or email after registration
+**Status:** ✅ Name editing implemented — email editing still missing
 
 **Current behavior:**
 - Registration: `ViewerAuthModal` collects email + name → submits to API
-- After registration: Name/email are locked (displayed in `ViewerIdentityBar` but not editable)
+- After registration: first/last name are editable on the `/account` page (`apps/web/app/account/page.tsx`), which saves via `PATCH /api/public/viewer/:viewerIdentityId`
+- Email is displayed on `/account` but is read-only (the `PATCH` endpoint accepts name fields only)
 
 **Database support:**
 - API endpoint: `POST /api/public/direct/:slug/viewer/unlock` (upserts viewer on each unlock)
-- Schema: `ViewerIdentity` table has `email`, `firstName`, `lastName` (all editable in theory)
+- Schema: `ViewerIdentity` table has `email`, `firstName`, `lastName`
 
-**What would be needed:**
-1. Add "Edit profile" button to `ViewerIdentityBar` (dropdown or modal)
-2. Create `ViewerProfileEditModal` component
-3. Add API endpoint: `PATCH /api/public/viewer/:viewerId` (update name/email with validation)
-4. Handle email change: Require re-verification (magic link)
+**What's still needed:**
+1. Email change with re-verification (magic link) — the `PATCH` endpoint currently ignores `email` (validates `firstName`/`lastName` only)
 
 #### B. Centralized Account Settings Page
 
-**Gap:** No `/account` or `/settings` route
+**Status:** ✅ Implemented — `/account` route exists (`apps/web/app/account/page.tsx`)
 
-**What would be needed:**
-1. Create route: `app/account/page.tsx`
-2. Show:
-   - Current email/name
-   - Edit profile button
-   - NotifyMe subscriptions (list all streams subscribed to)
-   - Manage subscription per stream (unsubscribe)
-   - Sign out button
-3. Require authentication (redirect if not logged in)
+**What it shows:**
+- Profile: first/last name (editable), email (read-only)
+- Stream Subscriptions: list of NotifyMe subscriptions with per-stream unsubscribe
+- Payment History: past purchases with expandable receipts (amount, discount, processing fee, refunds, card brand/last-4, status badge)
+- Account actions: "Send me a new access link" + Sign out
+- Requires authentication (redirects to `/` if not logged in)
 
 #### C. Unsubscribe for Unauthenticated Email Subscriptions
 
@@ -311,11 +307,15 @@ Only for anonymous guests in the chat area:
 | `/api/public/direct/:slug/notify-me` | POST | Subscribe to stream start notification | No (email or viewerIdentityId) |
 | `/api/public/direct/:slug/notify-me` | DELETE | Unsubscribe from notification | Yes (viewerIdentityId) |
 | `/api/public/direct/:slug/notify-me/status` | GET | Check subscription status | Yes (query param) |
+| `/api/public/viewer/:viewerIdentityId` | PATCH | Update viewer profile (name only) | No (by viewerIdentityId) |
+| `/api/public/viewer/:viewerIdentityId/subscriptions` | GET | List all NotifyMe subscriptions | No (by viewerIdentityId) |
+| `/api/public/viewer/:viewerIdentityId/purchases` | GET | List payment history (receipts) | No (by viewerIdentityId) |
+
+> Router: `apps/api/src/routes/public.viewer-account.ts`, mounted at `/api/public/viewer` in `server.ts`.
 
 **Missing endpoints:**
-- `PATCH /api/public/viewer/:viewerId` — Update viewer profile (name/email)
-- `GET /api/public/viewer/:viewerId/subscriptions` — List all NotifyMe subscriptions
-- `GET /unsubscribe/:token` — Email-based unsubscribe (no auth)
+- Email update on `PATCH /api/public/viewer/:viewerIdentityId` (currently accepts `firstName`/`lastName` only)
+- `GET /unsubscribe/:token` — Email-based unsubscribe for the DirectStream NotifyMe flow (no auth)
 
 ---
 
@@ -326,12 +326,11 @@ Only for anonymous guests in the chat area:
 **Visible when:** `globalAuth.isAuthenticated === true`
 
 **Shows:**
-- Viewer name or "Guest"
+- Viewer name or "Guest" (name label links to `/account`)
 - Sign out button
 
 **Does NOT show:**
-- Account settings link
-- Profile edit link
+- Inline profile edit
 - Dropdown menu
 
 ### Guest Name Bar (Chat area, anonymous only)
@@ -363,7 +362,7 @@ Only for anonymous guests in the chat area:
 
 ### Priority 1: Profile Editing (Authenticated Viewers)
 
-**Current gap:** Viewers cannot edit their name or email after registration.
+**Status:** ✅ Name editing shipped on `/account` (`apps/web/app/account/page.tsx` → `PATCH /api/public/viewer/:viewerIdentityId`). Remaining gap: email editing (server accepts name fields only). The proposal below is retained as design context.
 
 **User story:**
 > "As an authenticated viewer, I want to update my display name and email so that I can correct typos or use a different email address."
@@ -388,26 +387,25 @@ Only for anonymous guests in the chat area:
 2. **Create ViewerProfileModal:**
    - Fields: Name (text), Email (text)
    - Validation: Email format, name ≥2 chars
-   - Save button → API: `PATCH /api/public/viewer/:viewerId`
+   - Save button → API: `PATCH /api/public/viewer/:viewerIdentityId`
    - If email changes: Send verification link + show "Check your email"
 
-3. **Create API endpoint:**
+3. **API endpoint** (shipped as name-only; `email` handling below is the still-pending extension):
 
 ```typescript
-PATCH /api/public/viewer/:viewerId
-Body: { firstName?, lastName?, email? }
-Authorization: Bearer <viewerToken>
+PATCH /api/public/viewer/:viewerIdentityId
+Body: { firstName?, lastName? }          // shipped
+Body: { firstName?, lastName?, email? }  // proposed (email not yet accepted)
 
 Response:
-- 200: { updated: true }
-- 400: { error: "Invalid email" }
-- 401: { error: "Invalid viewer token" }
-- 409: { error: "Email already in use" }
+- 200: { updated: true, firstName, lastName }
+- 400: { error: "Validation failed" }
+- 404: { error: "Viewer not found" }
 ```
 
 ### Priority 2: Centralized Account Page
 
-**Current gap:** No `/account` route to manage identity across all streams.
+**Status:** ✅ Shipped — the `/account` route exists (`apps/web/app/account/page.tsx`) with Profile, Stream Subscriptions, and Payment History sections. The mockup below reflects the delivered design.
 
 **User story:**
 > "As a viewer, I want to see all streams I'm subscribed to and manage my notifications in one place."
@@ -440,14 +438,15 @@ Response:
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**API needed:**
+**API (shipped):**
 
 ```typescript
-GET /api/public/viewer/:viewerId/notify-subscriptions
-Response: [{ slug, streamTitle, subscribedAt }]
+GET /api/public/viewer/:viewerIdentityId/subscriptions
+Response: { subscriptions: [{ slug, title, scheduledStartAt, subscribedAt }] }
 
-DELETE /api/public/viewer/:viewerId/notify-subscriptions/:slug
-Response: { unsubscribed: true }
+// Unsubscribe reuses the per-stream NotifyMe endpoint:
+DELETE /api/public/direct/:slug/notify-me
+Body: { viewerIdentityId }
 ```
 
 ### Priority 3: Email Unsubscribe (Unauthenticated)
@@ -592,41 +591,40 @@ When a viewer is globally authenticated and visits a new stream:
 ## Current Account Management UX Summary
 
 **What works:**
-- ✅ ViewerIdentityBar shows name/email on all stream pages
+- ✅ ViewerIdentityBar shows name/email on all stream pages (name links to `/account`)
 - ✅ Sign out button (clears auth, works across tabs)
 - ✅ Guest name editing (anonymous only, per stream)
 - ✅ NotifyMe unsubscribe (authenticated only)
 - ✅ Cross-stream auth (register once, access all)
+- ✅ Account page at `/account` (profile name edit, subscriptions list, payment history)
+- ✅ List of all NotifyMe subscriptions with per-stream unsubscribe (on `/account`)
 
 **What's missing:**
-- ❌ Profile editing for authenticated viewers (name/email)
-- ❌ Centralized account settings page
-- ❌ List of all NotifyMe subscriptions
+- ❌ Email editing for authenticated viewers (name editing is shipped on `/account`)
 - ❌ Email-based unsubscribe for unauthenticated subscriptions
 - ❌ Dropdown menu on ViewerIdentityBar
 - ❌ Change password/email verification flow
 
 **Workaround for now:**
-- To change name/email: Sign out → re-register with new info
+- To change email: Sign out → re-register with new email (name is editable directly on `/account`)
 - To unsubscribe (unauth): No UI (would need admin intervention or email link)
 
 ---
 
 ## Recommended Next Steps
 
-### Phase 1: Minimal Profile Editing (Quick Win)
+### Phase 1: Minimal Profile Editing (Quick Win) — ✅ Done
 
-1. Add "Edit Name" button to `ViewerIdentityBar` (inline, no dropdown)
-2. Inline form: Just name (first/last), no email
-3. Save → `PATCH /viewer/:viewerId`
-4. ~2-3 hours work
+Name editing shipped (delivered on the `/account` page rather than inline on `ViewerIdentityBar`):
+1. First/last name editing on `/account`
+2. Save → `PATCH /api/public/viewer/:viewerIdentityId`
 
-### Phase 2: Full Account Page (Medium)
+### Phase 2: Full Account Page (Medium) — ✅ Done
 
-1. Create `/account` route
-2. Profile section (name, email, joined date)
-3. NotifyMe subscriptions list
-4. ~1-2 days work
+Shipped as `apps/web/app/account/page.tsx`:
+1. `/account` route created
+2. Profile section (name editable, email read-only)
+3. NotifyMe subscriptions list (with unsubscribe) + Payment History
 
 ### Phase 3: Email Unsubscribe (Low Priority)
 
@@ -640,7 +638,8 @@ When a viewer is globally authenticated and visits a new stream:
 ## Files to Review
 
 **Current implementation:**
-- `apps/web/components/v2/ViewerIdentityBar.tsx` — Identity display + sign out
+- `apps/web/app/account/page.tsx` — Account page (profile, subscriptions, payment history, sign out)
+- `apps/web/components/v2/ViewerIdentityBar.tsx` — Identity display (name links to `/account`) + sign out
 - `apps/web/hooks/useGlobalViewerAuth.ts` — Global auth state
 - `apps/web/hooks/useViewerIdentity.ts` — Per-stream auth state
 - `apps/web/components/v2/NotifyMeForm.tsx` — Subscribe/unsubscribe UI
@@ -649,8 +648,10 @@ When a viewer is globally authenticated and visits a new stream:
 **API routes:**
 - `apps/api/src/routes/direct.ts` — `/viewer/unlock`, `/viewer/auto-register`, `/viewer/anonymous-token`
 - `apps/api/src/routes/public.direct-notify-me.ts` — NotifyMe subscribe/unsubscribe/status
+- `apps/api/src/routes/public.viewer-account.ts` — `PATCH /viewer/:viewerIdentityId`, `/subscriptions`, `/purchases`
 
 **Tests:**
+- `apps/web/app/account/__tests__/page.test.tsx` — Account page (profile, subscriptions, payments)
 - `apps/web/components/v2/__tests__/ViewerIdentityBar.test.tsx` — Identity bar + sign out
 - `apps/web/hooks/__tests__/useGlobalViewerAuth.test.ts` — Global auth + clear
 - `apps/web/components/__tests__/DirectStreamPageBase.integration.test.tsx` — Guest name editing

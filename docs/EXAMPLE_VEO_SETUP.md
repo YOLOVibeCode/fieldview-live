@@ -20,7 +20,7 @@ Run this command:
 Option 1: Separate Fields
 ┌─────────────────────────────────────────────────┐
 │ RTMP URL:                                       │
-│ rtmp://global-live.mux.com:443/app             │
+│ rtmps://global-live.mux.com:443/app             │
 │                                                 │
 │ Stream Key:                                     │
 │ a1b2c3d4e5f6g7h8i9j0                           │
@@ -46,7 +46,7 @@ Option 1: Separate Fields
 │                                                     │
 │  RTMP URL                                          │
 │  ┌───────────────────────────────────────────────┐ │
-│  │ rtmp://global-live.mux.com:443/app            │ │
+│  │ rtmps://global-live.mux.com:443/app            │ │
 │  └───────────────────────────────────────────────┘ │
 │                                                     │
 │  ☐ Request stream key when starting live stream   │
@@ -73,7 +73,7 @@ Option 1: Separate Fields
 
 **RTMP URL:**
 ```
-rtmp://global-live.mux.com:443/app
+rtmps://global-live.mux.com:443/app
 ```
 - Copy this EXACTLY from your script output
 - Don't include the stream key here
@@ -119,14 +119,14 @@ a1b2c3d4e5f6g7h8i9j0
 ## Step 4: View Your Stream
 
 ### Option A: POC Viewer (Simplest)
-1. Open: http://localhost:3000/poc/stream-viewer
+1. Open: http://localhost:4300/poc/stream-viewer
 2. Click "Connect to Stream"
 3. Enter: `https://stream.mux.com/YOUR_PLAYBACK_ID.m3u8`
    - (Get the playback ID from the script output)
 
 ### Option B: Production Viewer
-1. Create a watch token via API
-2. Open: http://localhost:3000/watch/YOUR_WATCH_TOKEN
+1. Create a watch link (Owner portal → **Watch Links**, or the owners watch-links API)
+2. Open: http://localhost:4300/watch/YOUR_ORG/YOUR_TEAM (append `/EVENT_CODE` for a specific event)
 
 ---
 
@@ -134,13 +134,13 @@ a1b2c3d4e5f6g7h8i9j0
 
 ❌ **Don't do this:**
 ```
-RTMP URL: rtmp://global-live.mux.com:443/app/a1b2c3d4e5f6g7h8i9j0
+RTMP URL: rtmps://global-live.mux.com:443/app/a1b2c3d4e5f6g7h8i9j0
 Stream key: (empty)
 ```
 
 ✅ **Do this:**
 ```
-RTMP URL: rtmp://global-live.mux.com:443/app
+RTMP URL: rtmps://global-live.mux.com:443/app
 Stream key: a1b2c3d4e5f6g7h8i9j0
 ```
 
@@ -148,13 +148,13 @@ Stream key: a1b2c3d4e5f6g7h8i9j0
 
 ❌ **Don't do this:**
 ```
-RTMP URL: rtmp://global-live.mux.com/app
+RTMP URL: rtmps://global-live.mux.com/app
 ```
 (Missing port `:443`)
 
 ✅ **Do this:**
 ```
-RTMP URL: rtmp://global-live.mux.com:443/app
+RTMP URL: rtmps://global-live.mux.com:443/app
 ```
 
 ---
@@ -177,7 +177,7 @@ Stream key: a1b2c3d4e5f6g7h8i9j0
 
 Before clicking "Create streaming destination":
 
-- [ ] RTMP URL is exactly: `rtmp://global-live.mux.com:443/app`
+- [ ] RTMP URL is exactly: `rtmps://global-live.mux.com:443/app`
 - [ ] Port `:443` is included
 - [ ] "Request stream key when starting" is **UNCHECKED**
 - [ ] Stream key is filled in with your unique key

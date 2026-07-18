@@ -30,9 +30,9 @@ This document lists endpoints and schema outlines. It is structured for direct t
   - **Response**: `GamePublicView` (title, teams, startsAt, price, state, currency)
 
 ### Purchase
-- `POST /public/games/{gameId}/checkout` → create checkout/payment intent
+- `POST /public/games/{gameId}/checkout` → create Square checkout
   - **Request**: `CheckoutCreateRequest` (**viewerEmail required**, viewerPhone optional, returnUrl)
-  - **Response**: `CheckoutCreateResponse` (providerCheckoutUrl | clientSecret)
+  - **Response**: `CheckoutCreateResponse` (purchaseId, checkoutUrl)
 - `GET /public/purchases/{purchaseId}` → purchase status
   - **Response**: `PurchaseStatus` (status, amount, entitlementToken if paid)
 
@@ -66,9 +66,8 @@ interface CheckoutCreateRequest {
 }
 
 interface CheckoutCreateResponse {
-  checkoutUrl?: string; // redirect URL
-  clientSecret?: string; // for Stripe Elements
   purchaseId: string;
+  checkoutUrl: string; // Square checkout URL (redirect); card captured via Square Web Payments SDK
 }
 
 interface PurchaseStatus {
@@ -113,7 +112,7 @@ interface TelemetrySummary {
 ## Payment Webhooks
 
 ### Square
-- `POST /webhooks/payments/square`
+- `POST /webhooks/square`
   - **Request**: Square webhook event (payment.created, payment.updated, refund.created, etc.)
   - **Behavior**:
     - On `payment.created` / `payment.updated` (succeeded):

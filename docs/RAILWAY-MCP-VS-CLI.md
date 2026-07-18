@@ -149,16 +149,16 @@ Instead of raw log dumps, MCP can:
 
 ---
 
-## Current Workaround: Helper Script
+## Fallback: Helper Script
 
-Until Railway MCP is working, use the helper script:
+If you ever need a CLI fallback, the helper script has been archived to `scripts/_archive/railway-logs.sh`:
 
 ```bash
 # Much better than raw Railway CLI:
-./scripts/railway-logs.sh recent api
-./scripts/railway-logs.sh recent web
-./scripts/railway-logs.sh errors api
-./scripts/railway-logs.sh search api "unlock"
+./scripts/_archive/railway-logs.sh recent api
+./scripts/_archive/railway-logs.sh recent web
+./scripts/_archive/railway-logs.sh errors api
+./scripts/_archive/railway-logs.sh search api "unlock"
 ```
 
 **But MCP would be even better:**
@@ -172,11 +172,11 @@ AI: [Uses MCP, returns formatted output]
 ## Making Railway MCP Work
 
 **Current Status:**
-- ✅ Configuration updated with full paths
+- ✅ Configured in `.vscode/settings.json` (`chat.mcp.servers.railway` → `npx -y @railway/mcp-server`)
 - ✅ Prerequisites verified (Node, Railway CLI)
-- ⏳ Needs Cursor restart to take effect
+- ✅ Active — reload the editor window if you just added the config
 
-**After restart, you'll be able to:**
+**You can now:**
 - Ask: "Get the latest API logs"
 - Ask: "Show me errors from the web service"
 - Ask: "What's the deployment status?"
@@ -205,4 +205,4 @@ AI: [Uses MCP, returns formatted output]
 
 ---
 
-**Next Step:** Restart Cursor and test Railway MCP with natural language queries!
+**Next Step:** Test Railway MCP with natural language queries!

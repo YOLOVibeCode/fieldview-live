@@ -29,7 +29,7 @@ apps/web/
 │   └── layout.tsx          # Root layout
 ├── components/             # React components
 │   ├── ui/                # Shadcn/ui components
-│   ├── video/             # Video player components
+│   ├── v2/video/          # Video player components (StreamPlayer facade)
 │   ├── forms/             # Form components
 │   └── shared/            # Shared components
 ├── lib/                   # Utilities
@@ -95,10 +95,10 @@ apps/web/
    - Validate entitlement token
    - Bootstrap player (stream URL, config)
    - Create playback session
-   - Render video player (HLS.js or embed)
-2. Video player component
-   - HLS.js for Mux/BYO HLS
-   - iframe embed for external platforms
+   - Render video player via the StreamPlayer facade
+2. StreamPlayer facade (`components/v2/video/StreamPlayer.tsx`)
+   - MuxStreamPlayer (`@mux/mux-player-react`) for Mux-managed streams
+   - VidstackPlayer (`@vidstack/react`, hls.js internally) for BYO HLS/RTMP/external
    - Loading states, error states
 3. Stream state display (not started/live/ended/unavailable)
 
@@ -193,7 +193,12 @@ apps/web/
 - [ ] Refund actions work
 - [ ] 100% test coverage
 
-## Component Library (Shadcn/ui)
+## Component Library (Shadcn/ui on Radix UI)
+
+Components are shadcn/ui primitives (Radix UI under the hood) styled with Tailwind. The
+generated set lives in `components/ui/` (button, card, form, input, label); additional Radix
+packages are used directly (`@radix-ui/react-dialog`, `-dropdown-menu`, `-select`, `-tabs`,
+`-label`, `-slot`).
 
 ### Required Components
 
@@ -241,46 +246,41 @@ dataEventBus.subscribe(DataEvents.PURCHASE_CREATED, (data) => {
 
 ## Video Player Implementation
 
-### HLS.js (Mux/BYO HLS)
+Playback is handled by a **StreamPlayer facade** (`components/v2/video/StreamPlayer.tsx`) that
+selects the optimal player from provider metadata returned by the bootstrap API
+(`streamProvider`, `muxPlaybackId`):
+
+- **Mux-managed streams** (`streamProvider === 'mux_managed'` with a `muxPlaybackId`) → `MuxStreamPlayer`
+- **All other streams** (BYO HLS/RTMP, external) → `VidstackPlayer`
+
+### MuxStreamPlayer (Mux-managed)
 
 ```typescript
-// components/video/HlsPlayer.tsx
-import Hls from 'hls.js';
+// components/v2/video/MuxStreamPlayer.tsx
+import MuxPlayer from '@mux/mux-player-react'; // ^3.10.2
 
-export function HlsPlayer({ streamUrl }: { streamUrl: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  
-  useEffect(() => {
-    if (Hls.isSupported() && videoRef.current) {
-      const hls = new Hls();
-      hls.loadSource(streamUrl);
-      hls.attachMedia(videoRef.current);
-      
-      // Telemetry collection
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        // Collect error telemetry
-      });
-      
-      return () => hls.destroy();
-    }
-  }, [streamUrl]);
-  
-  return <video ref={videoRef} controls />;
+// Wraps @mux/mux-player-react (Media Chrome web component):
+// - Automatic signed-URL token refresh
+// - Mux Data analytics via the `metadata` prop
+// - Stream-type awareness (live / on-demand / DVR) + Go Live button
+export function MuxStreamPlayer({ playbackId, playbackToken, metadata }) {
+  return <MuxPlayer playbackId={playbackId} tokens={{ playback: playbackToken }} metadata={metadata} />;
 }
 ```
 
-### External Embed (YouTube/Twitch/Vimeo)
+### VidstackPlayer (BYO HLS / RTMP / external)
 
 ```typescript
-// components/video/EmbedPlayer.tsx
-export function EmbedPlayer({ embedUrl, provider }: { embedUrl: string; provider: string }) {
+// components/v2/video/VidstackPlayer.tsx
+import { MediaPlayer, MediaProvider } from '@vidstack/react'; // ^1.12.13
+
+// Vidstack player with built-in HLS support (powered by hls.js ^1.5.12 internally)
+// and DefaultVideoLayout controls. Used for every non-Mux stream.
+export function VidstackPlayer({ src }: { src: string }) {
   return (
-    <div className="embed-container">
-      <iframe src={embedUrl} allowFullScreen />
-      <Alert>
-        Note: External embeds have limited protection. Ensure your stream is private/unlisted.
-      </Alert>
-    </div>
+    <MediaPlayer src={src}>
+      <MediaProvider />
+    </MediaPlayer>
   );
 }
 ```
@@ -303,7 +303,7 @@ export function EmbedPlayer({ embedUrl, provider }: { embedUrl: string; provider
 - [ ] All public pages work (checkout, watch)
 - [ ] Owner dashboard functional
 - [ ] Admin console functional
-- [ ] Video player works (HLS, embed)
+- [ ] Video player works (Mux Player + Vidstack via StreamPlayer facade)
 - [ ] Telemetry collection works
 - [ ] Email masking works (owner vs SuperAdmin)
 - [ ] Event-driven architecture used

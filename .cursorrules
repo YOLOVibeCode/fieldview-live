@@ -15,6 +15,31 @@ Default: `ROLE: engineer STRICT=true` (read-only unless approved)
 
 ---
 
+## 💳 PAYMENT & COMMS ARCHITECTURE — DECIDED DIRECTION
+
+> **Status: DECIDED, but BUILD IS PAUSED.** Do NOT implement the payment workflow yet, and do NOT extend the legacy in-repo Square integration. Owner is updating the relay first.
+
+**Backbone = Noctusoft Relay** (`docs.api.noctusoft.com`). ALL Square, Twilio, SendGrid, and Google traffic routes through the relay via drop-in base-URL swap. The relay injects vendor credentials server-side — **this repo must hold NO Square / Twilio / SendGrid / Google secrets.**
+
+| Vendor | Relay base URL |
+|---|---|
+| Square (prod) | `connect.squareup.noctusoft.com` (sandbox: `connect.squareupsandbox.noctusoft.com`); env via header `X-Square-Env: sandbox\|production` |
+| Twilio / SMS | `api.twilio.noctusoft.com` (native: `noctusoft.com/twilio/api`) |
+| SendGrid / email | `api.sendgrid.noctusoft.com` |
+| Auth to relay | Railway deploy key via env `NOCTUSOFT_API_KEY` (any IP) |
+
+**Payment model = single-account via the relay, with relay-side variable platform-fee retention.**
+- Viewer payments settle into the platform Square account **through the relay**.
+- The **relay retains a configurable platform fee (default 10%; settable to 5% or a variable %)** and attributes the remainder to the coach/owner.
+- FieldView records per-coach earnings; coach payout follows the relay/settlement model.
+- **Supersedes** the current in-repo Square Marketplace "Model A" (per-coach OAuth + `applicationFeeMoney`). Do NOT build on Model A; migrate toward the relay.
+
+**⏸️ Blocking:** Owner is adding the variable platform-fee-retention pattern to the relay. Wait for it before implementing payments.
+
+**🔒 Security TODO (before go-live):** relay docs page serves live keys over a plain fetch — rotate keys + gate the page.
+
+---
+
 ## 🚀 TRIGGER PHRASES
 
 ### "Deploy to Railway" / "Push to Railway" / "Deploy" / "Deploy to Production"

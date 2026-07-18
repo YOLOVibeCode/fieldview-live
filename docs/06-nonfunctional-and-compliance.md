@@ -78,7 +78,7 @@ Monitor and alert on:
 ### Health checks
 - **API health**: `/health` endpoint returns 200 if service is operational
 - **Database connectivity**: health check includes DB ping
-- **External dependencies**: monitor Stripe, Twilio, streaming provider availability
+- **External dependencies**: monitor Square, Twilio, streaming provider availability
 
 ## Data retention (suggested defaults)
 - **Purchase/ledger/refund records**: retain indefinitely (accounting requirements)
@@ -98,7 +98,7 @@ Monitor and alert on:
 - **Idempotency**: all webhook handlers must be idempotent (handle duplicate events)
 
 ## Compliance notes
-- **PCI DSS**: payment processing via Stripe (PCI-compliant provider); do not store raw card data
+- **PCI DSS**: payment processing via Square (PCI-compliant provider); do not store raw card data
 - **GDPR**: support data deletion requests; respect opt-out; data minimization
 - **TCPA**: SMS opt-out compliance (STOP/HELP)
 - **Accounting**: ledger entries must be immutable and auditable

@@ -23,12 +23,14 @@ Find exactly when:
 
 ### Download Deployment Logs
 
+> **Note:** `debug-railway-logs.sh` now lives under `scripts/_archive/`. Invoke it with the archived path shown below. (`install-lnav.sh` remains at `scripts/`.)
+
 ```bash
 # Get logs focused on deployments
-./scripts/debug-railway-logs.sh api 5000 --deployments
+./scripts/_archive/debug-railway-logs.sh api 5000 --deployments
 
 # Or get all logs and filter in lnav
-./scripts/debug-railway-logs.sh api 10000
+./scripts/_archive/debug-railway-logs.sh api 10000
 ```
 
 ---
@@ -225,7 +227,7 @@ ORDER BY first_seen
 
 ```bash
 # 1. Download logs
-./scripts/debug-railway-logs.sh api 5000 --deployments
+./scripts/_archive/debug-railway-logs.sh api 5000 --deployments
 
 # 2. In lnav, press ; and run:
 SELECT log_time, log_body 
@@ -244,7 +246,7 @@ LIMIT 1
 
 ```bash
 # 1. Download logs
-./scripts/debug-railway-logs.sh api 10000
+./scripts/_archive/debug-railway-logs.sh api 10000
 
 # 2. In lnav, press ; and run:
 SELECT 
@@ -275,7 +277,7 @@ ORDER BY log_time
 
 ```bash
 # 1. Download logs
-./scripts/debug-railway-logs.sh api 10000 --errors-only
+./scripts/_archive/debug-railway-logs.sh api 10000 --errors-only
 
 # 2. In lnav, press ; and run:
 SELECT log_time, log_body 
@@ -293,7 +295,7 @@ ORDER BY log_time DESC
 
 ```bash
 # 1. Download logs
-./scripts/debug-railway-logs.sh api 5000
+./scripts/_archive/debug-railway-logs.sh api 5000
 
 # 2. In lnav, press ; and run:
 SELECT 
@@ -398,7 +400,7 @@ Look for these patterns in logs:
 
 ```bash
 # Download comprehensive logs
-./scripts/debug-railway-logs.sh api 20000
+./scripts/_archive/debug-railway-logs.sh api 20000
 
 # In lnav, run this comprehensive query:
 SELECT 
@@ -470,7 +472,6 @@ ORDER BY hour DESC
 ## 📖 Related Documentation
 
 - **[Debug Railway Logs Guide](DEBUG-RAILWAY-LOGS-GUIDE.md)** - Complete debugging guide
-- **[Debug Quick Reference](DEBUG-QUICK-REFERENCE.md)** - Quick commands
 - **[Railway MCP Setup](MCP-RAILWAY-SETUP.md)** - Configure Railway MCP
 
 ---

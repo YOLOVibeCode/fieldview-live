@@ -114,7 +114,7 @@ A dead-simple monetization platform for existing Veo, Pixellot, and AI sports ca
 
 **Example**:
 - Viewer pays $7 for stream
-- Stripe fee: -$0.51 (2.9% + $0.30)
+- Square fee: -$0.51 (2.9% + $0.30)
 - Platform fee (20%): -$1.40
 - Camera owner receives: $5.09
 - Your revenue: $1.40 per stream
@@ -280,11 +280,11 @@ Questions? Reply to this email.
 - Payout management
 
 #### 2. Payment Processing
-- Stripe Connect (for marketplace payments)
+- Square Connect (marketplace payments via OAuth + application fee)
 - Apple Pay / Google Pay integration
 - Text-to-pay: Multiple implementation options
   - **SMS Payment Links**: Viewer texts keyword → receives payment link
-  - **Stripe Payment Links**: Pre-generated, unique per game
+  - **Square Payment Links / Checkout**: Pre-generated, unique per game
   - **Twilio Integration**: Two-way SMS for payment confirmation
   - **Link.me/Fast Checkout**: One-tap mobile checkout URLs
 - Automatic splits (platform fee vs. owner earnings)
@@ -307,7 +307,7 @@ Questions? Reply to this email.
 1. Purchase dedicated phone number via Twilio ($1-2/month)
 2. Customer texts keyword to number
 3. Twilio webhook triggers your API
-4. Generate Stripe Payment Link for that specific game
+4. Generate Square checkout link for that specific game
 5. Send SMS with payment link
 6. After payment, send SMS with stream access link
 
@@ -317,19 +317,19 @@ Questions? Reply to this email.
 ```
 User: Text "WATCH EAGLES" to (555) 123-4567
 System: Receives inbound SMS via Twilio webhook
-API: Looks up "EAGLES" game, creates Stripe Payment Link
+API: Looks up "EAGLES" game, creates Square checkout link
 Response SMS: "Eagles vs Tigers tonight 7pm - $7 to watch live: https://pay.fieldview.live/abc123"
 User: Clicks link, pays with Apple Pay
-System: Webhook from Stripe confirms payment
+System: Webhook from Square confirms payment
 Response SMS: "Payment confirmed! Watch here: https://fieldview.live/stream/abc123"
 ```
 
-#### Option 2: Stripe Payment Links + SMS Shortener
+#### Option 2: Square Payment Links + SMS Shortener
 **How it works**:
-1. Pre-generate Stripe Payment Links for each game
+1. Pre-generate Square Payment Links for each game
 2. Use SMS link shortener (Bitly API, TinyURL)
 3. When user texts in, respond with shortened payment link
-4. Stripe handles payment, redirects to stream
+4. Square handles payment, redirects to stream
 
 **Cost**: Free tier available, scales with usage
 
@@ -340,7 +340,7 @@ Response SMS: "Payment confirmed! Watch here: https://fieldview.live/stream/abc1
 3. Higher fees (30-40%) but frictionless for users
 4. Popular internationally where card adoption is lower
 
-**Cost**: 30-40% transaction fee (vs 2.9% for Stripe)
+**Cost**: 30-40% transaction fee (vs 2.9% for Square)
 **Best for**: Future international expansion
 
 ### SMS Message Templates
@@ -375,7 +375,7 @@ Or reply WATCH to subscribe"
 |---------|------|-------------|
 | Video Hosting (AWS MediaLive) | $0 base + $6/game | Volume |
 | CDN (CloudFront) | ~$0.50/game | Viewers |
-| Stripe Fees | 2.9% + $0.30/transaction | Transactions |
+| Square Fees | 2.9% + $0.30/transaction | Transactions |
 | Twilio (SMS Gateway) | $1 base + $0.02/transaction | SMS Usage |
 | Web Hosting (Vercel) | $20-50 | Fixed |
 | Database (Supabase/AWS) | $25-100 | Users |
@@ -436,7 +436,7 @@ Or reply WATCH to subscribe"
 
 ### Phase 1: MVP (Months 1-3)
 **Month 1: Build Core Platform**
-- Payment processing with Stripe Connect
+- Payment processing with Square Connect
 - QR code generation
 - **Twilio SMS integration for text-to-pay**
 - Video player with HLS support

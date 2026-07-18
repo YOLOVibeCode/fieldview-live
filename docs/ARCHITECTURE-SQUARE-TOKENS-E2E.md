@@ -4,12 +4,12 @@ ROLE: architect STRICT=false
 ## Context
 FieldView.Live uses **Square Connect OAuth** to let an **OwnerAccount** receive funds directly (Marketplace Model A), while FieldView collects a **10% application fee**. The backend must **not** store card numbers/CVV (Square handles PCI); FieldView stores only **reference IDs** and encrypted OAuth credentials.
 
-## Current observed issues (must fix)
-- **OAuth scopes are read-only**: connect flow requests `MERCHANT_PROFILE_READ PAYMENTS_READ SETTLEMENTS_READ`, but marketplace payments require **creating** payments on the owner’s account.
-- **Callback redirect is hard-coded to localhost** (`http://localhost:3000/...`), breaking production onboarding UX.
-- **Owner location ID not stored**: payment flow currently falls back to platform location, which is not correct for true marketplace “on behalf of seller”.
-- **No token refresh**: `squareTokenExpiresAt` is stored but expired tokens are not refreshed.
-- **Card-on-file consistency risk**: any saved payment method workflow must be stored/retrieved in the **same Square seller context** used to charge (owner vs platform), otherwise “saved card” IDs won’t be chargeable by the owner client.
+## Previously observed issues (now resolved)
+- **OAuth scopes** — RESOLVED: the connect flow requests `MERCHANT_PROFILE_READ PAYMENTS_READ PAYMENTS_WRITE SETTLEMENTS_READ` (plus `CUSTOMERS_READ/WRITE` and `CARDS_READ/WRITE` for card-on-file), so owner-scoped payments can be **created**. See `SQUARE_CONNECT_SCOPES` in `apps/api/src/services/SquareService.ts`.
+- **Callback redirect** — RESOLVED: the OAuth `redirect_uri` comes from `SQUARE_REDIRECT_URI` (localhost is only a dev fallback default), and the post-callback redirect uses a stored `returnUrl` validated against the `APP_URL` origin allowlist (`allowlistedReturnUrl`). See `apps/api/src/services/SquareService.ts`.
+- **Owner location ID** — RESOLVED: `OwnerAccount.squareLocationId` exists (`packages/data-model/prisma/schema.prisma`), is discovered from the owner token on callback, and is used for marketplace payments. See `SquareService.handleConnectCallback` and `SquareOwnerClientService.ensureLocationId`.
+- **Token refresh** — RESOLVED: owner-scoped calls refresh via `grant_type=refresh_token` when the token is expired or within a 24h skew, persisting the new encrypted tokens and expiry. See `SquareOwnerClientService.getValidAccessToken` in `apps/api/src/services/SquareOwnerClientService.ts`.
+- **Card-on-file consistency** — RESOLVED: saved payment methods use a per-owner `ViewerSquareCustomer` mapping (`packages/data-model/prisma/schema.prisma`), and all create/list/delete operations run through the **owner-scoped** Square client, keeping the customer/card in the same seller context used to charge. See `apps/api/src/services/SquareCustomerService.ts`.
 
 ## Goals
 - **G1**: Owner OAuth tokens can be verified reliably (local sandbox + production).
@@ -158,14 +158,14 @@ Saved card IDs must be usable as `sourceId` in the *same seller context* as the 
 ---
 
 ## Definition of Done (completion criteria)
-- [ ] OAuth scopes updated to include `PAYMENTS_WRITE` (and any optional scopes needed)
-- [ ] Redirect handling is environment-safe (no hardcoded localhost); `returnUrl` is stored + validated
-- [ ] Owner location ID is stored and used for marketplace payments
-- [ ] Token refresh is implemented and observable
-- [ ] “Token test” exists as an owner-authenticated capability (endpoint or scripted procedure) and is documented
-- [ ] Card-on-file design is either:
+- [x] OAuth scopes updated to include `PAYMENTS_WRITE` (and any optional scopes needed)
+- [x] Redirect handling is environment-safe (no hardcoded localhost); `returnUrl` is stored + validated
+- [x] Owner location ID is stored and used for marketplace payments
+- [x] Token refresh is implemented and observable
+- [x] “Token test” exists as an owner-authenticated capability (endpoint or scripted procedure) and is documented (`GET /api/owners/me/square/status`; `apps/api/scripts/verify-owner-square.ts`)
+- [x] Card-on-file design is either:
   - [ ] explicitly disabled, or
-  - [ ] implemented with per-owner customer mapping and owner-scoped Square client
+  - [x] implemented with per-owner customer mapping and owner-scoped Square client
 - [ ] Local sandbox E2E checklist verified
 - [ ] Production E2E checklist verified
 

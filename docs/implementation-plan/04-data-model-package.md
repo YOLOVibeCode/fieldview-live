@@ -203,273 +203,34 @@ export const StreamSourceSchema = z.object({
 
 ### Database Schema
 
-```prisma
-// packages/data-model/prisma/schema.prisma
-generator client {
-  provider = "prisma-client-js"
-}
+> **Source of truth:** the complete Prisma schema lives in
+> [`packages/data-model/prisma/schema.prisma`](../../packages/data-model/prisma/schema.prisma).
+> It has grown well beyond the original core set, so the full model
+> definitions are **not** duplicated here (they drift). Read the schema file
+> directly for exact fields, indexes, and relations.
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+- **Datasource:** PostgreSQL — `provider = "postgresql"`, `url = env("DATABASE_URL")`
+- **Generator:** `prisma-client-js` (`@prisma/client` 6.0.0)
 
-model OwnerAccount {
-  id                String   @id @default(uuid())
-  type              String   // 'owner' | 'association'
-  name              String
-  status            String   // 'active' | 'suspended' | 'pending_verification'
-  contactEmail      String
-  payoutProviderRef String?  // Square account ID
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  games             Game[]
-  users             OwnerUser[]
-  ledgerEntries     LedgerEntry[]
-  payouts           Payout[]
-  
-  @@index([status])
-}
+The schema currently defines **38 models**:
 
-model OwnerUser {
-  id            String       @id @default(uuid())
-  ownerAccountId String      @db.Uuid
-  email         String
-  role          String       // 'owner_admin' | 'association_admin' | 'association_operator'
-  mfaEnabled    Boolean      @default(false)
-  mfaSecret     String?      // Encrypted TOTP secret
-  status        String       @default("active")
-  createdAt     DateTime     @default(now())
-  lastLoginAt   DateTime?
-  
-  ownerAccount OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  
-  @@index([ownerAccountId])
-  @@index([email])
-}
+**Owner / org / billing**
+`OwnerAccount`, `VeoIntegration`, `OwnerUser`, `Organization`, `OrganizationMember`, `Subscription`, `LedgerEntry`, `Payout`, `CouponCode`, `CouponRedemption`
 
-model Game {
-  id            String        @id @default(uuid())
-  ownerAccountId String      @db.Uuid
-  title         String
-  homeTeam      String
-  awayTeam      String
-  startsAt      DateTime
-  endsAt        DateTime?
-  state         String        @default("draft") // 'draft' | 'active' | 'live' | 'ended' | 'cancelled'
-  priceCents    Int
-  currency      String        @default("USD")
-  keywordCode   String        @unique
-  keywordStatus String        @default("active") // 'active' | 'disabled' | 'rotated'
-  qrUrl         String
-  streamSourceId String?      @db.Uuid
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  cancelledAt   DateTime?
-  
-  ownerAccount OwnerAccount  @relation(fields: [ownerAccountId], references: [id])
-  streamSource StreamSource?  @relation(fields: [streamSourceId], references: [id])
-  purchases    Purchase[]
-  
-  @@index([ownerAccountId])
-  @@index([keywordCode])
-  @@index([state])
-}
+**Games & streaming**
+`Game`, `StreamSource`, `GameScoreboard`, `GameChatMessage`, `Event`, `WatchChannel`, `WatchEventCode`, `DirectStream`, `DirectStreamEvent`, `DirectStreamRegistration`, `VideoClip`, `VideoBookmark`
 
-model StreamSource {
-  id                String   @id @default(uuid())
-  gameId            String   @db.Uuid
-  type              String   // 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed'
-  protectionLevel   String   // 'strong' | 'moderate' | 'best_effort'
-  
-  // Mux-managed
-  muxAssetId        String?
-  muxPlaybackId     String?
-  
-  // BYO HLS
-  hlsManifestUrl    String?
-  
-  // BYO RTMP
-  rtmpPublishUrl    String?
-  rtmpStreamKey     String?  // Encrypted
-  
-  // External embed
-  externalEmbedUrl  String?
-  externalProvider  String?  // 'youtube' | 'twitch' | 'vimeo' | 'other'
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  game              Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  
-  @@index([gameId])
-}
+**Viewers, purchases & playback**
+`ViewerIdentity`, `ViewerSquareCustomer`, `ViewerRefreshToken`, `Purchase`, `PaymentAttempt`, `Entitlement`, `PlaybackSession`, `Refund`
 
-model ViewerIdentity {
-  id          String     @id @default(uuid())
-  email       String     @unique
-  phoneE164   String?
-  smsOptOut   Boolean    @default(false)
-  optOutAt    DateTime?
-  createdAt   DateTime   @default(now())
-  lastSeenAt DateTime?
-  
-  purchases   Purchase[]
-  
-  @@index([email])
-  @@index([phoneE164])
-}
+**Auth, admin & misc**
+`AdminAccount`, `AdminAuditLog`, `EarlyAccessSignup`, `SMSMessage`, `EmailVerificationToken`, `PasswordResetToken`, `DeviceFingerprint`, `OwnerAccountFingerprint`
 
-model Purchase {
-  id                      String     @id @default(uuid())
-  gameId                  String     @db.Uuid
-  viewerId                String     @db.Uuid
-  amountCents             Int
-  currency                String     @default("USD")
-  platformFeeCents        Int
-  processorFeeCents       Int
-  ownerNetCents           Int
-  status                  String     // 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
-  paymentProviderPaymentId String?
-  paymentProviderCustomerId String?
-  createdAt               DateTime   @default(now())
-  paidAt                  DateTime?
-  failedAt                DateTime?
-  refundedAt              DateTime?
-  
-  game                    Game       @relation(fields: [gameId], references: [id])
-  viewer                  ViewerIdentity @relation(fields: [viewerId], references: [id])
-  entitlement             Entitlement?
-  paymentAttempts         PaymentAttempt[]
-  refunds                 Refund[]
-  
-  @@index([gameId])
-  @@index([viewerId])
-  @@index([status])
-}
+Key Square-related fields (verified in the schema):
 
-model Entitlement {
-  id          String     @id @default(uuid())
-  purchaseId  String     @db.Uuid @unique
-  tokenId     String     @unique // Hash of token claims
-  validFrom   DateTime
-  validTo     DateTime
-  status      String     @default("active") // 'active' | 'expired' | 'revoked'
-  createdAt   DateTime   @default(now())
-  revokedAt   DateTime?
-  
-  purchase    Purchase   @relation(fields: [purchaseId], references: [id])
-  sessions    PlaybackSession[]
-  
-  @@index([purchaseId])
-  @@index([tokenId])
-}
-
-model PlaybackSession {
-  id              String     @id @default(uuid())
-  entitlementId   String     @db.Uuid
-  startedAt       DateTime   @default(now())
-  endedAt         DateTime?
-  deviceHash      String?
-  ipHash          String?
-  userAgent       String?
-  state           String     @default("started") // 'started' | 'ended' | 'error'
-  
-  // Telemetry summary
-  totalWatchMs    Int        @default(0)
-  totalBufferMs   Int        @default(0)
-  bufferEvents    Int        @default(0)
-  fatalErrors     Int        @default(0)
-  startupLatencyMs Int?
-  
-  entitlement     Entitlement @relation(fields: [entitlementId], references: [id])
-  
-  @@index([entitlementId])
-}
-
-model Refund {
-  id              String     @id @default(uuid())
-  purchaseId      String     @db.Uuid
-  amountCents     Int
-  reasonCode      String     // 'buffer_ratio_high' | 'buffer_ratio_medium' | 'excessive_buffering' | 'fatal_error' | 'manual'
-  issuedBy        String     // 'auto' | 'admin' | 'superadmin'
-  ruleVersion     String     // Refund rule version applied
-  telemetrySummary Json      // JSON snapshot of telemetry inputs
-  createdAt       DateTime   @default(now())
-  processedAt     DateTime?
-  
-  purchase        Purchase   @relation(fields: [purchaseId], references: [id])
-  
-  @@index([purchaseId])
-}
-
-model LedgerEntry {
-  id            String     @id @default(uuid())
-  ownerAccountId String    @db.Uuid
-  type          String     // 'charge' | 'platform_fee' | 'processor_fee' | 'refund' | 'payout'
-  amountCents   Int        // Positive for credits, negative for debits
-  currency      String     @default("USD")
-  referenceType String     // 'purchase' | 'refund' | 'payout'
-  referenceId   String?
-  description   String
-  createdAt     DateTime   @default(now())
-  
-  ownerAccount  OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  
-  @@index([ownerAccountId])
-  @@index([referenceType, referenceId])
-}
-
-model Payout {
-  id              String     @id @default(uuid())
-  ownerAccountId  String     @db.Uuid
-  amountCents     Int
-  currency         String     @default("USD")
-  status           String     // 'pending' | 'processing' | 'completed' | 'failed'
-  payoutProviderRef String?    // Square transfer ID
-  ledgerEntryIds   String[]   // Array of ledger entry IDs
-  createdAt        DateTime   @default(now())
-  processedAt      DateTime?
-  completedAt      DateTime?
-  
-  ownerAccount     OwnerAccount @relation(fields: [ownerAccountId], references: [id])
-  
-  @@index([ownerAccountId])
-  @@index([status])
-}
-
-model SMSMessage {
-  id              String     @id @default(uuid())
-  direction       String     // 'inbound' | 'outbound'
-  phoneE164       String
-  keywordCode     String?
-  gameId          String?    @db.Uuid
-  messageBody     String
-  status          String     // 'sent' | 'delivered' | 'failed'
-  providerMessageId String?
-  createdAt       DateTime   @default(now())
-  deliveredAt     DateTime?
-  
-  @@index([phoneE164])
-  @@index([keywordCode])
-}
-
-model AdminAuditLog {
-  id              String     @id @default(uuid())
-  adminUserId     String
-  actionType      String     // 'refund_create' | 'resend_sms' | 'keyword_disable' | 'view_audience' | etc.
-  targetType      String     // 'purchase' | 'game' | 'owner' | 'config' | 'viewer'
-  targetId        String?
-  reason          String?
-  requestMetadata Json       // JSON snapshot (redacted)
-  createdAt       DateTime   @default(now())
-  
-  @@index([adminUserId])
-  @@index([targetType, targetId])
-  @@index([createdAt])
-}
-```
+- `OwnerAccount.payoutProviderRef` — Square `merchant_id` (also holds encrypted Square OAuth tokens and `squareLocationId`)
+- `Payout.payoutProviderRef` — Square transfer ID
+- `ViewerSquareCustomer` — maps a viewer to a Square customer per owner account
 
 ## Utility Functions
 
@@ -585,26 +346,28 @@ describe('maskEmail', () => {
   "name": "@fieldview/data-model",
   "version": "0.1.0",
   "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "db:generate": "pnpm exec prisma generate --schema=./prisma/schema.prisma",
+    "db:migrate": "pnpm exec prisma migrate dev --schema=./prisma/schema.prisma",
+    "db:studio": "pnpm exec prisma studio --schema=./prisma/schema.prisma"
   },
   "dependencies": {
-    "zod": "^3.22.4",
-    "@prisma/client": "^5.7.1"
+    "@prisma/client": "6.0.0",
+    "prisma": "6.0.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "prisma": "^5.7.1",
+    "@vitest/coverage-v8": "^1.0.4",
     "typescript": "^5.3.3",
     "vitest": "^1.0.4"
   }

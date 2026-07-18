@@ -6,14 +6,16 @@ Simple guide for testing the DVR feature locally and against production.
 
 ## 🧪 **Quick Test Commands**
 
+> **Note:** The automated runner now lives at `scripts/_archive/test-dvr.sh` (archived). It still runs, but the manual `/test/dvr` page (see [Manual Testing](#-manual-testing-optional) below) is the current primary way to exercise the DVR UI.
+
 ### **Test Locally**
 ```bash
-./scripts/test-dvr.sh
+./scripts/_archive/test-dvr.sh
 ```
 
 ### **Test Production**
 ```bash
-./scripts/test-dvr.sh prod
+./scripts/_archive/test-dvr.sh prod
 ```
 
 ---
@@ -28,8 +30,8 @@ The test script runs all DVR tests in order:
 | 2 | Build DVR Package | TypeScript compilation |
 | 3 | Repository Tests | ClipRepository (12), BookmarkRepository (13) |
 | 4 | Service Layer Tests | DVRService (17) |
-| 5 | API Route Tests | DVR API endpoints (29) |
-| **Total** | | **71 automated tests** |
+| 5 | API Route Tests | DVR API endpoints (21) |
+| **Total** | | **63 automated tests** |
 
 ---
 
@@ -49,13 +51,13 @@ pnpm exec prisma db push --schema=./prisma/schema.prisma
 
 # 4. Run tests
 cd ../..
-./scripts/test-dvr.sh
+./scripts/_archive/test-dvr.sh
 ```
 
 ### **Production Testing**
 ```bash
 # No setup needed - just run:
-./scripts/test-dvr.sh prod
+./scripts/_archive/test-dvr.sh prod
 ```
 
 ---
@@ -88,8 +90,8 @@ Phase 4: Service Layer Tests
 ✓ DVRService (17 tests) passed
 
 Phase 5: API Route Tests
-→ Running: DVR API routes (29 tests)
-✓ DVR API routes (29 tests) passed
+→ Running: DVR API routes (21 tests)
+✓ DVR API routes (21 tests) passed
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Test Results
@@ -148,9 +150,9 @@ cat /tmp/test-output.log
 | `ClipRepository` | ✅ 100% (12 tests) |
 | `BookmarkRepository` | ✅ 100% (13 tests) |
 | `DVRService` | ✅ 100% (17 tests) |
-| API Routes | ✅ 100% (29 tests) |
+| API Routes | ✅ 100% (21 tests) |
 
-**Total: 71 tests, 100% coverage**
+**Total: 63 tests, 100% coverage**
 
 ---
 
@@ -197,8 +199,8 @@ open https://fieldview.live/test/dvr
 
 | Command | Description |
 |---------|-------------|
-| `./scripts/test-dvr.sh` | Test locally |
-| `./scripts/test-dvr.sh prod` | Test production |
+| `./scripts/_archive/test-dvr.sh` | Test locally |
+| `./scripts/_archive/test-dvr.sh prod` | Test production |
 | `docker-compose up -d` | Start local services |
 | `docker-compose down` | Stop local services |
 | `cat /tmp/test-output.log` | View detailed test logs |

@@ -99,7 +99,7 @@ This enables:
 - Debugging refund disputes
 
 ## Refund processing
-- **Automatic refunds**: issued via Stripe refund API; webhook confirms processing
+- **Automatic refunds**: issued via Square refunds API (`refundPayment`); the Square `refund.created` webhook (`POST /api/webhooks/square`) confirms processing
 - **Manual refunds**: issued by admin (within policy bounds); same audit trail
 - **Ledger entries**: create debit entry for refund; adjust owner payout accordingly
 

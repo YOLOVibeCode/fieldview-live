@@ -95,7 +95,7 @@ A pay-per-view live streaming platform that enables parents and spectators to wa
 - Hosted on Vercel (free) or AWS
 
 **Payment Processing**:
-- Stripe (2.9% + $0.30 per transaction)
+- Square (2.9% + $0.30 per transaction)
 - Apple Pay / Google Pay integration
 - One-click checkout
 
@@ -178,7 +178,7 @@ Apple Pay/Credit Card → Instant Video Stream
 - 30-50% conversion rate = 10-16 viewers
 - Pricing: $5, $7, or $10 per stream
 
-#### Revenue Per Game (after Stripe fees):
+#### Revenue Per Game (after Square fees):
 
 | Price | 10 Viewers | 13 Viewers | 16 Viewers |
 |-------|------------|------------|------------|
@@ -238,7 +238,7 @@ For coaches considering team subscriptions:
 - Configure video streaming pipeline
 
 **Week 3-4: Website Development**
-- Build payment page with Stripe integration
+- Build payment page with Square integration
 - Create video player with HLS/WebRTC
 - Implement QR code generation system
 - Set up auto-refund monitoring
@@ -472,11 +472,11 @@ const hlsOutput = 'https://yourcdn.com/stream/playlist.m3u8';
 const gameId = 'game-12345';
 const price = 700; // $7.00 in cents
 
-// Stripe payment
-const paymentIntent = await stripe.paymentIntents.create({
-  amount: price,
-  currency: 'usd',
-  payment_method_types: ['card', 'apple_pay', 'google_pay']
+// Square payment (Web Payments SDK tokenizes card/Apple Pay/Google Pay -> server charges)
+const payment = await squareClient.payments.create({
+  sourceId,                              // single-use token from Square Web Payments SDK
+  amountMoney: { amount: price, currency: 'USD' },
+  idempotencyKey,
 });
 
 // On success → Generate unique stream token
@@ -527,7 +527,7 @@ if (bufferingTime / totalGameTime > 0.20) {
 - [ ] Register domain name
 
 **Week 2**:
-- [ ] Set up Stripe account
+- [ ] Set up Square account
 - [ ] Choose video hosting platform
 - [ ] Begin website development
 - [ ] Test RTMP output from camera

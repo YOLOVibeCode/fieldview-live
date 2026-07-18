@@ -61,7 +61,7 @@ Verify: still unlocked (localStorage working)
 ### Quick Start (Automated)
 ```bash
 # From project root
-./scripts/test-chat-e2e.sh
+./scripts/_archive/test-chat-e2e.sh
 ```
 
 This script:
@@ -286,7 +286,7 @@ npx playwright test --screenshot=on
   run: cd apps/web && npx playwright install --with-deps
 
 - name: Run E2E Tests
-  run: ./scripts/test-chat-e2e.sh
+  run: ./scripts/_archive/test-chat-e2e.sh
   env:
     CI: true
 ```
@@ -319,7 +319,7 @@ npx playwright test
 ✅ **Multi-browser support** (Chrome, Firefox, Safari)  
 ✅ **Real-time verification** (messages appear instantly)  
 ✅ **Production-ready** (can test live site)  
-✅ **Easy to run** (one command: `./scripts/test-chat-e2e.sh`)
+✅ **Easy to run** (one command: `./scripts/_archive/test-chat-e2e.sh`)
 
 **The chat system is fully tested end-to-end!** 🎉
 
