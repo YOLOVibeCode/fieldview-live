@@ -22,7 +22,7 @@ Confirm the public home page responds successfully and exposes primary entry poi
 
 {traklet:section:steps}
 ## Steps
-1. Open `/` in a fresh tab
+1. Open `https://fieldview.live/` in a fresh tab
 2. Confirm document title contains "FieldView"
 3. Verify visible CTAs: Owner Login, Get Started, View Demo Stream (or environment equivalent)
 4. Optional: open DevTools → Network, hard reload, confirm document and main JS/CSS return 200

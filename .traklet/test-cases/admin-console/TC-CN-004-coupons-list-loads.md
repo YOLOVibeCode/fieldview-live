@@ -12,7 +12,7 @@ suite: admin-console
 
 {traklet:section:objective}
 ## Objective
-`/admin/coupons` (or current) loads for authorized admin; creating/editing coupons follows validation (exercise only in non-prod if risky).
+`https://fieldview.live/admin/coupons` (or current) loads for authorized admin; creating/editing coupons follows validation (exercise only in non-prod if risky).
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}

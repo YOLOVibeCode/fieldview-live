@@ -18,16 +18,16 @@ Verify that a viewer who registers on one direct stream is automatically authent
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- Two active direct streams (e.g. `/direct/tchs` and `/direct/stormfc`)
+- Two active direct streams (e.g. `https://fieldview.live/direct/tchs` and `https://fieldview.live/direct/stormfc`)
 - Incognito browser or cleared localStorage
 {/traklet:section:prerequisites}
 
 {traklet:section:steps}
 ## Steps
-1. Open `/direct/tchs` in a clean browser
+1. Open `https://fieldview.live/direct/tchs` in a clean browser
 2. Register as a viewer (enter email + name)
 3. Verify chat unlocks and viewer identity bar appears
-4. Navigate to `/direct/stormfc`
+4. Navigate to `https://fieldview.live/direct/stormfc`
 5. Verify auto-registration occurs (no registration form shown)
 6. Verify chat is immediately unlocked on the second stream
 7. Refresh the page — verify auth persists across reload

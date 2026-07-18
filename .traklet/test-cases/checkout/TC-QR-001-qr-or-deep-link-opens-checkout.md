@@ -17,7 +17,7 @@ Marketing QR codes or mobile deep links land on the intended game/checkout with 
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- Sample QR image or raw URL from generator (`/checkout/...`, `/game/...`, or watch URL with UTM)
+- Sample QR image or raw URL from generator (`https://fieldview.live/checkout/...`, `https://fieldview.live/game/...`, or watch URL with UTM)
 {/traklet:section:prerequisites}
 
 {traklet:section:steps}

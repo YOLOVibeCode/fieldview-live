@@ -13,7 +13,7 @@ suite: auth-admin
 
 {traklet:section:objective}
 ## Objective
-Verify the `/admin/mfa` page allows an admin to enable MFA by generating a TOTP secret, scanning a QR code, and verifying a 6-digit token.
+Verify the `https://fieldview.live/admin/mfa` page allows an admin to enable MFA by generating a TOTP secret, scanning a QR code, and verifying a 6-digit token.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,7 +24,7 @@ Verify the `/admin/mfa` page allows an admin to enable MFA by generating a TOTP 
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/mfa`
+1. Navigate to `https://fieldview.live/admin/mfa`
 2. Verify Step 1: "Enable MFA" card with setup button
 3. Click "Set Up MFA" — verify QR code image and manual secret appear (Step 2)
 4. Scan QR code with authenticator app (or use manual secret)

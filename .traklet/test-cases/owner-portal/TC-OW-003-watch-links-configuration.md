@@ -12,7 +12,7 @@ suite: owner-portal
 
 {traklet:section:objective}
 ## Objective
-Ensure owners can create/update organization or channel settings that power `/watch/{org}/{team}` (access mode, price, playback binding).
+Ensure owners can create/update organization or channel settings that power `https://fieldview.live/watch/{org}/{team}` (access mode, price, playback binding).
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -25,7 +25,7 @@ Ensure owners can create/update organization or channel settings that power `/wa
 ## Steps
 1. Open watch-link or channel configuration in owner portal
 2. Set or verify `accessMode` (public free vs pay-per-view) and price if paid
-3. Save and copy shareable `/watch/...` URL
+3. Save and copy shareable `https://fieldview.live/watch/...` URL
 4. Validate with TC-WF-001 or TC-WP-001 in fresh session
 {/traklet:section:steps}
 

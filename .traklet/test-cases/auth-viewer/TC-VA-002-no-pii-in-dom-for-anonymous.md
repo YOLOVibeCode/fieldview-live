@@ -22,7 +22,7 @@ Spot-check that anonymous watch/checkout pages do not embed emails, full names, 
 
 {traklet:section:steps}
 ## Steps
-1. As anonymous, load a public game or watch page you did not purchase
+1. As anonymous, open `https://fieldview.live/watch/[org]/[team]` (or `https://fieldview.live/game/[gameId]`) — a page you did not purchase
 2. Search page source and initial API responses for patterns like `@`, `email`, `phone`
 3. Confirm only expected marketing/support copy or your own typed form values appear
 {/traklet:section:steps}

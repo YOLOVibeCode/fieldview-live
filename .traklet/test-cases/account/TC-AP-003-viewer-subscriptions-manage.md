@@ -13,7 +13,7 @@ suite: account
 
 {traklet:section:objective}
 ## Objective
-Verify the `/account` page shows active stream subscriptions and allows the viewer to unsubscribe.
+Verify the `https://fieldview.live/account` page shows active stream subscriptions and allows the viewer to unsubscribe.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ Verify the `/account` page shows active stream subscriptions and allows the view
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/account`
+1. Navigate to `https://fieldview.live/account`
 2. Verify Stream Subscriptions section loads (`GET /api/public/viewer/{id}/subscriptions`)
 3. Verify each subscription shows the stream name/slug
 4. Click "Unsubscribe" on a subscription

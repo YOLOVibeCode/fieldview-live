@@ -13,7 +13,7 @@ suite: owner-portal
 
 {traklet:section:objective}
 ## Objective
-Verify the `/owners/games` page lists the owner's games in a table with status filter and pagination.
+Verify the `https://fieldview.live/owners/games` page lists the owner's games in a table with status filter and pagination.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,14 +24,14 @@ Verify the `/owners/games` page lists the owner's games in a table with status f
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/owners/games`
+1. Navigate to `https://fieldview.live/owners/games`
 2. Verify table loads with columns: title, teams, date, state badge, price
 3. Verify state badges show correct colors (draft=gray, active=blue, live=green, ended=muted, cancelled=red)
 4. Use the status filter dropdown — select "active", verify table filters
 5. Switch to "draft", then "all" — verify each re-fetches correctly
 6. Verify total count label updates with each filter
 7. If 20+ games: verify pagination (Previous/Next buttons, page number)
-8. Verify "+ Create New Game" button links to `/owners/games/new`
+8. Verify "+ Create New Game" button links to `https://fieldview.live/owners/games/new`
 {/traklet:section:steps}
 
 {traklet:section:expected-result}
@@ -53,5 +53,5 @@ _Not yet tested._
 
 {traklet:section:notes}
 ## Notes
-Dashboard "Games" card now links here instead of `/owners/games/new`.
+Dashboard "Games" card now links here instead of `https://fieldview.live/owners/games/new`.
 {/traklet:section:notes}

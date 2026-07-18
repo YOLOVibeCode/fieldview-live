@@ -24,7 +24,7 @@ Verify that chat messages are sent and received in real-time via SSE between mul
 
 {traklet:section:steps}
 ## Steps
-1. Open the stream in two separate browser windows (Viewer A and Viewer B)
+1. Open `https://fieldview.live/direct/[slug]` in two separate browser windows (Viewer A and Viewer B)
 2. Both viewers should see the chat panel (sidebar on desktop, BottomSheet on mobile)
 3. Viewer A types a message and sends it
 4. Observe Viewer B's chat panel

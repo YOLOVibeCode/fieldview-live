@@ -24,7 +24,7 @@ Verify that the stream page layout correctly adapts between mobile, tablet, and 
 
 {traklet:section:steps}
 ## Steps
-1. Open a direct stream page at desktop width (>1024px)
+1. Open `https://fieldview.live/direct/[slug]` at desktop width (>1024px)
 2. Verify chat is in sidebar, scoreboard is in sidebar
 3. Resize to tablet width (640-1024px)
 4. Verify sidebars use responsive widths `min(360px, 45vw)`

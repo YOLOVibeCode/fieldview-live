@@ -24,7 +24,7 @@ Verify an owner can create a new direct stream using the inline create form on t
 
 {traklet:section:steps}
 ## Steps
-1. On `/owners/direct-streams`, click "+ Create Direct Stream"
+1. On `https://fieldview.live/owners/direct-streams`, click "+ Create Direct Stream"
 2. Verify inline create form appears with fields: slug, title, admin password, stream URL
 3. Fill in slug (lowercase, hyphens only), title, admin password (8+ chars)
 4. Optionally add a stream URL

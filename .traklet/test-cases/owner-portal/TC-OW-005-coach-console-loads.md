@@ -12,7 +12,7 @@ suite: owner-portal
 
 {traklet:section:objective}
 ## Objective
-`/owners/coach` (or linked coach experience) opens for accounts with coach features—watch links, sideline tools, or audience widgets as deployed.
+`https://fieldview.live/owners/coach` (or linked coach experience) opens for accounts with coach features—watch links, sideline tools, or audience widgets as deployed.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -22,7 +22,7 @@ suite: owner-portal
 
 {traklet:section:steps}
 ## Steps
-1. From dashboard, navigate to Coach (or deep link)
+1. From `https://fieldview.live/owners/dashboard`, navigate to Coach (`https://fieldview.live/owners/coach`)
 2. Verify primary panels render
 3. Smoke one non-destructive action (e.g. view watch link list)
 {/traklet:section:steps}

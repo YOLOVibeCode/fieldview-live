@@ -23,7 +23,7 @@ Verify a superadmin can create a fixed-amount (dollar) coupon, and that the disc
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/coupons`
+1. Navigate to `https://fieldview.live/admin/coupons`
 2. Click "Create Coupon"
 3. Change Discount Type from "Percentage" to "Fixed Amount"
 4. Verify the value input label changes to "Amount Off ($)"

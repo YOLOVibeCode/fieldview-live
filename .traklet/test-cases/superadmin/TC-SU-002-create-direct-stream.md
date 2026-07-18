@@ -13,7 +13,7 @@ suite: superadmin
 
 {traklet:section:objective}
 ## Objective
-Verify a superadmin can create a new DirectStream using the drawer form on `/superadmin/direct-streams`, with all fields validated and the new stream appearing in the table on success.
+Verify a superadmin can create a new DirectStream using the drawer form on `https://fieldview.live/superadmin/direct-streams`, with all fields validated and the new stream appearing in the table on success.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,7 +24,7 @@ Verify a superadmin can create a new DirectStream using the drawer form on `/sup
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/superadmin/direct-streams`
+1. Navigate to `https://fieldview.live/superadmin/direct-streams`
 2. Click "+ Create Stream" button (`btn-create-stream`)
 3. Verify drawer modal appears (`drawer-create-stream`)
 4. Fill in required fields:

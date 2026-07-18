@@ -24,7 +24,7 @@ Verify that searching by E.164 phone number returns matching viewer results with
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/console`
+1. Navigate to `https://fieldview.live/admin/console`
 2. Enter a known E.164 phone number (e.g. `+15551234567`) in the search input
 3. Click "Search"
 4. Verify Viewers card shows at least one match

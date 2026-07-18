@@ -18,7 +18,7 @@ Verify that bookmarks shared by one viewer appear as blue markers on another vie
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- Two authenticated viewers on the same stream
+- Two authenticated viewers on the same stream (e.g. `https://fieldview.live/direct/[slug]`)
 - DVR/bookmark feature enabled
 - Viewer A has created and shared a bookmark
 {/traklet:section:prerequisites}

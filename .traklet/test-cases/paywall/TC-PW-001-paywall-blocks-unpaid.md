@@ -25,7 +25,7 @@ Verify that the paywall modal appears and blocks stream access for viewers who h
 {traklet:section:steps}
 ## Steps
 1. Open a new incognito/private window
-2. Navigate to `/direct/<slug>` for a paywalled stream
+2. Navigate to `https://fieldview.live/direct/[slug]` for a paywalled stream
 3. Observe the PaywallModal
 4. Attempt to dismiss the modal without purchasing
 5. Verify video content is not accessible

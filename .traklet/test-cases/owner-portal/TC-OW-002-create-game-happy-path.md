@@ -23,7 +23,7 @@ Validate game creation flow from owner UI through success confirmation (keyword/
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to new game flow (`/owners/games/new` or current path)
+1. Navigate to new game flow (`https://fieldview.live/owners/games/new` or current path)
 2. Fill required fields per form labels / `data-testid`
 3. Submit and capture generated keyword or public URL snippet
 4. Open public viewer link in incognito to sanity-check (optional)

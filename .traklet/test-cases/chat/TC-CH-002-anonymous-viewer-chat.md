@@ -24,7 +24,7 @@ Verify that anonymous (non-registered) viewers automatically get a ViewerIdentit
 
 {traklet:section:steps}
 ## Steps
-1. Open the stream in an incognito window (no purchase required or free stream)
+1. Open `https://fieldview.live/direct/[slug]` in an incognito window (no purchase required or free stream)
 2. Observe the chat panel — viewer should be auto-connected
 3. Check that a viewer name is assigned
 4. Send a chat message

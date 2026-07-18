@@ -24,7 +24,7 @@ Verify that a viewer can enter a coupon code on the game checkout page, see it v
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/game/{gameId}` for a paid game
+1. Navigate to `https://fieldview.live/game/{gameId}` for a paid game
 2. Enter email and phone
 3. Enter the coupon code in the coupon input field
 4. Click validate/apply — verify `POST /api/public/coupons/validate` is called

@@ -22,7 +22,7 @@ When no live Mux/Vidstack source is available, the page communicates “starting
 
 {traklet:section:steps}
 ## Steps
-1. Open viewer page for idle fixture
+1. Open `https://fieldview.live/direct/[slug]` for an offline/idle stream fixture
 2. Read hero/player area messaging
 3. Optionally start stream upstream and verify auto-recovery (**TC-SP-001** when live)
 {/traklet:section:steps}

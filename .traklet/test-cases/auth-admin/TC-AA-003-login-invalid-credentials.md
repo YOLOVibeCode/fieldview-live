@@ -18,17 +18,17 @@ Verify that submitting incorrect credentials on the admin login page shows an er
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- Admin login page accessible at `/admin/login`
+- Admin login page accessible at `https://fieldview.live/admin/login`
 - Known valid admin email (to test wrong password)
 {/traklet:section:prerequisites}
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/login`
+1. Navigate to `https://fieldview.live/admin/login`
 2. Enter a valid admin email and an incorrect password
 3. Click "Sign in"
 4. Verify error banner appears with authentication failure message
-5. Verify URL remains on `/admin/login` (no redirect)
+5. Verify URL remains on `https://fieldview.live/admin/login` (no redirect)
 6. Verify no session token in localStorage
 7. Enter a completely unknown email and any password
 8. Click "Sign in"

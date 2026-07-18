@@ -12,7 +12,7 @@ suite: watch-links
 
 {traklet:section:objective}
 ## Objective
-`/watch/{org}/{team}/{code}` (or query-param variant if your build uses it) accepts a valid event code and loads viewer experience.
+`https://fieldview.live/watch/{org}/{team}/{code}` (or query-param variant if your build uses it) accepts a valid event code and loads viewer experience.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -22,7 +22,7 @@ suite: watch-links
 
 {traklet:section:steps}
 ## Steps
-1. Construct URL with valid `code` segment per routing in `apps/web`
+1. Construct URL: `https://fieldview.live/watch/[org]/[team]/[code]` with a valid event code
 2. Load in fresh session
 3. Confirm access (player or post-checkout state) — not “invalid code” error
 {/traklet:section:steps}

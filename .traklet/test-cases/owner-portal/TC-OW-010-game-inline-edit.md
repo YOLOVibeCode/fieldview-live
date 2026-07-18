@@ -24,7 +24,7 @@ Verify an owner can click a game row to expand an inline edit form, modify game 
 
 {traklet:section:steps}
 ## Steps
-1. On `/owners/games`, click a game row
+1. On `https://fieldview.live/owners/games`, click a game row
 2. Verify inline edit form expands below the row
 3. Verify form pre-fills with current values (title, teams, start time, price, state)
 4. Change the title and price

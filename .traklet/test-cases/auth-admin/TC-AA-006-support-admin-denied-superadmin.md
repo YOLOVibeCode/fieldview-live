@@ -25,10 +25,10 @@ Verify that a user with `support_admin` role cannot access superadmin-only funct
 
 {traklet:section:steps}
 ## Steps
-1. Login as support_admin via `/admin/login`
-2. Verify successful login and redirect to `/admin/console`
+1. Login as support_admin via `https://fieldview.live/admin/login`
+2. Verify successful login and redirect to `https://fieldview.live/admin/console`
 3. Verify console search, purchase timeline, and audience pages work normally
-4. Navigate to `/superadmin/direct-streams`
+4. Navigate to `https://fieldview.live/superadmin/direct-streams`
 5. Verify access is denied (401/403 or redirect) — no stream data visible
 6. Attempt API call: `GET /api/admin/direct-streams` with support_admin session token
 7. Verify 401 response ("SuperAdmin access required")

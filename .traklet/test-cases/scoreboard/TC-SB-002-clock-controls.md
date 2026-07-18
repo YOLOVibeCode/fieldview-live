@@ -23,7 +23,7 @@ Verify that the game clock can be started, paused, and reset from the admin pane
 
 {traklet:section:steps}
 ## Steps
-1. Open admin panel and viewer window side by side
+1. Open `https://fieldview.live/direct/[slug]` as viewer in one window and unlock the admin panel in another
 2. Click "Start Clock" in admin panel
 3. Verify clock ticks on both admin and viewer
 4. Click "Pause Clock"

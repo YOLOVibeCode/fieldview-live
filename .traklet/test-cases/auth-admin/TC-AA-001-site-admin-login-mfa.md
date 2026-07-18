@@ -13,7 +13,7 @@ suite: auth-admin
 
 {traklet:section:objective}
 ## Objective
-Verify console admin can authenticate including MFA/TOTP step and reach the admin console. Distinct from **TC-AD-001** (direct-stream producer unlock on `/direct/...`).
+Verify console admin can authenticate including MFA/TOTP step and reach the admin console. Distinct from **TC-AD-001** (direct-stream producer unlock on `https://fieldview.live/direct/...`).
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,10 +24,10 @@ Verify console admin can authenticate including MFA/TOTP step and reach the admi
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/login` (or current admin entry URL)
+1. Navigate to `https://fieldview.live/admin/login` (or current admin entry URL)
 2. Submit primary credentials
 3. When prompted, enter MFA code
-4. Confirm arrival at console home (e.g. `/admin/console` or equivalent)
+4. Confirm arrival at console home (e.g. `https://fieldview.live/admin/console` or equivalent)
 {/traklet:section:steps}
 
 {traklet:section:expected-result}
