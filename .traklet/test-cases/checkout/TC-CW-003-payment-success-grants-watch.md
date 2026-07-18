@@ -25,7 +25,7 @@ End-to-end: after successful Square payment (or test webhook path), viewer can w
 {traklet:section:steps}
 ## Steps
 1. Run checkout through TC-CW-002 until payment succeeds
-2. Land on success or return URL (`/checkout/.../success` pattern if used)
+2. Land on success or return URL (`https://fieldview.live/checkout/.../success` pattern if used)
 3. Navigate to watch/game page as instructed
 4. Confirm player area visible; HLS or Mux playback starts (may take a few seconds)
 {/traklet:section:steps}

@@ -25,7 +25,7 @@ Verify an owner can archive an active direct stream, which changes its status ba
 
 {traklet:section:steps}
 ## Steps
-1. On `/owners/direct-streams` with "Active" filter selected
+1. On `https://fieldview.live/owners/direct-streams` with "Active" filter selected
 2. Click "Archive" button on a stream row
 3. Verify `POST /api/owners/direct-streams/:id/archive` is called
 4. Verify the stream disappears from the active list (or status badge changes to yellow)

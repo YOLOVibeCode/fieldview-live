@@ -23,7 +23,7 @@ Bad codes do not grant playback; user sees actionable error (403/404 messaging p
 
 {traklet:section:steps}
 ## Steps
-1. Open watch URL with garbage `code`
+1. Open `https://fieldview.live/watch/[org]/[team]/invalid-code` with a garbage/expired code
 2. Observe HTTP status (if full page) or inline error component
 3. Retry with known-expired code if available
 {/traklet:section:steps}

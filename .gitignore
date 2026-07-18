@@ -35,3 +35,13 @@ prisma/migrations/
 # These directories contain backups and temporary files from devibe
 .devibe/
 .unvibe/
+
+# Veo PoC artifacts (contain a Mux stream key — never commit)
+veo-poc-output/
+
+# Playwright / test run output (generated — never commit)
+test-results/
+playwright-report/
+
+# Editor workspace files
+*.code-workspace

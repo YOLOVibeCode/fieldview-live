@@ -13,7 +13,7 @@ suite: account
 
 {traklet:section:objective}
 ## Objective
-Verify an authenticated viewer can edit their first/last name on the `/account` page, and that guest accounts have profile editing disabled.
+Verify an authenticated viewer can edit their first/last name on the `https://fieldview.live/account` page, and that guest accounts have profile editing disabled.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ Verify an authenticated viewer can edit their first/last name on the `/account` 
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/account`
+1. Navigate to `https://fieldview.live/account`
 2. Verify profile section shows current name and email
 3. Edit first name and last name fields
 4. Click save — verify `PATCH /api/public/viewer/{id}` is called

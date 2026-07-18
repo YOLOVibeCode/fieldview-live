@@ -22,9 +22,9 @@ After owner login, dashboard summarizes games and financial snapshot without bla
 
 {traklet:section:steps}
 ## Steps
-1. Open `/owners/dashboard`
+1. Open `https://fieldview.live/owners/dashboard`
 2. Verify games list or empty state renders
-3. Open revenue section if separate; check Network for failed `/api` calls
+3. Open revenue section if separate; check Network for failed `https://fieldview.live/api` calls
 {/traklet:section:steps}
 
 {traklet:section:expected-result}

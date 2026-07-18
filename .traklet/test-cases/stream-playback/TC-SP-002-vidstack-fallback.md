@@ -23,7 +23,7 @@ Verify that non-Mux streams (BYO HLS) fall back to VidstackPlayer and play corre
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/direct/<slug>` for a BYO HLS stream
+1. Navigate to `https://fieldview.live/direct/[slug]` for a BYO HLS stream
 2. Wait for bootstrap API to return `streamProvider` != `mux_managed`
 3. Observe the video player
 4. Test play/pause, seek, and fullscreen controls

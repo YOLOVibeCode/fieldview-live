@@ -24,7 +24,7 @@ Verify clicking the registrations count link on a stream row opens a modal showi
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/superadmin/direct-streams`
+1. Navigate to `https://fieldview.live/superadmin/direct-streams`
 2. Find a stream row with a registrations count link (`btn-registrations-{slug}`)
 3. Click the registrations count link
 4. Verify modal appears (`modal-registrations`)

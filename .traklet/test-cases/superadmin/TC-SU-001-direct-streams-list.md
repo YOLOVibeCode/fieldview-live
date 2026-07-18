@@ -12,7 +12,7 @@ suite: superadmin
 
 {traklet:section:objective}
 ## Objective
-Users with superadmin role can open direct stream management (`/superadmin/direct-streams` or current) and list/search without error.
+Users with superadmin role can open direct stream management (`https://fieldview.live/superadmin/direct-streams` or current) and list/search without error.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ Users with superadmin role can open direct stream management (`/superadmin/direc
 {traklet:section:steps}
 ## Steps
 1. Authenticate as superadmin
-2. Open direct streams admin view
+2. Navigate to `https://fieldview.live/superadmin/direct-streams`
 3. Scroll / search if UI supports it
 4. Open one row detail or edit if available (non-destructive)
 {/traklet:section:steps}

@@ -13,7 +13,7 @@ suite: owner-portal
 
 {traklet:section:objective}
 ## Objective
-Verify the `/owners/watch-links` page lists the owner's organizations with their nested channels, showing stream type, access mode, and clickable watch link previews.
+Verify the `https://fieldview.live/owners/watch-links` page lists the owner's organizations with their nested channels, showing stream type, access mode, and clickable watch link previews.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,12 +24,12 @@ Verify the `/owners/watch-links` page lists the owner's organizations with their
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/owners/watch-links`
+1. Navigate to `https://fieldview.live/owners/watch-links`
 2. Verify org cards load from `GET /api/owners/me/watch-links/orgs`
 3. Each org card shows name and shortName
 4. Each channel row shows: teamSlug, displayName, stream type, access mode (Free / $X.XX)
-5. Verify watch link preview `/watch/{org}/{team}` is a clickable link (opens in new tab)
-6. Verify "+ Create New Watch Link" button links to `/owners/watch-links/new`
+5. Verify watch link preview `https://fieldview.live/watch/{org}/{team}` is a clickable link (opens in new tab)
+6. Verify "+ Create New Watch Link" button links to `https://fieldview.live/owners/watch-links/new`
 7. If no orgs: verify empty state message
 {/traklet:section:steps}
 
@@ -52,5 +52,5 @@ _Not yet tested._
 
 {traklet:section:notes}
 ## Notes
-Dashboard "Watch Links" card now links here instead of `/owners/watch-links/new`.
+Dashboard "Watch Links" card now links here instead of `https://fieldview.live/owners/watch-links/new`.
 {/traklet:section:notes}

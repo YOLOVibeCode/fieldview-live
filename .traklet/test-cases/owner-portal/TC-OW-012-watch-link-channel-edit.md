@@ -24,7 +24,7 @@ Verify an owner can expand a channel row to edit its stream URL and access mode 
 
 {traklet:section:steps}
 ## Steps
-1. On `/owners/watch-links`, click a channel row
+1. On `https://fieldview.live/owners/watch-links`, click a channel row
 2. Verify inline edit form expands with stream URL input and access mode dropdown
 3. Paste a Mux URL (`stream.mux.com/xxx`) — verify auto-detection note
 4. Change access mode from "Free" to "Pay Per View" — verify price input appears

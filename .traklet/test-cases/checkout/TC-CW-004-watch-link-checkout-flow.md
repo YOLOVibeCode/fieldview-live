@@ -13,7 +13,7 @@ suite: checkout
 
 {traklet:section:objective}
 ## Objective
-Verify the `/watch/{org}/{team}` paid checkout flow — distinct from the game checkout — collects viewer info, shows price, and proceeds to Square payment.
+Verify the `https://fieldview.live/watch/{org}/{team}` paid checkout flow — distinct from the game checkout — collects viewer info, shows price, and proceeds to Square payment.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,7 +24,7 @@ Verify the `/watch/{org}/{team}` paid checkout flow — distinct from the game c
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/watch/{org}/{team}` for a paid channel
+1. Navigate to `https://fieldview.live/watch/{org}/{team}` for a paid channel
 2. Verify paywall view shows: price display, email/phone form, optional reminder checkbox
 3. Verify calendar integration buttons (Google, Outlook, iCal) if stream is scheduled
 4. Enter email and phone number

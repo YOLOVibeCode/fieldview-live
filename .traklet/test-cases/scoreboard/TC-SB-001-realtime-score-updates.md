@@ -25,7 +25,7 @@ Verify that scoreboard changes made by the producer are pushed to all viewers in
 
 {traklet:section:steps}
 ## Steps
-1. Open the stream as a viewer in one window
+1. Open `https://fieldview.live/direct/[slug]` as a viewer in one window
 2. Open the admin panel in another window (unlock with owner password)
 3. Update the home team score via the admin panel
 4. Observe the viewer's scoreboard overlay

@@ -27,7 +27,7 @@ Verify that a support_admin sees masked viewer emails (e.g. `jo***@example.com`)
 {traklet:section:steps}
 ## Steps
 1. Login as support_admin
-2. Navigate to a game audience page (`/admin/owners/{ownerId}/games/{gameId}/audience`)
+2. Navigate to a game audience page (`https://fieldview.live/admin/owners/{ownerId}/games/{gameId}/audience`)
 3. Verify purchaser and watcher emails are masked (pattern: first 2 chars + `***` + last portion)
 4. Note the masked email format
 5. Logout

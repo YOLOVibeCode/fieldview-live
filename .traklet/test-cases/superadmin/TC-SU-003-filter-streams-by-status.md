@@ -24,7 +24,7 @@ Verify the status dropdown filter on the direct streams console correctly filter
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/superadmin/direct-streams`
+1. Navigate to `https://fieldview.live/superadmin/direct-streams`
 2. Confirm default filter is "Active" (`select-status-filter`)
 3. Verify table shows only active streams (count label matches rows)
 4. Change filter to "Archived"

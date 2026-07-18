@@ -13,7 +13,7 @@ suite: account
 
 {traklet:section:objective}
 ## Objective
-Verify the `/reset-password` page validates the reset token, enforces password strength requirements, and allows setting a new password that works for subsequent login.
+Verify the `https://fieldview.live/reset-password` page validates the reset token, enforces password strength requirements, and allows setting a new password that works for subsequent login.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,7 +24,7 @@ Verify the `/reset-password` page validates the reset token, enforces password s
 
 {traklet:section:steps}
 ## Steps
-1. Click the reset link from the email (navigates to `/reset-password?token=...`)
+1. Click the reset link from the email (navigates to `https://fieldview.live/reset-password?token=...`)
 2. Verify token is validated (`GET /api/auth/password-reset/verify/{token}`)
 3. Verify password form appears with strength indicator and requirements checklist
 4. Enter a weak password — verify requirements checklist shows unmet criteria

@@ -13,7 +13,7 @@ suite: account
 
 {traklet:section:objective}
 ## Objective
-Verify the `/account` page shows the viewer's payment history with expandable receipt details.
+Verify the `https://fieldview.live/account` page shows the viewer's payment history with expandable receipt details.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ Verify the `/account` page shows the viewer's payment history with expandable re
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/account`
+1. Navigate to `https://fieldview.live/account`
 2. Verify Payment History section loads (`GET /api/public/viewer/{id}/purchases`)
 3. Verify each purchase shows game/stream name and date
 4. Click to expand a purchase receipt

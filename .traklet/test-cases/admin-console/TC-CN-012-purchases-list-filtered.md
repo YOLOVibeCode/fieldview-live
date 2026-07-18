@@ -13,7 +13,7 @@ suite: admin-console
 
 {traklet:section:objective}
 ## Objective
-Verify the `/admin/purchases` page lists all purchases with date range, status, and org filters, showing payout breakdown (gross, fees, net) and pagination.
+Verify the `https://fieldview.live/admin/purchases` page lists all purchases with date range, status, and org filters, showing payout breakdown (gross, fees, net) and pagination.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,13 +24,13 @@ Verify the `/admin/purchases` page lists all purchases with date range, status, 
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/purchases`
+1. Navigate to `https://fieldview.live/admin/purchases`
 2. Verify filter card loads with date range, status dropdown, org search input
 3. Verify table loads with purchases showing: date, viewer, game, status badge, gross, fees, net
 4. Apply status filter "paid" — verify table re-renders with only paid purchases
 5. Set a date range — click "Apply Filters" — verify filtered results
 6. Enter an org short name — apply — verify filtered by organization
-7. Click a purchase row — verify navigation to `/admin/purchases/:id` (existing detail page)
+7. Click a purchase row — verify navigation to `https://fieldview.live/admin/purchases/:id` (existing detail page)
 8. Test pagination with Previous/Next buttons
 9. Verify "Purchases" nav link appears in header alongside Console, Revenue, Coupons
 {/traklet:section:steps}

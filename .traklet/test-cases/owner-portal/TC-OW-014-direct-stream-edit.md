@@ -24,7 +24,7 @@ Verify an owner can expand a stream row to edit its title, stream URL, scheduled
 
 {traklet:section:steps}
 ## Steps
-1. On `/owners/direct-streams`, click a stream row
+1. On `https://fieldview.live/owners/direct-streams`, click a stream row
 2. Verify inline edit form expands with pre-filled values
 3. Change the title
 4. Toggle chat, scoreboard, paywall, and listed checkboxes

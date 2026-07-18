@@ -25,7 +25,7 @@ Verify an owner can delete a game via the Delete button, with a confirmation mod
 
 {traklet:section:steps}
 ## Steps
-1. On `/owners/games`, click "Delete" button on a game row
+1. On `https://fieldview.live/owners/games`, click "Delete" button on a game row
 2. Verify confirmation modal appears with warning text ("cannot be undone")
 3. Click "Cancel" — verify modal closes, game still in table
 4. Click "Delete" again, then confirm in modal

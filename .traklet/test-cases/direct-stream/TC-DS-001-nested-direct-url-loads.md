@@ -12,7 +12,7 @@ suite: direct-stream
 
 {traklet:section:objective}
 ## Objective
-Paths like `/direct/{slug}/...` with additional segments (e.g. multi-game schedule) resolve, fetch bootstrap JSON, and render layout — complements **TC-SP-001** which focuses on player start.
+Paths like `https://fieldview.live/direct/{slug}/...` with additional segments (e.g. multi-game schedule) resolve, fetch bootstrap JSON, and render layout — complements **TC-SP-001** which focuses on player start.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ Paths like `/direct/{slug}/...` with additional segments (e.g. multi-game schedu
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to full nested path
+1. Navigate to `https://fieldview.live/direct/[slug]/[event-slug]` (full nested URL)
 2. Wait for layout (admin FAB, scoreboard shell, player region)
 3. In Network, confirm direct-stream bootstrap/API calls return 200
 4. Regression: open admin panel per **TC-AD-001**

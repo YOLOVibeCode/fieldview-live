@@ -12,7 +12,7 @@ suite: account
 
 {traklet:section:objective}
 ## Objective
-Forgot-password flow delivers reset link (or error if unknown email) and `/reset-password` completes with new credential.
+Forgot-password flow delivers reset link (or error if unknown email) and `https://fieldview.live/reset-password` completes with new credential.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,10 +23,10 @@ Forgot-password flow delivers reset link (or error if unknown email) and `/reset
 
 {traklet:section:steps}
 ## Steps
-1. Open `/forgot-password`
+1. Open `https://fieldview.live/forgot-password`
 2. Submit owner email
 3. Open reset link token from email (or capture from dev mail sink)
-4. Set new password on `/reset-password`
+4. Set new password on `https://fieldview.live/reset-password`
 5. Login with new password (**TC-OA-001** path)
 {/traklet:section:steps}
 

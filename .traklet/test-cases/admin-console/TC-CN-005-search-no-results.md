@@ -23,7 +23,7 @@ Verify that searching for a query with no matches displays appropriate empty sta
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/console`
+1. Navigate to `https://fieldview.live/admin/console`
 2. Enter a query guaranteed to have no matches (e.g. `zzz-nonexistent-12345@fake.test`)
 3. Click "Search" or press Enter
 4. Verify search completes without error (no error banner)

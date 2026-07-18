@@ -25,7 +25,7 @@ Verify the game audience page displays purchasers, watchers, and purchase-to-wat
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/owners/{ownerId}/games/{gameId}/audience`
+1. Navigate to `https://fieldview.live/admin/owners/{ownerId}/games/{gameId}/audience`
 2. Verify page header shows "Audience" with owner/game IDs
 3. Verify Purchasers card:
    - Shows "Purchase→watch conversion: X.X%"
@@ -34,7 +34,7 @@ Verify the game audience page displays purchasers, watchers, and purchase-to-wat
 4. Verify Watchers card:
    - Lists watchers with email, last watched date (or "—"), session count
    - Or shows "No watchers." empty state
-5. Click "Back" button — verify return to `/admin/console`
+5. Click "Back" button — verify return to `https://fieldview.live/admin/console`
 {/traklet:section:steps}
 
 {traklet:section:expected-result}

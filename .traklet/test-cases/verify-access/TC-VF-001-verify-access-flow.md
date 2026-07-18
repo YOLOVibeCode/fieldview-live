@@ -12,7 +12,7 @@ suite: verify-access
 
 {traklet:section:objective}
 ## Objective
-`/verify-access` (or current path) correctly validates emailed or shared tokens and redirects to the watch experience without breaking purchase state.
+`https://fieldview.live/verify-access` (or current path) correctly validates emailed or shared tokens and redirects to the watch experience without breaking purchase state.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -22,7 +22,7 @@ suite: verify-access
 
 {traklet:section:steps}
 ## Steps
-1. Paste magic link or open from email on target device
+1. Paste magic link or open from email — lands on `https://fieldview.live/verify-access?token=...`
 2. Complete any on-page confirm step
 3. Confirm redirect to game/watch and player accessible
 4. Try reusing same token in new session — expect one-time failure if designed

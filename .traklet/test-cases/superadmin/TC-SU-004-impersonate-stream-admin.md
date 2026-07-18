@@ -25,12 +25,12 @@ Verify a superadmin can impersonate a stream's admin by clicking the Impersonate
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/superadmin/direct-streams`
+1. Navigate to `https://fieldview.live/superadmin/direct-streams`
 2. Locate an active stream row
 3. Click "Impersonate Admin" button (`btn-impersonate-{slug}`)
 4. Verify API call: `POST /api/admin/direct-streams/{slug}/impersonate` returns 200
 5. Verify `admin_token_{slug}` is set in localStorage
-6. Verify a new tab opens to `/{slug}`
+6. Verify a new tab opens to `https://fieldview.live/direct/[slug]`
 7. In the new tab, confirm admin panel is unlocked (producer controls visible without needing to enter password)
 {/traklet:section:steps}
 

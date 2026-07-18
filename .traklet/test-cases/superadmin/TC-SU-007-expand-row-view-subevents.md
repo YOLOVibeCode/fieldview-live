@@ -24,7 +24,7 @@ Verify clicking the expand toggle on a stream row loads the EventManagement comp
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/superadmin/direct-streams`
+1. Navigate to `https://fieldview.live/superadmin/direct-streams`
 2. Click the expand button on a stream row (`btn-expand-{slug}`)
 3. Verify the icon changes from "▶" to "▼"
 4. Verify EventManagement component loads below the row (`row-event-{slug}`)
@@ -54,5 +54,5 @@ _Not yet tested._
 
 {traklet:section:notes}
 ## Notes
-Event slug links should open `/direct/{parentSlug}/{eventSlug}` in a new tab.
+Event slug links should open `https://fieldview.live/direct/{parentSlug}/{eventSlug}` in a new tab.
 {/traklet:section:notes}
