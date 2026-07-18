@@ -7,15 +7,15 @@ FieldView.Live now has a unified version management system that:
 - Automatically bumps versions on deployment
 - Creates git tags for significant releases
 - Displays version in the UI (lower right corner)
-- Provides API endpoint for version checking
+- API endpoint for version checking (not yet implemented)
 
 ## Current Version
 
-**1.2.3.005**
+**1.3.0.003**
 
 ## Version Format
 
-- **Major.Minor.Patch.Build** (e.g., `1.2.3.005`)
+- **Major.Minor.Patch.Build** (e.g., `1.3.0.003`)
 - Major: Breaking changes
 - Minor: New features, backward compatible
 - Patch: Bug fixes
@@ -32,7 +32,7 @@ FieldView.Live now has a unified version management system that:
 ### Set Version Explicitly
 
 ```bash
-./scripts/version-manager.sh set 1.2.3.005
+./scripts/version-manager.sh set 1.3.0.003
 ```
 
 ### Bump Version
@@ -47,7 +47,7 @@ FieldView.Live now has a unified version management system that:
 # Major bump (1.2.3 -> 2.0.0)
 ./scripts/version-manager.sh major
 
-# Build bump (1.2.3.005 -> 1.2.3.006)
+# Build bump (1.3.0.003 -> 1.3.0.004)
 ./scripts/version-manager.sh build
 ```
 
@@ -71,30 +71,19 @@ This script will:
 Version is displayed in the **lower right corner** of all pages:
 - Component: `apps/web/components/VersionDisplay.tsx`
 - Position: Fixed bottom-right
-- Format: `v1.2.3.005`
+- Format: `v1.3.0.003`
 - Styling: Subtle, non-intrusive
 
 ### API Endpoint
 
-```bash
-GET /api/version
-```
-
-Response:
-```json
-{
-  "version": "1.2.3.005",
-  "service": "api",
-  "timestamp": "2026-01-22T20:00:00.000Z"
-}
-```
+> **Not implemented.** There is currently no `GET /api/version` endpoint, and the referenced `apps/api/src/routes/version.ts` file does not exist. The version is surfaced only through the web UI via `NEXT_PUBLIC_APP_VERSION` (see below). The closest live endpoint, `GET /api/health` (`apps/api/src/routes/health.ts`), returns service status and a timestamp but not the application version.
 
 ## Files
 
 - `scripts/version-manager.sh` - Version management script
 - `scripts/deploy-to-production.sh` - Deployment script with versioning
 - `apps/web/components/VersionDisplay.tsx` - UI version display
-- `apps/api/src/routes/version.ts` - API version endpoint
+- `apps/api/src/routes/version.ts` - API version endpoint (not yet implemented — file does not exist)
 - `apps/api/package.json` - API version
 - `apps/web/package.json` - Web version
 - `package.json` - Root version (for consistency)
@@ -131,7 +120,7 @@ To verify versions match:
 jq -r '.version' apps/api/package.json apps/web/package.json package.json
 
 # Should output:
-# 1.2.3.005
-# 1.2.3.005
-# 1.2.3.005
+# 1.3.0.003
+# 1.3.0.003
+# 1.3.0.003
 ```

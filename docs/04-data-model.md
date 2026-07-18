@@ -20,7 +20,7 @@ Game 0—N SMSMessage (inbound/outbound)
 ## Entities
 
 ### OwnerAccount
-- **Fields**: `id`, `type` (owner|association), `name`, `status` (active|suspended|pending_verification), `contactEmail`, `payoutProviderRef` (Stripe Connect account ID), `createdAt`, `updatedAt`
+- **Fields**: `id`, `type` (owner|association), `name`, `status` (active|suspended|pending_verification), `contactEmail`, `payoutProviderRef` (Square merchant_id), `createdAt`, `updatedAt`
 - **Notes**:
   - Status supports: `active`, `suspended`, `pending_verification`
   - `payoutProviderRef` is required before first game creation
@@ -100,9 +100,9 @@ Game 0—N SMSMessage (inbound/outbound)
   - Used for owner dashboard calculations and payout reconciliation
 
 ### Payout
-- **Fields**: `id`, `ownerAccountId`, `amountCents`, `currency`, `status` (pending|processing|completed|failed), `payoutProviderRef` (Stripe transfer ID), `ledgerEntryIds` (array), `createdAt`, `processedAt`, `completedAt`
+- **Fields**: `id`, `ownerAccountId`, `amountCents`, `currency`, `status` (pending|processing|completed|failed), `payoutProviderRef` (Square transfer ID), `ledgerEntryIds` (array), `createdAt`, `processedAt`, `completedAt`
 - **Notes**:
-  - Represents a transfer to owner's Stripe Connect account
+  - Represents a transfer to owner's connected Square account
   - `ledgerEntryIds` links to ledger entries included in this payout
   - Payouts are batched (e.g., weekly) or on-demand (configurable)
 

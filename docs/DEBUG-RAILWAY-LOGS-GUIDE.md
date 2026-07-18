@@ -34,18 +34,20 @@ apt install lnav   # Linux
 
 ### 2. Download and Debug Logs
 
+> **Note:** `debug-railway-logs.sh` now lives under `scripts/_archive/`. Invoke it with the archived path shown below. (`install-lnav.sh` remains at `scripts/`.)
+
 ```bash
 # Get 1000 lines of API logs, open in lnav
-./scripts/debug-railway-logs.sh api 1000
+./scripts/_archive/debug-railway-logs.sh api 1000
 
 # Get errors only
-./scripts/debug-railway-logs.sh api 500 --errors-only
+./scripts/_archive/debug-railway-logs.sh api 500 --errors-only
 
 # Search for specific term
-./scripts/debug-railway-logs.sh api 2000 --search "unlock"
+./scripts/_archive/debug-railway-logs.sh api 2000 --search "unlock"
 
 # Get all services
-./scripts/debug-railway-logs.sh all 1000
+./scripts/_archive/debug-railway-logs.sh all 1000
 ```
 
 ---
@@ -55,7 +57,7 @@ apt install lnav   # Linux
 ### Example 1: Basic Debugging
 
 ```bash
-./scripts/debug-railway-logs.sh api 1000
+./scripts/_archive/debug-railway-logs.sh api 1000
 ```
 
 **What happens:**
@@ -71,7 +73,7 @@ apt install lnav   # Linux
 ### Example 2: Error-Only Analysis
 
 ```bash
-./scripts/debug-railway-logs.sh api 5000 --errors-only
+./scripts/_archive/debug-railway-logs.sh api 5000 --errors-only
 ```
 
 **What happens:**
@@ -87,7 +89,7 @@ apt install lnav   # Linux
 ### Example 3: Search for Specific Issue
 
 ```bash
-./scripts/debug-railway-logs.sh api 2000 --search "PrismaClient"
+./scripts/_archive/debug-railway-logs.sh api 2000 --search "PrismaClient"
 ```
 
 **What happens:**
@@ -102,7 +104,7 @@ apt install lnav   # Linux
 ### Example 4: Download Only (No lnav)
 
 ```bash
-./scripts/debug-railway-logs.sh api 1000 --no-lnav
+./scripts/_archive/debug-railway-logs.sh api 1000 --no-lnav
 ```
 
 **What happens:**
@@ -203,7 +205,7 @@ Press `/` to search:
 
 ```bash
 # 1. Download recent logs
-./scripts/debug-railway-logs.sh api 1000 --errors-only
+./scripts/_archive/debug-railway-logs.sh api 1000 --errors-only
 
 # 2. In lnav, press ; and run:
 SELECT * FROM log 
@@ -217,7 +219,7 @@ ORDER BY log_time DESC
 
 ```bash
 # 1. Download logs
-./scripts/debug-railway-logs.sh api 2000 --search "user_123"
+./scripts/_archive/debug-railway-logs.sh api 2000 --search "user_123"
 
 # 2. In lnav, use SQL:
 SELECT log_time, log_body 
@@ -232,7 +234,7 @@ ORDER BY log_time
 
 ```bash
 # 1. Download all logs
-./scripts/debug-railway-logs.sh all 5000
+./scripts/_archive/debug-railway-logs.sh all 5000
 
 # 2. In lnav, filter for deployment:
 :filter-in deploy|deployment|build
@@ -249,7 +251,7 @@ AND log_body LIKE '%error%'
 
 ```bash
 # 1. Download logs
-./scripts/debug-railway-logs.sh api 10000
+./scripts/_archive/debug-railway-logs.sh api 10000
 
 # 2. In lnav, find slow requests:
 SELECT log_body, COUNT(*) as count
@@ -309,7 +311,7 @@ AND (log_body LIKE '%fail%' OR log_body LIKE '%error%')
 ```bash
 # Download multiple time periods
 for i in {1..5}; do
-  ./scripts/debug-railway-logs.sh api 1000 --no-lnav
+  ./scripts/_archive/debug-railway-logs.sh api 1000 --no-lnav
   sleep 60
 done
 
@@ -323,7 +325,7 @@ lnav logs/railway/debug/*.log
 
 ```bash
 # Export filtered logs
-./scripts/debug-railway-logs.sh api 1000 --errors-only --no-lnav
+./scripts/_archive/debug-railway-logs.sh api 1000 --errors-only --no-lnav
 grep "PrismaClient" logs/railway/debug/api-filtered-*.log > prisma-errors.txt
 
 # Pipe to other tools
@@ -343,7 +345,7 @@ lnav logs/railway/debug/api-*.log | grep "error" | wc -l
 ### 2. Start with Errors Only
 
 ```bash
-./scripts/debug-railway-logs.sh api 5000 --errors-only
+./scripts/_archive/debug-railway-logs.sh api 5000 --errors-only
 ```
 
 **Why:** Focuses on problems, not noise
@@ -362,7 +364,7 @@ GROUP BY log_body
 ### 4. Filter Before Downloading
 
 ```bash
-./scripts/debug-railway-logs.sh api 2000 --search "specific_error"
+./scripts/_archive/debug-railway-logs.sh api 2000 --search "specific_error"
 ```
 
 **Why:** Less data to download and analyze

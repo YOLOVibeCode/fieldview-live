@@ -6,6 +6,19 @@
 
 ---
 
+> ⚠️ **Implementation Status — planned spec, NOT yet live in the API**
+>
+> The `/api/auth/password-reset/*` and `/api/auth/viewer-refresh/*` endpoints documented below are **not currently implemented or mounted in the backend API.** Requests to them return `404`. The sections that follow describe the intended contract, not live behavior.
+>
+> Verified state as of this update:
+> - No `/api/auth` router is mounted in `apps/api/src/server.ts`, and no `PasswordResetService` / `ViewerRefreshService` exists under `apps/api/src/services/`.
+> - The `PasswordResetToken` and `ViewerRefreshToken` Prisma models exist in `packages/data-model/prisma/schema.prisma` but are not referenced by any backend code.
+> - `AuthEmailService` (`apps/api/src/lib/authEmailService.ts`) can render the reset/refresh emails, but it is only referenced by its own unit test — no route invokes it.
+> - The frontend pages that call these paths (`apps/web/app/forgot-password`, `apps/web/app/reset-password`, `apps/web/app/verify-access`, `apps/web/app/account`, and `apps/web/components/AccessExpiredOverlay.tsx`) point at the Express API via `NEXT_PUBLIC_API_URL` and currently receive `404`.
+> - Where a consumer does exist, its shape differs from this spec: the frontend verifies tokens with `GET /api/auth/{password-reset,viewer-refresh}/verify/{token}` (token in the path), not the `POST ... /verify` with a JSON body shown below.
+
+---
+
 ## 📋 Table of Contents
 
 1. [Password Reset API](#password-reset-api)
@@ -430,10 +443,7 @@ X-RateLimit-Reset: 1673456789
 
 ### Postman Collection
 
-Import the Postman collection from:
-```
-/docs/postman/authentication-api.json
-```
+> Note: a Postman collection is not yet included in the repo — `docs/postman/authentication-api.json` does not exist.
 
 ### Example Test Flows
 
@@ -460,9 +470,9 @@ curl -X POST https://api.fieldview.live/api/auth/password-reset/confirm \
 ## 📚 Additional Resources
 
 - [User Guide](./USER_GUIDE_AUTHENTICATION.md)
-- [Security Checklist](../SECURITY_CHECKLIST.md)
-- [Error Recovery Guide](../ERROR_RECOVERY_GUIDE.md)
-- [Production Readiness](../PRODUCTION_READINESS_GUIDE.md)
+- [Security Checklist](./SECURITY_CHECKLIST.md)
+- [Error Recovery Guide](./ERROR_RECOVERY_GUIDE.md)
+- [Production Readiness](./PRODUCTION_READINESS_GUIDE.md)
 
 ---
 

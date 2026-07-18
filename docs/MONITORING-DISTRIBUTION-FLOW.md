@@ -28,7 +28,7 @@ Output: terminal, lnav, or logs/railway/debug/
 |--------|---------------------|-----|
 | `check-deployment-status.sh` | Deployment status (list, success/fail) | `railway deployment list` from `apps/api` / `apps/web` |
 | `monitor-deployments-realtime.sh` | Live logs from API and/or Web | `railway logs` from each app dir → pipes → lnav or interleaved stream |
-| `debug-railway-logs.sh` | Log batches or streams | `railway logs [--lines N]` from app dir → file or pipe → lnav |
+| `scripts/_archive/debug-railway-logs.sh` (archived) | Log batches or streams | `railway logs [--lines N]` from app dir → file or pipe → lnav |
 
 ---
 
@@ -70,7 +70,7 @@ Everything that runs `railway` does it from the correct app dir.
 
 ---
 
-## 6. Log distribution – batch/stream (`debug-railway-logs.sh`)
+## 6. Log distribution – batch/stream (`scripts/_archive/debug-railway-logs.sh`, archived)
 
 - **Download:**  
   `(cd "$REPO_ROOT/apps/$service" && railway logs --service "$service" --lines "$lines")`  
@@ -92,7 +92,7 @@ Everything that runs `railway` does it from the correct app dir.
   - Expect “Starting API stream (from apps/api)” and “Starting Web stream (from apps/web)”, then logs (or lnav).  
   - If you see “No linked project”, fix linking in `apps/api` and `apps/web`.
 - **Batch logs:**  
-  `./scripts/debug-railway-logs.sh api 100 --no-lnav`  
+  `./scripts/_archive/debug-railway-logs.sh api 100 --no-lnav`  
   - Expect “Using CLI (from apps/api)” and a new file under `logs/railway/debug/`.
 
 ---

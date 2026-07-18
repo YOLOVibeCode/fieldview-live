@@ -18,7 +18,7 @@ Deterministic refund system based on quality telemetry, with automatic evaluatio
 
 **Implementation**:
 ```typescript
-// apps/web/hooks/useTelemetry.ts
+// apps/web/lib/watch-telemetry.ts (real impl exports createWatchTelemetry(); hook shown for illustration)
 export function useTelemetry(sessionId: string) {
   const [bufferEvents, setBufferEvents] = useState<BufferEvent[]>([]);
   const [fatalErrors, setFatalErrors] = useState<number>(0);
@@ -73,7 +73,7 @@ export function useTelemetry(sessionId: string) {
 
 **Implementation**:
 ```typescript
-// apps/api/src/routes/public.ts
+// apps/api/src/routes/public.watch.ts (router mounted at /api/public in server.ts)
 app.post('/api/public/watch/:token/telemetry', async (req, res) => {
   const { sessionId, events, fatalErrors, totalWatchMs, totalBufferMs } = req.body;
   
@@ -246,52 +246,37 @@ export function evaluateRefundEligibility(
 
 **Job Schedule**: Run evaluation job every 15 minutes, check for purchases in quality window
 
-### Implementation (BullMQ)
+### Implementation (node-cron)
+
+Scheduling uses `node-cron` (v4), registered in `apps/api/src/server.ts` alongside the stream-reminder, auto-purge, and Veo-poll cron jobs. This stack has no Redis/BullMQ — `node-cron` is the only job scheduler.
+
+The per-purchase evaluation and issuance logic already exists in `apps/api/src/services/RefundService.ts` (`evaluateRefundEligibility`, `issueRefund`, `processSquareRefund`). The remaining wiring for this job is the "due purchases" selection query and the cron registration below.
 
 ```typescript
-// apps/api/src/jobs/refundEvaluation.ts
-import { Queue } from 'bullmq';
-import { refundService } from '@/services/RefundService';
+// apps/api/src/server.ts (cron registration; logic in services/RefundService.ts)
+import cron from 'node-cron';
+import { refundService } from './services/RefundService';
 
-const refundQueue = new Queue('refund-evaluation', {
-  connection: { host: process.env.REDIS_HOST, port: 6379 },
-});
+// Every 15 minutes: evaluate purchases whose quality window has closed
+cron.schedule('*/15 * * * *', async () => {
+  // Planned selection query for purchases past their quality window
+  const duePurchases = await purchaseRepository.listPurchasesPastQualityWindow();
 
-// Schedule evaluation job
-export async function scheduleRefundEvaluation(purchaseId: string, gameEndTime: Date) {
-  const qualityWindowEnd = new Date(gameEndTime.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-  
-  await refundQueue.add(
-    'evaluate-refund',
-    { purchaseId },
-    {
-      delay: qualityWindowEnd.getTime() - Date.now(),
+  for (const purchase of duePurchases) {
+    // Aggregates telemetry and applies deterministic rules (utils/refundCalculator.ts)
+    const evaluation = await refundService.evaluateRefundEligibility(purchase.id);
+
+    if (evaluation.eligible && evaluation.reasonCode && evaluation.appliedRule) {
+      // Creates the Refund record, updates purchase status, calls
+      // processSquareRefund(), and sends the SMS notification
+      await refundService.issueRefund(
+        purchase.id,
+        evaluation.reasonCode,
+        evaluation.telemetrySummary,
+        evaluation.appliedRule,
+        evaluation.ruleVersion
+      );
     }
-  );
-}
-
-// Process evaluation job
-refundQueue.process('evaluate-refund', async (job) => {
-  const { purchaseId } = job.data;
-  
-  // Aggregate telemetry
-  const telemetry = await telemetryService.aggregateTelemetryForPurchase(purchaseId);
-  
-  // Evaluate refund eligibility
-  const purchase = await purchaseRepository.getById(purchaseId);
-  const evaluation = refundService.evaluateRefundEligibility(
-    telemetry,
-    purchase.amountCents
-  );
-  
-  if (evaluation.eligible) {
-    // Issue refund
-    await refundService.issueRefund(
-      purchaseId,
-      evaluation.reasonCode!,
-      telemetry,
-      evaluation.ruleVersion
-    );
   }
 });
 ```

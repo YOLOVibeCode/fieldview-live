@@ -98,7 +98,6 @@ To fully understand and work with this project, follow this systematic approach:
 
 **📖 [Railway MCP Setup Guide](docs/MCP-RAILWAY-SETUP.md)** - Complete setup instructions  
 **📖 [Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md)** - Why MCP is better  
-**📖 [Railway MCP Status](docs/RAILWAY-MCP-STATUS.md)** - Current status and troubleshooting  
 **📖 [Browser MCP Setup](docs/BROWSER-MCP-SETUP.md)** - Visual verification guide
 
 ### 🔍 **STANDARD: Real-Time Railway Logs Debugging (Searchable & Indexed)**
@@ -376,7 +375,6 @@ fieldview-live/
 ### 🔍 Error Investigation & Monitoring
 - **[Railway MCP Setup](docs/MCP-RAILWAY-SETUP.md)** - **STANDARD METHOD** for getting logs/errors quickly
 - **[Railway MCP vs CLI](docs/RAILWAY-MCP-VS-CLI.md)** - Why Railway MCP is better than CLI
-- **[Railway MCP Status](docs/RAILWAY-MCP-STATUS.md)** - Current status and troubleshooting
 - **[Railway MCP Troubleshooting](docs/MCP-RAILWAY-TROUBLESHOOTING.md)** - Fix common issues
 
 ### 🚀 Deployment

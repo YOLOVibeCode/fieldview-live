@@ -192,7 +192,7 @@ Persist recipient on each purchase:
 ## Current State (facts from repo)
 - **Owner auth API exists**: `POST /api/owners/register`, `POST /api/owners/login` (implemented in `apps/api/src/routes/owners.ts`).
 - **Owner JWT**: returned on register/login (7-day expiry in `apps/api/src/services/OwnerAuthService.ts`).
-- **Web UI**: Admin login exists; Owner login/register pages do **not** appear in `apps/web/app/` yet.
+- **Web UI**: Admin login exists; Owner register/login/dashboard pages now exist under `apps/web/app/owners/` (`apps/web/app/owners/register/page.tsx`, `apps/web/app/owners/login/page.tsx`, `apps/web/app/owners/dashboard/page.tsx`), wired to `POST /api/owners/register` / `POST /api/owners/login` and carrying `data-testid` attributes.
 - **OpenAPI gap**: `openapi/paths/owners.yaml` contains `/owners/me` and game endpoints, but does **not** define `/owners/register` or `/owners/login`.
 - **Public pay-to-watch exists (game-scoped)**: `POST /public/games/{gameId}/checkout` → payment processing → entitlement token → `GET /public/watch/{token}` bootstrap (OpenAPI: `openapi/paths/public.yaml`).
 

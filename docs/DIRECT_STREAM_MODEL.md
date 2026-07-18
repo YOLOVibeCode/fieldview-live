@@ -13,26 +13,38 @@ This follows DRY (Don't Repeat Yourself) and ISP (Interface Segregation Principl
 ```
 DirectStreamPageBase (components/DirectStreamPageBase.tsx)
   ↓
-  ├─→ /direct/[slug]/page.tsx (Generic streams)
-  ├─→ /direct/tchs/page.tsx (TCHS main)
-  └─→ /direct/tchs/[date]/[team]/page.tsx (TCHS team-specific)
+  └─→ /direct/[slug]/[[...event]]/page.tsx (all streams: parent + events)
+
+Parallel thin viewer (does NOT use DirectStreamPageBase):
+  /lite/[slug]/[[...event]]/page.tsx → LiteViewer (single <video> + hls.js)
 ```
+
+All direct streams are served by a single catch-all route. The former
+per-stream and TCHS-specific pages (`/direct/[slug]`, `/direct/tchs`,
+`/direct/tchs/[date]/[team]`) were removed and folded into
+`/direct/[slug]/[[...event]]`.
 
 ---
 
 ## Base Component Features
 
 ### Core Functionality
-- ✅ HLS video player with error recovery
-- ✅ Admin stream URL management (password-protected)
+- ✅ StreamPlayer facade (`components/v2/video/StreamPlayer.tsx`) — routes to MuxStreamPlayer for `mux_managed` streams, VidstackPlayer for generic HLS/BYO streams
+- ✅ Admin stream URL management
 - ✅ Real-time chat integration (SSE + JWT)
 - ✅ Fullscreen mode with keyboard shortcuts
-- ✅ Responsive layout (desktop sidebar, mobile stack)
-- ✅ Viewer identity management
+- ✅ Responsive layout (desktop sidebar, mobile stack, portrait tabs)
+- ✅ Viewer identity management (registered + anonymous)
+- ✅ Paywall enforcement, scoreboard, and bookmarks (DVR)
 
 ### Keyboard Shortcuts
-- **F** = Toggle fullscreen
-- **C** = Toggle chat overlay (when fullscreen)
+Handled by `DirectStreamPageBase`:
+- **C** = Toggle chat
+- **S** = Toggle scoreboard
+- **B** = Toggle bookmarks
+- **Escape** = Close open panels
+
+Handled by the underlying Vidstack player: **F** (fullscreen), **Space** (play/pause), **M** (mute), **arrows** (seek).
 
 ### Layout
 - **Desktop**: Video (left) + Chat sidebar (right)
@@ -58,17 +70,13 @@ interface DirectStreamPageConfig {
   headerClassName?: string;       // Custom header styling
   containerClassName?: string;    // Custom container styling
   
-  // Components
-  ChatOverlayComponent?: React.ComponentType; // Custom chat overlay
-  
   // Features
   enableFontSize?: boolean;       // Show font size controls
   fontSizeStorageKey?: string;    // LocalStorage key for font size
-  adminPassword?: string;         // Admin password for editing
   
   // Callbacks
   onBootstrapLoaded?: (bootstrap: Bootstrap) => void;
-  onStreamStatusChange?: (status: 'loading' | 'playing' | 'offline' | 'error') => void;
+  onStreamStatusChange?: (status: 'loading' | 'playing' | 'offline' | 'incoming' | 'error') => void;
 }
 ```
 
@@ -76,90 +84,47 @@ interface DirectStreamPageConfig {
 
 ## Page Implementations
 
-### 1. Generic Direct Stream (`/direct/[slug]`)
+Every slug is served by one catch-all route — there are no per-stream page files. The route reconstructs the full slug from the URL segments, enforces lowercase URLs (redirect) and a single level of nesting (deeper paths 404), then delegates to `DirectStreamPageBase`. Branding/paywall/scoreboard/etc. come from the stream's bootstrap data, not from hard-coded page config.
 
-**File**: `apps/web/app/direct/[slug]/page.tsx`
+### Unified Direct Stream Route (`/direct/[slug]/[[...event]]`)
 
-**Configuration**:
-- Generic branding
-- Default chat overlay (`FullscreenChatOverlay`)
-- Admin password: `admin2026`
-- No font size controls
+**File**: `apps/web/app/direct/[slug]/[[...event]]/page.tsx`
 
-**Usage**:
+**Case 1 — Parent stream** (no event segment, e.g. `/direct/stormfc`):
 ```tsx
 const config: DirectStreamPageConfig = {
-  bootstrapUrl: `/api/direct/${slug}/bootstrap`,
-  updateStreamUrl: `/api/direct/${slug}`,
+  bootstrapUrl: `/api/direct/${encodeURIComponent(fullSlug)}/bootstrap`,
+  updateStreamUrl: `/api/direct/${encodeURIComponent(fullSlug)}`,
   title: `${mainTitle} Live Stream`,
   subtitle: displayName,
   sharePath: `fieldview.live/direct/${slug}/`,
-  adminPassword: 'admin2026',
 };
 
 return <DirectStreamPageBase config={config} />;
 ```
+
+**Case 2 — Event / composite slug** (one segment, e.g. `/direct/tchs/soccer-20260120-jv2`):
+```tsx
+const config: DirectStreamPageConfig = {
+  bootstrapUrl: `/api/direct/${encodeURIComponent(fullSlug)}/bootstrap`,
+  updateStreamUrl: `/api/direct/${encodeURIComponent(fullSlug)}`,
+  title: displayName,
+  subtitle: displayName,
+  sharePath: `fieldview.live/direct/${slug}/${eventSlug}`,
+};
+
+return <DirectStreamPageBase config={config} />;
+```
+
+> The former TCHS-specific routes (`/direct/tchs`, `/direct/tchs/[date]/[team]`) and their custom chat overlays / admin passwords were removed (commit `6d3e9e0`, "remove stale TCHS-specific code") and folded into this catch-all route.
 
 ---
 
-### 2. TCHS Main Stream (`/direct/tchs`)
+### Lite Viewer Route (`/lite/[slug]/[[...event]]`)
 
-**File**: `apps/web/app/direct/tchs/page.tsx`
+**File**: `apps/web/app/lite/[slug]/[[...event]]/page.tsx`
 
-**Configuration**:
-- TCHS blue gradient branding
-- TCHS-branded chat overlay (`TchsFullscreenChatOverlay`)
-- Font size controls enabled
-- Admin password from env (`NEXT_PUBLIC_TCHS_ADMIN_PASSWORD`)
-
-**Usage**:
-```tsx
-const config: DirectStreamPageConfig = {
-  bootstrapUrl: `/api/direct/tchs/bootstrap`,
-  updateStreamUrl: `/api/direct/tchs`,
-  title: 'TCHS Live Stream',
-  subtitle: 'Twin Cities High School',
-  sharePath: 'fieldview.live/direct/tchs/',
-  headerClassName: 'bg-gradient-to-r from-blue-900 to-blue-800',
-  ChatOverlayComponent: TchsFullscreenChatOverlay,
-  enableFontSize: true,
-  fontSizeStorageKey: 'tchs_chat_font_size',
-  adminPassword: ADMIN_PASSWORD,
-};
-
-return <DirectStreamPageBase config={config} />;
-```
-
----
-
-### 3. TCHS Team-Specific (`/direct/tchs/[date]/[team]`)
-
-**File**: `apps/web/app/direct/tchs/[date]/[team]/page.tsx`
-
-**Configuration**:
-- Same as TCHS main, but with dynamic routing
-- Date/team-specific bootstrap endpoint
-- Custom title formatting
-
-**Usage**:
-```tsx
-const streamKey = buildTchsStreamKey({ date: params.date, team: params.team });
-
-const config: DirectStreamPageConfig = {
-  bootstrapUrl: `/api/tchs/${streamKey}/bootstrap`,
-  updateStreamUrl: `/api/tchs/${streamKey}`,
-  title: `TCHS ${displayTeamName}`,
-  subtitle: `Live Stream • ${params.date}`,
-  sharePath: `fieldview.live/direct/tchs/${params.date}/${params.team}`,
-  headerClassName: 'bg-gradient-to-r from-blue-900 to-blue-800',
-  ChatOverlayComponent: TchsFullscreenChatOverlay,
-  enableFontSize: true,
-  fontSizeStorageKey: 'tchs_chat_font_size',
-  adminPassword: ADMIN_PASSWORD,
-};
-
-return <DirectStreamPageBase config={config} />;
-```
+A parallel proof-of-concept route that reuses the identical bootstrap-URL builder but renders the thin `LiteViewer` (single `<video>` + hls.js, wrapper-owned fullscreen) instead of `DirectStreamPageBase`. The `/direct` route is untouched by it.
 
 ---
 
@@ -187,35 +152,13 @@ return <DirectStreamPageBase config={config} />;
 
 ---
 
-## Adding a New Stream Page
+## Adding a New Stream
 
-To create a new direct stream page:
-
-1. **Create the page file** (e.g., `apps/web/app/direct/newstream/page.tsx`)
-
-2. **Configure and render**:
-```tsx
-'use client';
-
-import { DirectStreamPageBase, type DirectStreamPageConfig } from '@/components/DirectStreamPageBase';
-
-export default function NewStreamPage() {
-  const config: DirectStreamPageConfig = {
-    bootstrapUrl: `/api/direct/newstream/bootstrap`,
-    updateStreamUrl: `/api/direct/newstream`,
-    title: 'New Stream',
-    sharePath: 'fieldview.live/direct/newstream/',
-  };
-
-  return <DirectStreamPageBase config={config} />;
-}
-```
-
-3. **Done!** The page now has:
-   - ✅ Video player
-   - ✅ Chat integration
+Because every slug is served by the catch-all `/direct/[slug]/[[...event]]` route, adding a stream no longer requires creating a page file. Provision the stream (its slug + configuration: branding, paywall, scoreboard, chat, etc.) and visiting `/direct/<slug>` renders it through `DirectStreamPageBase` automatically, with:
+   - ✅ Video player (StreamPlayer: Mux or Vidstack)
+   - ✅ Chat integration (registered + anonymous)
    - ✅ Fullscreen mode
-   - ✅ Admin editing
+   - ✅ Scoreboard, bookmarks (DVR), paywall enforcement
    - ✅ Keyboard shortcuts
 
 ---

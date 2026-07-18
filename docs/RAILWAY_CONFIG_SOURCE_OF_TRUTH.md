@@ -50,8 +50,8 @@
 | **Watch Paths** | `apps/api/**`, `packages/data-model/**` |
 | **Auto Deploy** | ✅ **Enabled** |
 | **Builder** | `NIXPACKS` |
-| **Build Command** | `cd ../.. && pnpm install && pnpm --filter @fieldview/data-model db:generate && pnpm --filter @fieldview/data-model build && pnpm --filter api build` |
-| **Start Command** | `node src/scripts/railway-migrate.js && node dist/server.js` |
+| **Build Command** | `cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @fieldview/data-model exec prisma generate --schema=./prisma/schema.prisma && pnpm --filter @fieldview/data-model build && pnpm --filter api build` |
+| **Start Command** | `node dist/server.js` (migrations no longer run at startup) |
 | **Port** | `4301` (auto-detected) |
 | **Health Check** | `/health` |
 | **Health Timeout** | `300s` |
@@ -226,10 +226,11 @@ NEXT_PUBLIC_TCHS_ADMIN_PASSWORD=tchs2026
 ```toml
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd ../.. && pnpm install && pnpm --filter @fieldview/data-model db:generate && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
+buildCommand = "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @fieldview/data-model exec prisma generate --schema=./prisma/schema.prisma && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
 
 [deploy]
-startCommand = "node src/scripts/railway-migrate.js && node dist/server.js"
+# Temporarily skip migrations to get server running
+startCommand = "node dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
@@ -249,21 +250,12 @@ healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 ```
 
-### `railway.json` (Project-level)
+### Project-level `railway.json`
 
-```json
-{
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "builder": "NIXPACKS"
-  },
-  "deploy": {
-    "numReplicas": 1,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
-}
-```
+There is **no** project-level `railway.json` in this repo. Configuration is defined
+per-service in the `apps/api/railway.toml` and `apps/web/railway.toml` files shown
+above (these are the source of truth). Any project-wide defaults (replicas, restart
+retries) are managed in the Railway dashboard, not in a committed file.
 
 ---
 
@@ -309,8 +301,8 @@ Based on the documentation, you previously had a **`fieldview-live` GitHub integ
 │     - Compile TypeScript                                 │
 │         │                                                │
 │         ▼                                                │
-│  5. Run migrations (API only)                            │
-│     node src/scripts/railway-migrate.js                  │
+│  5. Migrations no longer run at startup                  │
+│     (removed from start cmd; see note below)             │
 │         │                                                │
 │         ▼                                                │
 │  6. Start service(s)                                     │
@@ -358,6 +350,9 @@ Based on the documentation, you previously had a **`fieldview-live` GitHub integ
 3. **Module errors**: Check `pnpm install` runs from root
 
 ### Migration Fails
+
+> **Note**: Migrations are **not** run automatically on deploy — they were removed
+> from the API start command (now just `node dist/server.js`). Run them manually.
 
 1. **Check DATABASE_URL**: Verify Railway variable reference
 2. **Check Postgres is running**: Look at Postgres service status

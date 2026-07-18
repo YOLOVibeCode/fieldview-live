@@ -35,7 +35,7 @@ This document specifies the technology stack, architecture, and implementation a
 │  - Public pages (payment, watch)                                │
 │  - Owner dashboard                                              │
 │  - Admin console                                                 │
-│  - Video player (HLS.js)                                        │
+│  - Video player (Mux Player / Vidstack)                         │
 └───────────────────────────┬───────────────────────────────────────┘
                             │ HTTPS
                             ▼
@@ -137,14 +137,18 @@ Railway Project: fieldview-live
   - Dark mode support
 
 **Video Playback:**
-- **HLS.js** v1+
-  - HLS playback in browser
-  - Adaptive bitrate streaming
-  - Error handling and recovery
-- **Video.js** (alternative)
-  - Full-featured player
-  - Plugin ecosystem
-  - More overhead than HLS.js
+- **@mux/mux-player-react** v3+ (`MuxStreamPlayer`)
+  - Managed player for Mux-hosted streams (`streamProvider = mux_managed`)
+  - Built on Media Chrome; Mux Data analytics automatic
+- **@vidstack/react** v1+ (`VidstackPlayer`)
+  - Fallback player for BYO HLS and non-Mux sources
+  - Adaptive bitrate, custom seek buttons, gestures
+- **hls.js** v1+
+  - Underlying HLS engine used by Vidstack (not used directly)
+  - Adaptive bitrate streaming, error recovery
+- `StreamPlayer` facade (`apps/web/components/v2/video/StreamPlayer.tsx`) routes to
+  MuxStreamPlayer or VidstackPlayer based on `streamProvider`/`muxPlaybackId` from
+  the bootstrap API. (Note: legacy `Video.js` was removed — no longer a dependency.)
 
 **Mobile Optimization:**
 - Responsive design (Tailwind breakpoints)
@@ -194,7 +198,7 @@ Railway Project: fieldview-live
 - **Twilio webhook signature verification**
   - `twilio` SDK for signature validation
 - **Square webhook signature verification**
-  - `squareup` SDK for signature validation
+  - Custom HMAC-SHA256 check (`validateSquareWebhook` in `apps/api/src/lib/square.ts`); the `square` SDK is used for API calls
 
 **Background Jobs:**
 - **BullMQ** v4+
@@ -278,10 +282,10 @@ Railway Project: fieldview-live
   - Marketplace splits (platform fee vs owner earnings)
   - Refunds
   - Payouts to owners
-- **SDK**: `squareup` npm package
-- **Webhooks**: Signature verification required
+- **SDK**: `square` npm package (`SquareClient`, `SquareEnvironment`)
+- **Webhooks**: `POST /api/webhooks/square`; signature verification required
 - **Marketplace Model**: Square Connect (similar to Stripe Connect)
-- **Note**: Specs reference Stripe; Square integration documented in [Square Payment Integration](#8-square-payment-integration)
+- **Note**: The app uses Square exclusively; details in [Square Payment Integration](#8-square-payment-integration)
 
 #### Streaming: AWS MediaLive/CloudFront OR Mux
 **Option A: AWS MediaLive + CloudFront**
@@ -397,7 +401,7 @@ export interface OwnerAccount {
   name: string;
   status: 'active' | 'suspended' | 'pending_verification';
   contactEmail: string;
-  payoutProviderRef?: string; // Square account ID
+  payoutProviderRef?: string; // Square merchant_id (Payout.payoutProviderRef holds the Square transfer id)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -427,7 +431,7 @@ model OwnerAccount {
   name              String
   status            String   // 'active' | 'suspended' | 'pending_verification'
   contactEmail      String
-  payoutProviderRef String?  // Square account ID
+  payoutProviderRef String?  // Square merchant_id
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
@@ -1255,7 +1259,7 @@ PORT=3000
 
 ### Square Connect API Overview
 
-**Note**: Product specifications reference Stripe, but Square is specified. Square Connect provides similar marketplace functionality.
+**Note**: The app uses Square exclusively for payments. Square Connect provides marketplace functionality comparable to Stripe Connect.
 
 ### Square Marketplace Model
 
@@ -1271,16 +1275,20 @@ Square Connect supports marketplace payments similar to Stripe Connect:
 #### 1. Owner Onboarding (Square Connect)
 
 ```typescript
-// apps/api/src/services/SquareService.ts
-import { Client, Environment } from 'squareup';
+// apps/api/src/lib/square.ts  (see also apps/api/src/services/SquareOwnerClientService.ts)
+import { SquareClient, SquareEnvironment } from 'square';
 
 export class SquareService {
-  private client: Client;
+  private client: SquareClient;
 
   constructor() {
-    this.client = new Client({
-      accessToken: process.env.SQUARE_ACCESS_TOKEN!,
-      environment: process.env.SQUARE_ENVIRONMENT as Environment,
+    // Square SDK v43+ uses the `token` parameter (not `accessToken`).
+    this.client = new SquareClient({
+      token: process.env.SQUARE_ACCESS_TOKEN!,
+      environment:
+        process.env.SQUARE_ENVIRONMENT === 'production'
+          ? SquareEnvironment.Production
+          : SquareEnvironment.Sandbox,
     });
   }
 
@@ -1353,20 +1361,17 @@ function calculateMarketplaceSplit(
 #### 4. Webhook Handling
 
 ```typescript
-// apps/api/src/webhooks/square.ts
-import { WebhooksHelper } from 'squareup';
+// apps/api/src/routes/webhooks.square.ts  — route: POST /api/webhooks/square
+import { validateSquareWebhook } from '../lib/square';
 
 export async function handleSquareWebhook(req: Request, res: Response) {
-  const signature = req.headers['x-square-signature'];
+  const signature =
+    (req.headers['x-square-hmacsha256-signature'] as string | undefined) ||
+    (req.headers['x-square-signature'] as string | undefined);
   const body = req.body;
 
-  // Verify webhook signature
-  const isValid = WebhooksHelper.isValidWebhookEventSignature(
-    body,
-    signature,
-    process.env.SQUARE_WEBHOOK_SIGNATURE_KEY!,
-    req.url
-  );
+  // Verify webhook signature: base64(HMAC-SHA256(signatureKey, notificationUrl + body))
+  const isValid = validateSquareWebhook(signature, JSON.stringify(body), webhookUrl);
 
   if (!isValid) {
     return res.status(401).json({ error: 'Invalid signature' });
@@ -1416,34 +1421,36 @@ async processRefund(purchase: Purchase, refundAmountCents: number) {
 |---------|--------|--------|
 | Marketplace Model | Stripe Connect | Square Connect |
 | Application Fee | `application_fee_amount` | `applicationFeeMoney` |
-| Webhook Signature | `stripe-signature` header | `x-square-signature` header |
-| Payment Methods | Stripe Elements | Square Payment Form |
+| Webhook Signature | `stripe-signature` header | `x-square-hmacsha256-signature` header |
+| Payment Methods | Stripe Elements | Square Web Payments SDK |
 | Payouts | Stripe Transfers | Square Transfers |
 
-### Frontend Integration (Square Payment Form)
+### Frontend Integration (Square Web Payments SDK)
+
+The web app loads the Square Web Payments SDK via `<Script>` from `web.squarecdn.com`
+(there is no `@square/*` npm package) and drives Apple Pay / Google Pay one-tap plus a
+card fallback. See `apps/web/components/checkout/SquareWalletPayment.tsx` and
+`apps/web/app/(public)/checkout/[purchaseId]/payment/page.tsx`. Tokenization happens in
+the browser; the token is charged via the existing `POST /purchases/:id/process` endpoint.
 
 ```typescript
-// apps/web/components/PaymentForm.tsx
-import { PaymentForm } from '@square/web-sdk-react';
+// apps/web/components/checkout/SquareWalletPayment.tsx (abridged)
+import Script from 'next/script';
 
-export function CheckoutForm({ gameId, amount }: Props) {
-  const applicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID!;
-  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID!;
+const sdkUrl =
+  env === 'production'
+    ? 'https://web.squarecdn.com/v1/square.js'
+    : 'https://sandbox.web.squarecdn.com/v1/square.js';
 
-  return (
-    <PaymentForm
-      applicationId={applicationId}
-      locationId={locationId}
-      cardTokenizeResponseReceived={async (token) => {
-        // Send token to API
-        const response = await fetch(`/api/public/games/${gameId}/checkout`, {
-          method: 'POST',
-          body: JSON.stringify({ sourceId: token.token }),
-        });
-        // Handle response
-      }}
-    />
-  );
+// <Script src={sdkUrl} onLoad={...} /> loads window.Square, then:
+const payments = window.Square.payments(applicationId, locationId);
+const card = await payments.card();
+await card.attach('#card-container');
+
+// On pay: tokenize, then charge via the API.
+const result = await card.tokenize();
+if (result.status === 'OK') {
+  await apiClient.post(`/purchases/${purchaseId}/process`, { sourceId: result.token });
 }
 ```
 
@@ -2073,7 +2080,7 @@ export async function GET() {
 - TanStack Query (React Query)
 - React Hook Form + Zod
 - Shadcn/ui + Tailwind CSS
-- HLS.js (video playback)
+- @mux/mux-player-react + @vidstack/react (video playback; hls.js as the underlying HLS engine)
 - Vitest + React Testing Library (testing)
 - Playwright (E2E)
 

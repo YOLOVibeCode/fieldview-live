@@ -147,7 +147,7 @@ pnpm --filter web dev
 
 ### 💳 Test 7: Enhanced Paywall Modal
 
-**Objective**: Test paywall with admin message and saved cards
+**Objective**: Test paywall with admin message, saved-card detection, and the inline Square checkout
 
 **Prerequisites**: Enable paywall in admin panel first
 - Set **Paywall Enabled**: ON
@@ -161,27 +161,25 @@ pnpm --filter web dev
 
 **Test Scenario A - New User**:
 1. Fill in email: `newuser@test.com`
-2. Fill in name: `Test User`
-3. Click **"Continue to Payment"**
+2. Fill in first name: `Test`, last name: `User`
+3. Click **"Continue to Payment"** (calls `POST /api/direct/{slug}/checkout` to create the purchase, then advances to the inline checkout step)
 4. Verify custom message is displayed
-5. Check **"Save payment information"** checkbox
-6. (Payment flow is mocked for now)
+5. Complete the real inline Square checkout (no page redirect): a Square-hosted card field renders, plus one-tap **Apple Pay / Google Pay** buttons on supported devices (Apple Pay = Safari/iOS, Google Pay = Chrome/Android). The `SquareWalletPayment` component loads the Square Web Payments SDK.
+6. Enter a Square sandbox test card (`4111 1111 1111 1111`, any future expiry / CVC / ZIP) and click **"Pay $4.99"** — the SDK tokenizes in-browser and charges via `POST /api/public/purchases/{id}/process`; on success the stream unlocks in place.
 
 **Test Scenario B - Returning User**:
 1. Fill in email: `saved-payment@test.com`
-2. Fill in name: `Saved User`
-3. Click **"Continue to Payment"**
-4. Verify **"Saved Payment Found"** message appears
-5. See radio buttons: "Use Saved Card" vs "Use Different Card"
-6. Saved card should be selected by default
+2. Fill in first name: `Saved`, last name: `User`
+3. When a card is already on file for that email, an informational **"Saved Payment Found"** badge (card brand + last four) appears beneath the form — driven by `GET /api/direct/{slug}/payment-methods`
+4. Click **"Continue to Payment"** and complete the charge with the inline Square form as in Scenario A (the badge is informational; the SDK still tokenizes the entered/wallet card)
 
 **Expected Results**:
 - ✅ Modal displays price correctly
 - ✅ Admin custom message is prominent
-- ✅ Saved card detection works
-- ✅ Radio button selection toggles properly
-- ✅ Save payment checkbox appears for new cards
-- ✅ Can navigate back to edit info
+- ✅ Saved-card detection badge appears when a card is on file for the email
+- ✅ Inline Square checkout renders (card field + Apple Pay / Google Pay where supported)
+- ✅ A successful charge unlocks the stream in place
+- ✅ Can navigate back to edit info (the **"Edit"** link)
 
 ---
 
@@ -317,8 +315,8 @@ Use this checklist to verify all features:
 - [ ] Green/red status indicators accurate
 - [ ] Paywall modal appears when enabled
 - [ ] Admin custom message displays
-- [ ] Saved payment detection works
-- [ ] Payment method selection toggles
+- [ ] Saved-payment detection badge works
+- [ ] Inline Square checkout renders and charges successfully (card / Apple Pay / Google Pay)
 - [ ] Email confirmation sent on registration
 - [ ] Email reminder sent before stream
 - [ ] Producer password protection works

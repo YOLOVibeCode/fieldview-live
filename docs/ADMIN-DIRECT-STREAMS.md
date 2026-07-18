@@ -39,6 +39,8 @@ Creates `admin@fieldview.live` with the given password if missing; if the accoun
 
 ## Adding Direct Stream Links
 
+> **Note:** The helper scripts in this section (`add-direct-links-api.sh` and the dated `add-tchs-soccer-*` scripts) were one-off event tooling and have been moved to `scripts/_archive/`; the paths below point there. The dated `add-tchs-soccer-2026-*` scripts describe past Feb-2026 events and are kept for reference only. The API endpoints and the `ensure-super-admin` scripts above remain current.
+
 ### Via API (recommended when API is up)
 
 1. Ensure super admin exists (see above).
@@ -46,10 +48,10 @@ Creates `admin@fieldview.live` with the given password if missing; if the accoun
 
 ```bash
 # Local
-ADMIN_PASSWORD=tchs2026 bash scripts/add-direct-links-api.sh http://localhost:4301 slug1 slug2
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-direct-links-api.sh http://localhost:4301 slug1 slug2
 
 # Production – use API host
-ADMIN_PASSWORD=tchs2026 bash scripts/add-direct-links-api.sh https://api.fieldview.live slug1 slug2
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-direct-links-api.sh https://api.fieldview.live slug1 slug2
 ```
 
 Script prompts for admin password if `ADMIN_PASSWORD` is not set, then:
@@ -62,10 +64,10 @@ Script prompts for admin password if `ADMIN_PASSWORD` is not set, then:
 
 ```bash
 # Local
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260213-api.sh
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260213-api.sh
 
 # Production
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260213-api.sh https://api.fieldview.live
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260213-api.sh https://api.fieldview.live
 ```
 
 Adds (or updates) these slugs with stream admin password `tchs2026`:
@@ -84,10 +86,10 @@ Public URLs:
 
 ```bash
 # Local
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260217-api.sh
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260217-api.sh
 
 # Production
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260217-api.sh https://api.fieldview.live
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260217-api.sh https://api.fieldview.live
 ```
 
 Adds (or updates) these slugs with stream admin password `tchs2026`:
@@ -106,10 +108,10 @@ Public URLs:
 
 ```bash
 # Local
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260220-api.sh
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260220-api.sh
 
 # Production
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260220-api.sh https://api.fieldview.live
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260220-api.sh https://api.fieldview.live
 ```
 
 Adds (or updates) these slugs with stream admin password `tchs2026`:
@@ -128,10 +130,10 @@ Public URLs:
 
 ```bash
 # Local
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260224-api.sh
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260224-api.sh
 
 # Production
-ADMIN_PASSWORD=tchs2026 bash scripts/add-tchs-soccer-20260224-api.sh https://api.fieldview.live
+ADMIN_PASSWORD=tchs2026 bash scripts/_archive/add-tchs-soccer-20260224-api.sh https://api.fieldview.live
 ```
 
 Adds (or updates) these slugs with stream admin password `tchs2026`:
@@ -151,16 +153,16 @@ Public URLs:
 ```bash
 # Local
 export $(grep -v '^#' apps/api/.env | xargs)
-pnpm exec tsx scripts/add-tchs-soccer-20260213.ts   # Feb 13
-pnpm exec tsx scripts/add-tchs-soccer-20260217.ts   # Feb 17
-pnpm exec tsx scripts/add-tchs-soccer-20260220.ts   # Feb 20
-pnpm exec tsx scripts/add-tchs-soccer-20260224.ts   # Feb 24
+pnpm exec tsx scripts/_archive/add-tchs-soccer-20260213.ts   # Feb 13
+pnpm exec tsx scripts/_archive/add-tchs-soccer-20260217.ts   # Feb 17
+pnpm exec tsx scripts/_archive/add-tchs-soccer-20260220.ts   # Feb 20
+pnpm exec tsx scripts/_archive/add-tchs-soccer-20260224.ts   # Feb 24
 
 # Production
-DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260213.ts
-DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260217.ts
-DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260220.ts
-DATABASE_URL="postgresql://..." pnpm exec tsx scripts/add-tchs-soccer-20260224.ts
+DATABASE_URL="postgresql://..." pnpm exec tsx scripts/_archive/add-tchs-soccer-20260213.ts
+DATABASE_URL="postgresql://..." pnpm exec tsx scripts/_archive/add-tchs-soccer-20260217.ts
+DATABASE_URL="postgresql://..." pnpm exec tsx scripts/_archive/add-tchs-soccer-20260220.ts
+DATABASE_URL="postgresql://..." pnpm exec tsx scripts/_archive/add-tchs-soccer-20260224.ts
 ```
 
 Creates/updates the three TCHS direct streams and their linked games; stream admin password is `tchs2026`.

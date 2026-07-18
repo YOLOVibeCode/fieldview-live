@@ -18,7 +18,7 @@
 ### Step 1: Verify Railway MCP is Ready
 
 ```bash
-./scripts/test-railway-mcp.sh
+./scripts/_archive/test-railway-mcp.sh
 ```
 
 **Expected Output:**
@@ -131,7 +131,7 @@ Go to https://fieldview.live/direct/tchs/soccer-20260122-jv2 and verify it loads
 **Scenario:** User reports "Stream not saving"
 
 **Workflow:**
-1. Run: `./scripts/test-railway-mcp.sh` ✅
+1. Run: `./scripts/_archive/test-railway-mcp.sh` ✅
 2. Open Composer (Cmd+I)
 3. Ask: `"Get errors from API service in the last 30 minutes"`
 4. Review filtered error output
@@ -146,7 +146,7 @@ Go to https://fieldview.live/direct/tchs/soccer-20260122-jv2 and verify it loads
 **Scenario:** Just deployed, want to verify it worked
 
 **Workflow:**
-1. Run: `./scripts/test-railway-mcp.sh` ✅
+1. Run: `./scripts/_archive/test-railway-mcp.sh` ✅
 2. Open Composer (Cmd+I)
 3. Ask: `"Show deployment status"`
 4. Ask: `"Get the last 20 lines of API logs"`
@@ -159,7 +159,7 @@ Go to https://fieldview.live/direct/tchs/soccer-20260122-jv2 and verify it loads
 **Scenario:** Database connection errors
 
 **Workflow:**
-1. Run: `./scripts/test-railway-mcp.sh` ✅
+1. Run: `./scripts/_archive/test-railway-mcp.sh` ✅
 2. Open Composer (Cmd+I)
 3. Ask: `"Find database connection errors in API logs"`
 4. Ask: `"Get the DATABASE_URL from production"`
@@ -175,15 +175,15 @@ Go to https://fieldview.live/direct/tchs/soccer-20260122-jv2 and verify it loads
 
 ```bash
 # Get recent logs
-./scripts/railway-logs.sh recent api
-./scripts/railway-logs.sh recent web
+./scripts/_archive/railway-logs.sh recent api
+./scripts/_archive/railway-logs.sh recent web
 
 # Get only errors
-./scripts/railway-logs.sh errors api
-./scripts/railway-logs.sh errors web
+./scripts/_archive/railway-logs.sh errors api
+./scripts/_archive/railway-logs.sh errors web
 
 # Search logs
-./scripts/railway-logs.sh search api "error"
+./scripts/_archive/railway-logs.sh search api "error"
 ```
 
 **⚠️ Warning:** Railway CLI is slow and may timeout. Fix Railway MCP instead.
@@ -196,7 +196,7 @@ Before investigating errors, always:
 
 1. ✅ **Test Railway MCP:**
    ```bash
-   ./scripts/test-railway-mcp.sh
+   ./scripts/_archive/test-railway-mcp.sh
    ```
 
 2. ✅ **Verify you're in the right environment:**
@@ -275,7 +275,7 @@ Before investigating errors, always:
 
 1. **Always test Railway MCP first:**
    ```bash
-   ./scripts/test-railway-mcp.sh
+   ./scripts/_archive/test-railway-mcp.sh
    ```
 
 2. **Use specific queries:**
@@ -299,7 +299,7 @@ Before investigating errors, always:
 
 1. **Run test script:**
    ```bash
-   ./scripts/test-railway-mcp.sh
+   ./scripts/_archive/test-railway-mcp.sh
    ```
 
 2. **Check troubleshooting guide:**
@@ -312,7 +312,7 @@ Before investigating errors, always:
 
 4. **Use fallback:**
    ```bash
-   ./scripts/railway-logs.sh errors api
+   ./scripts/_archive/railway-logs.sh errors api
    ```
 
 ---
@@ -320,7 +320,7 @@ Before investigating errors, always:
 ## Summary
 
 **Standard Workflow:**
-1. `./scripts/test-railway-mcp.sh` ✅
+1. `./scripts/_archive/test-railway-mcp.sh` ✅
 2. Open Composer (Cmd+I)
 3. Ask natural language questions
 4. Get instant, filtered results

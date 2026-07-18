@@ -1,7 +1,7 @@
 # 🔐 Authentication & Account Recovery - Complete Implementation
 
 **Version:** 1.0.0  
-**Status:** ✅ Production Ready  
+**Status:** ⚠️ Partially Implemented — frontend pages + AuthEmailService only; backend API routes, services, and token repositories are not yet built  
 **Last Updated:** January 11, 2026
 
 This document provides an overview of the complete authentication and account recovery implementation for FieldView.Live, including password reset and viewer access refresh workflows.
@@ -91,23 +91,22 @@ This document provides an overview of the complete authentication and account re
 ┌─────────────────────────────────────────────────────────┐
 │                    API (Express.js)                      │
 ├─────────────────────────────────────────────────────────┤
-│  Routes:                                                 │
+│  Routes (frontend-expected; NOT yet in Express API):    │
 │    • POST /api/auth/password-reset/request              │
-│    • POST /api/auth/password-reset/verify               │
+│    • GET  /api/auth/password-reset/verify/:token        │
 │    • POST /api/auth/password-reset/confirm              │
 │    • POST /api/auth/viewer-refresh/request              │
-│    • POST /api/auth/viewer-refresh/verify               │
-│                                                          │
-│  Services:                                               │
-│    • PasswordResetService                               │
-│    • ViewerRefreshService                               │
-│    • AuthEmailService                                   │
-│                                                          │
-│  Repositories:                                           │
-│    • PasswordResetTokenRepository                       │
-│    • ViewerRefreshTokenRepository                       │
-│    • ViewerIdentityRepository                           │
-│    • DirectStreamRepository                             │
+│    • GET  /api/auth/viewer-refresh/verify/:token        │
+│                                                         │
+│  Services:                                              │
+│    • AuthEmailService  (lib/authEmailService.ts)        │
+│    • PasswordResetService  (NOT BUILT)                  │
+│    • ViewerRefreshService  (NOT BUILT)                  │
+│                                                         │
+│  Repositories:                                          │
+│    • ViewerIdentityRepository  (exists)                 │
+│    • PasswordResetTokenRepository  (NOT BUILT)          │
+│    • ViewerRefreshTokenRepository  (NOT BUILT)          │
 └─────────────────────────────────────────────────────────┘
                             ↕
 ┌─────────────────────────────────────────────────────────┐
@@ -209,7 +208,7 @@ pnpm --filter web dev
 
 # 6. Access services
 # Web: http://localhost:4300
-# API: http://localhost:4000
+# API: http://localhost:4301
 # Mailpit: http://localhost:8025
 ```
 

@@ -1,29 +1,30 @@
 # 📧 Email Testing Guide with Mailpit
 
-## ✅ Mailpit Status: RUNNING
+## ✅ Mailpit (Local Email Capture)
 
-**Container**: `fieldview-mailpit`  
-**Status**: Up 6 days (healthy)  
-**SMTP Port**: `localhost:4305`  
-**Web UI**: http://localhost:4304  
-**Current Inbox**: 7 emails
+**Container**: `fieldview-mailpit` (defined in `docker-compose.yml`)  
+**SMTP Port**: `localhost:4305` (maps to container `1025`)  
+**Web UI**: http://localhost:4304 (maps to container `8025`)  
+**From address**: `noreply@fieldview.live` (`MAILPIT_FROM_EMAIL`)
 
 ---
 
 ## 🎯 Pages Available for Testing
 
-### ⭐ **Recommended: TCHS Stream** (Currently Live)
+### ⭐ **Recommended: A Direct Stream** (example slug: `tchs`)
 ```
 Local:  http://localhost:4300/direct/tchs
 Prod:   https://fieldview.live/direct/tchs
 ```
 
 **Why This Page**:
-- ✅ Actively streaming video
+- ✅ Video player (when a stream source is configured)
 - ✅ Scoreboard enabled (can test score editing)
 - ✅ Chat enabled (can test email registration)
 - ✅ All mobile features active
-- ✅ Custom TCHS branding
+- ✅ Per-owner branding
+
+> Swap `tchs` for any active `/direct/{slug}` that exists in your local database.
 
 ---
 
@@ -75,15 +76,16 @@ Last Name: Tester
 - Click "Unlock Stream" button
 - Wait for confirmation
 
-### Step 5: Check Mailpit for Verification Email
+### Step 5: Check Mailpit for the Confirmation Email
 1. Open Mailpit: http://localhost:4304
 2. Look for new email from `noreply@fieldview.live`
-3. Subject: "Verify your email for FieldView.Live"
-4. Click the verification link in the email
+3. Subject: "You're registered for {stream title}"
+4. Email contains a "📺 Watch Stream" link back to the stream (not a verification link)
+
+> Note: the "Unlock Stream" button calls `POST /api/public/direct/{slug}/viewer/unlock`, which unlocks chat immediately and sends this confirmation email. The separate registration form (`POST /api/public/direct/{slug}/register`) is a different flow that sends a "Verify your email for {stream title}" email with a verification link (`GET /api/public/direct/verify?token=...`).
 
 ### Step 6: Verify Chat Access
-- Return to stream page
-- Chat should now be unlocked
+- Chat unlocks immediately after submitting the form — the unlock API returns a viewer JWT, so no link click is required
 - You can send messages
 - Display name will show as "QA T." (First Last Initial)
 
@@ -93,16 +95,15 @@ Last Name: Tester
 
 ### Test Case 1: Successful Registration ✅
 **Steps**:
-1. Navigate to local TCHS stream
-2. Register with valid email
-3. Check Mailpit for verification email
-4. Click verification link
-5. Return to stream and verify chat is unlocked
+1. Navigate to the local stream
+2. Register with valid email via "Unlock Stream"
+3. Confirm chat unlocks immediately
+4. Check Mailpit for the confirmation email
 
 **Expected**:
-- ✅ Email received within 1 second
-- ✅ Verification link works
-- ✅ Chat becomes accessible
+- ✅ Confirmation email received within 1 second
+- ✅ Chat becomes accessible immediately (no link click needed)
+- ✅ Email "Watch Stream" link opens the stream
 - ✅ Display name shown correctly
 
 ---
@@ -156,13 +157,12 @@ Last Name: Tester
 - **Tags**: Organize emails (e.g., "square" tag)
 - **API Access**: http://localhost:4304/api/v1/messages
 
-### Current Inbox:
+### Emails You'll Typically See:
 ```
-7 emails total (all unread)
-
-Recent:
-- Stream is live: STORMFC 2010 (3x)
-- Confirm your subscription (4x)
+- "You're registered for {stream title}"   - viewer chat unlock (confirmation)
+- "Verify your email for {stream title}"    - registration-form email verification
+- "Stream is live: {org} {team}"            - go-live notification
+- "Confirm your subscription"               - subscription double opt-in
 ```
 
 ---
@@ -181,7 +181,7 @@ curl -s http://localhost:4304/api/v1/messages | jq '.messages[] | {subject, to, 
 
 ### Test Email Registration (API):
 ```bash
-curl -X POST http://localhost:4301/api/direct/tchs/viewer/unlock \
+curl -X POST http://localhost:4301/api/public/direct/tchs/viewer/unlock \
   -H "Content-Type: application/json" \
   -d '{
     "email": "qa-test@fieldview.live",
@@ -200,11 +200,11 @@ open http://localhost:4304
 ## 🎯 **What to Test**
 
 ### Email Flow:
-- [ ] Registration email arrives in Mailpit (<1 second)
-- [ ] Email has correct subject line
+- [ ] Confirmation email arrives in Mailpit (<1 second)
+- [ ] Email subject is "You're registered for {stream title}"
 - [ ] Email has correct from address (noreply@fieldview.live)
-- [ ] Verification link is present and clickable
-- [ ] Verification link works (unlocks chat)
+- [ ] Email "Watch Stream" link is present and clickable
+- [ ] Chat unlocks immediately on form submit (no link click needed)
 
 ### Chat After Registration:
 - [ ] Chat panel shows "Connected" or "Live"

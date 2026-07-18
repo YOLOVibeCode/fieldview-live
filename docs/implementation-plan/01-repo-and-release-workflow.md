@@ -4,78 +4,65 @@
 
 ### Branch Model
 
-- **`develop`**: Default branch for all development work
-  - All feature work merges here first
+- **`main`**: Default branch for all development and deployment
+  - All feature work merges here via PR
   - Must stay green (all tests passing, 100% coverage)
-  - Protected: requires PR, status checks, approvals
-
-- **`main`**: Deployment branch
-  - Receives changes only via PR from `develop`
   - Protected: requires PR, status checks, approvals, no direct pushes
-  - Deployments triggered by version tags only
+  - Deployments triggered automatically on push/merge to `main`
 
 - **`feature/<name>`**: Feature branches (short-lived)
-  - Created from `develop`
-  - Merged back to `develop` via PR
+  - Created from `main`
+  - Merged back to `main` via PR
 
 - **`hotfix/<name>`**: Hotfix branches (urgent fixes)
   - Created from `main`
-  - Merged to both `main` and `develop`
+  - Merged back to `main` via PR
 
 ### Repository
 
 - **GitHub**: https://github.com/YOLOVibeCode/fieldview-live
-- **Default Branch**: `develop` (set in GitHub settings)
+- **Default Branch**: `main` (set in GitHub settings)
 - **Deploy Branch**: `main`
 
 ## Branch Protection Rules
 
-### `develop` Branch Protection
+### `main` Branch Protection (Strict)
 
 **Required**:
-- Require pull request reviews before merging
+- Require pull request reviews before merging (≥1 approval)
 - Require status checks to pass before merging:
   - `lint` (ESLint)
   - `type-check` (TypeScript)
   - `test` (all tests pass)
   - `coverage` (100% coverage threshold)
 - Require branches to be up to date before merging
-- Allow maintainers to merge
-
-**Optional**:
-- Require linear history (recommended)
-- Restrict who can push to matching branches
-
-### `main` Branch Protection (Strict)
-
-**Required**:
-- Require pull request reviews before merging (≥1 approval)
-- Require status checks to pass before merging (same as `develop`)
-- Require branches to be up to date before merging
 - Require linear history
 - **Do not allow** force pushes
 - **Do not allow** deletions
 - Restrict who can push (maintainers only)
 
-## Release Workflow (Tag-Based)
+**Optional**:
+- Restrict who can push to matching branches
+
+## Release Workflow (Push-Based)
 
 ### Release Process
 
 1. **Merge to `main`**:
-   - Create PR: `develop` → `main`
+   - Create PR: `feature/<name>` → `main`
    - Ensure all tests pass, coverage is 100%
    - Get approval
    - Merge PR
 
-2. **Create Version Tag**:
+2. **Automatic Deploy**:
+   - `.github/workflows/railway-deploy.yml` runs on push to `main`
+   - Runs type check and unit tests as a gate
+   - Railway auto-deploys the `api` and `web` services from `main`
+
+3. **Tag the Release (optional)**:
    - On `main` branch, create tag: `v0.1.0`, `v0.2.0`, etc. (semver)
    - Tag format: `v<major>.<minor>.<patch>`
    - Example: `git tag v0.1.0 && git push origin v0.1.0`
-
-3. **Deploy Trigger**:
-   - GitHub Actions detects tag push (`v*.*.*` pattern)
-   - Builds Docker images for `api` and `web` services
-   - Deploys to Railway production environment
 
 ### Versioning Strategy
 
@@ -89,7 +76,7 @@
 
 ### PR Checks (`.github/workflows/ci.yml`)
 
-**Triggers**: Pull requests to `develop` or `main`
+**Triggers**: Pull requests and pushes to `develop` or `main`
 
 **Steps**:
 1. Checkout code
@@ -103,23 +90,19 @@
 
 **Failure Behavior**: PR cannot be merged until all checks pass
 
-### Deploy Pipeline (`.github/workflows/deploy.yml`)
+### Deploy Pipeline (`.github/workflows/railway-deploy.yml`)
 
-**Triggers**: Tag push matching `v*.*.*` on `main` branch
+**Triggers**: Push to `main` (also runs on `develop` and manual `workflow_dispatch`); the deploy step is gated to `main`
 
 **Steps**:
 1. Checkout code
 2. Setup Node.js + pnpm
-3. Install dependencies
-4. Build Docker images:
-   - `apps/api/Dockerfile` → `fieldview-api:${TAG}`
-   - `apps/web/Dockerfile` → `fieldview-web:${TAG}`
-5. Push images to Railway (or container registry)
-6. Deploy to Railway production:
-   - Update `api` service
-   - Update `web` service
-7. Run health checks
-8. Notify on failure (optional: Slack/Discord)
+3. Install dependencies (`pnpm install --frozen-lockfile`)
+4. Generate Prisma client (`pnpm db:generate`)
+5. Build `@fieldview/data-model`
+6. Type check (`pnpm type-check`)
+7. Run tests (`pnpm test:unit`)
+8. Railway auto-deploys the `api` and `web` services on `main`
 
 ## Local Development Workflow
 
@@ -130,9 +113,9 @@
 git clone https://github.com/YOLOVibeCode/fieldview-live.git
 cd fieldview-live
 
-# Checkout develop branch
-git checkout develop
-git pull origin develop
+# Checkout main branch
+git checkout main
+git pull origin main
 
 # Create feature branch
 git checkout -b feature/my-feature
@@ -161,20 +144,18 @@ pnpm type-check
 ### Creating PR
 
 1. Push feature branch: `git push origin feature/my-feature`
-2. Create PR on GitHub: `feature/my-feature` → `develop`
+2. Create PR on GitHub: `feature/my-feature` → `main`
 3. Wait for CI checks to pass
 4. Get code review approval
 5. Merge PR (squash merge recommended)
 
 ### Releasing
 
-1. Ensure `develop` is stable and tested
-2. Create PR: `develop` → `main`
+1. Ensure your `feature/<name>` branch is stable and tested
+2. Create PR: `feature/<name>` → `main`
 3. Review and merge PR
-4. Checkout `main` locally: `git checkout main && git pull`
-5. Create tag: `git tag v0.1.0`
-6. Push tag: `git push origin v0.1.0`
-7. CI/CD automatically deploys to Railway
+4. Railway automatically deploys `main` to production
+5. (Optional) Tag the release: `git checkout main && git pull`, then `git tag v0.1.0 && git push origin v0.1.0`
 
 ## Commit Message Conventions
 
@@ -190,13 +171,12 @@ Use conventional commits for clarity:
 ## Acceptance Criteria
 
 - [ ] Repository initialized and connected to GitHub
-- [ ] `develop` branch created and set as default
-- [ ] `main` branch created
-- [ ] Branch protection rules configured for both branches
+- [ ] `main` branch created and set as default
+- [ ] Branch protection rules configured for `main`
 - [ ] CI pipeline (`.github/workflows/ci.yml`) created and passing
-- [ ] Deploy pipeline (`.github/workflows/deploy.yml`) created
-- [ ] Tag-based deployment tested (create test tag, verify deploy)
-- [ ] Team members can create PRs and merge to `develop`
+- [ ] Deploy pipeline (`.github/workflows/railway-deploy.yml`) created
+- [ ] Push-based deployment tested (merge to `main`, verify Railway deploy)
+- [ ] Team members can create PRs and merge to `main`
 - [ ] Only maintainers can merge to `main`
 
 ## Next Steps
