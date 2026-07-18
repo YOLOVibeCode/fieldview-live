@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import '@/styles/v2/tokens.css'; // v2 Design Tokens
 import { VersionDisplay } from '@/components/VersionDisplay';
+import { TrakletWidget } from '@/components/TrakletWidget';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -41,6 +42,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} min-h-screen`}>
         {children}
+        <TrakletWidget />
         <VersionDisplay />
       </body>
     </html>

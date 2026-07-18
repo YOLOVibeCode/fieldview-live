@@ -8,7 +8,9 @@ import { VeoScraperOrchestrator } from './VeoScraperOrchestrator';
 import { VeoPollingOrchestrator } from './VeoPollingOrchestrator';
 import { VeoPollingSessionManager } from './VeoPollingSessionManager';
 import { PlaywrightVeoAuthenticator } from './implementations/PlaywrightVeoAuthenticator';
-import { PlaywrightVeoDiagnosticsScraper } from './implementations/PlaywrightVeoDiagnosticsScraper';
+// The diagnostics page is an SPA — parsing its HTML returns nothing. We capture the
+// SPA's own authenticated stream-history JSON fetch instead. (HTML scraper kept for ref.)
+import { PlaywrightVeoLiveApiScraper } from './implementations/PlaywrightVeoLiveApiScraper';
 import { FuseStreamMatcher } from './implementations/FuseStreamMatcher';
 import { PrismaStreamUpdater } from './implementations/PrismaStreamUpdater';
 import { PrismaVeoCandidateReader } from './implementations/PrismaVeoCandidateReader';
@@ -27,7 +29,7 @@ export const veoPollingSessionManager = new VeoPollingSessionManager();
 export function createVeoScraperOrchestrator(): VeoScraperOrchestrator {
   return new VeoScraperOrchestrator(
     new PlaywrightVeoAuthenticator(),
-    new PlaywrightVeoDiagnosticsScraper(),
+    new PlaywrightVeoLiveApiScraper(),
     new FuseStreamMatcher({ minConfidence: 0.7 }),
     new PrismaStreamUpdater(prisma),
     new PrismaVeoCandidateReader(prisma)
@@ -40,7 +42,7 @@ export function createVeoScraperOrchestrator(): VeoScraperOrchestrator {
 export function createVeoPollingOrchestrator(): VeoPollingOrchestrator {
   return new VeoPollingOrchestrator(
     new PlaywrightVeoAuthenticator(),
-    new PlaywrightVeoDiagnosticsScraper(),
+    new PlaywrightVeoLiveApiScraper(),
     new FuseStreamMatcher({ minConfidence: 0.7 }),
     new PrismaStreamUpdater(prisma),
     new PrismaVeoCandidateReader(prisma)

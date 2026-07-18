@@ -41,7 +41,7 @@ test('VA-02: checkout page accessible without login', async ({ page, request }) 
 
   // Assert: Checkout form visible (no login required)
   await expect(page.getByTestId('form-checkout')).toBeVisible();
-  await expect(page.getByLabel(/Email/i)).toBeVisible();
+  await expect(page.getByTestId('input-email')).toBeVisible();
 });
 
 test('VA-03: no PII exposed in DOM', async ({ page, request }) => {
