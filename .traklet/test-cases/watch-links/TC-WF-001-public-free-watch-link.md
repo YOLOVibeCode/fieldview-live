@@ -12,7 +12,7 @@ suite: watch-links
 
 {traklet:section:objective}
 ## Objective
-For `accessMode: public_free`, `/watch/{org}/{team}` should render the viewing experience directly (no purchase form).
+For `accessMode: public_free`, `https://fieldview.live/watch/{org}/{team}` should render the viewing experience directly (no purchase form).
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ For `accessMode: public_free`, `/watch/{org}/{team}` should render the viewing e
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/watch/{org}/{team}` for the free channel
+1. Navigate to `https://fieldview.live/watch/{org}/{team}` for the free channel
 2. Confirm checkout/pay form for this channel is absent (unless cross-sell is intentional — document)
 3. Confirm player shell or stream-offline message appears
 {/traklet:section:steps}

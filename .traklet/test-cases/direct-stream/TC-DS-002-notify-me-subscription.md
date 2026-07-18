@@ -23,7 +23,7 @@ Verify the NotifyMe feature allows viewers to subscribe to reminders for schedul
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to a direct stream page that shows "Stream Starting Soon" or offline state
+1. Navigate to `https://fieldview.live/direct/[slug]` (a stream that shows "Stream Starting Soon" or offline state)
 2. Verify "Notify Me" button or form appears
 3. Enter email (and optional name) in the NotifyMe form
 4. Submit — verify `POST /api/public/direct/{slug}/notify-me` called
@@ -31,8 +31,8 @@ Verify the NotifyMe feature allows viewers to subscribe to reminders for schedul
 6. Refresh the page — verify subscription status is detected (`GET /api/public/direct/{slug}/notify-me/status`)
 7. Unsubscribe — verify `DELETE /api/public/direct/{slug}/notify-me` called
 8. Verify unsubscribed state (NotifyMe form reappears)
-9. On `/account` page, verify the subscription appears in the subscriptions list
-10. Unsubscribe from `/account` — verify removal
+9. On `https://fieldview.live/account` page, verify the subscription appears in the subscriptions list
+10. Unsubscribe from `https://fieldview.live/account` — verify removal
 {/traklet:section:steps}
 
 {traklet:section:expected-result}
@@ -41,7 +41,7 @@ Verify the NotifyMe feature allows viewers to subscribe to reminders for schedul
 - Subscribe creates a notification subscription for the viewer
 - Status endpoint correctly reports subscribed/unsubscribed state
 - Unsubscribe removes the subscription
-- Subscription visible and manageable from `/account` page
+- Subscription visible and manageable from `https://fieldview.live/account` page
 {/traklet:section:expected-result}
 
 {traklet:section:actual-result}

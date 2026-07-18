@@ -12,7 +12,7 @@ suite: owner-portal
 
 {traklet:section:objective}
 ## Objective
-`/owners/register` completes account creation (or applies invite token) and user can sign in afterward.
+`https://fieldview.live/owners/register` completes account creation (or applies invite token) and user can sign in afterward.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -23,7 +23,7 @@ suite: owner-portal
 
 {traklet:section:steps}
 ## Steps
-1. Open registration form
+1. Navigate to `https://fieldview.live/owners/register` and fill the registration form
 2. Fill required fields; submit
 3. Complete email verification if required
 4. Log in via **TC-OA-001** path with new credentials

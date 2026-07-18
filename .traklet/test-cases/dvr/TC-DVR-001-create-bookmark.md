@@ -24,7 +24,7 @@ Verify that a viewer can create a bookmark at the current playback position and 
 
 {traklet:section:steps}
 ## Steps
-1. Start watching a stream and let playback advance past 30 seconds
+1. Open `https://fieldview.live/direct/[slug]` and let playback advance past 30 seconds
 2. Press the "B" keyboard shortcut or click the bookmark button
 3. Observe the timeline for a new marker
 4. Open the bookmark panel

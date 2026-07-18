@@ -13,7 +13,7 @@ suite: direct-stream
 
 {traklet:section:objective}
 ## Objective
-Confirm the Denton Diablos event page at `/direct/dentondiablos/soccer-2008-20260325` loads correctly, displays scoreboard defaults, and that the admin panel can be unlocked with the correct password.
+Confirm the Denton Diablos event page at `https://fieldview.live/direct/dentondiablos/soccer-2008-20260325` loads correctly, displays scoreboard defaults, and that the admin panel can be unlocked with the correct password.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}

@@ -24,7 +24,7 @@ Verify that the first-time scoreboard setup creates a scoreboard with a producer
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to a direct stream with scoreboard enabled
+1. Navigate to `https://fieldview.live/direct/[slug]` (a stream with `scoreboardEnabled: true`)
 2. Unlock admin panel (TC-AD-001)
 3. Find scoreboard setup section in admin panel
 4. Enter producer password and team names

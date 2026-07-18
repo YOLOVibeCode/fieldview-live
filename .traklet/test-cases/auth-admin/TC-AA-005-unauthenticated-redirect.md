@@ -13,7 +13,7 @@ suite: auth-admin
 
 {traklet:section:objective}
 ## Objective
-Verify that all protected admin pages redirect unauthenticated users to `/admin/login` without leaking any admin data or rendering protected content.
+Verify that all protected admin pages redirect unauthenticated users to `https://fieldview.live/admin/login` without leaking any admin data or rendering protected content.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,25 +24,25 @@ Verify that all protected admin pages redirect unauthenticated users to `/admin/
 {traklet:section:steps}
 ## Steps
 1. Clear localStorage (or open incognito window)
-2. Navigate directly to `/admin/console`
-3. Verify redirect to `/admin/login`
-4. Navigate directly to `/admin/revenue`
-5. Verify redirect to `/admin/login`
-6. Navigate directly to `/admin/coupons`
-7. Verify redirect to `/admin/login`
-8. Navigate directly to `/admin/purchases/some-id`
-9. Verify redirect to `/admin/login`
-10. Navigate directly to `/superadmin/direct-streams`
-11. Verify redirect to `/admin/login` or access denied
+2. Navigate directly to `https://fieldview.live/admin/console`
+3. Verify redirect to `https://fieldview.live/admin/login`
+4. Navigate directly to `https://fieldview.live/admin/revenue`
+5. Verify redirect to `https://fieldview.live/admin/login`
+6. Navigate directly to `https://fieldview.live/admin/coupons`
+7. Verify redirect to `https://fieldview.live/admin/login`
+8. Navigate directly to `https://fieldview.live/admin/purchases/some-id`
+9. Verify redirect to `https://fieldview.live/admin/login`
+10. Navigate directly to `https://fieldview.live/superadmin/direct-streams`
+11. Verify redirect to `https://fieldview.live/admin/login` or access denied
 12. Verify no API calls succeed without a session token (check network tab for 401s)
 {/traklet:section:steps}
 
 {traklet:section:expected-result}
 ## Expected Result
-- All protected routes redirect to `/admin/login` when no session token present
+- All protected routes redirect to `https://fieldview.live/admin/login` when no session token present
 - No protected data visible during redirect (no flash of content)
 - API endpoints return 401 without valid session token
-- `/superadmin/direct-streams` is also protected
+- `https://fieldview.live/superadmin/direct-streams` is also protected
 {/traklet:section:expected-result}
 
 {traklet:section:actual-result}

@@ -12,7 +12,7 @@ suite: game-page
 
 {traklet:section:objective}
 ## Objective
-`/game/{gameId}` (public route) resolves for an active or scheduled game and shows the correct purchase/watch entry state.
+`https://fieldview.live/game/{gameId}` (public route) resolves for an active or scheduled game and shows the correct purchase/watch entry state.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -22,7 +22,7 @@ suite: game-page
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/game/{gameId}`
+1. Navigate to `https://fieldview.live/game/{gameId}`
 2. Confirm hero/metadata matches expected matchup
 3. Verify paywall vs free vs post-purchase UI per game config
 4. Check Network for failed bootstrap calls

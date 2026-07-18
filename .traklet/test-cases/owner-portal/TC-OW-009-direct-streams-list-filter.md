@@ -13,7 +13,7 @@ suite: owner-portal
 
 {traklet:section:objective}
 ## Objective
-Verify the `/owners/direct-streams` page lists the owner's direct streams in a table with status filtering.
+Verify the `https://fieldview.live/owners/direct-streams` page lists the owner's direct streams in a table with status filtering.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -24,9 +24,9 @@ Verify the `/owners/direct-streams` page lists the owner's direct streams in a t
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/owners/direct-streams`
+1. Navigate to `https://fieldview.live/owners/direct-streams`
 2. Verify table loads with columns: slug, title, scheduled, status badge, features, actions
-3. Verify slug links open `/direct/{slug}` in a new tab
+3. Verify slug links open `https://fieldview.live/direct/{slug}` in a new tab
 4. Verify feature icons show correctly (chat, scoreboard, paywall with price)
 5. Use status filter — switch between Active, Archived, All
 6. Verify table re-renders with filtered results and count updates

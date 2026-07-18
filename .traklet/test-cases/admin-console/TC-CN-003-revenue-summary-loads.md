@@ -12,7 +12,7 @@ suite: admin-console
 
 {traklet:section:objective}
 ## Objective
-Console revenue report (`/admin/revenue` or equivalent) fetches aggregates; spot-check vs single known purchase total when feasible.
+Console revenue report (`https://fieldview.live/admin/revenue` or equivalent) fetches aggregates; spot-check vs single known purchase total when feasible.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}

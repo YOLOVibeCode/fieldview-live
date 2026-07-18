@@ -1,0 +1,9 @@
+{
+  "user": { "email": "your.email@company.com", "name": "Your Name" },
+  "token": "paste-your-github-pat-here",
+  "adapter": "github",
+  "baseUrl": "https://api.github.com",
+  "project": "YOLOVibeCode/fieldview-live",
+  "position": "bottom-right",
+  "theme": "dark"
+}

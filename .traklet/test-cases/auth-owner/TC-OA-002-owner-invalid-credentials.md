@@ -23,11 +23,11 @@ Ensure invalid credentials do not create a session and the user sees a clear err
 
 {traklet:section:steps}
 ## Steps
-1. Go to `/owners/login`
+1. Go to `https://fieldview.live/owners/login`
 2. Enter a real account email with an incorrect password
 3. Submit the form
 4. Observe UI feedback (`role="alert"` or `data-testid="error-*"` if present)
-5. Confirm URL is still login (or error state) and `/owners/dashboard` is not reachable without fixing credentials
+5. Confirm URL is still login (or error state) and `https://fieldview.live/owners/dashboard` is not reachable without fixing credentials
 {/traklet:section:steps}
 
 {traklet:section:expected-result}

@@ -23,7 +23,7 @@ Verify the create stream drawer form surfaces inline validation errors for inval
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/superadmin/direct-streams`
+1. Navigate to `https://fieldview.live/superadmin/direct-streams`
 2. Click "+ Create Stream" (`btn-create-stream`)
 3. Leave all fields empty, click "Create Stream" (`btn-submit-create`)
 4. Verify inline errors appear for slug (`error-slug`), title (`error-title`), and admin password (`error-admin-password`)

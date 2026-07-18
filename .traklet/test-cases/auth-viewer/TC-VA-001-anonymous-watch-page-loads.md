@@ -18,14 +18,14 @@ Public watch experience must not force owner login for first paint (access rules
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- A valid `/watch/{org}/{team}` URL for the environment (free or paid channel per sub-test intent)
+- A valid `https://fieldview.live/watch/{org}/{team}` URL for the environment (free or paid channel per sub-test intent)
 {/traklet:section:prerequisites}
 
 {traklet:section:steps}
 ## Steps
 1. Use incognito / cleared cookies
 2. Navigate to the watch URL
-3. Confirm page loads (player shell, checkout, or paywall — not redirect to `/owners/login`)
+3. Confirm page loads (player shell, checkout, or paywall — not redirect to `https://fieldview.live/owners/login`)
 {/traklet:section:steps}
 
 {traklet:section:expected-result}

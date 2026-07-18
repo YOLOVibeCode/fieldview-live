@@ -23,7 +23,7 @@ Paid watch channel surfaces price and purchase path before revealing the player 
 
 {traklet:section:steps}
 ## Steps
-1. Open `/watch/{org}/{team}` incognito
+1. Open `https://fieldview.live/watch/{org}/{team}` incognito
 2. Verify checkout or paywall UI visible with correct price display
 3. Confirm video is not fully accessible until purchase path completes (align with **TC-PW-001** for direct streams)
 {/traklet:section:steps}

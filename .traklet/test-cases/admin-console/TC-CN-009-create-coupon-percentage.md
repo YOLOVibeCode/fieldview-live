@@ -24,7 +24,7 @@ Verify a superadmin can create a new percentage-based coupon via the create moda
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/coupons`
+1. Navigate to `https://fieldview.live/admin/coupons`
 2. Click "Create Coupon" button
 3. Verify create modal appears
 4. Fill in fields:

@@ -24,7 +24,7 @@ After logout, protected owner routes require sign-in again.
 ## Steps
 1. From dashboard, use Sign out / Logout (note `data-testid` if assigned)
 2. Confirm redirect to login or public page
-3. Manually navigate to `/owners/dashboard`
+3. Manually navigate to `https://fieldview.live/owners/dashboard`
 4. Expect redirect to login or unauthorized state
 {/traklet:section:steps}
 

@@ -24,7 +24,7 @@ Verify a superadmin can disable an active coupon via the Disable button, and tha
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/admin/coupons`
+1. Navigate to `https://fieldview.live/admin/coupons`
 2. Locate an active coupon row (green status badge)
 3. Click "Disable" button on that row
 4. Verify API call: `DELETE /api/admin/coupons/{couponId}` returns 204

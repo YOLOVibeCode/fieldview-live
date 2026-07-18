@@ -26,7 +26,7 @@ Verify that clicking a purchase from search results navigates to the purchase de
 ## Steps
 1. From admin console, search for a known purchase (by email or ID)
 2. Click a purchase result row (has aria-label "View purchase {id}")
-3. Verify navigation to `/admin/purchases/{purchaseId}`
+3. Verify navigation to `https://fieldview.live/admin/purchases/{purchaseId}`
 4. Verify purchase info card shows:
    - Game title
    - Viewer email (masked for support_admin, full for super_admin)
@@ -35,7 +35,7 @@ Verify that clicking a purchase from search results navigates to the purchase de
    - Created date/time
 5. Verify Timeline card shows chronological events
 6. Verify each event shows description (bold), timestamp, and event type
-7. Click "Back" button — verify return to `/admin/console`
+7. Click "Back" button — verify return to `https://fieldview.live/admin/console`
 {/traklet:section:steps}
 
 {traklet:section:expected-result}

@@ -24,7 +24,7 @@ Verify an owner can sign in and land on the dashboard with an active session.
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/owners/login`
+1. Navigate to `https://fieldview.live/owners/login`
 2. Fill email (`data-testid="input-email"` if present, else labeled email field)
 3. Fill password (`data-testid="input-password"`)
 4. Submit (`data-testid="btn-submit-login"` or submit button)
@@ -33,7 +33,7 @@ Verify an owner can sign in and land on the dashboard with an active session.
 
 {traklet:section:expected-result}
 ## Expected Result
-Redirect to `/owners/dashboard` (or current canonical dashboard path). No persistent auth error. Dashboard content loads.
+Redirect to `https://fieldview.live/owners/dashboard` (or current canonical dashboard path). No persistent auth error. Dashboard content loads.
 {/traklet:section:expected-result}
 
 {traklet:section:actual-result}

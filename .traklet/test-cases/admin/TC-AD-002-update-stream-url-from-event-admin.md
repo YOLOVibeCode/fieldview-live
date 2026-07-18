@@ -18,7 +18,7 @@ After **TC-AD-001**, producer can change playback URL / Mux asset for a nested d
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- Unlocked admin panel on `/direct/...` event page
+- Unlocked admin panel on `https://fieldview.live/direct/...` event page
 - Test-safe HLS or Mux playback URL (may be stub in staging)
 {/traklet:section:prerequisites}
 

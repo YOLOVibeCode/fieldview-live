@@ -24,7 +24,7 @@ Verify that the admin panel can be unlocked with the correct owner password and 
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to a direct stream page
+1. Navigate to `https://fieldview.live/direct/[slug]`
 2. Enter the owner password in the admin unlock form
 3. Submit the form
 4. Observe the admin panel state

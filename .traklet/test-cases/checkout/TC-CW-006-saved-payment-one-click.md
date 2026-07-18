@@ -25,7 +25,7 @@ Verify that a returning buyer sees their saved payment method on the payment pag
 {traklet:section:steps}
 ## Steps
 1. Create a checkout for a viewer who has a saved payment method
-2. Navigate to `/checkout/{purchaseId}/payment`
+2. Navigate to `https://fieldview.live/checkout/{purchaseId}/payment`
 3. Verify saved payment methods load (`GET /api/public/saved-payments?purchaseId=...`)
 4. Verify saved card shows last 4 digits and card brand
 5. Select the saved card

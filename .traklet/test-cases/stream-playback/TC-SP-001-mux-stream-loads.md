@@ -24,7 +24,7 @@ Verify that a Mux-managed direct stream loads the MuxStreamPlayer and begins pla
 
 {traklet:section:steps}
 ## Steps
-1. Navigate to `/direct/<slug>` for a Mux-managed stream
+1. Navigate to `https://fieldview.live/direct/[slug]` for a Mux-managed stream
 2. Wait for the bootstrap API response
 3. Observe the video player area
 4. Verify playback begins (live indicator or progress bar advances)

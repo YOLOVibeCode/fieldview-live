@@ -12,7 +12,7 @@ suite: account
 
 {traklet:section:objective}
 ## Objective
-`/account` shows purchases, profile, or entitlement summary when a viewer/owner session is present; handles anonymous state per design.
+`https://fieldview.live/account` shows purchases, profile, or entitlement summary when a viewer/owner session is present; handles anonymous state per design.
 {/traklet:section:objective}
 
 {traklet:section:prerequisites}
@@ -22,9 +22,9 @@ suite: account
 
 {traklet:section:steps}
 ## Steps
-1. While logged in (any relevant viewer identity), open `/account`
+1. While logged in (any relevant viewer identity), open `https://fieldview.live/account`
 2. Verify list of accessible games/purchases or empty state
-3. Optional: anonymous user hits `/account` — redirect to login or marketing message?
+3. Optional: anonymous user hits `https://fieldview.live/account` — redirect to login or marketing message?
 {/traklet:section:steps}
 
 {traklet:section:expected-result}

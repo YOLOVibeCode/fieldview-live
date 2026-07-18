@@ -18,7 +18,7 @@ Ensure required customer fields (e.g. email, name) block progress with accessibl
 
 {traklet:section:prerequisites}
 ## Prerequisites
-- A purchase/checkout URL for a paid game or paid watch link (`/checkout/{purchaseId}` or embedded checkout on watch page)
+- A purchase/checkout URL for a paid game or paid watch link (`https://fieldview.live/checkout/{purchaseId}` or embedded checkout on watch page)
 {/traklet:section:prerequisites}
 
 {traklet:section:steps}

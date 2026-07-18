@@ -22,7 +22,7 @@ After game end time or access TTL, viewer sees explicit messaging instead of bro
 
 {traklet:section:steps}
 ## Steps
-1. Open viewer URL that previously worked
+1. Open `https://fieldview.live/direct/[slug]` (or `https://fieldview.live/game/[gameId]`) that previously worked
 2. Observe copy for ended game / expired access / code expired scenarios
 3. Confirm no infinite spinner on video element
 {/traklet:section:steps}
