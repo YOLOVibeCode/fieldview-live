@@ -18,6 +18,11 @@ model OwnerAccount {
   squareRefreshTokenEncrypted String? // Encrypted Square OAuth refresh_token
   squareTokenExpiresAt        DateTime? // When access_token expires
   squareLocationId            String? // Owner (seller) Square location ID for marketplace payments
+  // Noctusoft Relay Connect Hub (marketplace payments — supersedes the square* fields above).
+  // The relay holds the coach's Square tokens; FieldView references them by recipientKey only.
+  relayRecipientKey        String?   // Recipient key on the relay's Connect Hub (per product)
+  paymentsConnectedAt      DateTime? // When the coach completed Square OAuth via the relay
+  agreementAcceptedVersion String?   // Recipient Agreement version the coach accepted
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 
@@ -44,6 +49,7 @@ model OwnerAccount {
   @@index([status])
   @@index([payoutProviderRef])
   @@index([squareLocationId])
+  @@index([relayRecipientKey])
 }
 
 // Veo stream scraper: credentials and diagnostics URL per owner (encrypted at rest)
