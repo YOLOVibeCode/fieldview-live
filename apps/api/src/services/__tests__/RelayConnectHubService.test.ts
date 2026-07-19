@@ -106,4 +106,79 @@ describe('RelayConnectHubService', () => {
       expect(status).toEqual({ connected: false, recipientKey: 'owner-123' });
     });
   });
+
+  describe('charge', () => {
+    it('POSTs documented fields and parses the payment result', async () => {
+      fetchFn.mockResolvedValue(
+        jsonResponse({ payment_id: 'pay_1', status: 'COMPLETED', amount_cents: 1000, app_fee_cents: 100 }),
+      );
+      const result = await svc.charge('owner-123', {
+        sourceId: 'cnon_test',
+        amountCents: 1000,
+        idempotencyKey: 'purchase-1',
+        note: 'TCHS vs Nelson',
+        referenceId: 'purchase-1',
+        buyerEmailAddress: 'fan@example.com',
+      });
+
+      const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://relay.test/connect/fieldview/recipients/owner-123/charge');
+      expect(init.method).toBe('POST');
+      const sent = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(sent).toMatchObject({
+        source_id: 'cnon_test',
+        amount_cents: 1000,
+        currency: 'USD',
+        idempotency_key: 'purchase-1',
+        note: 'TCHS vs Nelson',
+        reference_id: 'purchase-1',
+        buyer_email_address: 'fan@example.com',
+      });
+      expect(result).toMatchObject({ paymentId: 'pay_1', status: 'COMPLETED', amountCents: 1000, appFeeCents: 100 });
+      expect(result.raw).toMatchObject({ payment_id: 'pay_1' });
+    });
+
+    it('sends app_fee_bps override when provided', async () => {
+      fetchFn.mockResolvedValue(jsonResponse({ payment_id: 'pay_2', status: 'COMPLETED' }));
+      await svc.charge('owner-123', { sourceId: 's', amountCents: 500, idempotencyKey: 'p2', appFeeBps: 500 });
+      const sent = JSON.parse((fetchFn.mock.calls[0] as [string, RequestInit])[1].body as string) as Record<string, unknown>;
+      expect(sent.app_fee_bps).toBe(500);
+    });
+
+    it('throws when the charge is rejected', async () => {
+      fetchFn.mockResolvedValue(jsonResponse({}, false));
+      await expect(
+        svc.charge('owner-123', { sourceId: 's', amountCents: 500, idempotencyKey: 'p3' }),
+      ).rejects.toThrow(/charge/i);
+    });
+  });
+
+  describe('refund', () => {
+    it('POSTs the refund and parses the result', async () => {
+      fetchFn.mockResolvedValue(jsonResponse({ refund_id: 'ref_1', status: 'PENDING', amount_cents: 400 }));
+      const result = await svc.refund('owner-123', {
+        paymentId: 'pay_1',
+        amountCents: 400,
+        idempotencyKey: 'r1',
+        reason: 'buffering',
+      });
+
+      const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://relay.test/connect/fieldview/recipients/owner-123/refunds');
+      expect(JSON.parse(init.body as string)).toMatchObject({
+        payment_id: 'pay_1',
+        amount_cents: 400,
+        idempotency_key: 'r1',
+        reason: 'buffering',
+      });
+      expect(result).toMatchObject({ refundId: 'ref_1', status: 'PENDING', amountCents: 400 });
+    });
+
+    it('throws when the refund is rejected', async () => {
+      fetchFn.mockResolvedValue(jsonResponse({}, false));
+      await expect(
+        svc.refund('owner-123', { paymentId: 'pay_1', amountCents: 400, idempotencyKey: 'r2' }),
+      ).rejects.toThrow(/refund/i);
+    });
+  });
 });

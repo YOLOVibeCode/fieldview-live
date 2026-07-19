@@ -35,3 +35,56 @@ export interface IRelayConnectOnboarding {
   getFrontendConfig(recipientKey: string): Promise<RelayFrontendConfig>;
   getRecipientStatus(recipientKey: string): Promise<RelayRecipientStatus>;
 }
+
+/**
+ * A one-time charge on the recipient's (coach's) Square merchant via the relay.
+ * The relay applies the platform `app_fee_money` from the product's `app_fee_bps`
+ * (override per-transaction with `appFeeBps`). Documented input fields: note,
+ * referenceId, statementDescriptionIdentifier, buyerEmailAddress.
+ */
+export interface RelayChargeInput {
+  sourceId: string; // Square Web Payments SDK nonce
+  amountCents: number;
+  currency?: string; // default USD
+  idempotencyKey: string;
+  appFeeBps?: number; // override the product default (basis points)
+  note?: string;
+  referenceId?: string; // link to a FieldView record (use purchaseId)
+  statementDescriptionIdentifier?: string;
+  buyerEmailAddress?: string;
+}
+
+/**
+ * Result of a relay charge/refund. Response field names are parsed defensively
+ * (`raw` carries the full relay body) pending confirmation against the live relay.
+ */
+export interface RelayChargeResult {
+  paymentId: string;
+  status: string;
+  amountCents: number;
+  appFeeCents: number | null;
+  processingFeeCents: number | null;
+  raw: unknown;
+}
+
+export interface RelayRefundInput {
+  paymentId: string;
+  amountCents: number;
+  idempotencyKey: string;
+  reason?: string;
+}
+
+export interface RelayRefundResult {
+  refundId: string;
+  status: string;
+  amountCents: number;
+  raw: unknown;
+}
+
+/**
+ * Payments Interface (ISP) — charge/refund on a connected recipient.
+ */
+export interface IRelayConnectPayments {
+  charge(recipientKey: string, input: RelayChargeInput): Promise<RelayChargeResult>;
+  refund(recipientKey: string, input: RelayRefundInput): Promise<RelayRefundResult>;
+}

@@ -16,13 +16,36 @@ import type { RelayConfig } from '../lib/relay';
 
 import type {
   IRelayConnectOnboarding,
+  IRelayConnectPayments,
+  RelayChargeInput,
+  RelayChargeResult,
   RelayFrontendConfig,
   RelayRecipientStatus,
+  RelayRefundInput,
+  RelayRefundResult,
 } from './IRelayConnectHubService';
 
 type FetchFn = typeof globalThis.fetch;
 
-export class RelayConnectHubService implements IRelayConnectOnboarding {
+/** First string value found among candidate keys. */
+function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return undefined;
+}
+
+/** First finite number found among candidate keys. */
+function pickNumber(obj: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayConnectPayments {
   constructor(
     private config: RelayConfig,
     private fetchFn: FetchFn = globalThis.fetch,
@@ -103,5 +126,66 @@ export class RelayConnectHubService implements IRelayConnectOnboarding {
     } catch {
       return { connected: false, recipientKey };
     }
+  }
+
+  async charge(recipientKey: string, input: RelayChargeInput): Promise<RelayChargeResult> {
+    const body: Record<string, unknown> = {
+      source_id: input.sourceId,
+      amount_cents: input.amountCents,
+      currency: input.currency ?? 'USD',
+      idempotency_key: input.idempotencyKey,
+      ...(input.appFeeBps !== undefined && { app_fee_bps: input.appFeeBps }),
+      ...(input.note && { note: input.note }),
+      ...(input.referenceId && { reference_id: input.referenceId }),
+      ...(input.statementDescriptionIdentifier && {
+        statement_description_identifier: input.statementDescriptionIdentifier,
+      }),
+      ...(input.buyerEmailAddress && { buyer_email_address: input.buyerEmailAddress }),
+    };
+
+    const res = await this.fetchFn(`${this.recipientBase(recipientKey)}/charge`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new BadRequestError('Relay: charge failed');
+    }
+
+    const data = (await res.json()) as Record<string, unknown>;
+    return {
+      paymentId: pickString(data, ['payment_id', 'paymentId', 'id']) ?? '',
+      status: pickString(data, ['status']) ?? 'unknown',
+      amountCents: pickNumber(data, ['amount_cents', 'amountCents']) ?? input.amountCents,
+      appFeeCents: pickNumber(data, ['app_fee_cents', 'appFeeCents', 'app_fee_money']) ?? null,
+      processingFeeCents: pickNumber(data, ['processing_fee_cents', 'processingFeeCents']) ?? null,
+      raw: data,
+    };
+  }
+
+  async refund(recipientKey: string, input: RelayRefundInput): Promise<RelayRefundResult> {
+    const body: Record<string, unknown> = {
+      payment_id: input.paymentId,
+      amount_cents: input.amountCents,
+      idempotency_key: input.idempotencyKey,
+      ...(input.reason && { reason: input.reason }),
+    };
+
+    const res = await this.fetchFn(`${this.recipientBase(recipientKey)}/refunds`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new BadRequestError('Relay: refund failed');
+    }
+
+    const data = (await res.json()) as Record<string, unknown>;
+    return {
+      refundId: pickString(data, ['refund_id', 'refundId', 'id']) ?? '',
+      status: pickString(data, ['status']) ?? 'unknown',
+      amountCents: pickNumber(data, ['amount_cents', 'amountCents']) ?? input.amountCents,
+      raw: data,
+    };
   }
 }
