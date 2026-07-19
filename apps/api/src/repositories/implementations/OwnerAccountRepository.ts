@@ -53,6 +53,9 @@ export class OwnerAccountRepository implements IOwnerAccountReader, IOwnerAccoun
         ...(data.squareRefreshTokenEncrypted !== undefined && { squareRefreshTokenEncrypted: data.squareRefreshTokenEncrypted }),
         ...(data.squareTokenExpiresAt !== undefined && { squareTokenExpiresAt: data.squareTokenExpiresAt }),
         ...(data.squareLocationId !== undefined && { squareLocationId: data.squareLocationId }),
+        ...(data.relayRecipientKey !== undefined && { relayRecipientKey: data.relayRecipientKey }),
+        ...(data.paymentsConnectedAt !== undefined && { paymentsConnectedAt: data.paymentsConnectedAt }),
+        ...(data.agreementAcceptedVersion !== undefined && { agreementAcceptedVersion: data.agreementAcceptedVersion }),
       },
     });
   }
