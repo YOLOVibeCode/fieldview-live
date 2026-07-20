@@ -17,15 +17,16 @@
 | SendGrid / email | `api.sendgrid.noctusoft.com` |
 | Auth to relay | Railway **deploy key** via env `NOCTUSOFT_API_KEY` (works from any IP) |
 
-**Payment model = single-account via the relay, with relay-side variable platform-fee retention.**
-- Viewer payments settle into the platform Square account **through the relay**.
-- The **relay retains a configurable platform fee — default 10%, settable to 5% or a variable % —** and attributes the remainder to the coach/owner.
-- FieldView records per-coach earnings; coach payout follows the relay/settlement model.
-- This **supersedes** the current in-repo Square Marketplace "Model A" (per-coach OAuth + `applicationFeeMoney`). **Do not build on Model A; migrate toward the relay.**
+**Payment model = marketplace via the relay's Square Connect Hub** (`api.square.noctusoft.com/connect/fieldview/*`). _Updated 2026-07-19 — replaces the earlier "single-account" wording._
+- Each coach OAuth-connects their **own** Square merchant through the relay (`GET /connect/fieldview/oauth/authorize?recipient_key=...`). The relay stores the coach's Square tokens — **FieldView stores only a `recipientKey`, never Square tokens.**
+- Viewer payment = `POST /connect/fieldview/recipients/:key/charge` with `app_fee_money`: **~90% → the coach's own Square balance, ~10% → the platform** (rate = `app_fee_bps`, configurable per product & per transaction; default 10% = 1000 bps).
+- **FieldView never holds coach funds** — Square splits at charge time (no money-transmitter/escrow exposure).
+- Refunds: `POST /connect/fieldview/recipients/:key/refunds` (app fee reversed proportionally). Card-on-file + subscription lifecycle supported. Square webhooks arrive via the relay's `POST /connect/webhooks/:env` fanout to FieldView's callback URL.
+- This **supersedes and replaces** the in-repo Square "Model A" (in-repo per-coach OAuth token storage + direct `applicationFeeMoney`). Migrate FieldView to call the Connect Hub; delete the in-repo Square token/OAuth machinery. See `docs/RELAY-CONNECT-HUB-MIGRATION.md`.
 
-**⏸️ Blocking:** Owner is updating the relay to add the variable platform-fee-retention pattern. **Wait for that to land before implementing the payment workflow.**
+**Status (2026-07-19):** relay Connect Hub "Slice 1" is backend-complete (101 tests, production canary-proven: $1 charge + 10¢ fee + refund). Gated on: attorney ToS/Recipient-Agreement review, the FieldView-side integration/UI, and the first real coach.
 
-**🔒 Security TODO (before go-live):** the relay docs page currently serves live keys over a plain fetch — rotate the relay keys and properly gate the page. (Owner asked for help locking this down.)
+**🔒 Security:** relay docs keys are now redacted (2026-07-19). If the previously-exposed values were not rotated, rotate them.
 
 ---
 
