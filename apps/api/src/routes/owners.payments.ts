@@ -93,7 +93,7 @@ router.post(
 
         const recipientKey = owner.relayRecipientKey || owner.id;
         const version = (req.body as { version?: string }).version || AGREEMENT_VERSION;
-        const result = await getRelayService().acceptAgreement(recipientKey, version);
+        const result = await getRelayService().acceptAgreement(recipientKey, version, req.ip);
 
         await repo.update(owner.id, {
           relayRecipientKey: recipientKey,
@@ -125,9 +125,11 @@ router.get('/me/payments/status', requireOwnerAuth, (req: AuthRequest, res, next
 
       const recipientKey = owner.relayRecipientKey || null;
       let connected = false;
+      let merchantId: string | null = null;
       if (recipientKey) {
         const status = await getRelayService().getRecipientStatus(recipientKey);
         connected = status.connected;
+        merchantId = status.merchantId;
         if (connected && !owner.paymentsConnectedAt) {
           await repo.update(owner.id, { paymentsConnectedAt: new Date() });
         }
@@ -135,6 +137,7 @@ router.get('/me/payments/status', requireOwnerAuth, (req: AuthRequest, res, next
 
       res.json({
         recipientKey,
+        merchantId,
         agreementAccepted: Boolean(owner.agreementAcceptedVersion),
         agreementVersion: owner.agreementAcceptedVersion || null,
         connected,

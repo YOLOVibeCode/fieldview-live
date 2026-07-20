@@ -62,7 +62,9 @@ router.get('/purchases/:purchaseId/payment-config', (req, res, next) => {
         provider: 'relay',
         applicationId: cfg.applicationId,
         environment: cfg.environment,
-        locationId: cfg.locationId ?? null,
+        // locationId is the coach's own Square location — the relay does NOT return it;
+        // it comes from FieldView's stored OwnerAccount.squareLocationId.
+        locationId: owner.squareLocationId ?? null,
       });
     } catch (error) {
       next(error);

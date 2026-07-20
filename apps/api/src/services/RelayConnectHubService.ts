@@ -3,12 +3,10 @@
  *
  * Thin client over the Noctusoft Relay's Square Connect Hub
  * (`<baseUrl>/connect/<product>/*`). The relay owns each coach's Square OAuth
- * tokens; FieldView only references them by `recipientKey`.
+ * tokens; FieldView references them by `recipientKey`.
  *
- * NOTE: relay JSON response field names are handled defensively (snake_case and
- * camelCase both accepted) pending confirmation against the live relay canary.
- *
- * See docs/RELAY-CONNECT-HUB-MIGRATION.md.
+ * Request/response shapes verified against the relay's INTEGRATION.md and the
+ * captured 2026-07-19 production canary. See docs/RELAY-CONNECT-HUB-MIGRATION.md.
  */
 
 import { BadRequestError } from '../lib/errors';
@@ -17,6 +15,7 @@ import type { RelayConfig } from '../lib/relay';
 import type {
   IRelayConnectOnboarding,
   IRelayConnectPayments,
+  RelayAgreementResult,
   RelayChargeInput,
   RelayChargeResult,
   RelayFrontendConfig,
@@ -27,22 +26,8 @@ import type {
 
 type FetchFn = typeof globalThis.fetch;
 
-/** First string value found among candidate keys. */
-function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = obj[k];
-    if (typeof v === 'string' && v.length > 0) return v;
-  }
-  return undefined;
-}
-
-/** First finite number found among candidate keys. */
-function pickNumber(obj: Record<string, unknown>, keys: string[]): number | undefined {
-  for (const k of keys) {
-    const v = obj[k];
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-  }
-  return undefined;
+interface MoneyLike {
+  amount?: number;
 }
 
 export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayConnectPayments {
@@ -66,6 +51,19 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
     };
   }
 
+  /** Parse the relay error envelope ({ error, code, squareErrors[] }) and throw a useful message. */
+  private async throwRelayError(res: Response, prefix: string): Promise<never> {
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+      squareErrors?: Array<{ code?: string; detail?: string }>;
+    };
+    const sq = data.squareErrors?.[0];
+    const detail = sq?.detail || data.error || `HTTP ${res.status}`;
+    const code = sq?.code || data.code;
+    throw new BadRequestError(code ? `${prefix}: ${detail} [${code}]` : `${prefix}: ${detail}`);
+  }
+
   buildAuthorizeUrl(recipientKey: string, postConnectRedirect?: string): string {
     const url = new URL(`${this.base()}/oauth/authorize`);
     url.searchParams.set('recipient_key', recipientKey);
@@ -75,17 +73,24 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
     return url.toString();
   }
 
-  async acceptAgreement(recipientKey: string, version: string): Promise<{ accepted: boolean; version: string }> {
+  async acceptAgreement(recipientKey: string, version: string, ip?: string): Promise<RelayAgreementResult> {
     const res = await this.fetchFn(`${this.recipientBase(recipientKey)}/agreement`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ version }),
+      body: JSON.stringify({ agreement_version: version, ...(ip ? { ip } : {}) }),
     });
     if (!res.ok) {
-      throw new BadRequestError('Relay: failed to record agreement acceptance');
+      return this.throwRelayError(res, 'Relay agreement acceptance failed');
     }
-    const body = (await res.json().catch(() => ({}))) as { version?: string };
-    return { accepted: true, version: body.version ?? version };
+    const body = (await res.json().catch(() => ({}))) as {
+      agreement_version_accepted?: string;
+      agreement_accepted_at?: number;
+    };
+    return {
+      accepted: true,
+      version: body.agreement_version_accepted ?? version,
+      acceptedAt: typeof body.agreement_accepted_at === 'number' ? body.agreement_accepted_at : null,
+    };
   }
 
   async getFrontendConfig(recipientKey: string): Promise<RelayFrontendConfig> {
@@ -94,45 +99,51 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       headers: this.headers(),
     });
     if (!res.ok) {
-      throw new BadRequestError('Relay: failed to fetch frontend config');
+      return this.throwRelayError(res, 'Relay frontend-config failed');
     }
-    const body = (await res.json()) as {
-      application_id?: string;
-      applicationId?: string;
-      environment?: string;
-      location_id?: string;
-      locationId?: string;
-    };
-    const applicationId = body.application_id ?? body.applicationId;
-    if (!applicationId) {
-      throw new BadRequestError('Relay: frontend config missing application_id');
+    const body = (await res.json()) as { application_id?: string; environment?: string };
+    if (!body.application_id) {
+      throw new BadRequestError('Relay: frontend-config missing application_id');
     }
     return {
-      applicationId,
+      applicationId: body.application_id,
       environment: body.environment === 'production' ? 'production' : 'sandbox',
-      locationId: body.location_id ?? body.locationId,
     };
   }
 
-  /**
-   * Connection status. Derived from whether the relay resolves a frontend-config
-   * for this recipient (a connected recipient has a Square seller context).
-   * TODO(slice-0): replace with a dedicated relay status endpoint if one exists.
-   */
+  /** Connection status from GET /recipients/:key — connected once merchant_id is present. */
   async getRecipientStatus(recipientKey: string): Promise<RelayRecipientStatus> {
-    try {
-      const cfg = await this.getFrontendConfig(recipientKey);
-      return { connected: Boolean(cfg.applicationId), recipientKey };
-    } catch {
-      return { connected: false, recipientKey };
+    const res = await this.fetchFn(this.recipientBase(recipientKey), {
+      method: 'GET',
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      return {
+        connected: false,
+        recipientKey,
+        merchantId: null,
+        connectedAt: null,
+        agreementVersionAccepted: null,
+      };
     }
+    const body = (await res.json().catch(() => ({}))) as {
+      merchant_id?: string | null;
+      connected_at?: string | null;
+      agreement_version_accepted?: string | null;
+    };
+    return {
+      connected: Boolean(body.merchant_id),
+      recipientKey,
+      merchantId: body.merchant_id ?? null,
+      connectedAt: body.connected_at ?? null,
+      agreementVersionAccepted: body.agreement_version_accepted ?? null,
+    };
   }
 
   async charge(recipientKey: string, input: RelayChargeInput): Promise<RelayChargeResult> {
     const body: Record<string, unknown> = {
       source_id: input.sourceId,
       amount_cents: input.amountCents,
-      currency: input.currency ?? 'USD',
       idempotency_key: input.idempotencyKey,
       ...(input.appFeeBps !== undefined && { app_fee_bps: input.appFeeBps }),
       ...(input.note && { note: input.note }),
@@ -149,16 +160,22 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      throw new BadRequestError('Relay: charge failed');
+      return this.throwRelayError(res, 'Relay charge failed');
     }
 
-    const data = (await res.json()) as Record<string, unknown>;
+    const data = (await res.json()) as { payment?: Record<string, unknown> };
+    const p = (data.payment ?? {}) as Record<string, unknown>;
+    const amountMoney = p.amount_money as MoneyLike | undefined;
+    const appFeeMoney = p.app_fee_money as MoneyLike | undefined;
+    const card = (p.card_details as { card?: { card_brand?: string; last_4?: string } } | undefined)?.card;
     return {
-      paymentId: pickString(data, ['payment_id', 'paymentId', 'id']) ?? '',
-      status: pickString(data, ['status']) ?? 'unknown',
-      amountCents: pickNumber(data, ['amount_cents', 'amountCents']) ?? input.amountCents,
-      appFeeCents: pickNumber(data, ['app_fee_cents', 'appFeeCents', 'app_fee_money']) ?? null,
-      processingFeeCents: pickNumber(data, ['processing_fee_cents', 'processingFeeCents']) ?? null,
+      paymentId: typeof p.id === 'string' ? p.id : '',
+      status: typeof p.status === 'string' ? p.status : 'unknown',
+      amountCents: typeof amountMoney?.amount === 'number' ? amountMoney.amount : input.amountCents,
+      appFeeCents: typeof appFeeMoney?.amount === 'number' ? appFeeMoney.amount : null,
+      cardBrand: card?.card_brand ?? null,
+      cardLast4: card?.last_4 ?? null,
+      receiptUrl: typeof p.receipt_url === 'string' ? p.receipt_url : null,
       raw: data,
     };
   }
@@ -177,14 +194,16 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      throw new BadRequestError('Relay: refund failed');
+      return this.throwRelayError(res, 'Relay refund failed');
     }
 
-    const data = (await res.json()) as Record<string, unknown>;
+    const data = (await res.json()) as { refund?: Record<string, unknown> };
+    const r = (data.refund ?? {}) as Record<string, unknown>;
+    const amountMoney = r.amount_money as MoneyLike | undefined;
     return {
-      refundId: pickString(data, ['refund_id', 'refundId', 'id']) ?? '',
-      status: pickString(data, ['status']) ?? 'unknown',
-      amountCents: pickNumber(data, ['amount_cents', 'amountCents']) ?? input.amountCents,
+      refundId: typeof r.id === 'string' ? r.id : '',
+      status: typeof r.status === 'string' ? r.status : 'unknown',
+      amountCents: typeof amountMoney?.amount === 'number' ? amountMoney.amount : input.amountCents,
       raw: data,
     };
   }
