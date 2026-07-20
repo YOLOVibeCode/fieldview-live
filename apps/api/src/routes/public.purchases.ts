@@ -19,8 +19,10 @@ import { LedgerRepository } from '../repositories/implementations/LedgerReposito
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { getRelayConfig, isPaymentsViaRelay } from '../lib/relay';
 import { LedgerService } from '../services/LedgerService';
 import { ReceiptService } from '../services/ReceiptService';
+import { RelayConnectHubService } from '../services/RelayConnectHubService';
 import { SquareOwnerClientService } from '../services/SquareOwnerClientService';
 import { calculateMarketplaceSplit } from '../utils/feeCalculator';
 
@@ -44,6 +46,7 @@ function getHandlers(): PublicPurchaseHandlers {
     const ledgerService = new LedgerService(ledgerRepo, ownerAccountRepo);
     const receiptService = new ReceiptService(getEmailProvider(), APP_URL);
     const ownerSquareClientService = new SquareOwnerClientService(ownerAccountRepo);
+    const relayService = new RelayConnectHubService(getRelayConfig());
 
     handlersInstance = {
       async get(purchaseId: string) {
@@ -97,6 +100,95 @@ function getHandlers(): PublicPurchaseHandlers {
         if (!ownerAccount) {
           throw new NotFoundError('Owner account not found');
         }
+
+        // --- Relay Connect Hub path (flag-gated, default OFF) --------------------
+        // When enabled AND the owner has completed relay onboarding, charge via the
+        // relay's Connect Hub instead of the legacy Model A path below. Falls through
+        // to Model A otherwise, so flag-off behaviour is unchanged.
+        if (isPaymentsViaRelay() && ownerAccount.relayRecipientKey) {
+          const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
+          const split = calculateMarketplaceSplit(purchase.amountCents, PLATFORM_FEE_PERCENT);
+          const relayViewer = await prisma.viewerIdentity.findUnique({
+            where: { id: purchase.viewerId },
+            select: { email: true },
+          });
+
+          // The relay applies app_fee_money from the product's configured app_fee_bps
+          // (set to match PLATFORM_FEE_PERCENT). Idempotency keyed on purchaseId.
+          const chargeResult = await relayService.charge(ownerAccount.relayRecipientKey, {
+            sourceId,
+            amountCents: purchase.amountCents,
+            idempotencyKey: purchaseId.substring(0, 45),
+            referenceId: purchaseId,
+            note: `FieldView purchase ${purchaseId}`,
+            buyerEmailAddress: relayViewer?.email ?? undefined,
+          });
+
+          // Relay charge response omits Square's processing fee; keep the estimate.
+          const processorFeeCents = purchase.processorFeeCents;
+          const platformFeeCents = split.platformFeeCents;
+          const ownerNetCents = purchase.amountCents - platformFeeCents - processorFeeCents;
+
+          await purchaseRepo.update(purchaseId, {
+            paymentProviderPaymentId: chargeResult.paymentId,
+            processorFeeCents,
+            ownerNetCents,
+          });
+
+          if (chargeResult.status && chargeResult.status !== 'COMPLETED') {
+            logger.warn({ status: chargeResult.status }, 'Relay charge not completed; marking failed');
+            await purchaseRepo.update(purchaseId, { status: 'failed', failedAt: new Date() });
+            return { purchaseId, status: 'failed' };
+          }
+
+          const paidPurchase = await purchaseRepo.update(purchaseId, { status: 'paid', paidAt: new Date() });
+
+          try {
+            const existing = await ledgerRepo.findByReference('purchase', purchaseId);
+            if (existing.length === 0) {
+              await ledgerService.createPurchaseLedgerEntries(
+                paidPurchase,
+                { grossAmountCents: split.grossAmountCents, platformFeeCents, processorFeeCents, ownerNetCents },
+                undefined,
+              );
+            }
+          } catch (ledgerError) {
+            logger.error({ ledgerError }, 'Failed to create ledger entries (relay path)');
+          }
+
+          const existingEntitlement = await entitlementRepo.getByPurchaseId(purchaseId);
+          if (existingEntitlement) {
+            return { purchaseId, status: 'paid', entitlementToken: existingEntitlement.tokenId };
+          }
+
+          const now = new Date();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const relayGame = (purchase as any).game as { endsAt?: Date | null } | undefined;
+          const validTo = relayGame?.endsAt
+            ? new Date(relayGame.endsAt)
+            : new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          const tokenId = crypto.randomBytes(32).toString('hex');
+          const entitlement = await entitlementRepo.create({
+            purchaseId,
+            tokenId,
+            validFrom: now,
+            validTo,
+            status: 'active',
+          });
+
+          if (relayViewer?.email) {
+            await receiptService.sendPurchaseReceipt({
+              to: relayViewer.email,
+              purchaseId,
+              amountCents: purchase.amountCents,
+              currency: purchase.currency || 'USD',
+              streamUrl: `${APP_URL}/stream/${entitlement.tokenId}`,
+            });
+          }
+
+          return { purchaseId, status: 'paid', entitlementToken: entitlement.tokenId };
+        }
+        // --- End relay path; legacy Model A below --------------------------------
 
         // Get owner's Square client (marketplace Model A) with refresh support
         const ownerSquareClient = await ownerSquareClientService.getClient(ownerAccount);
