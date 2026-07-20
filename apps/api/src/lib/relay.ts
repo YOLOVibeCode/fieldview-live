@@ -28,3 +28,12 @@ export function getRelayConfig(): RelayConfig {
 export function isRelayConfigured(): boolean {
   return (process.env.NOCTUSOFT_API_KEY || '').length > 0;
 }
+
+/**
+ * Feature flag: route viewer checkout through the relay Connect Hub instead of the
+ * legacy in-repo Square "Model A". Default OFF. Only takes effect for owners that
+ * have completed relay onboarding (have a relayRecipientKey).
+ */
+export function isPaymentsViaRelay(): boolean {
+  return process.env.PAYMENTS_VIA_RELAY === 'true';
+}
