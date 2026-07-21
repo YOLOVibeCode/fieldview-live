@@ -7,6 +7,27 @@
  * Square secrets — only the relay deploy key. See docs/RELAY-CONNECT-HUB-MIGRATION.md.
  */
 
+import crypto from 'crypto';
+
+/**
+ * Verify a relay-forwarded webhook. The relay re-signs each event with the
+ * product's own secret: base64( HMAC-SHA256( FIELDVIEW_WEBHOOK_SECRET, callbackUrl + rawBody ) ),
+ * delivered in the `x-connect-signature` header. Constant-time compared.
+ */
+export function verifyRelaySignature(
+  signature: string | undefined,
+  rawBody: string,
+  callbackUrl: string,
+): boolean {
+  const secret = process.env.FIELDVIEW_WEBHOOK_SECRET || '';
+  if (!secret || !signature) return false;
+  const expected = crypto.createHmac('sha256', secret).update(callbackUrl + rawBody).digest('base64');
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 export interface RelayConfig {
   /** e.g. https://api.square.noctusoft.com */
   baseUrl: string;
