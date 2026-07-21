@@ -134,6 +134,16 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
   return { Authorization: `Bearer ${token}` };
 }
 
+// Owner relay-payments (Connect Hub) onboarding status
+export interface OwnerPaymentsStatus {
+  recipientKey: string | null;
+  merchantId: string | null;
+  agreementAccepted: boolean;
+  agreementVersion: string | null;
+  connected: boolean;
+  connectedAt: string | null;
+}
+
 // Game types
 export interface Game {
   id: string;
@@ -792,5 +802,37 @@ export const apiClient = {
         body: JSON.stringify(data),
       }
     );
+  },
+
+  /**
+   * Owner relay-payments (Connect Hub) onboarding — all require the owner token.
+   */
+  async ownerPaymentsStatus(ownerToken: string): Promise<OwnerPaymentsStatus> {
+    return apiRequest<OwnerPaymentsStatus>(`/api/owners/me/payments/status`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  async ownerPaymentsConnect(ownerToken: string): Promise<{ authorizeUrl: string; recipientKey: string }> {
+    return apiRequest<{ authorizeUrl: string; recipientKey: string }>(`/api/owners/me/payments/connect`, {
+      method: 'POST',
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  async ownerAcceptAgreement(ownerToken: string, version?: string): Promise<{ accepted: boolean; version: string }> {
+    return apiRequest<{ accepted: boolean; version: string }>(`/api/owners/me/payments/agreement`, {
+      method: 'POST',
+      headers: { ...withBearerToken(ownerToken) },
+      body: JSON.stringify({ version }),
+    });
+  },
+
+  async ownerSetPaymentLocation(ownerToken: string, locationId: string): Promise<{ locationId: string }> {
+    return apiRequest<{ locationId: string }>(`/api/owners/me/payments/location`, {
+      method: 'POST',
+      headers: { ...withBearerToken(ownerToken) },
+      body: JSON.stringify({ locationId }),
+    });
   },
 };

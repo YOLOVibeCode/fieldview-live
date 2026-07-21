@@ -149,6 +149,38 @@ router.get('/me/payments/status', requireOwnerAuth, (req: AuthRequest, res, next
   })();
 });
 
+const LocationSchema = z.object({ locationId: z.string().min(1) });
+
+/**
+ * POST /api/owners/me/payments/location
+ *
+ * Stores the coach's own Square location id (the relay does not provide it; it is
+ * required by the Web Payments SDK at checkout). Reuses OwnerAccount.squareLocationId.
+ */
+router.post(
+  '/me/payments/location',
+  requireOwnerAuth,
+  validateRequest({ body: LocationSchema }),
+  (req: AuthRequest, res, next) => {
+    void (async () => {
+      try {
+        if (!req.ownerAccountId) return next(new UnauthorizedError('Owner account ID not found'));
+
+        const repo = new OwnerAccountRepository(prisma);
+        const owner = await repo.findById(req.ownerAccountId);
+        if (!owner) return next(new NotFoundError('Owner account not found'));
+
+        const locationId = (req.body as { locationId: string }).locationId.trim();
+        await repo.update(owner.id, { squareLocationId: locationId });
+
+        res.json({ locationId });
+      } catch (error) {
+        next(error);
+      }
+    })();
+  },
+);
+
 export function createOwnersPaymentsRouter(): Router {
   return router;
 }
