@@ -19,7 +19,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { Button } from '@/components/ui/button';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, ApiError, type PaymentConfigResponse } from '@/lib/api-client';
+import { resolveSquareConfig } from '@/lib/square-config';
 
 interface SquareTokenizeResult {
   status: string; // 'OK' on success
@@ -83,6 +84,8 @@ export function SquareWalletPayment({
   const [processing, setProcessing] = useState(false);
   const [canApplePay, setCanApplePay] = useState(false);
   const [canGooglePay, setCanGooglePay] = useState(false);
+  const [cfg, setCfg] = useState<PaymentConfigResponse | null>(null);
+  const [cfgLoaded, setCfgLoaded] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const googlePayRef = useRef<HTMLDivElement>(null);
@@ -96,13 +99,9 @@ export function SquareWalletPayment({
   // TEMP diagnostic: surface why a wallet button failed to initialize.
   const [diag, setDiag] = useState<string[]>([]);
 
-  const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || '';
-  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '';
-  const env = (process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox').toLowerCase();
-  const sdkUrl =
-    env === 'production'
-      ? 'https://web.squarecdn.com/v1/square.js'
-      : 'https://sandbox.web.squarecdn.com/v1/square.js';
+  // Per-coach Square config (relay Connect Hub) resolved from the purchase, with a
+  // legacy NEXT_PUBLIC_* fallback. See lib/square-config.ts.
+  const { applicationId: appId, locationId, sdkUrl } = resolveSquareConfig(cfg);
   const amountDisplay = (amountCents / 100).toFixed(2);
 
   // If the SDK script was already loaded by a prior mount, don't wait for onLoad.
@@ -110,8 +109,27 @@ export function SquareWalletPayment({
     if (getSquareSdk()) setSdkLoaded(true);
   }, []);
 
+  // Fetch the per-coach Square config for this purchase before loading the SDK.
   useEffect(() => {
-    if (!sdkLoaded || initRef.current) return;
+    let active = true;
+    apiClient
+      .getPaymentConfig(purchaseId)
+      .then((c) => {
+        if (active) setCfg(c);
+      })
+      .catch(() => {
+        if (active) setCfg(null);
+      })
+      .finally(() => {
+        if (active) setCfgLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [purchaseId]);
+
+  useEffect(() => {
+    if (!cfgLoaded || !sdkLoaded || initRef.current) return;
     if (!appId || !locationId) {
       onError?.('Payment is not configured for this stream yet. Please try again later.');
       return;
@@ -168,7 +186,7 @@ export function SquareWalletPayment({
     })();
     // amountDisplay/currency are derived from props; re-init not expected mid-flow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sdkLoaded, appId, locationId]);
+  }, [cfgLoaded, sdkLoaded, appId, locationId]);
 
   // Cleanup Square iframes/instances on unmount.
   useEffect(() => {
@@ -239,7 +257,9 @@ export function SquareWalletPayment({
 
   return (
     <div className="space-y-3" data-testid="square-wallet-payment">
-      <Script src={sdkUrl} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} onReady={() => setSdkLoaded(true)} />
+      {cfgLoaded && (
+        <Script src={sdkUrl} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} onReady={() => setSdkLoaded(true)} />
+      )}
 
       {/* TEMP diagnostic — shows exactly why each wallet did/didn't initialize. */}
       {diag.length > 0 && (

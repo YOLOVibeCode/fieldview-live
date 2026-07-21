@@ -134,6 +134,14 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
   return { Authorization: `Bearer ${token}` };
 }
 
+// Per-purchase Square Web SDK config (relay per-coach, or legacy env)
+export interface PaymentConfigResponse {
+  provider: 'relay' | 'legacy';
+  applicationId?: string;
+  environment?: string; // 'production' | 'sandbox'
+  locationId?: string | null;
+}
+
 // Owner relay-payments (Connect Hub) onboarding status
 export interface OwnerPaymentsStatus {
   recipientKey: string | null;
@@ -834,5 +842,13 @@ export const apiClient = {
       headers: { ...withBearerToken(ownerToken) },
       body: JSON.stringify({ locationId }),
     });
+  },
+
+  /**
+   * Per-purchase Square Web SDK config (public). Returns the recipient coach's
+   * application id / environment / location from the relay, or { provider:'legacy' }.
+   */
+  async getPaymentConfig(purchaseId: string): Promise<PaymentConfigResponse> {
+    return apiRequest<PaymentConfigResponse>(`/api/public/purchases/${purchaseId}/payment-config`);
   },
 };
