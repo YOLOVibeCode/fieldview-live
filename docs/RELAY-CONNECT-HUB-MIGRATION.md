@@ -88,3 +88,27 @@ Charge accepts `note`, `reference_id` (use `purchaseId`), `statement_description
 ## 8. Verification (per slice)
 
 Relay canary + `test.squareup.noctusoft.com` console (catalog, card-on-file, charge, refund, subscription, webhook fanout) + FieldView e2e against a sandbox recipient, before enabling a real coach.
+
+## 9. Go-live env matrix (FieldView API — Railway)
+
+| Env var | Purpose | Default |
+|---|---|---|
+| `NOCTUSOFT_API_KEY` | Relay deploy key (`nsins_dk_…`); Bearer auth to the relay | — (required) |
+| `NOCTUSOFT_RELAY_SQUARE_BASE_URL` | Connect Hub base | `https://api.square.noctusoft.com` |
+| `NOCTUSOFT_PRODUCT_KEY` | Connect Hub product slug | `fieldview` |
+| `PAYMENTS_VIA_RELAY` | Route checkout/refunds through the relay | `false` (OFF) |
+| `RELAY_AGREEMENT_VERSION` | Recipient Agreement version to record | `v1` |
+| `FIELDVIEW_WEBHOOK_SECRET` | Verifies relay-forwarded webhooks (HMAC) | — (required for webhooks) |
+| `FIELDVIEW_WEBHOOK_CALLBACK_URL` | Exact URL the relay signs against | `${API_BASE_URL}/api/webhooks/relay` |
+
+On `ns` (relay): `connect_apps` for `fieldview` → `app_fee_bps=1000`, `agreement_version=v1`, `webhook_callback_url`, `post_connect_redirect=…/owners/dashboard?payments_connected=true`; set `NOCTUSOFT_SQUARE_WEBHOOK_SIGNATURE_KEY_{PROD,SANDBOX}` + the product's webhook signing secret; register the relay's Square webhook. The Recipient Agreement text (v1) must match: see `docs/legal/RECIPIENT-AGREEMENT-v1.md` (attorney review pending).
+
+## 10. Canary checklist (before flipping `PAYMENTS_VIA_RELAY=true` in prod)
+
+1. Provision `fieldview` on the relay; set the Railway env above (sandbox values first).
+2. Connect ONE sandbox coach via `/owners/payments` (agreement → OAuth → Location ID).
+3. Run a `$1` charge (viewer checkout) → confirm 90/10 split + entitlement.
+4. Issue an admin refund → confirm app-fee reversal + purchase status.
+5. Exercise the webhook (`refund.updated`) via `test.squareup.noctusoft.com` → confirm 200 + status update.
+6. Repeat on production values with a real coach before broad enablement.
+7. Only after this passes: schedule **Slice F** (delete Model A / remove the fallback).
