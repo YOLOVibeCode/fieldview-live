@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, ApiError, type PaymentConfigResponse } from '@/lib/api-client';
+import { resolveSquareConfig } from '@/lib/square-config';
 import { dataEventBus, DataEvents } from '@/lib/event-bus';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 
@@ -43,6 +44,8 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [cfg, setCfg] = useState<PaymentConfigResponse | null>(null);
+  const [cfgLoaded, setCfgLoaded] = useState(false);
   const [purchase, setPurchase] = useState<{ amountCents: number; currency: string; viewerEmail?: string } | null>(null);
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<Array<{ id: string; cardBrand: string; last4: string; expMonth?: number; expYear?: number }>>([]);
   const [selectedSavedCard, setSelectedSavedCard] = useState<string | null>(null);
@@ -56,13 +59,12 @@ export default function PaymentPage() {
   const googlePayInstanceRef = useRef<SquarePaymentMethod | null>(null);
   const squareInitRef = useRef(false);
 
-  const squareApplicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || '';
-  const squareLocationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '';
-  const squareEnvironment = (process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox').toLowerCase();
-  const squareSdkUrl =
-    squareEnvironment === 'production'
-      ? 'https://web.squarecdn.com/v1/square.js'
-      : 'https://sandbox.web.squarecdn.com/v1/square.js';
+  // Per-coach Square config (relay Connect Hub) with legacy NEXT_PUBLIC_* fallback.
+  const {
+    applicationId: squareApplicationId,
+    locationId: squareLocationId,
+    sdkUrl: squareSdkUrl,
+  } = resolveSquareConfig(cfg);
 
   // Fetch purchase info and saved payment methods
   useEffect(() => {
@@ -111,21 +113,40 @@ export default function PaymentPage() {
     }
   }, [purchaseId]);
 
+  // Per-coach Square config for this purchase (relay Connect Hub).
+  useEffect(() => {
+    let active = true;
+    apiClient
+      .getPaymentConfig(purchaseId)
+      .then((c) => {
+        if (active) setCfg(c);
+      })
+      .catch(() => {
+        if (active) setCfg(null);
+      })
+      .finally(() => {
+        if (active) setCfgLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [purchaseId]);
+
   // If Square config is missing, don't spin forever.
   useEffect(() => {
-    if (!sdkLoaded) return;
+    if (!cfgLoaded || !sdkLoaded) return;
     if (!purchase) return;
     if (!squareApplicationId || !squareLocationId) {
       setError('Square payment configuration is missing.');
       setLoading(false);
     }
-  }, [sdkLoaded, purchase, squareApplicationId, squareLocationId]);
+  }, [cfgLoaded, sdkLoaded, purchase, squareApplicationId, squareLocationId]);
 
   useEffect(() => {
-    if (sdkLoaded && squareApplicationId && squareLocationId && cardRef.current && purchase) {
+    if (cfgLoaded && sdkLoaded && squareApplicationId && squareLocationId && cardRef.current && purchase) {
       initializeSquare();
     }
-  }, [sdkLoaded, squareApplicationId, squareLocationId, purchase]);
+  }, [cfgLoaded, sdkLoaded, squareApplicationId, squareLocationId, purchase]);
 
   useEffect(() => {
     return () => {
@@ -346,14 +367,16 @@ export default function PaymentPage() {
 
   return (
     <>
-      <Script
-        src={squareSdkUrl}
-        onLoad={() => setSdkLoaded(true)}
-        onError={() => {
-          setError('Failed to load Square payment SDK');
-          setLoading(false);
-        }}
-      />
+      {cfgLoaded && (
+        <Script
+          src={squareSdkUrl}
+          onLoad={() => setSdkLoaded(true)}
+          onError={() => {
+            setError('Failed to load Square payment SDK');
+            setLoading(false);
+          }}
+        />
+      )}
       <div className="min-h-screen py-6 sm:py-8 lg:py-12 px-4 sm:px-6">
         <div className="max-w-md mx-auto">
         <Card className="shadow-lg">

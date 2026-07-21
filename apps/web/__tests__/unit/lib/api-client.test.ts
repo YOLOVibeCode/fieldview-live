@@ -150,6 +150,21 @@ describe('api-client', () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(JSON.parse(init?.body as string)).toEqual({ locationId: 'LOC1' });
   });
+
+  it('getPaymentConfig GETs the per-purchase payment-config', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ provider: 'relay', applicationId: 'sq0idp-x', environment: 'production', locationId: 'LOC1' }),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    global.fetch = fetchMock as any;
+
+    const result = await apiClient.getPaymentConfig('purchase-9');
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain('/api/public/purchases/purchase-9/payment-config');
+    expect(result.provider).toBe('relay');
+    expect(result.applicationId).toBe('sq0idp-x');
+  });
 });
 
 
