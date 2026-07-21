@@ -189,6 +189,34 @@ export default function OwnerDashboardPage() {
             </CardContent>
           </Card>
 
+          <Card className="card-interactive" data-testid="card-payments">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-base sm:text-lg">Payouts</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Connect Square &amp; receive payouts</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <a
+                href="/owners/payments"
+                className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
+                data-testid="link-payments"
+              >
+                Manage payouts
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </CardContent>
+          </Card>
+
           <Card className="card-interactive" data-testid="card-analytics">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
