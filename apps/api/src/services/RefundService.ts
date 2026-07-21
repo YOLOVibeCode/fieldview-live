@@ -6,13 +6,16 @@
  */
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
+import { isPaymentsViaRelay } from '../lib/relay';
 import { squareClient } from '../lib/square';
+import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
 import type { IPlaybackSessionReader } from '../repositories/IPlaybackSessionRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
 import type { IRefundReader as IRefundRepoReader, IRefundWriter as IRefundRepoWriter } from '../repositories/IRefundRepository';
 import { calculateRefund, type RefundCalculationInput } from '../utils/refundCalculator';
 
 import type { IEntitlementReader } from './IEntitlementService';
+import type { IRelayConnectPayments } from './IRelayConnectHubService';
 import type { IRefundReader, IRefundWriter, AggregatedTelemetry, RefundEvaluation } from './IRefundService';
 import type { ISmsWriter } from './ISmsService';
 
@@ -26,7 +29,9 @@ export class RefundService implements IRefundReader, IRefundWriter {
     private refundReader: IRefundRepoReader,
     private refundWriter: IRefundRepoWriter,
     private entitlementReader: IEntitlementReader,
-    private smsWriter: ISmsWriter
+    private smsWriter: ISmsWriter,
+    private ownerReader: IOwnerAccountReader,
+    private relay: IRelayConnectPayments
   ) {}
 
   async evaluateRefundEligibility(purchaseId: string): Promise<RefundEvaluation> {
@@ -192,7 +197,27 @@ export class RefundService implements IRefundReader, IRefundWriter {
       throw new BadRequestError('Purchase has no payment provider ID');
     }
 
-    // Create Square refund
+    // Relay Connect Hub path (flag-gated): refund on the coach's own Square via the
+    // relay, which reverses the app fee proportionally. Falls through to the legacy
+    // central-client path when off or the owner is not migrated.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const relayOwnerId = purchase.recipientOwnerAccountId as string | undefined;
+    if (isPaymentsViaRelay() && relayOwnerId) {
+      const owner = await this.ownerReader.findById(relayOwnerId);
+      if (owner?.relayRecipientKey) {
+        await this.relay.refund(owner.relayRecipientKey, {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          paymentId: purchase.paymentProviderPaymentId as string,
+          amountCents: refund.amountCents,
+          idempotencyKey: `refund-${refundId}`,
+          reason: refund.reasonCode,
+        });
+        await this.refundWriter.update(refundId, { processedAt: new Date() });
+        return;
+      }
+    }
+
+    // Create Square refund (legacy Model A: central platform client)
     try {
       // Square SDK v43+ - refunds API
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
