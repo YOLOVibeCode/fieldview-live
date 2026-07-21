@@ -60,6 +60,7 @@ import scoreboardRouter from './routes/scoreboard';
 import { createTestCleanupRouter } from './routes/test.cleanup';
 import { createTestStreamsRouter } from './routes/test.streams';
 import { createSquareWebhookRouter } from './routes/webhooks.square';
+import { createRelayWebhookRouter } from './routes/webhooks.relay';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 import clipsRouter from './routes/clips.routes';
 import bookmarksRouter from './routes/bookmarks.routes';
@@ -163,6 +164,7 @@ app.use('/api/bookmarks', bookmarksRouter);
 app.use('/api/recordings', recordingsRouter);
 app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createSquareWebhookRouter());
+app.use('/api/webhooks', createRelayWebhookRouter());
 
 // Test routes (POC/development only)
 const enableTestRoutes = process.env.ENABLE_TEST_ROUTES === '1' || process.env.NODE_ENV !== 'production';
