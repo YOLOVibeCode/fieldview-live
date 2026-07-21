@@ -14,7 +14,7 @@ import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchase
 import type { IRefundReader as IRefundRepoReader, IRefundWriter as IRefundRepoWriter } from '../repositories/IRefundRepository';
 import { calculateRefund, type RefundCalculationInput } from '../utils/refundCalculator';
 
-import type { IEntitlementReader } from './IEntitlementService';
+import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
 import type { IRelayConnectPayments } from './IRelayConnectHubService';
 import type { IRefundReader, IRefundWriter, AggregatedTelemetry, RefundEvaluation } from './IRefundService';
 import type { ISmsWriter } from './ISmsService';
@@ -28,7 +28,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
     private playbackSessionReader: IPlaybackSessionReader,
     private refundReader: IRefundRepoReader,
     private refundWriter: IRefundRepoWriter,
-    private entitlementReader: IEntitlementReader,
+    private entitlementReader: IEntitlementRepoReader,
     private smsWriter: ISmsWriter,
     private ownerReader: IOwnerAccountReader,
     private relay: IRelayConnectPayments
@@ -180,6 +180,53 @@ export class RefundService implements IRefundReader, IRefundWriter {
     return refund;
   }
 
+  async issueManualRefund(
+    purchaseId: string,
+    amountCents: number,
+    reasonCode: string,
+    issuedBy: string
+  ): Promise<import('@prisma/client').Refund> {
+    const purchase = await this.purchaseReader.getById(purchaseId);
+    if (!purchase) {
+      throw new NotFoundError('Purchase not found');
+    }
+    const existingRefunds = await this.refundReader.getByPurchaseId(purchaseId);
+    if (existingRefunds.length > 0) {
+      throw new BadRequestError('Purchase already refunded');
+    }
+    if (amountCents <= 0 || amountCents > purchase.amountCents) {
+      throw new BadRequestError('Invalid refund amount');
+    }
+
+    const refund = await this.refundWriter.create({
+      purchaseId,
+      amountCents,
+      reasonCode,
+      issuedBy,
+      ruleVersion: 'manual',
+      telemetrySummary: {
+        watchMs: 0,
+        bufferMs: 0,
+        bufferEvents: 0,
+        fatalErrors: 0,
+        streamDownMs: 0,
+        bufferRatio: 0,
+        downtimeRatio: 0,
+        appliedRule: 'manual',
+      },
+    });
+
+    const isFullRefund = amountCents >= purchase.amountCents;
+    await this.purchaseWriter.update(purchaseId, {
+      status: isFullRefund ? 'refunded' : 'partially_refunded',
+      refundedAt: new Date(),
+    });
+
+    await this.processSquareRefund(refund.id);
+
+    return refund;
+  }
+
   async processSquareRefund(refundId: string): Promise<void> {
     // Get refund
     const refund = await this.refundReader.getById(refundId);
@@ -254,7 +301,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
     // Get entitlement for this purchase (one-to-one relationship)
     // Note: Using getByPurchaseId which returns a single entitlement
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const entitlement = await (this.entitlementReader as any).getByPurchaseId(purchaseId);
+    const entitlement = await this.entitlementReader.getByPurchaseId(purchaseId);
     if (!entitlement) {
       return {
         watchMs: 0,
