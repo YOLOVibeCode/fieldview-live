@@ -50,5 +50,12 @@ export interface IRefundWriter {
     appliedRule: string,
     ruleVersion: string
   ): Promise<Refund>;
+  /** Admin-initiated full/partial refund (not telemetry-gated). */
+  issueManualRefund(
+    purchaseId: string,
+    amountCents: number,
+    reasonCode: string,
+    issuedBy: string
+  ): Promise<Refund>;
   processSquareRefund(refundId: string): Promise<void>;
 }

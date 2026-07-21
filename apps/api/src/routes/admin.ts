@@ -24,6 +24,12 @@ import { ViewerIdentityRepository } from '../repositories/implementations/Viewer
 import { AdminAuthService } from '../services/AdminAuthService';
 import { AdminService } from '../services/AdminService';
 import { AudienceService } from '../services/AudienceService';
+import { getRelayConfig } from '../lib/relay';
+import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
+import type { IRefundWriter } from '../services/IRefundService';
+import { RefundService } from '../services/RefundService';
+import { RelayConnectHubService } from '../services/RelayConnectHubService';
+import { SmsService } from '../services/SmsService';
 
 const router = express.Router();
 
@@ -75,6 +81,74 @@ export function setAdminService(service: AdminService): void {
 export function setAdminAuthService(service: AdminAuthService): void {
   adminAuthServiceInstance = service;
 }
+
+let refundServiceInstance: IRefundWriter | null = null;
+
+function getRefundService(): IRefundWriter {
+  if (!refundServiceInstance) {
+    const purchaseRepo = new PurchaseRepository(prisma);
+    const playbackSessionRepo = new PlaybackSessionRepository(prisma);
+    const refundRepo = new RefundRepository(prisma);
+    const entitlementRepo = new EntitlementRepository(prisma);
+    const gameRepo = new GameRepository(prisma);
+    const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
+    const ownerRepo = new OwnerAccountRepository(prisma);
+    const smsService = new SmsService(gameRepo, viewerIdentityRepo, viewerIdentityRepo);
+    const relay = new RelayConnectHubService(getRelayConfig());
+    refundServiceInstance = new RefundService(
+      purchaseRepo,
+      purchaseRepo,
+      playbackSessionRepo,
+      refundRepo,
+      refundRepo,
+      entitlementRepo,
+      smsService,
+      ownerRepo,
+      relay
+    );
+  }
+  return refundServiceInstance;
+}
+
+export function setRefundService(service: IRefundWriter): void {
+  refundServiceInstance = service;
+}
+
+const IssueRefundSchema = z.object({
+  amountCents: z.number().int().positive(),
+  reasonCode: z.string().min(1).optional(),
+});
+
+/**
+ * POST /api/admin/purchases/:purchaseId/refund
+ *
+ * Admin-initiated full/partial refund. Routes to the relay when the owner is
+ * migrated (flag-gated), else the legacy Square path.
+ */
+router.post(
+  '/purchases/:purchaseId/refund',
+  requireAdminAuth,
+  auditLog({ actionType: 'issue_refund', targetType: 'purchase' }),
+  validateRequest({ body: IssueRefundSchema }),
+  (req: AuthRequest, res, next: NextFunction) => {
+    void (async () => {
+      try {
+        const adminId = req.adminUserId || 'admin';
+        const purchaseId = req.params.purchaseId;
+        const { amountCents, reasonCode } = req.body as { amountCents: number; reasonCode?: string };
+        const refund = await getRefundService().issueManualRefund(
+          purchaseId,
+          amountCents,
+          reasonCode || 'admin_manual',
+          adminId
+        );
+        res.json({ refundId: refund.id, amountCents: refund.amountCents, status: 'processing' });
+      } catch (error) {
+        next(error);
+      }
+    })();
+  }
+);
 
 // Validation schemas
 const LoginSchema = z.object({
