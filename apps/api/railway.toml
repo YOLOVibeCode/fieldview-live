@@ -3,8 +3,9 @@ builder = "NIXPACKS"
 buildCommand = "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @fieldview/data-model exec prisma generate --schema=./prisma/schema.prisma && pnpm --filter @fieldview/data-model build && pnpm --filter api build"
 
 [deploy]
-# Temporarily skip migrations to get server running
-startCommand = "node dist/server.js"
+# Apply any pending Prisma migrations, then start. `migrate deploy` is idempotent
+# (only applies un-run migrations) and runs against this environment's DATABASE_URL.
+startCommand = "pnpm --filter @fieldview/data-model db:deploy && node dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
