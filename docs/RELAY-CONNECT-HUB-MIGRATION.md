@@ -103,6 +103,28 @@ Relay canary + `test.squareup.noctusoft.com` console (catalog, card-on-file, cha
 
 On `ns` (relay): `connect_apps` for `fieldview` → `app_fee_bps=1000`, `agreement_version=v1`, `webhook_callback_url`, `post_connect_redirect=…/owners/dashboard?payments_connected=true`; set `NOCTUSOFT_SQUARE_WEBHOOK_SIGNATURE_KEY_{PROD,SANDBOX}` + the product's webhook signing secret; register the relay's Square webhook. The Recipient Agreement text (v1) must match: see `docs/legal/RECIPIENT-AGREEMENT-v1.md` (attorney review pending).
 
+## 9a. Live relay state — verified & wired 2026-07-21
+
+Read directly from the running relay (`ns`, `connect_apps` for `fieldview`) and prod:
+
+| Item | State |
+|---|---|
+| `fieldview` product provisioned | ✅ (`app_fee_bps=1000`, `agreement_version=v1`, `square_env=production`) |
+| Connected recipients | ✅ **1 coach already OAuth-connected on production Square** |
+| `webhook_callback_url` | ✅ `https://api.fieldview.live/api/webhooks/relay` (set 2026-07-21) |
+| `webhook_signing_key_env` | ✅ `FIELDVIEW_CONNECT_WEBHOOK_KEY` (value in relay `.env`; per-product, generic) |
+| `post_connect_redirect` | ✅ fixed `…/settings/payments` (a 404) → `https://fieldview.live/owners/payments?payments_connected=true` |
+| Webhook handshake (relay sign ⇄ FieldView verify) | ✅ **proven** — valid-sig POST to prod returns 200, bad-sig 401 |
+
+Relay signs forwarded events `x-connect-signature = base64(HMAC-SHA256(FIELDVIEW_CONNECT_WEBHOOK_KEY, callbackUrl + rawBody))`; FieldView verifies with `FIELDVIEW_WEBHOOK_SECRET` (same secret, different env-var name on each side). Both set 2026-07-21. Relay `.env` + `relay.db` backed up to `*.pre-webhook.bak` before the change.
+
+**FieldView `api` Railway service — go-live config now SET (2026-07-21):**
+- `NOCTUSOFT_API_KEY` = the relay's unrestricted deploy key (relay `.env` `DEPLOY_API_KEY`, seeded into `api_keys`). **Auth verified** — Bearer call to `GET /connect/fieldview/recipients/:key` + `/frontend-config` returns 200 (`application_id=sq0idp-5wSPjCONJHgar6QItMJpuA`, `environment=production`).
+- `PAYMENTS_VIA_RELAY=true` — relay charge/refund branch is **live** (gated per-owner on `OwnerAccount.relayRecipientKey`; Model-A owners untouched).
+- `NOCTUSOFT_RELAY_SQUARE_BASE_URL=https://api.square.noctusoft.com`, `NOCTUSOFT_PRODUCT_KEY=fieldview`, `RELAY_AGREEMENT_VERSION=v1` (set explicitly; match code defaults).
+
+**Only remaining gap for a live end-to-end charge:** no FieldView `OwnerAccount` is yet mapped to a relay recipient. The one connected relay recipient — `noctusoft-self-canary-20260719-071211` (merchant `MLEXHMZCYM5EH`, Noctusoft's own Square) — was created directly on the relay for the backend canary, not through FieldView onboarding, so no owner has `relayRecipientKey` set. To run the app-level $1 canary: either connect a coach via `/owners/payments` (agreement → OAuth → their Square), or map the self-canary recipient onto a test `OwnerAccount.relayRecipientKey`, then do a real card checkout on that owner's stream (production Square = real money).
+
 ## 10. Canary checklist (before flipping `PAYMENTS_VIA_RELAY=true` in prod)
 
 1. Provision `fieldview` on the relay; set the Railway env above (sandbox values first).
