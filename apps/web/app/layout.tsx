@@ -4,23 +4,38 @@ import './globals.css';
 import '@/styles/v2/tokens.css'; // v2 Design Tokens
 import { VersionDisplay } from '@/components/VersionDisplay';
 import { TrakletWidget } from '@/components/TrakletWidget';
+import { EnvChrome } from '@/lib/env-chrome/EnvChrome';
+import { badgeFor } from '@/lib/env-chrome/chrome';
+import { resolveServerEnv } from '@/lib/env-chrome/resolve';
+import { HOST_RULES } from '@/env-chrome.config';
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
 });
 
-export const metadata: Metadata = {
-  title: 'FieldView.Live',
-  description: 'Monetization platform for youth sports live streaming',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'FieldView.Live',
-  },
-};
+const BASE_TITLE = 'FieldView.Live';
+const BASE_DESCRIPTION = 'Monetization platform for youth sports live streaming';
+
+export function generateMetadata(): Metadata {
+  const env = resolveServerEnv();
+  const badge = badgeFor(env);
+  const prefix = badge ? `[${badge.short}] ` : '';
+  return {
+    title: {
+      template: `${prefix}%s`,
+      default: `${prefix}${BASE_TITLE}`,
+    },
+    description: BASE_DESCRIPTION,
+    manifest: '/manifest.json',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: BASE_TITLE,
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -38,9 +53,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const env = resolveServerEnv();
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} min-h-screen`}>
+        <EnvChrome env={env} hostRules={HOST_RULES} />
         {children}
         <TrakletWidget />
         <VersionDisplay />
