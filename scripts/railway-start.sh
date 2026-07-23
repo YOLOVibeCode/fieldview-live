@@ -16,7 +16,9 @@ fi
 
 case "${target}" in
   api)
-    echo "Starting API server (migrations already applied)..."
+    echo "Applying pending Prisma migrations (idempotent)..."
+    pnpm --filter @fieldview/data-model db:deploy
+    echo "Starting API server..."
     exec pnpm --filter api start
     ;;
   web)
