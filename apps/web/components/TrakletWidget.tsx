@@ -3,31 +3,32 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Shared Traklet widget — one service-account token, testers identify
- * themselves via the in-widget onboarding (name / email) so issues and
- * test results are attributed to the right person.
+ * Traklet issue/test widget — DEV/UAT only.
  *
- * Loads when NEXT_PUBLIC_TRAKLET_GITHUB_TOKEN is present (GitHub adapter).
- * Falls back to localStorage-only mode when the token is absent.
+ * Initializes ONLY when `NEXT_PUBLIC_TRAKLET_ENABLED === 'true'` AND a GitHub
+ * token is present. Both are set on dev/uat builds and absent on production, so
+ * neither the widget nor the (client-exposed) PAT ever ship to prod. Issues file
+ * to the single repo `YOLOVibeCode/fieldview-live`; a GitHub Action tags each
+ * with an `env:dev` / `env:uat` label based on the reporting URL.
  */
 export function TrakletWidget() {
   const instanceRef = useRef<{ destroy(): void } | null>(null);
   const initRef = useRef(false);
 
   useEffect(() => {
+    const token = process.env.NEXT_PUBLIC_TRAKLET_GITHUB_TOKEN;
+    const enabled = process.env.NEXT_PUBLIC_TRAKLET_ENABLED === 'true';
+    if (!enabled || !token) return; // off in production (flag unset, token absent)
     if (initRef.current) return;
     initRef.current = true;
     let cancelled = false;
 
-    const token = process.env.NEXT_PUBLIC_TRAKLET_GITHUB_TOKEN;
-
     import('traklet')
       .then(async ({ Traklet }) => {
         if (cancelled) return;
-
         const inst = await Traklet.init({
-          adapter: token ? 'github' : 'localStorage',
-          ...(token ? { token } : {}),
+          adapter: 'github',
+          token,
           projects: [
             {
               id: 'fieldview-live',
@@ -37,18 +38,8 @@ export function TrakletWidget() {
           ],
           position: 'top-right',
         });
-
-        if (cancelled) {
-          inst.destroy();
-        } else {
-          instanceRef.current = inst;
-          if (!token) {
-            console.warn(
-              '[Traklet] NEXT_PUBLIC_TRAKLET_GITHUB_TOKEN is not set. ' +
-              'Widget is running in local-only mode — issues will not sync to GitHub.',
-            );
-          }
-        }
+        if (cancelled) inst.destroy();
+        else instanceRef.current = inst;
       })
       .catch((err: unknown) => {
         console.warn('[Traklet] Failed to initialize:', err);
