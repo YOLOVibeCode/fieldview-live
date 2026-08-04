@@ -1,0 +1,42 @@
+name: Traklet env label
+
+# Tags each newly-opened issue with the environment it was reported from
+# (env:dev / env:uat), derived from the reporting URL that Traklet writes into
+# the issue body ("- **URL:** https://dev.fieldview.live/..."). Keeps a single
+# tracker with per-environment labels instead of separate per-env issues.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const m = body.match(/(?:\*\*URL:\*\*|URL:)\s*(\S+)/i);
+            if (!m) { core.info('No URL in issue body; skipping env label.'); return; }
+            let host = '';
+            try { host = new URL(m[1]).host.toLowerCase(); } catch { return; }
+
+            let label = null;
+            if (/^dev\./.test(host)) label = 'env:dev';
+            else if (/^uat\./.test(host)) label = 'env:uat';
+            if (!label) { core.info(`Host ${host} is not dev/uat; no env label.`); return; }
+
+            const existing = (context.payload.issue.labels || []).map((l) => l.name);
+            if (existing.includes(label)) return;
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });
+            core.info(`Added ${label} (host: ${host}).`);
