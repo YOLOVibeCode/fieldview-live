@@ -121,8 +121,8 @@ async function anonymize() {
     await prisma.purchase.updateMany({ data: { lastAccessedIp: null } });
     await prisma.payout.updateMany({ data: { payoutProviderRef: null } });
 
-    // --- Veo credentials ---
-    await prisma.veoIntegration.updateMany({ data: { veoEmail: null, veoPasswordEncrypted: null } });
+    // --- Veo credentials (both columns are NON-null; mask rather than null) ---
+    await prisma.veoIntegration.updateMany({ data: { veoEmail: 'veo-disabled@uat.invalid', veoPasswordEncrypted: '' } });
 
     // --- Ephemeral token/secret tables: delete outright (they regenerate) ---
     await prisma.emailVerificationToken.deleteMany({});
