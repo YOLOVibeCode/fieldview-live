@@ -1,12 +1,19 @@
 # Object storage via the Noctusoft relay
 
 > **Status:** greenfield. FieldView stores **no** blobs today — there is no S3 /
-> asset-upload code anywhere in the repo. The old `AWS_ACCESS_KEY_ID`,
-> `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `S3_ENDPOINT`, and
-> `ASSET_STORE` Railway vars were **dead** and have been removed. This document
-> is the standard to follow **when** asset storage is actually needed, so it
-> lands on the relay from day one (same posture as email — see
+> asset-upload code anywhere in the repo. This document is the standard to follow
+> **when** asset storage is actually needed, so it lands on the relay from day
+> one (same posture as email — see
 > [`RELAY-CONNECT-HUB-MIGRATION.md`](./RELAY-CONNECT-HUB-MIGRATION.md)).
+>
+> **Existing dead config (2026-08):** the `ASSET_STORE=s3` var was removed from
+> all api envs. The `AWS_REGION` / `AWS_S3_BUCKET` / `AWS_S3_ENDPOINT` /
+> `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` vars are **injected by a Railway
+> Bucket named `assets`** attached to the `api` service, and are read by **no**
+> code. To fully retire them, detach/delete that bucket in the Railway dashboard
+> (it appears unused; confirm it holds no objects first) — left in place for now
+> because removing a storage resource is an owner decision, and the vars are
+> inert at runtime.
 
 ## Why the relay, not direct S3
 
