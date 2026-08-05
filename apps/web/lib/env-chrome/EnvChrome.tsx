@@ -13,12 +13,17 @@ import { applyEnvChrome, envFromHost, type AppEnv } from './chrome';
  * then reconcile if the server disagrees. `HOST_RULES` is imported directly
  * here (client side) — it contains `RegExp`s, which can't be serialized across
  * the Server→Client boundary, so it must NOT be passed as a prop.
+ *
+ * `NEXT_PUBLIC_MAILPIT_URL` (build-time, set on dev/uat only) adds a "📧 Mailpit"
+ * link to the banner pointing at that environment's captured-mail inbox. Absent
+ * on prod → no link.
  */
 export function EnvChrome({ env }: { env: AppEnv }) {
   useEffect(() => {
+    const opts = { mailpitUrl: process.env.NEXT_PUBLIC_MAILPIT_URL };
     const instant = envFromHost(location.hostname, HOST_RULES);
-    applyEnvChrome(instant);
-    if (env !== instant) applyEnvChrome(env);
+    applyEnvChrome(instant, opts);
+    if (env !== instant) applyEnvChrome(env, opts);
   }, [env]);
 
   return null;

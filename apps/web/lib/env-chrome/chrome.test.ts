@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { badgeFor, envFromHost, faviconDataUri } from './chrome';
+import { afterEach, describe, expect, it } from 'vitest';
+import { applyEnvChrome, badgeFor, envFromHost, faviconDataUri } from './chrome';
 import { HOST_RULES } from '@/env-chrome.config';
 
 describe('envFromHost — FieldView.Live hostname rules', () => {
@@ -45,5 +45,42 @@ describe('faviconDataUri', () => {
     const svg = decodeURIComponent(uri.slice('data:image/svg+xml,'.length));
     expect(svg).toContain('#b45309');
     expect(svg).toContain('>U<');
+  });
+});
+
+describe('applyEnvChrome — Mailpit link (dev toolbar)', () => {
+  afterEach(() => {
+    document.getElementById('env-banner')?.remove();
+    document.title = 'FieldView';
+  });
+
+  it('renders a 📧 Mailpit link on dev when mailpitUrl is provided', () => {
+    applyEnvChrome('dev', { mailpitUrl: 'https://mailpit.noctusoft.com' });
+    const link = document.getElementById('env-mailpit-link') as HTMLAnchorElement | null;
+    expect(link).not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('https://mailpit.noctusoft.com');
+    expect(link!.getAttribute('target')).toBe('_blank');
+    expect(link!.getAttribute('rel')).toContain('noopener');
+    expect(link!.textContent).toContain('Mailpit');
+    // banner still shows the env label alongside the link
+    expect(document.getElementById('env-banner')?.textContent).toMatch(/Development/i);
+  });
+
+  it('renders no link on dev when mailpitUrl is absent (prod builds pass nothing)', () => {
+    applyEnvChrome('dev');
+    expect(document.getElementById('env-banner')).not.toBeNull();
+    expect(document.getElementById('env-mailpit-link')).toBeNull();
+  });
+
+  it('does not duplicate the link when re-applied', () => {
+    applyEnvChrome('dev', { mailpitUrl: 'https://mailpit.noctusoft.com' });
+    applyEnvChrome('dev', { mailpitUrl: 'https://mailpit.noctusoft.com' });
+    expect(document.querySelectorAll('#env-mailpit-link').length).toBe(1);
+  });
+
+  it('shows no banner or link on production (link URL ignored)', () => {
+    applyEnvChrome('production', { mailpitUrl: 'https://mailpit.noctusoft.com' });
+    expect(document.getElementById('env-banner')).toBeNull();
+    expect(document.getElementById('env-mailpit-link')).toBeNull();
   });
 });

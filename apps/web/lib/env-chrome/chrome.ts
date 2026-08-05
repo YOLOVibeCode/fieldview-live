@@ -51,8 +51,16 @@ function faviconLink(): HTMLLinkElement {
   return link;
 }
 
+/**
+ * Optional per-environment tools shown inline in the banner. `mailpitUrl`, when
+ * provided on a non-prod env, renders a "📧 Mailpit" link to that environment's
+ * captured-mail inbox. Opt-in and additive: other projects call
+ * `applyEnvChrome(env)` with no opts and are unaffected.
+ */
+export type EnvChromeOptions = { mailpitUrl?: string };
+
 /** Apply (or clear, for production) the banner + title prefix + favicon tint. */
-export function applyEnvChrome(env: AppEnv): void {
+export function applyEnvChrome(env: AppEnv, opts: EnvChromeOptions = {}): void {
   if (baseTitle === null) baseTitle = document.title.replace(/^\[[A-Z]+\]\s+/, '');
   const link = faviconLink();
   if (baseFavicon === null) baseFavicon = link.getAttribute('href') || '/favicon.ico';
@@ -70,7 +78,6 @@ export function applyEnvChrome(env: AppEnv): void {
   const banner = existing ?? document.createElement('div');
   banner.id = 'env-banner';
   banner.setAttribute('role', 'status');
-  banner.textContent = badge.label;
   banner.style.cssText = [
     `background:${badge.color}`,
     'color:#fff',
@@ -81,7 +88,36 @@ export function applyEnvChrome(env: AppEnv): void {
     'padding:5px 12px',
     'width:100%',
     'box-sizing:border-box',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'gap:16px',
   ].join(';');
+
+  // Rebuild children each apply (handles re-apply without duplicating the link).
+  banner.textContent = '';
+  const label = document.createElement('span');
+  label.textContent = badge.label;
+  banner.appendChild(label);
+
+  const mailpitUrl = opts.mailpitUrl?.trim();
+  if (mailpitUrl) {
+    const a = document.createElement('a');
+    a.id = 'env-mailpit-link';
+    a.href = mailpitUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = '📧 Mailpit';
+    a.style.cssText = [
+      'color:#fff',
+      'text-decoration:underline',
+      'text-transform:none',
+      'letter-spacing:normal',
+      'white-space:nowrap',
+    ].join(';');
+    banner.appendChild(a);
+  }
+
   if (!existing) document.body.insertBefore(banner, document.body.firstChild);
 
   document.title = `[${badge.short}] ${baseTitle}`;
