@@ -7,48 +7,58 @@ labels:
   - search
   - phone
 suite: admin-console
+backend-id: "124"
+last-synced: "2026-08-05T21:30:35.563Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that searching by E.164 phone number returns matching viewer results with the phone number displayed.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated admin)
 - A known viewer with a phone number in the test environment
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/admin/console`
+1. Navigate to `https://dev.fieldview.live/admin/console`
 2. Enter a known E.164 phone number (e.g. `+15551234567`) in the search input
 3. Click "Search"
 4. Verify Viewers card shows at least one match
 5. Verify the matched viewer shows the phone number in the secondary line
 6. Verify the viewer's email and purchase count are also displayed
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Phone number search returns matching viewer(s)
 - Viewer card shows email (primary), phone (secondary), purchase count
 - Search handles E.164 format correctly (with + prefix)
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Ensure phone numbers without the + prefix are also handled gracefully, even if no match is found.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

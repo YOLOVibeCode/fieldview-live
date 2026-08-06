@@ -7,42 +7,52 @@ labels:
   - auth
   - watch-links
 suite: auth-viewer
+backend-id: "144"
+last-synced: "2026-08-05T21:30:58.905Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Public watch experience must not force owner login for first paint (access rules still apply per channel).
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
-- A valid `https://fieldview.live/watch/{org}/{team}` URL for the environment (free or paid channel per sub-test intent)
-{/traklet:section:prerequisites}
+- A valid `https://dev.fieldview.live/watch/{org}/{team}` URL for the environment (free or paid channel per sub-test intent)
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Use incognito / cleared cookies
 2. Navigate to the watch URL
-3. Confirm page loads (player shell, checkout, or paywall — not redirect to `https://fieldview.live/owners/login`)
-{/traklet:section:steps}
+3. Confirm page loads (player shell, checkout, or paywall — not redirect to `https://dev.fieldview.live/owners/login`)
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Appropriate viewer experience for that channel; no spurious owner login wall for merely opening the link.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Pair with **TC-WF-001** (free) and **TC-WP-001** (paid) for channel-mode specifics.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

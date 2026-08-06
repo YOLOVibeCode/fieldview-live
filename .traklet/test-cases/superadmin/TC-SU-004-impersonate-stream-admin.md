@@ -8,50 +8,60 @@ labels:
   - impersonation
   - security
 suite: superadmin
+backend-id: "193"
+last-synced: "2026-08-05T21:31:56.412Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify a superadmin can impersonate a stream's admin by clicking the Impersonate button, which generates a 1-hour JWT, stores it in localStorage, and opens the stream page in a new tab with admin access.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin)
 - At least one active DirectStream in the table
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/superadmin/direct-streams`
+1. Navigate to `https://dev.fieldview.live/superadmin/direct-streams`
 2. Locate an active stream row
 3. Click "Impersonate Admin" button (`btn-impersonate-{slug}`)
 4. Verify API call: `POST /api/admin/direct-streams/{slug}/impersonate` returns 200
 5. Verify `admin_token_{slug}` is set in localStorage
-6. Verify a new tab opens to `https://fieldview.live/direct/[slug]`
+6. Verify a new tab opens to `https://dev.fieldview.live/direct/[slug]`
 7. In the new tab, confirm admin panel is unlocked (producer controls visible without needing to enter password)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Impersonate button triggers JWT generation
 - localStorage contains valid admin token for that slug
 - New tab loads stream page with admin privileges active
 - Token expires after 1 hour (verify via JWT decode if possible)
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Impersonation tokens are short-lived (1h). Verify token expiration does not leave stale admin access. Error toast should appear if the stream is not active or slug is invalid.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

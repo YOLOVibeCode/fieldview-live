@@ -7,24 +7,26 @@ labels:
   - direct-stream
   - crud
 suite: superadmin
+backend-id: "191"
+last-synced: "2026-08-05T21:31:54.049Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify a superadmin can create a new DirectStream using the drawer form on `https://fieldview.live/superadmin/direct-streams`, with all fields validated and the new stream appearing in the table on success.
-{/traklet:section:objective}
+Verify a superadmin can create a new DirectStream using the drawer form on `https://dev.fieldview.live/superadmin/direct-streams`, with all fields validated and the new stream appearing in the table on success.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin)
 - No existing stream with the test slug (or use a unique slug per run)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/superadmin/direct-streams`
+1. Navigate to `https://dev.fieldview.live/superadmin/direct-streams`
 2. Click "+ Create Stream" button (`btn-create-stream`)
 3. Verify drawer modal appears (`drawer-create-stream`)
 4. Fill in required fields:
@@ -36,26 +38,34 @@ Verify a superadmin can create a new DirectStream using the drawer form on `http
 7. Click "Create Stream" (`btn-submit-create`)
 8. Verify drawer closes and new stream row appears in the table
 9. Verify the new row shows correct slug, title, and feature flags
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Drawer opens with empty form
 - Submit button disabled/loading during API call
 - On success: drawer closes, table refreshes with new row showing correct slug link, title, and feature icons
 - Stream slug links to `/{slug}` in new tab
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Clean up test streams after test run to avoid slug conflicts on re-run.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

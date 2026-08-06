@@ -6,42 +6,52 @@ labels:
   - admin
   - coupons
 suite: admin-console
+backend-id: "122"
+last-synced: "2026-08-05T21:30:33.161Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-`https://fieldview.live/admin/coupons` (or current) loads for authorized admin; creating/editing coupons follows validation (exercise only in non-prod if risky).
-{/traklet:section:objective}
+`https://dev.fieldview.live/admin/coupons` (or current) loads for authorized admin; creating/editing coupons follows validation (exercise only in non-prod if risky).
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 with coupon permissions
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Navigate to Coupons
 2. If list empty, note empty state UX
 3. If create flow exists in env, open form and cancel (or create test coupon per policy)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Page usable; Zod errors on bad inputs; no 500 on list fetch.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Pair with checkout if discount codes should alter price display (**TC-CW-001**).
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

@@ -6,42 +6,52 @@ labels:
   - checkout
   - qr
 suite: checkout
+backend-id: "155"
+last-synced: "2026-08-05T21:31:11.818Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Marketing QR codes or mobile deep links land on the intended game/checkout with prefilled context (game title visible, correct `purchaseId` or slug).
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
-- Sample QR image or raw URL from generator (`https://fieldview.live/checkout/...`, `https://fieldview.live/game/...`, or watch URL with UTM)
-{/traklet:section:prerequisites}
+- Sample QR image or raw URL from generator (`https://dev.fieldview.live/checkout/...`, `https://dev.fieldview.live/game/...`, or watch URL with UTM)
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Scan QR with phone or paste target URL in desktop browser
 2. Confirm landing page matches printed material (team names, price)
 3. Continue one harmless step (scroll, start checkout) without completing payment unless approved
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 No wrong-game mixups; 404 if slug typo in print — document support macro.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Especially validate before large on-field print runs.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

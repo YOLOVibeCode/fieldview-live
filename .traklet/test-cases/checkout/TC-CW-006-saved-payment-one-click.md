@@ -7,25 +7,27 @@ labels:
   - payments
   - saved-cards
 suite: checkout
+backend-id: "154"
+last-synced: "2026-08-05T21:31:10.631Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that a returning buyer sees their saved payment method on the payment page and can complete a purchase with one click without re-entering card details.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - A viewer who has previously purchased with "save payment" enabled
 - A new purchase initiated for the same viewer
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Create a checkout for a viewer who has a saved payment method
-2. Navigate to `https://fieldview.live/checkout/{purchaseId}/payment`
+2. Navigate to `https://dev.fieldview.live/checkout/{purchaseId}/payment`
 3. Verify saved payment methods load (`GET /api/public/saved-payments?purchaseId=...`)
 4. Verify saved card shows last 4 digits and card brand
 5. Select the saved card
@@ -33,26 +35,34 @@ Verify that a returning buyer sees their saved payment method on the payment pag
 7. Verify payment processes without entering card details
 8. Verify redirect to success page
 9. If no saved methods: verify card entry form shows (Apple Pay, Google Pay, manual card)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Saved payment methods fetched and displayed as selectable options
 - One-click payment sends saved card token to process endpoint
 - Payment completes without re-entering card details
 - Fallback to manual card entry if no saved methods exist
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Requires Square sandbox with saved card fixtures. Payment page uses Square Web Payments SDK.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

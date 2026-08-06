@@ -7,24 +7,26 @@ labels:
   - coupons
   - crud
 suite: admin-console
+backend-id: "127"
+last-synced: "2026-08-05T21:30:39.167Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify a superadmin can create a new percentage-based coupon via the create modal on the coupons page, with all fields validated and the new coupon appearing in the list.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin — create requires super_admin role)
 - No existing coupon with the test code
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/admin/coupons`
+1. Navigate to `https://dev.fieldview.live/admin/coupons`
 2. Click "Create Coupon" button
 3. Verify create modal appears
 4. Fill in fields:
@@ -41,26 +43,34 @@ Verify a superadmin can create a new percentage-based coupon via the create moda
    - Used: `0 / 100`
    - Expiration date
    - Status badge: green "active"
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Code is auto-uppercased (typing `test20` saves as `TEST20`)
 - API call: `POST /api/admin/coupons` returns 201
 - Coupon list refreshes with new entry
 - Audit log entry created for `coupon_create`
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Duplicate coupon code should return 409 Conflict with error in modal. Clean up test coupons after run.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

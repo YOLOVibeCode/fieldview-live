@@ -7,43 +7,53 @@ labels:
   - square
   - monetization
 suite: checkout
+backend-id: "149"
+last-synced: "2026-08-05T21:31:04.928Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Ensure required customer fields (e.g. email, name) block progress with accessible errors before payment SDK loads.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
-- A purchase/checkout URL for a paid game or paid watch link (`https://fieldview.live/checkout/{purchaseId}` or embedded checkout on watch page)
-{/traklet:section:prerequisites}
+- A purchase/checkout URL for a paid game or paid watch link (`https://dev.fieldview.live/checkout/{purchaseId}` or embedded checkout on watch page)
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Open checkout with empty or invalid email
 2. Attempt Continue / Submit
 3. Observe `role="alert"` or `data-testid="error-*"` messages
 4. Fix fields with valid sample data and confirm errors clear
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Validation prevents handoff until inputs satisfy Zod/rules. Errors are per-field or summarized per design.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Use Square sandbox or lowest-risk test purchase per finance policy.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

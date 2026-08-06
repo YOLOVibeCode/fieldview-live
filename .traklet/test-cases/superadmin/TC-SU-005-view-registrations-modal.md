@@ -7,24 +7,26 @@ labels:
   - direct-stream
   - registrations
 suite: superadmin
+backend-id: "194"
+last-synced: "2026-08-05T21:31:57.589Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify clicking the registrations count link on a stream row opens a modal showing the stream title and registration count, and that the modal can be closed.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin)
 - At least one DirectStream with registrations (or test with zero)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/superadmin/direct-streams`
+1. Navigate to `https://dev.fieldview.live/superadmin/direct-streams`
 2. Find a stream row with a registrations count link (`btn-registrations-{slug}`)
 3. Click the registrations count link
 4. Verify modal appears (`modal-registrations`)
@@ -32,25 +34,33 @@ Verify clicking the registrations count link on a stream row opens a modal showi
 6. Verify total registration count is displayed
 7. Click "Close" button (`btn-close-registrations`)
 8. Verify modal closes and table is still visible
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Modal opens with correct stream title and registration count
 - Close button dismisses modal cleanly
 - If zero registrations, modal still opens with count of 0
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Registrations modal is currently a placeholder (no detailed list). Verify it at least shows the count without errors.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

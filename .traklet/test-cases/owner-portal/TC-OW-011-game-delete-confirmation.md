@@ -8,50 +8,60 @@ labels:
   - delete
   - destructive
 suite: owner-portal
+backend-id: "174"
+last-synced: "2026-08-05T21:31:34.248Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify an owner can delete a game via the Delete button, with a confirmation modal preventing accidental deletion.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-OW-006 (games list loads)
 - A game that is safe to delete (test data)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. On `https://fieldview.live/owners/games`, click "Delete" button on a game row
+1. On `https://dev.fieldview.live/owners/games`, click "Delete" button on a game row
 2. Verify confirmation modal appears with warning text ("cannot be undone")
 3. Click "Cancel" — verify modal closes, game still in table
 4. Click "Delete" again, then confirm in modal
 5. Verify `DELETE /api/owners/games/:id` is called
 6. Verify game is removed from the table
 7. Verify total count decrements
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Confirmation modal prevents accidental deletion
 - Cancel closes modal without action
 - Confirm sends DELETE and removes game from list
 - Loading state shown during deletion ("Deleting…")
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 DESTRUCTIVE — only test with throwaway data. Deletion removes the game and all associated data permanently.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

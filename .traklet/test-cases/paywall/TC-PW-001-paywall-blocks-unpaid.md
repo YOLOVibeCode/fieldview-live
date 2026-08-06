@@ -7,45 +7,55 @@ labels:
   - smoke
   - monetization
 suite: paywall
+backend-id: "179"
+last-synced: "2026-08-05T21:31:39.994Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that the paywall modal appears and blocks stream access for viewers who have not purchased access.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Direct stream with paywall enabled (non-zero price)
 - Fresh browser session (no localStorage purchase token)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Open a new incognito/private window
-2. Navigate to `https://fieldview.live/direct/[slug]` for a paywalled stream
+2. Navigate to `https://dev.fieldview.live/direct/[slug]` for a paywalled stream
 3. Observe the PaywallModal
 4. Attempt to dismiss the modal without purchasing
 5. Verify video content is not accessible
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 PaywallModal renders with stream price and purchase form. Video player is hidden or blurred behind the modal. Modal cannot be dismissed without valid purchase or access code.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Flow: localStorage check -> server verify -> grant/deny. Square Web Payments SDK handles checkout.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

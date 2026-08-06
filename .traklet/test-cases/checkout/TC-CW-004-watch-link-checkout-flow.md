@@ -7,24 +7,26 @@ labels:
   - watch-links
   - monetization
 suite: checkout
+backend-id: "152"
+last-synced: "2026-08-05T21:31:08.317Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify the `https://fieldview.live/watch/{org}/{team}` paid checkout flow — distinct from the game checkout — collects viewer info, shows price, and proceeds to Square payment.
-{/traklet:section:objective}
+Verify the `https://dev.fieldview.live/watch/{org}/{team}` paid checkout flow — distinct from the game checkout — collects viewer info, shows price, and proceeds to Square payment.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - A watch link channel with `accessMode: 'pay_per_view'` and a price set
 - Square sandbox configured
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/watch/{org}/{team}` for a paid channel
+1. Navigate to `https://dev.fieldview.live/watch/{org}/{team}` for a paid channel
 2. Verify paywall view shows: price display, email/phone form, optional reminder checkbox
 3. Verify calendar integration buttons (Google, Outlook, iCal) if stream is scheduled
 4. Enter email and phone number
@@ -33,27 +35,35 @@ Verify the `https://fieldview.live/watch/{org}/{team}` paid checkout flow — di
 7. Verify redirect to Square payment page
 8. Complete payment (sandbox)
 9. Verify return to success page and stream access granted
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Watch link bootstrap fetched from `GET /api/public/watch-links/{org}/{team}`
 - Paywall displayed for `pay_per_view` channels
 - Checkout creates purchase via channel-specific endpoint (not game endpoint)
 - Square payment flow completes and grants stream access
 - Free channels (`public_free`) skip paywall entirely
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Distinct from TC-CW-002 (game checkout). This tests the watch-link-specific checkout path.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

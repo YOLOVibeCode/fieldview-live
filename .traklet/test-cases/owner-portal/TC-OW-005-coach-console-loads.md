@@ -6,42 +6,52 @@ labels:
   - owner
   - coach
 suite: owner-portal
+backend-id: "168"
+last-synced: "2026-08-05T21:31:27.379Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-`https://fieldview.live/owners/coach` (or linked coach experience) opens for accounts with coach features—watch links, sideline tools, or audience widgets as deployed.
-{/traklet:section:objective}
+`https://dev.fieldview.live/owners/coach` (or linked coach experience) opens for accounts with coach features—watch links, sideline tools, or audience widgets as deployed.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Owner login with coach feature flag or role
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. From `https://fieldview.live/owners/dashboard`, navigate to Coach (`https://fieldview.live/owners/coach`)
+1. From `https://dev.fieldview.live/owners/dashboard`, navigate to Coach (`https://dev.fieldview.live/owners/coach`)
 2. Verify primary panels render
 3. Smoke one non-destructive action (e.g. view watch link list)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 No auth loop; features match entitlement (hide vs disable for others).
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Update route names in Notes when product nav changes.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

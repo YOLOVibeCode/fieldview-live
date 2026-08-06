@@ -8,22 +8,24 @@ labels:
   - events
   - crud
 suite: superadmin
+backend-id: "197"
+last-synced: "2026-08-05T21:32:01.104Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify a superadmin can create a new sub-event under a DirectStream using the inline event creation form within the expanded row.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin)
 - At least one active DirectStream (expand row per TC-SU-007)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Expand a stream row to reveal EventManagement
 2. Click "+ New Event" toggle (`btn-toggle-create-event-{slug}`)
@@ -38,27 +40,35 @@ Verify a superadmin can create a new sub-event under a DirectStream using the in
 7. Click "Create Event" (`btn-submit-event`)
 8. Verify form clears and new event appears in the events table
 9. Verify event row shows correct slug, title, scheduled date, and "active" status badge
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Form validates required fields (slug, title)
 - Event slug is forced to lowercase
 - API call: `POST /api/admin/direct-streams/{id}/events` returns 201
 - New event row appears in table without page reload
 - Sub-events count in header increments
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Event slug must be lowercase alphanumeric with hyphens only. Helper text under input confirms this.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

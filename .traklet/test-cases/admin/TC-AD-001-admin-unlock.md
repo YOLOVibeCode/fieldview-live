@@ -7,45 +7,55 @@ labels:
   - auth
   - smoke
 suite: admin
+backend-id: "131"
+last-synced: "2026-08-05T21:30:43.830Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that the admin panel can be unlocked with the correct owner password and grants both admin JWT and viewer JWT.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Direct stream with an owner password set
 - Known owner password
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/direct/[slug]`
+1. Navigate to `https://dev.fieldview.live/direct/[slug]`
 2. Enter the owner password in the admin unlock form
 3. Submit the form
 4. Observe the admin panel state
 5. Verify viewer identity is auto-connected (check chat panel)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Admin panel unlocks and displays producer controls (score editing, clock controls, stream settings). Admin JWT is stored. Viewer JWT is also returned — viewer auto-logged in for chat.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Admin unlock returns both admin JWT + viewer JWT for auto-login via `setExternalIdentity`.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

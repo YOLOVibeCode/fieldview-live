@@ -7,48 +7,58 @@ labels:
   - viewer
   - subscriptions
 suite: account
+backend-id: "116"
+last-synced: "2026-08-05T21:30:26.070Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify the `https://fieldview.live/account` page shows active stream subscriptions and allows the viewer to unsubscribe.
-{/traklet:section:objective}
+Verify the `https://dev.fieldview.live/account` page shows active stream subscriptions and allows the viewer to unsubscribe.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Authenticated viewer with at least one active subscription (via TC-DS-002 NotifyMe)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/account`
+1. Navigate to `https://dev.fieldview.live/account`
 2. Verify Stream Subscriptions section loads (`GET /api/public/viewer/{id}/subscriptions`)
 3. Verify each subscription shows the stream name/slug
 4. Click "Unsubscribe" on a subscription
 5. Verify `DELETE /api/public/direct/{slug}/notify-me` is called
 6. Verify the subscription is removed from the list
 7. If no subscriptions: verify empty state message
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Subscriptions list fetched on page load
 - Unsubscribe removes the item immediately
 - Empty state shown when all subscriptions removed
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Cross-references TC-DS-002 (NotifyMe subscribe) for end-to-end subscription lifecycle.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

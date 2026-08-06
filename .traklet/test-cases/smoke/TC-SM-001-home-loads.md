@@ -6,43 +6,53 @@ labels:
   - smoke
   - regression
 suite: smoke
+backend-id: "184"
+last-synced: "2026-08-05T21:31:45.886Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Confirm the public home page responds successfully and exposes primary entry points (owner, demo, admin).
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Network access to the target environment (staging or production)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Open `https://fieldview.live/` in a fresh tab
+1. Open `https://dev.fieldview.live/` in a fresh tab
 2. Confirm document title contains "FieldView"
 3. Verify visible CTAs: Owner Login, Get Started, View Demo Stream (or environment equivalent)
 4. Optional: open DevTools → Network, hard reload, confirm document and main JS/CSS return 200
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Page returns 200. No blank screen or global error overlay. Footer/version widget may show deployed build if enabled.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Fail-fast gate: if this fails, stop and fix deployment before deeper tests.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

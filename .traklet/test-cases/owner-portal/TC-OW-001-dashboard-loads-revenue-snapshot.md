@@ -6,42 +6,52 @@ labels:
   - owner
   - dashboard
 suite: owner-portal
+backend-id: "164"
+last-synced: "2026-08-05T21:31:22.576Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 After owner login, dashboard summarizes games and financial snapshot without blank critical widgets.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-OA-001 complete (authenticated owner with at least zero or more games)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Open `https://fieldview.live/owners/dashboard`
+1. Open `https://dev.fieldview.live/owners/dashboard`
 2. Verify games list or empty state renders
-3. Open revenue section if separate; check Network for failed `https://fieldview.live/api` calls
-{/traklet:section:steps}
+3. Open revenue section if separate; check Network for failed `https://dev.fieldview.live/api` calls
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 No uncaught errors. Numbers match rough expectations for test account (optional cross-check with admin console).
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Large date-range filters are P2; spot-check default range only for manual pass.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

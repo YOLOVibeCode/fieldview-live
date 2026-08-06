@@ -6,44 +6,54 @@ labels:
   - owner
   - games
 suite: owner-portal
+backend-id: "165"
+last-synced: "2026-08-05T21:31:23.687Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Validate game creation flow from owner UI through success confirmation (keyword/slug shown).
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Logged-in owner with permission to create games
 - Disposable test data (title, schedule) approved for env
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to new game flow (`https://fieldview.live/owners/games/new` or current path)
+1. Navigate to new game flow (`https://dev.fieldview.live/owners/games/new` or current path)
 2. Fill required fields per form labels / `data-testid`
 3. Submit and capture generated keyword or public URL snippet
 4. Open public viewer link in incognito to sanity-check (optional)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Game persisted; listed on dashboard; no duplicate-keyword error unless expected.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Clean up test games per QA policy to avoid polluting prod leaderboards.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

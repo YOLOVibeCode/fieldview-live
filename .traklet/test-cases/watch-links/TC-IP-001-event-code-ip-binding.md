@@ -6,45 +6,55 @@ labels:
   - watch-links
   - security
 suite: watch-links
+backend-id: "204"
+last-synced: "2026-08-05T21:32:09.111Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 When policy requires first IP binding for an event code, second distinct IP should be denied (or subnet rules per spec).
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Feature flag / channel setting that enables IP binding
 - Two networks or VPN exit IPs (phone tether + home) OR two testers
 - One fresh event code
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Tester A opens URL with code from IP `A` — confirm success
 2. Tester B opens same URL with code from IP `B` within expiry window
 3. Record whether access denied per policy
 4. Optional: Tester A again from IP `A` still works
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Behavior matches security spec (strict deny vs /24 forgiveness documented in **docs/e2e-test-checklist** IP-* intent).
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 If only API-level test is available, mirror Playwright `ip-binding.spec.ts` headers pattern in notes.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

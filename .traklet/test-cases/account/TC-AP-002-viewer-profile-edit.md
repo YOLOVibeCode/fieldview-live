@@ -7,49 +7,59 @@ labels:
   - viewer
   - update
 suite: account
+backend-id: "115"
+last-synced: "2026-08-05T21:30:24.827Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify an authenticated viewer can edit their first/last name on the `https://fieldview.live/account` page, and that guest accounts have profile editing disabled.
-{/traklet:section:objective}
+Verify an authenticated viewer can edit their first/last name on the `https://dev.fieldview.live/account` page, and that guest accounts have profile editing disabled.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Authenticated viewer identity (registered, not guest)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/account`
+1. Navigate to `https://dev.fieldview.live/account`
 2. Verify profile section shows current name and email
 3. Edit first name and last name fields
 4. Click save — verify `PATCH /api/public/viewer/{id}` is called
 5. Verify success feedback (updated values persist)
 6. Refresh page — verify new name persists
 7. Test as guest account — verify profile fields are disabled
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Profile PATCH sends updated name fields
 - Name changes persist across page reloads
 - Guest accounts show disabled input fields
 - Email is displayed but not editable
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Extends TC-AP-001 (page loads). Guest detection uses synthetic email pattern (`anon-*@guest.fieldview.live`).
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

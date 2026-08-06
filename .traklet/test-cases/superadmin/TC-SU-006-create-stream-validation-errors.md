@@ -7,23 +7,25 @@ labels:
   - direct-stream
   - validation
 suite: superadmin
+backend-id: "195"
+last-synced: "2026-08-05T21:31:58.754Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify the create stream drawer form surfaces inline validation errors for invalid or missing inputs, and that submission is blocked until errors are resolved.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/superadmin/direct-streams`
+1. Navigate to `https://dev.fieldview.live/superadmin/direct-streams`
 2. Click "+ Create Stream" (`btn-create-stream`)
 3. Leave all fields empty, click "Create Stream" (`btn-submit-create`)
 4. Verify inline errors appear for slug (`error-slug`), title (`error-title`), and admin password (`error-admin-password`)
@@ -36,26 +38,34 @@ Verify the create stream drawer form surfaces inline validation errors for inval
 11. Enter a slug that already exists in the system
 12. Submit — verify 409 Conflict error toast appears
 13. Click "Cancel" (`btn-close-create`) — verify drawer closes and form resets
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Client-side Zod validation shows inline errors for each invalid field
 - Server-side 409 for duplicate slug shows as error toast
 - Cancel resets form state completely
 - No partial stream creation on validation failure
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Test both client-side validation (instant) and server-side validation (after submit).
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

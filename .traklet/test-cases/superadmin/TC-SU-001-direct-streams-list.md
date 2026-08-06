@@ -6,43 +6,53 @@ labels:
   - superadmin
   - direct-stream
 suite: superadmin
+backend-id: "190"
+last-synced: "2026-08-05T21:31:52.957Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Users with superadmin role can open direct stream management (`https://fieldview.live/superadmin/direct-streams` or current) and list/search without error.
-{/traklet:section:objective}
+Users with superadmin role can open direct stream management (`https://dev.fieldview.live/superadmin/direct-streams` or current) and list/search without error.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Superadmin credentials (least privilege test account)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Authenticate as superadmin
-2. Navigate to `https://fieldview.live/superadmin/direct-streams`
+2. Navigate to `https://dev.fieldview.live/superadmin/direct-streams`
 3. Scroll / search if UI supports it
 4. Open one row detail or edit if available (non-destructive)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Table renders; CRUD controls respect RBAC; dangerous actions behind confirmation.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Production edits only with change window + owner approval.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

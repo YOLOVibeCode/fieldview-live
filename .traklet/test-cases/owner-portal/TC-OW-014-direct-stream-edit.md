@@ -7,24 +7,26 @@ labels:
   - direct-stream
   - update
 suite: owner-portal
+backend-id: "177"
+last-synced: "2026-08-05T21:31:37.638Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify an owner can expand a stream row to edit its title, stream URL, scheduled start, feature toggles, and paywall settings.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-OW-009 (direct streams list loads)
 - At least one active direct stream
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. On `https://fieldview.live/owners/direct-streams`, click a stream row
+1. On `https://dev.fieldview.live/owners/direct-streams`, click a stream row
 2. Verify inline edit form expands with pre-filled values
 3. Change the title
 4. Toggle chat, scoreboard, paywall, and listed checkboxes
@@ -34,26 +36,34 @@ Verify an owner can expand a stream row to edit its title, stream URL, scheduled
 8. Verify `PATCH /api/owners/direct-streams/:id` is called
 9. Verify the row updates with new values
 10. Click "Cancel" — verify form closes without saving
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Edit form pre-fills from current stream data
 - Save sends PATCH with all modified fields
 - Row updates in-place after successful save
 - Cancel discards unsaved changes
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Slug cannot be changed after creation. Admin password is not editable from this form.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

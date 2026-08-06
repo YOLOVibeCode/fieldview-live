@@ -7,45 +7,55 @@ labels:
   - anonymous
   - auth
 suite: chat
+backend-id: "148"
+last-synced: "2026-08-05T21:31:03.663Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that anonymous (non-registered) viewers automatically get a ViewerIdentity and can participate in chat.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Active direct stream with chat enabled
 - Fresh browser session with no prior viewer identity
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Open `https://fieldview.live/direct/[slug]` in an incognito window (no purchase required or free stream)
+1. Open `https://dev.fieldview.live/direct/[slug]` in an incognito window (no purchase required or free stream)
 2. Observe the chat panel — viewer should be auto-connected
 3. Check that a viewer name is assigned
 4. Send a chat message
 5. Verify the message appears with the anonymous viewer name
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Anonymous viewer gets a `ViewerIdentity` with synthetic email (`anon-<sessionId>@guest.fieldview.live`). Chat connection established via `setExternalIdentity`. Messages display correctly.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Anonymous auth uses `useViewerIdentity` + `setExternalIdentity` shared mechanism.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

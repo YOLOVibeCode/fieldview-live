@@ -7,24 +7,26 @@ labels:
   - direct-stream
   - events
 suite: superadmin
+backend-id: "196"
+last-synced: "2026-08-05T21:31:59.981Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify clicking the expand toggle on a stream row loads the EventManagement component showing the stream's sub-events table, or an empty state if none exist.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated superadmin)
 - At least one DirectStream (ideally one with sub-events and one without)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/superadmin/direct-streams`
+1. Navigate to `https://dev.fieldview.live/superadmin/direct-streams`
 2. Click the expand button on a stream row (`btn-expand-{slug}`)
 3. Verify the icon changes from "▶" to "▼"
 4. Verify EventManagement component loads below the row (`row-event-{slug}`)
@@ -33,26 +35,34 @@ Verify clicking the expand toggle on a stream row loads the EventManagement comp
 7. Verify "Sub-Events (X)" header shows correct count
 8. Click expand button again to collapse
 9. Verify EventManagement component is hidden
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Expand/collapse toggles EventManagement visibility
 - Events fetched via `GET /api/admin/direct-streams/{id}/events`
 - Events table shows slug link, title, scheduled date, status badge, and action buttons
 - Status badges: green (active), yellow (archived), red (deleted)
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
-Event slug links should open `https://fieldview.live/direct/{parentSlug}/{eventSlug}` in a new tab.
-{/traklet:section:notes}
+Event slug links should open `https://dev.fieldview.live/direct/{parentSlug}/{eventSlug}` in a new tab.
+<span style="display:none">{/traklet:section:notes}</span>

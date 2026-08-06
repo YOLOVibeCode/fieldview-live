@@ -7,24 +7,26 @@ labels:
   - admin
   - routing
 suite: direct-stream
+backend-id: "156"
+last-synced: "2026-08-05T21:31:13.005Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Confirm the Denton Diablos event page at `https://fieldview.live/direct/dentondiablos/soccer-2008-20260325` loads correctly, displays scoreboard defaults, and that the admin panel can be unlocked with the correct password.
-{/traklet:section:objective}
+Confirm the Denton Diablos event page at `https://dev.fieldview.live/direct/dentondiablos/soccer-2008-20260325` loads correctly, displays scoreboard defaults, and that the admin panel can be unlocked with the correct password.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Seed endpoint has been called: `POST /api/admin/seed/denton-diablos-mar25`
-- Network access to production (`https://fieldview.live`)
-{/traklet:section:prerequisites}
+- Network access to production (`https://dev.fieldview.live`)
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/direct/dentondiablos/soccer-2008-20260325`
+1. Navigate to `https://dev.fieldview.live/direct/dentondiablos/soccer-2008-20260325`
 2. Wait for page to fully load (player region, scoreboard shell, chat panel)
 3. Verify scoreboard shows **Denton Diablos** as home team
 4. Click the admin panel button (`data-testid="btn-open-admin-panel"`)
@@ -32,26 +34,34 @@ Confirm the Denton Diablos event page at `https://fieldview.live/direct/dentondi
 6. Confirm admin panel unlocks — producer controls and stream URL input become visible
 7. Optionally set a test stream URL, click Save, confirm no error
 8. Refresh the page and repeat admin login to verify password round-trips
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Page returns 200 with player area, scoreboard, and chat visible
 - Scoreboard defaults: home "Denton Diablos" (#CC0000) vs "Away" (#333333)
 - Admin unlock succeeds with `devil2026`; wrong passwords are rejected
 - Stream URL save persists across refresh
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Mirrors TCHS event test flow (**TC-DS-001**). Parent slug `dentondiablos`, event slug `soccer-2008-20260325`. See also Playwright spec `tests/e2e/denton-diablos-event-admin.spec.ts`.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

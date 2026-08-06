@@ -6,42 +6,52 @@ labels:
   - watch-links
   - event-code
 suite: watch-links
+backend-id: "202"
+last-synced: "2026-08-05T21:32:06.923Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-`https://fieldview.live/watch/{org}/{team}/{code}` (or query-param variant if your build uses it) accepts a valid event code and loads viewer experience.
-{/traklet:section:objective}
+`https://dev.fieldview.live/watch/{org}/{team}/{code}` (or query-param variant if your build uses it) accepts a valid event code and loads viewer experience.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Non-expired event code tied to a game/channel in target env
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Construct URL: `https://fieldview.live/watch/[org]/[team]/[code]` with a valid event code
+1. Construct URL: `https://dev.fieldview.live/watch/[org]/[team]/[code]` with a valid event code
 2. Load in fresh session
 3. Confirm access (player or post-checkout state) — not “invalid code” error
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 200-level viewer page; code validated server-side; appropriate binding side-effects if IP/device rules apply (**TC-IP-001**).
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Confirm path style against Next route `watch/[org]/[team]/[[...code]]`.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

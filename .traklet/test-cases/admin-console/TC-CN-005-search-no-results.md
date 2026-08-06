@@ -7,23 +7,25 @@ labels:
   - search
   - empty-state
 suite: admin-console
+backend-id: "123"
+last-synced: "2026-08-05T21:30:34.384Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that searching for a query with no matches displays appropriate empty state messages for viewers, games, and purchases — no errors or broken layout.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated admin)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/admin/console`
+1. Navigate to `https://dev.fieldview.live/admin/console`
 2. Enter a query guaranteed to have no matches (e.g. `zzz-nonexistent-12345@fake.test`)
 3. Click "Search" or press Enter
 4. Verify search completes without error (no error banner)
@@ -31,26 +33,34 @@ Verify that searching for a query with no matches displays appropriate empty sta
 6. Verify Games card shows "No game matches."
 7. Verify Purchases section is hidden or shows empty state
 8. Verify layout is intact — cards render properly with empty content
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Search returns 200 with empty arrays
 - Each result section shows its empty state message
 - No 500 errors, no broken layout, no console errors
 - Search input retains the query for re-editing
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Good UX test — empty states should be informative, not confusing.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

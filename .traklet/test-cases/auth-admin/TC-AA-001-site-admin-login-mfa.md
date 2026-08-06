@@ -7,44 +7,54 @@ labels:
   - admin
   - mfa
 suite: auth-admin
+backend-id: "133"
+last-synced: "2026-08-05T21:30:46.233Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify console admin can authenticate including MFA/TOTP step and reach the admin console. Distinct from **TC-AD-001** (direct-stream producer unlock on `https://fieldview.live/direct/...`).
-{/traklet:section:objective}
+Verify console admin can authenticate including MFA/TOTP step and reach the admin console. Distinct from **TC-AD-001** (direct-stream producer unlock on `https://dev.fieldview.live/direct/...`).
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Admin email, password, and current TOTP code (test account)
 - MFA enrollment completed for that admin in target env
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/admin/login` (or current admin entry URL)
+1. Navigate to `https://dev.fieldview.live/admin/login` (or current admin entry URL)
 2. Submit primary credentials
 3. When prompted, enter MFA code
-4. Confirm arrival at console home (e.g. `https://fieldview.live/admin/console` or equivalent)
-{/traklet:section:steps}
+4. Confirm arrival at console home (e.g. `https://dev.fieldview.live/admin/console` or equivalent)
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Successful console access. Invalid MFA rejected with retry. No partial session that leaks protected data.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Coordinate with DevOps for test admin rotation. Never paste live secrets into Traklet notes.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

@@ -7,24 +7,26 @@ labels:
   - direct-stream
   - create
 suite: owner-portal
+backend-id: "176"
+last-synced: "2026-08-05T21:31:36.537Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify an owner can create a new direct stream using the inline create form on the direct streams page.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-OA-001 session (authenticated owner)
 - No existing stream with the test slug
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. On `https://fieldview.live/owners/direct-streams`, click "+ Create Direct Stream"
+1. On `https://dev.fieldview.live/owners/direct-streams`, click "+ Create Direct Stream"
 2. Verify inline create form appears with fields: slug, title, admin password, stream URL
 3. Fill in slug (lowercase, hyphens only), title, admin password (8+ chars)
 4. Optionally add a stream URL
@@ -34,26 +36,34 @@ Verify an owner can create a new direct stream using the inline create form on t
 8. Verify stream count increments
 9. Test with invalid slug (uppercase, spaces) — verify validation error
 10. Test with short password (<8 chars) — verify button stays disabled
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Create form validates slug format and password length
 - Successful creation adds new row to table without page reload
 - Form resets after successful creation
 - Error toast shown if slug already exists (409)
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Slug is auto-lowercased on submit. Admin password is hashed server-side.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

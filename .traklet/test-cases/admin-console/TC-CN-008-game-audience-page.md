@@ -7,25 +7,27 @@ labels:
   - audience
   - analytics
 suite: admin-console
+backend-id: "126"
+last-synced: "2026-08-05T21:30:38.000Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify the game audience page displays purchasers, watchers, and purchase-to-watch conversion rate for a given game, accessed via admin navigation.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated admin)
 - A game with known purchasers and/or watchers in the test environment
 - Known ownerId and gameId for navigation
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/admin/owners/{ownerId}/games/{gameId}/audience`
+1. Navigate to `https://dev.fieldview.live/admin/owners/{ownerId}/games/{gameId}/audience`
 2. Verify page header shows "Audience" with owner/game IDs
 3. Verify Purchasers card:
    - Shows "Purchase→watch conversion: X.X%"
@@ -34,28 +36,36 @@ Verify the game audience page displays purchasers, watchers, and purchase-to-wat
 4. Verify Watchers card:
    - Lists watchers with email, last watched date (or "—"), session count
    - Or shows "No watchers." empty state
-5. Click "Back" button — verify return to `https://fieldview.live/admin/console`
-{/traklet:section:steps}
+5. Click "Back" button — verify return to `https://dev.fieldview.live/admin/console`
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Audience page loads via `GET /api/admin/owners/{ownerId}/games/{gameId}/audience`
 - Purchasers and watchers lists render correctly
 - Conversion rate is calculated and displayed as percentage
 - Email visibility matches admin role (masked for support, full for super)
 - Audit log entry created for `view_audience`
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 This page is typically reached via search results or direct URL. Verify both access paths if possible.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

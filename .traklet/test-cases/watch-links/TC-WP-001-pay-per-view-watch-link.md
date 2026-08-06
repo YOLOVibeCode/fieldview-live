@@ -6,43 +6,53 @@ labels:
   - watch-links
   - paywall
 suite: watch-links
+backend-id: "206"
+last-synced: "2026-08-05T21:32:11.287Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Paid watch channel surfaces price and purchase path before revealing the player to unpaid visitors.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Channel with `accessMode: pay_per_view` and price configured
 - Fresh session (no prior purchase cookie/token)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Open `https://fieldview.live/watch/{org}/{team}` incognito
+1. Open `https://dev.fieldview.live/watch/{org}/{team}` incognito
 2. Verify checkout or paywall UI visible with correct price display
 3. Confirm video is not fully accessible until purchase path completes (align with **TC-PW-001** for direct streams)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Monetization gate works on stable link. Price matches admin configuration.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 After purchase, expect same URL to show player — pair with **TC-CW-003** if testing full pay.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

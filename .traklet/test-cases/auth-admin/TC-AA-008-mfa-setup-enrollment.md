@@ -7,24 +7,26 @@ labels:
   - admin
   - mfa
 suite: auth-admin
+backend-id: "140"
+last-synced: "2026-08-05T21:30:54.378Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify the `https://fieldview.live/admin/mfa` page allows an admin to enable MFA by generating a TOTP secret, scanning a QR code, and verifying a 6-digit token.
-{/traklet:section:objective}
+Verify the `https://dev.fieldview.live/admin/mfa` page allows an admin to enable MFA by generating a TOTP secret, scanning a QR code, and verifying a 6-digit token.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-AA-001 session (authenticated admin without MFA currently enabled)
 - TOTP authenticator app available (Google Authenticator, Authy, etc.)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/admin/mfa`
+1. Navigate to `https://dev.fieldview.live/admin/mfa`
 2. Verify Step 1: "Enable MFA" card with setup button
 3. Click "Set Up MFA" — verify QR code image and manual secret appear (Step 2)
 4. Scan QR code with authenticator app (or use manual secret)
@@ -35,9 +37,9 @@ Verify the `https://fieldview.live/admin/mfa` page allows an admin to enable MFA
 9. Logout and login again — verify MFA token is now required
 10. Enter wrong MFA token — verify error and retry
 11. Enter correct MFA token — verify access granted
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Setup calls `POST /api/admin/mfa/setup` returning secret + QR URL
 - QR code renders as image (data URL or hosted)
@@ -45,18 +47,26 @@ Verify the `https://fieldview.live/admin/mfa` page allows an admin to enable MFA
 - Verify calls `POST /api/admin/mfa/verify` with 6-digit token
 - On success, MFA is permanently enabled for the account
 - Subsequent logins require MFA token
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Use a dedicated test admin account for MFA enrollment. Once enabled, MFA cannot be disabled from this UI.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

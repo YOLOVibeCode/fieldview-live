@@ -7,46 +7,56 @@ labels:
   - bookmark
   - sharing
 suite: dvr
+backend-id: "160"
+last-synced: "2026-08-05T21:31:17.703Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that bookmarks shared by one viewer appear as blue markers on another viewer's timeline.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
-- Two authenticated viewers on the same stream (e.g. `https://fieldview.live/direct/[slug]`)
+- Two authenticated viewers on the same stream (e.g. `https://dev.fieldview.live/direct/[slug]`)
 - DVR/bookmark feature enabled
 - Viewer A has created and shared a bookmark
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
 1. Viewer A creates a bookmark and marks it as shared
 2. Wait up to 30 seconds (polling interval) or manually refresh
 3. Observe Viewer B's timeline
 4. Verify blue marker appears at the correct position
 5. Hover over the blue marker to see the tooltip
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Blue marker appears on Viewer B's timeline at the shared bookmark position. BookmarkTooltip shows the bookmark details on hover. `listByStreamWithShared()` returns both own + shared bookmarks.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 CSS-only tooltip (no Radix inside player). BookmarkTooltip component. 30s polling interval via `useBookmarkMarkers`.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

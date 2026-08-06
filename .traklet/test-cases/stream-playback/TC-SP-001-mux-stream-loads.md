@@ -7,44 +7,54 @@ labels:
   - smoke
   - mux
 suite: stream-playback
+backend-id: "186"
+last-synced: "2026-08-05T21:31:48.274Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Verify that a Mux-managed direct stream loads the MuxStreamPlayer and begins playback.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Active direct stream with `streamProvider: mux_managed` and valid `muxPlaybackId`
 - Stream is live or has a recorded asset available
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/direct/[slug]` for a Mux-managed stream
+1. Navigate to `https://dev.fieldview.live/direct/[slug]` for a Mux-managed stream
 2. Wait for the bootstrap API response
 3. Observe the video player area
 4. Verify playback begins (live indicator or progress bar advances)
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 MuxStreamPlayer renders with the correct `playbackId`. Video plays within 5 seconds. Mux Data metadata is sent (check network tab for `litix.io` requests).
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 MuxStreamPlayer wraps `@mux/mux-player-react` which is built on Media Chrome web components.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>

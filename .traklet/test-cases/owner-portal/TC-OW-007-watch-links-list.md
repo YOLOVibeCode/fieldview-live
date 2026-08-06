@@ -7,50 +7,60 @@ labels:
   - watch-links
   - read
 suite: owner-portal
+backend-id: "170"
+last-synced: "2026-08-05T21:31:29.666Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
-Verify the `https://fieldview.live/owners/watch-links` page lists the owner's organizations with their nested channels, showing stream type, access mode, and clickable watch link previews.
-{/traklet:section:objective}
+Verify the `https://dev.fieldview.live/owners/watch-links` page lists the owner's organizations with their nested channels, showing stream type, access mode, and clickable watch link previews.
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - TC-OA-001 session (authenticated owner)
 - At least one org/channel created (TC-OW-003)
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Navigate to `https://fieldview.live/owners/watch-links`
+1. Navigate to `https://dev.fieldview.live/owners/watch-links`
 2. Verify org cards load from `GET /api/owners/me/watch-links/orgs`
 3. Each org card shows name and shortName
 4. Each channel row shows: teamSlug, displayName, stream type, access mode (Free / $X.XX)
-5. Verify watch link preview `https://fieldview.live/watch/{org}/{team}` is a clickable link (opens in new tab)
-6. Verify "+ Create New Watch Link" button links to `https://fieldview.live/owners/watch-links/new`
+5. Verify watch link preview `https://dev.fieldview.live/watch/{org}/{team}` is a clickable link (opens in new tab)
+6. Verify "+ Create New Watch Link" button links to `https://dev.fieldview.live/owners/watch-links/new`
 7. If no orgs: verify empty state message
-{/traklet:section:steps}
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 - Orgs fetched with nested channels in a single API call
 - Each org rendered as a Card with channels listed inside
 - Watch link previews are valid, clickable URLs
 - Empty state shown if owner has no organizations
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
-Dashboard "Watch Links" card now links here instead of `https://fieldview.live/owners/watch-links/new`.
-{/traklet:section:notes}
+Dashboard "Watch Links" card now links here instead of `https://dev.fieldview.live/owners/watch-links/new`.
+<span style="display:none">{/traklet:section:notes}</span>

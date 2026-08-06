@@ -7,44 +7,54 @@ labels:
   - owner
   - negative
 suite: auth-owner
+backend-id: "142"
+last-synced: "2026-08-05T21:30:56.628Z"
 ---
 
-{traklet:test-case}
+<span style="display:none">{traklet:test-case}</span>
 
-{traklet:section:objective}
+<span style="display:none">{traklet:section:objective}</span>
 ## Objective
 Ensure invalid credentials do not create a session and the user sees a clear error.
-{/traklet:section:objective}
+<span style="display:none">{/traklet:section:objective}</span>
 
-{traklet:section:prerequisites}
+<span style="display:none">{traklet:section:prerequisites}</span>
 ## Prerequisites
 - Known-good email format; wrong password
-{/traklet:section:prerequisites}
+<span style="display:none">{/traklet:section:prerequisites}</span>
 
-{traklet:section:steps}
+<span style="display:none">{traklet:section:steps}</span>
 ## Steps
-1. Go to `https://fieldview.live/owners/login`
+1. Go to `https://dev.fieldview.live/owners/login`
 2. Enter a real account email with an incorrect password
 3. Submit the form
 4. Observe UI feedback (`role="alert"` or `data-testid="error-*"` if present)
-5. Confirm URL is still login (or error state) and `https://fieldview.live/owners/dashboard` is not reachable without fixing credentials
-{/traklet:section:steps}
+5. Confirm URL is still login (or error state) and `https://dev.fieldview.live/owners/dashboard` is not reachable without fixing credentials
+<span style="display:none">{/traklet:section:steps}</span>
 
-{traklet:section:expected-result}
+<span style="display:none">{traklet:section:expected-result}</span>
 ## Expected Result
 Error message visible. No successful redirect to dashboard. Refreshing does not show authenticated dashboard.
-{/traklet:section:expected-result}
+<span style="display:none">{/traklet:section:expected-result}</span>
 
-{traklet:section:actual-result}
+<span style="display:none">{traklet:section:actual-result}</span>
 ## Actual Result
 _Not yet tested._
-{/traklet:section:actual-result}
+<span style="display:none">{/traklet:section:actual-result}</span>
 
-{traklet:section:evidence}
+<span style="display:none">{traklet:section:evidence}</span>
 ## Evidence
-{/traklet:section:evidence}
+_No recordings or screenshots attached yet._
 
-{traklet:section:notes}
+> **Tip:** Use [Jam.dev](https://jam.dev) to record your testing session, then paste the link here.
+<span style="display:none">{/traklet:section:evidence}</span>
+
+<span style="display:none">{traklet:section:diagnostics}</span>
+## Diagnostics
+_Diagnostics will be auto-attached when submitting results._
+<span style="display:none">{/traklet:section:diagnostics}</span>
+
+<span style="display:none">{traklet:section:notes}</span>
 ## Notes
 Do not use production owner passwords in tickets; use disposable test accounts.
-{/traklet:section:notes}
+<span style="display:none">{/traklet:section:notes}</span>
