@@ -14,22 +14,62 @@ import { PlaywrightVeoLiveApiScraper } from './implementations/PlaywrightVeoLive
 import { FuseStreamMatcher } from './implementations/FuseStreamMatcher';
 import { PrismaStreamUpdater } from './implementations/PrismaStreamUpdater';
 import { PrismaVeoCandidateReader } from './implementations/PrismaVeoCandidateReader';
-import type { ScraperConfig, ScrapeRunResult, PollingConfig } from './interfaces';
+// Browser-free (pure HTTP) path — see veo-integration-plan memory (2026-08-12).
+import { HttpVeoAuthenticator } from './implementations/HttpVeoAuthenticator';
+import { HttpVeoStreamScraper } from './implementations/HttpVeoStreamScraper';
+import { HttpVeoStreamHistoryClient } from './implementations/HttpVeoStreamHistoryClient';
+import type {
+  FetchLike,
+  IVeoAuthenticator,
+  IVeoDiagnosticsScraper,
+  ScraperConfig,
+  ScrapeRunResult,
+  PollingConfig,
+} from './interfaces';
 
 export type { ScraperConfig, ScrapeRunResult, PollingConfig } from './interfaces';
 export { VeoScraperOrchestrator } from './VeoScraperOrchestrator';
 export { VeoPollingOrchestrator } from './VeoPollingOrchestrator';
 export { VeoPollingSessionManager } from './VeoPollingSessionManager';
 
+export { VeoCookieSeeder } from './implementations/VeoCookieSeeder';
+export { pickSessionCookieHeader } from './implementations/veo-cookie';
+export { HttpVeoAuthenticator } from './implementations/HttpVeoAuthenticator';
+export { HttpVeoStreamScraper } from './implementations/HttpVeoStreamScraper';
+export { HttpVeoStreamHistoryClient } from './implementations/HttpVeoStreamHistoryClient';
+
 export const veoPollingSessionManager = new VeoPollingSessionManager();
 
 /**
- * Create orchestrator with default implementations (Playwright, Prisma, Fuse).
+ * Select the auth + scrape pair. Browser-free HTTP path when `VEO_HTTP_MODE`
+ * is 'true' (needs a seeded `credentials.sessionCookie`); otherwise the
+ * Playwright path. The HTTP path removes Chromium from the hot path.
  */
-export function createVeoScraperOrchestrator(): VeoScraperOrchestrator {
+function buildVeoAuthAndScraper(httpMode?: boolean): { authenticator: IVeoAuthenticator; scraper: IVeoDiagnosticsScraper } {
+  const useHttp = httpMode ?? process.env.VEO_HTTP_MODE === 'true';
+  if (useHttp) {
+    return {
+      authenticator: new HttpVeoAuthenticator(),
+      scraper: new HttpVeoStreamScraper({
+        streamClient: new HttpVeoStreamHistoryClient({ fetch: globalThis.fetch as unknown as FetchLike }),
+      }),
+    };
+  }
+  return {
+    authenticator: new PlaywrightVeoAuthenticator(),
+    scraper: new PlaywrightVeoLiveApiScraper(),
+  };
+}
+
+/**
+ * Create orchestrator with default implementations (Prisma, Fuse) + the
+ * env-selected auth/scrape pair (Playwright or browser-free HTTP).
+ */
+export function createVeoScraperOrchestrator(opts?: { httpMode?: boolean }): VeoScraperOrchestrator {
+  const { authenticator, scraper } = buildVeoAuthAndScraper(opts?.httpMode);
   return new VeoScraperOrchestrator(
-    new PlaywrightVeoAuthenticator(),
-    new PlaywrightVeoLiveApiScraper(),
+    authenticator,
+    scraper,
     new FuseStreamMatcher({ minConfidence: 0.7 }),
     new PrismaStreamUpdater(prisma),
     new PrismaVeoCandidateReader(prisma)
@@ -39,10 +79,11 @@ export function createVeoScraperOrchestrator(): VeoScraperOrchestrator {
 /**
  * Create polling orchestrator with default implementations (session-cached).
  */
-export function createVeoPollingOrchestrator(): VeoPollingOrchestrator {
+export function createVeoPollingOrchestrator(opts?: { httpMode?: boolean }): VeoPollingOrchestrator {
+  const { authenticator, scraper } = buildVeoAuthAndScraper(opts?.httpMode);
   return new VeoPollingOrchestrator(
-    new PlaywrightVeoAuthenticator(),
-    new PlaywrightVeoLiveApiScraper(),
+    authenticator,
+    scraper,
     new FuseStreamMatcher({ minConfidence: 0.7 }),
     new PrismaStreamUpdater(prisma),
     new PrismaVeoCandidateReader(prisma)
@@ -69,7 +110,9 @@ export function getVeoScraperConfigFromEnv(): ScraperConfig {
   }
 
   return {
-    credentials: { email, password },
+    // sessionCookie (browser-free path) is optional; supplied via env for scripts
+    // or from VeoIntegration.veoSessionCookie by the job.
+    credentials: { email, password, sessionCookie: process.env.VEO_SESSION_COOKIE },
     diagnosticsUrl,
     ownerAccountId,
     minConfidence: 0.7,

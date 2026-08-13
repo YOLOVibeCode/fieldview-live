@@ -59,6 +59,9 @@ model VeoIntegration {
   veoEmail             String
   veoPasswordEncrypted String
   veoDiagnosticsUrl    String   @db.VarChar(2048)
+  // Browser-free path: a seeded auth.veo.co `_session` cookie header (encrypted).
+  // When present, the connector mints tokens over pure HTTP — no Chromium at runtime.
+  veoSessionCookieEncrypted String? @db.Text
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
