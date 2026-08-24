@@ -10,6 +10,7 @@ import {
   ScoreDeltaCalculator,
 } from '@fieldview/data-model';
 import type { ClockMode, EventCategory, ScoreAppliesTo } from '@fieldview/data-model';
+import { DEFAULT_DEMO_STREAM } from './resolveDemoStream';
 
 export type ClockStatus = 'stopped' | 'running' | 'paused';
 
@@ -28,6 +29,7 @@ export interface DemoPendingEvent {
 }
 
 export interface DemoStreamSnapshot {
+  playbackSrc: string;
   sportId: string;
   period: number;
   homeScore: number;
@@ -46,6 +48,7 @@ let nextEventId = 1;
 
 function initialSnapshot(): DemoStreamSnapshot {
   return {
+    playbackSrc: DEFAULT_DEMO_STREAM,
     sportId: 'soccer',
     period: 1,
     homeScore: 0,
@@ -75,6 +78,10 @@ export class DemoStreamRoom {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  setPlaybackSrc(src: string, actor: string): void {
+    this.commit({ playbackSrc: src }, `${actor} loaded stream`);
   }
 
   setSport(sportId: string, actor: string): void {

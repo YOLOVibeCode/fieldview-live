@@ -18,6 +18,7 @@ export interface UseDemoStreamRoomReturn extends DemoStreamSnapshot {
   periodLabel: string;
   clockMode: ClockMode;
   hideClock: boolean;
+  setPlaybackSrc(src: string): void;
   setSport(sportId: string): void;
   startClock(): void;
   pauseClock(): void;
@@ -59,6 +60,10 @@ export function useDemoStreamRoom(
     now: new Date(),
   });
 
+  const setPlaybackSrc = useCallback(
+    (src: string) => room.setPlaybackSrc(src, viewerId),
+    [room, viewerId]
+  );
   const setSport = useCallback((sportId: string) => room.setSport(sportId, viewerId), [room, viewerId]);
   const startClock = useCallback(() => room.startClock(viewerId), [room, viewerId]);
   const pauseClock = useCallback(() => room.pauseClock(viewerId), [room, viewerId]);
@@ -76,6 +81,7 @@ export function useDemoStreamRoom(
     periodLabel: periodLabeler.formatPeriod(snap.sportId, snap.period),
     clockMode,
     hideClock,
+    setPlaybackSrc,
     setSport,
     startClock,
     pauseClock,

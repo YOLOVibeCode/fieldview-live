@@ -1,19 +1,31 @@
 /**
  * Multi-channel overlay PoC — E2E guarantee
  *
- * Two viewer instances share one stream. A change on Channel A must appear on B
- * (and the reverse path for confirm).
+ * Shared toolbar owns stream + sport + clock. Channel panels are viewers only.
  */
 
 import { test, expect } from '@playwright/test';
 
 const URL = '/demo/multi-channel';
+const DEFAULT_STREAM =
+  'https://stream.mux.com/VZtzUzGRv02OhRnZCxcNg49OilvolTqdnFLEqBsTwaxU.m3u8';
 
 test.describe('Multi-channel overlay PoC', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(URL);
     await page.getByTestId('channel-panel-a').waitFor({ state: 'visible' });
     await page.getByTestId('channel-panel-b').waitFor({ state: 'visible' });
+  });
+
+  test('stream input defaults to the Mux clip; sport lives only in the toolbar', async ({
+    page,
+  }) => {
+    await expect(page.getByTestId('input-stream-url')).toHaveValue(DEFAULT_STREAM);
+    await expect(page.getByTestId('multi-channel-toolbar').getByTestId('dropdown-sport')).toBeVisible();
+    await expect(page.getByTestId('channel-panel-a').getByTestId('dropdown-sport')).toHaveCount(0);
+    await expect(page.getByTestId('channel-panel-b').getByTestId('dropdown-sport')).toHaveCount(0);
+    await expect(page.getByTestId('vidstack-player-channel-a')).toBeVisible();
+    await expect(page.getByTestId('vidstack-player-channel-b')).toBeVisible();
   });
 
   test('both channels start on soccer 00:00', async ({ page }) => {
@@ -34,11 +46,11 @@ test.describe('Multi-channel overlay PoC', () => {
     );
   });
 
-  test('sport change on A appears on B (football 12:00)', async ({ page }) => {
+  test('shared sport change appears on both channels (football 12:00)', async ({ page }) => {
     const a = page.getByTestId('channel-panel-a');
     const b = page.getByTestId('channel-panel-b');
 
-    await a.getByTestId('dropdown-sport').selectOption('football');
+    await page.getByTestId('dropdown-sport').selectOption('football');
 
     await expect(a.getByTestId('mini-score-overlay').getByTestId('overlay-clock')).toHaveText(
       '12:00'
@@ -47,15 +59,14 @@ test.describe('Multi-channel overlay PoC', () => {
       '12:00'
     );
     await expect(b.getByTestId('mini-score-overlay').getByTestId('overlay-period')).toHaveText('Q1');
-    await expect(b.getByTestId('dropdown-sport')).toHaveValue('football');
+    await expect(page.getByTestId('dropdown-sport')).toHaveValue('football');
   });
 
-  test('clock start on A ticks down on B', async ({ page }) => {
-    const a = page.getByTestId('channel-panel-a');
+  test('shared clock start ticks down on both channels', async ({ page }) => {
     const b = page.getByTestId('channel-panel-b');
 
-    await a.getByTestId('dropdown-sport').selectOption('football');
-    await a.getByTestId('btn-clock-start').click();
+    await page.getByTestId('dropdown-sport').selectOption('football');
+    await page.getByTestId('btn-clock-start').click();
     await page.waitForTimeout(1500);
 
     const bClock = await b.getByTestId('mini-score-overlay').getByTestId('overlay-clock').textContent();
@@ -69,7 +80,7 @@ test.describe('Multi-channel overlay PoC', () => {
     const a = page.getByTestId('channel-panel-a');
     const b = page.getByTestId('channel-panel-b');
 
-    await a.getByTestId('dropdown-sport').selectOption('football');
+    await page.getByTestId('dropdown-sport').selectOption('football');
     await a.getByTestId('mini-score-overlay').getByTestId('btn-overlay-team-home').click();
 
     await expect(page.getByTestId('modal-report-event')).toBeVisible();
@@ -84,7 +95,6 @@ test.describe('Multi-channel overlay PoC', () => {
     await expect(a.getByTestId('debug-home-score')).toHaveText('0');
     await expect(b.getByTestId('debug-home-score')).toHaveText('0');
 
-    // Reporter cannot confirm; the other channel can
     await expect(a.getByTestId('btn-confirm-pending-event')).toHaveCount(0);
     await b.getByTestId('btn-confirm-pending-event').click();
 
@@ -93,11 +103,10 @@ test.describe('Multi-channel overlay PoC', () => {
     await expect(b.getByTestId('chip-pending-event')).toHaveCount(0);
   });
 
-  test('sport change on B appears on A', async ({ page }) => {
+  test('shared baseball overlay hides clock on both channels', async ({ page }) => {
     const a = page.getByTestId('channel-panel-a');
-    const b = page.getByTestId('channel-panel-b');
 
-    await b.getByTestId('dropdown-sport').selectOption('baseball');
+    await page.getByTestId('dropdown-sport').selectOption('baseball');
 
     await expect(a.getByTestId('mini-score-overlay').getByTestId('overlay-period')).toContainText(
       'Top'
