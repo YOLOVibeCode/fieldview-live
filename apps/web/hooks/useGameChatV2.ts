@@ -27,6 +27,7 @@
 import { useMemo } from 'react';
 import { useGameChat, type ChatMessage } from './useGameChat';
 import type { ChatMessageData } from '@/components/v2/chat/ChatMessageList';
+import type { GameEventPayload } from '@fieldview/data-model';
 
 interface UseGameChatV2Options {
   gameId: string | null;
@@ -44,6 +45,8 @@ interface UseGameChatV2Return {
   currentUserId: string;
   latestBroadcast: { message: string } | null;
   setLatestBroadcast: (value: { message: string } | null) => void;
+  latestGameEvent: GameEventPayload | null;
+  setLatestGameEvent: (value: GameEventPayload | null) => void;
 }
 
 /**
@@ -74,15 +77,21 @@ function generateUserColor(displayName: string): string {
  * Transform v1 ChatMessage to v2 ChatMessageData
  */
 function transformMessage(msg: ChatMessage): ChatMessageData {
+  const gameEvent =
+    msg.kind === 'game_event' && msg.metadata
+      ? (msg.metadata as unknown as GameEventPayload)
+      : undefined;
   return {
     id: msg.id,
     userName: msg.displayName,
-    userId: msg.id, // Use message ID as userId (we don't have separate userId)
+    userId: msg.id,
     userColor: generateUserColor(msg.displayName),
     message: msg.message,
     timestamp: new Date(msg.createdAt),
     isSystem: false,
     isAdminBroadcast: msg.isAdminBroadcast,
+    kind: msg.kind,
+    gameEvent,
   };
 }
 
@@ -122,6 +131,8 @@ export function useGameChatV2({
     currentUserId: currentUserId || 'viewer', // Default userId
     latestBroadcast: v1Chat.latestBroadcast,
     setLatestBroadcast: v1Chat.setLatestBroadcast,
+    latestGameEvent: v1Chat.latestGameEvent,
+    setLatestGameEvent: v1Chat.setLatestGameEvent,
   };
 }
 

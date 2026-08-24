@@ -33,7 +33,7 @@ GET  {NOCTUSOFT_RELAY_BASE_URL}/v1/storage/:bucket/<key…>
 ```
 
 - **Auth:** `Authorization: Bearer ${NOCTUSOFT_API_KEY}` (the Railway deploy key — works from any IP), exactly like `/email/send`.
-- **Base URL:** `NOCTUSOFT_RELAY_BASE_URL` (= `https://api.noctusoft.com`).
+- **Base URL:** `NOCTUSOFT_RELAY_BASE_URL` (= `https://api.sendgrid.noctusoft.com`). ⚠️ Use a host that proxies directly to the relay app (`api.sendgrid.noctusoft.com` / `api.square.noctusoft.com`) — **not** `api.noctusoft.com`, which is fronted by a separate auth gate that rejects the relay deploy key (401). Storage routes live on the same relay app, so the same host constraint applies.
 - **Allowlist:** the relay only serves buckets in its `STORAGE_ALLOWED_BUCKETS`. A bucket not on the list is rejected — this is the guardrail that keeps environments from crossing.
 
 ## Per-environment buckets (the partitioning rule)

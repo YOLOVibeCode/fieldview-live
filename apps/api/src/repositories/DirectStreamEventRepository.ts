@@ -115,6 +115,9 @@ export class DirectStreamEventRepository implements IDirectStreamEventReader, ID
       // Viewer editing permissions
       allowViewerScoreEdit: event.allowViewerScoreEdit ?? parent.allowViewerScoreEdit,
       allowViewerNameEdit: event.allowViewerNameEdit ?? parent.allowViewerNameEdit,
+      allowViewerReporting: parent.allowViewerReporting,
+      eventConfirmThreshold: parent.eventConfirmThreshold,
+      sport: parent.sport,
 
       // Anonymous feature flags (parent-level only)
       allowAnonymousScoreEdit: parent.allowAnonymousScoreEdit,

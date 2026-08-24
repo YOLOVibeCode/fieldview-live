@@ -29,6 +29,8 @@
  * ```
  */
 
+import type { GameEventPayload } from '@fieldview/data-model';
+
 /**
  * A single chat message event
  */
@@ -44,6 +46,10 @@ export interface ChatMessageEvent {
   
   /** ISO 8601 timestamp when message was created */
   createdAt: string;
+
+  kind?: string;
+  metadata?: Record<string, unknown> | null;
+  isAdminBroadcast?: boolean;
 }
 
 /**
@@ -152,5 +158,10 @@ export interface IMessageTransport {
    * @returns Unsubscribe function to remove the handler
    */
   onAdminBroadcast?(handler: (payload: AdminBroadcastEvent) => void): UnsubscribeFn;
+
+  /**
+   * Subscribe to crowdsourced game-event updates (report / confirm / reject).
+   */
+  onGameEvent?(handler: (payload: GameEventPayload) => void): UnsubscribeFn;
 }
 

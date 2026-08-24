@@ -22,6 +22,8 @@ export const UpdateGameScoreboardSchema = z.object({
   awayJerseyColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   homeScore: z.number().int().min(0).max(999).optional(),
   awayScore: z.number().int().min(0).max(999).optional(),
+  period: z.number().int().min(1).max(99).optional(),
+  periodDetail: z.enum(['top', 'bottom']).nullable().optional(),
   isVisible: z.boolean().optional(),
   position: z.enum(['top-left', 'top-center', 'top-right']).optional(),
   producerPassword: z.string().optional(), // For validation, not storage
@@ -53,6 +55,12 @@ export const ScoreboardResponseSchema = z.object({
   awayJerseyColor: z.string(),
   homeScore: z.number().int(),
   awayScore: z.number().int(),
+  period: z.number().int(),
+  periodDetail: z.string().nullable(),
+  periodLabel: z.string(),
+  sport: z.string(),
+  hideClock: z.boolean(),
+  clockDirection: z.enum(['up', 'down', 'none']),
   clockMode: z.enum(['stopped', 'running', 'paused']),
   clockSeconds: z.number().int(),
   clockStartedAt: z.string().nullable(), // ISO timestamp or null

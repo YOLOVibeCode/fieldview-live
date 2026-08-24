@@ -19,6 +19,8 @@ import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ChatMessage } from './ChatMessage';
 import { Skeleton } from '@/components/v2/primitives';
+import { GameEventCard } from './GameEventCard';
+import type { GameEventPayload } from '@fieldview/data-model';
 
 export interface ChatMessageData {
   id: string;
@@ -29,6 +31,8 @@ export interface ChatMessageData {
   timestamp: Date;
   isSystem?: boolean;
   isAdminBroadcast?: boolean;
+  kind?: string;
+  gameEvent?: GameEventPayload;
 }
 
 export interface ChatMessageListProps {
@@ -38,6 +42,12 @@ export interface ChatMessageListProps {
   emptyMessage?: string;
   variant?: 'default' | 'compact' | 'twitch';
   className?: string;
+  viewerId?: string;
+  isProducer?: boolean;
+  onConfirmEvent?: (eventId: string) => void;
+  onResolveEvent?: (eventId: string, action: 'confirm' | 'reject') => void;
+  /** When true, scoring/period game event cards are hidden (they're shown in the Plays tab instead) */
+  hideScoringEvents?: boolean;
 }
 
 /**
@@ -52,6 +62,11 @@ export function ChatMessageList({
   emptyMessage = 'No messages yet. Be the first to say hello!',
   variant = 'default',
   className,
+  viewerId,
+  isProducer = false,
+  onConfirmEvent,
+  onResolveEvent,
+  hideScoringEvents = false,
 }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<string | null>(null);
@@ -114,20 +129,36 @@ export function ChatMessageList({
       {/* Messages */}
       {messages.length > 0 && (
         <div className={variant === 'twitch' ? 'space-y-0' : 'space-y-1'}>
-          {messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              id={msg.id}
-              userName={msg.userName}
-              userColor={msg.userColor}
-              message={msg.message}
-              timestamp={msg.timestamp}
-              isOwn={currentUserId === msg.userId}
-              isSystem={msg.isSystem}
-              isAdminBroadcast={msg.isAdminBroadcast}
-              variant={variant}
-            />
-          ))}
+          {messages.map((msg) => {
+            // When plays tab is active, hide scoring/period game event cards from chat
+            if (hideScoringEvents && msg.gameEvent) {
+              const cat = msg.gameEvent.category;
+              if (cat === 'scoring' || cat === 'period') return null;
+            }
+            return msg.gameEvent ? (
+              <GameEventCard
+                key={msg.id}
+                event={msg.gameEvent}
+                viewerId={viewerId}
+                isProducer={isProducer}
+                onConfirm={onConfirmEvent}
+                onResolve={onResolveEvent}
+              />
+            ) : (
+              <ChatMessage
+                key={msg.id}
+                id={msg.id}
+                userName={msg.userName}
+                userColor={msg.userColor}
+                message={msg.message}
+                timestamp={msg.timestamp}
+                isOwn={currentUserId === msg.userId}
+                isSystem={msg.isSystem}
+                isAdminBroadcast={msg.isAdminBroadcast}
+                variant={variant}
+              />
+            );
+          })}
         </div>
       )}
     </div>

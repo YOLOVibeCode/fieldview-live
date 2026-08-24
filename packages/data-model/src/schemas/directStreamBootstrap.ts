@@ -40,6 +40,9 @@ export const DirectStreamPageConfigSchema = z.object({
   // Viewer permissions
   allowViewerScoreEdit: z.boolean(),
   allowViewerNameEdit: z.boolean(),
+  allowViewerReporting: z.boolean().optional(),
+  eventConfirmThreshold: z.number().int().min(0).max(20).optional(),
+  sport: z.string().optional(),
 });
 
 /**
@@ -88,6 +91,9 @@ export const DirectStreamBootstrapResponseSchema = z.object({
   scoreboardAwayColor: z.string().nullable(),
   allowViewerScoreEdit: z.boolean(),
   allowViewerNameEdit: z.boolean(),
+  allowViewerReporting: z.boolean().optional(),
+  eventConfirmThreshold: z.number().int().min(0).max(20).optional(),
+  sport: z.string().optional(),
 
   // Stream provider metadata (flat, for player selection)
   streamProvider: z.enum(['mux_managed', 'byo_hls', 'byo_rtmp', 'external_embed', 'unknown']).nullable(),
@@ -123,6 +129,9 @@ export const DirectStreamSettingsUpdateSchema = z.object({
   // Viewer permissions (optional)
   allowViewerScoreEdit: z.boolean().optional(),
   allowViewerNameEdit: z.boolean().optional(),
+  allowViewerReporting: z.boolean().optional(),
+  eventConfirmThreshold: z.number().int().min(0).max(20).optional(),
+  sport: z.string().min(1).max(40).optional(),
 }).strict();  // Reject unknown fields
 
 // Export types

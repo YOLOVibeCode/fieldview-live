@@ -27,6 +27,7 @@ export const CreateDirectStreamSchema = z.object({
   listed: z.boolean().optional().default(true),
   sendReminders: z.boolean().optional().default(true),
   reminderMinutes: z.number().int().min(1).max(1440).optional().default(5),
+  sport: z.string().min(1).max(40).optional().default('soccer'),
 });
 
 export const UpdateDirectStreamSchema = z.object({

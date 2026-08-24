@@ -17,6 +17,8 @@ import {
   DirectStreamCheckoutSchema,  // 🆕
   inferStreamProvider,
   extractMuxPlaybackId,
+  sportRegistry,
+  seedClockSeconds,
 } from '@fieldview/data-model';
 // 🆕 Payment service dependencies
 import { PaymentService } from '../services/PaymentService';
@@ -262,6 +264,9 @@ router.get(
           // Viewer editing permissions
           allowViewerScoreEdit: directStream.allowViewerScoreEdit,
           allowViewerNameEdit: directStream.allowViewerNameEdit,
+          allowViewerReporting: directStream.allowViewerReporting,
+          eventConfirmThreshold: directStream.eventConfirmThreshold,
+          sport: directStream.sport,
           // Anonymous feature flags
           allowAnonymousChat: directStream.allowAnonymousChat,
           allowAnonymousScoreEdit: directStream.allowAnonymousScoreEdit,
@@ -465,6 +470,9 @@ router.post(
           // Viewer editing permissions
           allowViewerScoreEdit: z.boolean().optional(),
           allowViewerNameEdit: z.boolean().optional(),
+          allowViewerReporting: z.boolean().optional(),
+          eventConfirmThreshold: z.number().int().min(0).max(20).optional(),
+          sport: z.string().min(1).max(40).optional(),
           // Anonymous feature flags
           allowAnonymousChat: z.boolean().optional(),
           allowAnonymousScoreEdit: z.boolean().optional(),
@@ -580,6 +588,20 @@ router.post(
         if (body.allowViewerNameEdit !== undefined) {
           parentUpdateData.allowViewerNameEdit = body.allowViewerNameEdit;
         }
+        if (body.allowViewerReporting !== undefined) {
+          parentUpdateData.allowViewerReporting = body.allowViewerReporting;
+        }
+        if (body.eventConfirmThreshold !== undefined) {
+          parentUpdateData.eventConfirmThreshold = body.eventConfirmThreshold;
+        }
+        if (body.sport !== undefined) {
+          try {
+            sportRegistry.getSport(body.sport);
+          } catch {
+            throw new BadRequestError(`Unknown sport: ${body.sport}`);
+          }
+          parentUpdateData.sport = body.sport;
+        }
         // Anonymous feature flags
         if (body.allowAnonymousChat !== undefined) {
           parentUpdateData.allowAnonymousChat = body.allowAnonymousChat;
@@ -602,11 +624,28 @@ router.post(
         let updated = null;
         if (Object.keys(parentUpdateData).length > 0) {
           updated = await prisma.directStream.update({
-            where: { slug: authSlug }, // 🆕 Use parent slug
+            where: { slug: authSlug },
             data: parentUpdateData,
           });
         } else {
           updated = existingStream;
+        }
+
+        // When sport changes, reset the scoreboard clock to the new sport's seed
+        if (body.sport !== undefined && body.sport !== existingStream.sport) {
+          let seedSeconds = 0;
+          try {
+            seedSeconds = seedClockSeconds(sportRegistry.getSport(body.sport));
+          } catch { /* default 0 */ }
+
+          await prisma.gameScoreboard.updateMany({
+            where: { directStreamId: existingStream.id },
+            data: {
+              clockMode: 'stopped',
+              clockSeconds: seedSeconds,
+              clockStartedAt: null,
+            },
+          });
         }
         
         // 🆕 Update event-specific fields if this is an event

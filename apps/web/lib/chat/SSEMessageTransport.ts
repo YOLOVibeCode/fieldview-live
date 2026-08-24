@@ -44,6 +44,7 @@ import type {
   AdminBroadcastEvent,
   UnsubscribeFn,
 } from './IMessageTransport';
+import type { GameEventPayload } from '@fieldview/data-model';
 import { apiRequest } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 
@@ -63,6 +64,7 @@ export class SSEMessageTransport implements IMessageTransport {
   private connectionHandlers = new Set<(connected: boolean) => void>();
   private errorHandlers = new Set<(error: Error) => void>();
   private adminBroadcastHandlers = new Set<(payload: AdminBroadcastEvent) => void>();
+  private gameEventHandlers = new Set<(payload: GameEventPayload) => void>();
   
   /**
    * Connect to chat via SSE stream
@@ -116,6 +118,15 @@ export class SSEMessageTransport implements IMessageTransport {
         this.notifyAdminBroadcast(payload);
       } catch (err) {
         console.error('[SSETransport] Failed to parse admin broadcast:', err);
+      }
+    });
+
+    this.eventSource.addEventListener('game_event', (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data) as GameEventPayload;
+        this.notifyGameEvent(payload);
+      } catch (err) {
+        console.error('[SSETransport] Failed to parse game event:', err);
       }
     });
 
@@ -212,6 +223,11 @@ export class SSEMessageTransport implements IMessageTransport {
     return () => this.adminBroadcastHandlers.delete(handler);
   }
 
+  onGameEvent(handler: (payload: GameEventPayload) => void): UnsubscribeFn {
+    this.gameEventHandlers.add(handler);
+    return () => this.gameEventHandlers.delete(handler);
+  }
+
   // Private notification methods
   
   private notifyMessage(msg: ChatMessageEvent): void {
@@ -260,6 +276,16 @@ export class SSEMessageTransport implements IMessageTransport {
         handler(payload);
       } catch (err) {
         console.error('[SSETransport] Error in admin broadcast handler:', err);
+      }
+    });
+  }
+
+  private notifyGameEvent(payload: GameEventPayload): void {
+    this.gameEventHandlers.forEach((handler) => {
+      try {
+        handler(payload);
+      } catch (err) {
+        console.error('[SSETransport] Error in game event handler:', err);
       }
     });
   }

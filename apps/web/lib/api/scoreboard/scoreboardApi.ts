@@ -6,6 +6,7 @@
  */
 
 import { apiRequest, ApiError } from '@/lib/api-client';
+import { resolveClockSeconds, formatClock } from '@fieldview/data-model';
 import type {
   IScoreboardReader,
   IScoreboardWriter,
@@ -23,17 +24,16 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
   // IScoreboardReader implementation
   async fetch(slug: string): Promise<ScoreboardData> {
     try {
-      const data = await apiRequest<ApiScoreboardResponse>(
+      const raw = await apiRequest<ApiScoreboardResponse>(
         `${this.baseUrl}/api/direct/${encodeURIComponent(slug)}/scoreboard`,
         {
           method: 'GET',
-          retries: 2, // Retry network failures
+          retries: 2,
         } as any
       );
-      return this.toScoreboardData(data);
+      return this.toScoreboardData(raw);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        // 404 is not an error - return defaults
         return this.getDefaultScoreboard();
       }
       throw this.enhanceError(error);
@@ -42,7 +42,7 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
 
   streamUpdates(
     slug: string,
-    onUpdate: (data: ScoreboardData, rawResponse: ApiScoreboardResponse) => void,
+    onUpdate: (data: ScoreboardData) => void,
     callbacks?: {
       onDisconnect?: () => void;
       onReconnect?: () => void;
@@ -63,9 +63,8 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
 
       const handleSnapshot = (event: MessageEvent) => {
         const rawData = JSON.parse(event.data);
-        onUpdate(this.toScoreboardData(rawData), rawData);
+        onUpdate(this.toScoreboardData(rawData));
         
-        // Reset attempts on successful snapshot
         if (reconnectAttempts > 0) {
           reconnectAttempts = 0;
           callbacks?.onReconnect?.();
@@ -75,7 +74,7 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
 
       const handleUpdate = (event: MessageEvent) => {
         const rawData = JSON.parse(event.data);
-        onUpdate(this.toScoreboardData(rawData), rawData);
+        onUpdate(this.toScoreboardData(rawData));
       };
 
       const handleError = () => {
@@ -230,8 +229,11 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
   }
 
   private toScoreboardData(response: ApiScoreboardResponse): ScoreboardData {
-    const { time, period } = this.calculateClockDisplay(response);
-    
+    const { time } = this.calculateClockDisplay(response);
+    const period = response.periodLabel
+      ?? (response.period != null ? String(response.period) : undefined);
+    const clockDirection = response.clockDirection ?? 'up';
+
     return {
       homeTeam: {
         name: response.homeTeamName,
@@ -244,57 +246,36 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
         color: response.awayJerseyColor,
       },
       period,
-      time,
+      time: response.hideClock ? undefined : time,
+      sportId: response.sport,
+      clockMode: response.clockMode,
+      clockSeconds: response.clockSeconds,
+      clockStartedAt: response.clockStartedAt ?? null,
+      clockDirection,
+      hideClock: response.hideClock ?? false,
     };
   }
 
   /**
-   * Calculate clock display from API response.
-   * If clock is running, compute live time based on clockStartedAt.
+   * Calculate clock display from API response using sport-aware direction.
    */
   private calculateClockDisplay(response: ApiScoreboardResponse): {
     time?: string;
-    period?: string;
   } {
-    const { clockMode, clockSeconds, clockStartedAt } = response;
+    const { clockMode, clockSeconds, clockStartedAt, clockDirection = 'up' } = response;
 
-    // Map clockMode to period text
-    let period: string | undefined;
-    if (clockMode === 'running') {
-      period = 'Running';
-    } else if (clockMode === 'paused') {
-      period = 'Paused';
-    } else if (clockMode === 'stopped') {
-      period = 'Stopped';
+    if (clockSeconds === undefined || clockSeconds === null) {
+      return {};
     }
 
-    // Calculate time display
-    let time: string | undefined;
-    if (clockSeconds !== undefined && clockSeconds !== null) {
-      let totalSeconds = clockSeconds;
+    const resolved = resolveClockSeconds({
+      mode: (clockMode as 'stopped' | 'running' | 'paused') ?? 'stopped',
+      clockDirection,
+      clockSeconds,
+      clockStartedAt: clockStartedAt ?? null,
+    });
 
-      // If clock is running and we have a start time, calculate live elapsed time
-      if (clockMode === 'running' && clockStartedAt) {
-        const elapsedMs = Date.now() - new Date(clockStartedAt).getTime();
-        totalSeconds = clockSeconds + Math.floor(elapsedMs / 1000);
-      }
-
-      // Format as MM:SS
-      time = this.formatTime(totalSeconds);
-    }
-
-    return { time, period };
-  }
-
-  /**
-   * Format seconds as MM:SS
-   */
-  private formatTime(totalSeconds: number): string {
-    const absSeconds = Math.abs(totalSeconds);
-    const minutes = Math.floor(absSeconds / 60);
-    const seconds = absSeconds % 60;
-    const sign = totalSeconds < 0 ? '-' : '';
-    return `${sign}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return { time: formatClock(resolved) };
   }
 }
 

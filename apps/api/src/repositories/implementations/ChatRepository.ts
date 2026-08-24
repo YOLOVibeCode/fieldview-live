@@ -4,7 +4,7 @@
  * Prisma-based repository for GameChatMessage operations.
  */
 
-import type { PrismaClient, GameChatMessage } from '@prisma/client';
+import type { PrismaClient, GameChatMessage, Prisma } from '@prisma/client';
 import type {
   IChatReader,
   IChatWriter,
@@ -50,6 +50,8 @@ export class ChatRepository implements IChatReader, IChatWriter {
         displayName: data.displayName,
         message: data.message,
         directStreamId: data.directStreamId, // 🆕 Preserve link to DirectStream
+        kind: data.kind ?? 'text',
+        metadata: data.metadata as Prisma.InputJsonValue | undefined,
       },
     });
   }
@@ -65,6 +67,13 @@ export class ChatRepository implements IChatReader, IChatWriter {
       where: { gameId },
     });
     return result.count;
+  }
+
+  async updateMessageMetadata(id: string, metadata: Record<string, unknown>): Promise<void> {
+    await this.prisma.gameChatMessage.update({
+      where: { id },
+      data: { metadata: metadata as Prisma.InputJsonValue },
+    });
   }
 }
 

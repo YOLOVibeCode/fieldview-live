@@ -27,6 +27,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { TeamData } from '@/components/v2/scoreboard/Scoreboard';
 import { scoreboardApi } from '@/lib/api/scoreboard';
 import { ApiError } from '@/lib/api-client';
+import { resolveClockSeconds, formatClock } from '@fieldview/data-model';
 import type { ScoreboardData as ApiScoreboardData } from '@/lib/api/scoreboard/types';
 
 interface UseScoreboardDataOptions {
@@ -43,6 +44,7 @@ interface ScoreboardData {
   awayTeam: TeamData;
   period?: string;
   time?: string;
+  sportId?: string;
   isLoading: boolean;
   error: string | null;
 }
@@ -55,7 +57,7 @@ interface UseScoreboardDataReturn extends ScoreboardData {
 
 /**
  * Apply scoreboard data from API to local state setters.
- * Also stores raw clock data for live ticking.
+ * All raw clock fields are now carried in `ScoreboardData` by `scoreboardApi`.
  */
 function applyScoreboardData(
   data: ApiScoreboardData,
@@ -63,20 +65,23 @@ function applyScoreboardData(
   setAwayTeam: React.Dispatch<React.SetStateAction<TeamData>>,
   setPeriod: React.Dispatch<React.SetStateAction<string | undefined>>,
   setTime: React.Dispatch<React.SetStateAction<string | undefined>>,
+  setSportId: React.Dispatch<React.SetStateAction<string | undefined>>,
   setClockMode: React.Dispatch<React.SetStateAction<string | undefined>>,
   setBaseClockSeconds: React.Dispatch<React.SetStateAction<number | undefined>>,
   setClockStartedAt: React.Dispatch<React.SetStateAction<string | null | undefined>>,
-  rawResponse: any, // ApiScoreboardResponse from API
+  setClockDirection: React.Dispatch<React.SetStateAction<'up' | 'down' | 'none'>>,
+  setHideClock: React.Dispatch<React.SetStateAction<boolean>>,
 ) {
   setHomeTeam(data.homeTeam);
   setAwayTeam(data.awayTeam);
   setPeriod(data.period);
   setTime(data.time);
-  
-  // Store raw clock data for live ticking
-  setClockMode(rawResponse.clockMode);
-  setBaseClockSeconds(rawResponse.clockSeconds);
-  setClockStartedAt(rawResponse.clockStartedAt);
+  setSportId(data.sportId);
+  setClockMode(data.clockMode);
+  setBaseClockSeconds(data.clockSeconds);
+  setClockStartedAt(data.clockStartedAt);
+  setClockDirection(data.clockDirection ?? 'up');
+  setHideClock(data.hideClock ?? false);
 }
 
 /**
@@ -110,9 +115,12 @@ export function useScoreboardData({
   const sseConnectedRef = useRef(false);
   
   // Raw clock data for live ticking
+  const [sportId, setSportId] = useState<string | undefined>(undefined);
   const [clockMode, setClockMode] = useState<string | undefined>(undefined);
   const [baseClockSeconds, setBaseClockSeconds] = useState<number | undefined>(undefined);
   const [clockStartedAt, setClockStartedAt] = useState<string | null | undefined>(undefined);
+  const [clockDirection, setClockDirection] = useState<'up' | 'down' | 'none'>('up');
+  const [hideClock, setHideClock] = useState(false);
 
   /**
    * Fetch scoreboard data from API (initial load + fallback poll)
@@ -132,10 +140,12 @@ export function useScoreboardData({
         setAwayTeam,
         setPeriod,
         setTime,
+        setSportId,
         setClockMode,
         setBaseClockSeconds,
         setClockStartedAt,
-        {} // No raw response from fetch (only from SSE)
+        setClockDirection,
+        setHideClock,
       );
     } catch (err) {
       console.error('[Scoreboard] Fetch error:', err);
@@ -200,17 +210,19 @@ export function useScoreboardData({
 
     const cleanup = scoreboardApi.streamUpdates(
       slug,
-      (data, rawResponse) => {
+      (data) => {
         applyScoreboardData(
           data,
           setHomeTeam,
           setAwayTeam,
           setPeriod,
           setTime,
+          setSportId,
           setClockMode,
           setBaseClockSeconds,
           setClockStartedAt,
-          rawResponse
+          setClockDirection,
+          setHideClock,
         );
       },
       {
@@ -234,26 +246,22 @@ export function useScoreboardData({
    * Updates displayed time every 1s when clockMode === 'running'
    */
   useEffect(() => {
-    if (clockMode !== 'running' || baseClockSeconds === undefined || !clockStartedAt) {
+    if (clockMode !== 'running' || baseClockSeconds === undefined || !clockStartedAt || hideClock) {
       return;
     }
 
     const interval = setInterval(() => {
-      const elapsedMs = Date.now() - new Date(clockStartedAt).getTime();
-      const totalSeconds = baseClockSeconds + Math.floor(elapsedMs / 1000);
-      
-      // Format as MM:SS
-      const absSeconds = Math.abs(totalSeconds);
-      const minutes = Math.floor(absSeconds / 60);
-      const secs = absSeconds % 60;
-      const sign = totalSeconds < 0 ? '-' : '';
-      const formattedTime = `${sign}${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-      
-      setTime(formattedTime);
+      const resolved = resolveClockSeconds({
+        mode: 'running',
+        clockDirection,
+        clockSeconds: baseClockSeconds,
+        clockStartedAt,
+      });
+      setTime(formatClock(resolved));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [clockMode, baseClockSeconds, clockStartedAt]);
+  }, [clockMode, baseClockSeconds, clockStartedAt, clockDirection, hideClock]);
 
   /**
    * Initial fetch + fallback polling (only when SSE is disconnected)
@@ -279,6 +287,7 @@ export function useScoreboardData({
     awayTeam,
     period,
     time,
+    sportId,
     isLoading,
     error,
     saveError,

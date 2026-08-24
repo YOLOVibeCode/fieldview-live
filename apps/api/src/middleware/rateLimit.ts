@@ -89,3 +89,18 @@ export const adminRateLimit = createRateLimiter({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/**
+ * Game event report: 6 per viewer per minute (~1 per 10s average)
+ */
+export const gameEventRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 6,
+  message: 'Too many event reports, please wait a moment.',
+  keyGenerator: (req: Request) => {
+    const viewerId = (req as { viewerId?: string }).viewerId || req.ip || 'unknown';
+    return `game-event:${viewerId}`;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

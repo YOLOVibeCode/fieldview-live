@@ -21,7 +21,7 @@ vi.mock('@/lib/api/scoreboard', () => ({
 }));
 
 describe('useScoreboardData', () => {
-  const mockScoreboardApi = scoreboardApiModule.scoreboardApi as {
+  const mockScoreboardApi = scoreboardApiModule.scoreboardApi as unknown as {
     fetch: ReturnType<typeof vi.fn>;
     updateScore: ReturnType<typeof vi.fn>;
     streamUpdates: ReturnType<typeof vi.fn>;

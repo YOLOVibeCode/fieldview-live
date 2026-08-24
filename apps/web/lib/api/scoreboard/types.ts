@@ -12,6 +12,17 @@ export interface ScoreboardData {
   awayTeam: TeamData;
   period?: string;
   time?: string;
+  /** The sport id from the stream, e.g. `'soccer'` | `'football'`. */
+  sportId?: string;
+  /** Raw clock mode from the API; used by the hook for live ticking. */
+  clockMode?: string;
+  /** Base clock seconds stored on the server. */
+  clockSeconds?: number;
+  /** ISO string when the clock was last started; null when stopped/paused. */
+  clockStartedAt?: string | null;
+  /** Clock direction derived from the sport catalog. */
+  clockDirection?: 'up' | 'down' | 'none';
+  hideClock?: boolean;
 }
 
 export interface TeamData {
@@ -35,6 +46,12 @@ export interface ApiScoreboardResponse {
   position?: string;
   lastEditedBy?: string | null;
   lastEditedAt?: string | null;
+  period?: number;
+  periodDetail?: string | null;
+  periodLabel?: string;
+  sport?: string;
+  hideClock?: boolean;
+  clockDirection?: 'up' | 'down' | 'none';
 }
 
 // ISP: Separate read operations (2 methods)
@@ -42,7 +59,7 @@ export interface IScoreboardReader {
   fetch(slug: string): Promise<ScoreboardData>;
   streamUpdates(
     slug: string,
-    onUpdate: (data: ScoreboardData, rawResponse: ApiScoreboardResponse) => void,
+    onUpdate: (data: ScoreboardData) => void,
     callbacks?: {
       onDisconnect?: () => void;
       onReconnect?: () => void;
