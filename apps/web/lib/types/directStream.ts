@@ -35,6 +35,9 @@ export interface DirectStreamPageConfig {
   // Viewer permissions
   allowViewerScoreEdit: boolean;
   allowViewerNameEdit: boolean;
+  allowViewerReporting?: boolean;
+  eventConfirmThreshold?: number;
+  sport?: string;
 }
 
 /**
@@ -83,6 +86,9 @@ export interface DirectStreamBootstrapResponse {
   scoreboardAwayColor: string | null;
   allowViewerScoreEdit: boolean;
   allowViewerNameEdit: boolean;
+  allowViewerReporting?: boolean;
+  eventConfirmThreshold?: number;
+  sport?: string;
 
   // Stream provider metadata (flat, for player selection)
   streamProvider: 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed' | 'unknown' | null;

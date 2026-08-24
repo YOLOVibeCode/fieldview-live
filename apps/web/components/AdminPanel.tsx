@@ -21,6 +21,7 @@ import { ArrowLeftRight, Eye, EyeOff, Lock } from 'lucide-react';
 import { apiRequest } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorToast } from '@/components/v2/ErrorToast';
+import { sportRegistry } from '@fieldview/data-model';
 
 interface AdminPanelProps {
   slug: string;
@@ -40,6 +41,9 @@ interface AdminPanelProps {
     // Viewer editing permissions
     allowViewerScoreEdit?: boolean;
     allowViewerNameEdit?: boolean;
+    allowViewerReporting?: boolean;
+    eventConfirmThreshold?: number;
+    sport?: string;
     // Anonymous feature flags
     allowAnonymousChat?: boolean;
     allowAnonymousScoreEdit?: boolean;
@@ -88,6 +92,9 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
   // Viewer editing permissions
   const [allowViewerScoreEdit, setAllowViewerScoreEdit] = useState(initialSettings?.allowViewerScoreEdit ?? false);
   const [allowViewerNameEdit, setAllowViewerNameEdit] = useState(initialSettings?.allowViewerNameEdit ?? false);
+  const [allowViewerReporting, setAllowViewerReporting] = useState(initialSettings?.allowViewerReporting ?? false);
+  const [eventConfirmThreshold, setEventConfirmThreshold] = useState(initialSettings?.eventConfirmThreshold ?? 2);
+  const [sport, setSport] = useState(initialSettings?.sport ?? 'generic');
   // Anonymous feature flags
   const [allowAnonymousChat, setAllowAnonymousChat] = useState(initialSettings?.allowAnonymousChat ?? false);
   const [allowAnonymousScoreEdit, setAllowAnonymousScoreEdit] = useState(initialSettings?.allowAnonymousScoreEdit ?? false);
@@ -264,6 +271,9 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
         allowSavePayment,
         allowViewerScoreEdit,
         allowViewerNameEdit,
+        allowViewerReporting,
+        eventConfirmThreshold,
+        sport,
         allowAnonymousChat,
         allowAnonymousScoreEdit,
         welcomeMessage: welcomeMessage.trim() || null,
@@ -888,6 +898,59 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
                       className="w-5 h-5"
                       data-testid="allow-anonymous-score-edit-checkbox"
                       aria-label="Allow anonymous score editing"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label htmlFor="stream-sport" className="text-sm font-medium">Sport</label>
+                  <select
+                    id="stream-sport"
+                    data-testid="dropdown-sport"
+                    value={sport}
+                    onChange={(e) => setSport(e.target.value)}
+                    className="w-full h-10 rounded-md border border-muted bg-background px-2 text-sm"
+                    aria-label="Sport"
+                  >
+                    {sportRegistry.listSports().map((s) => (
+                      <option key={s.id} value={s.id}>{s.displayName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="allow-viewer-reporting" className="text-sm font-medium">
+                      Crowdsource game events
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Viewers can report goals, TDs, and other events from chat
+                    </p>
+                  </div>
+                  <input
+                    id="allow-viewer-reporting"
+                    type="checkbox"
+                    checked={allowViewerReporting}
+                    onChange={(e) => setAllowViewerReporting(e.target.checked)}
+                    className="w-5 h-5"
+                    data-testid="checkbox-allow-viewer-reporting"
+                    aria-label="Allow viewers to report game events"
+                  />
+                </div>
+
+                {allowViewerReporting && (
+                  <div className="space-y-2 ml-4">
+                    <label htmlFor="event-confirm-threshold" className="text-sm font-medium">
+                      Extra confirmations needed
+                    </label>
+                    <Input
+                      id="event-confirm-threshold"
+                      data-testid="input-event-confirm-threshold"
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={eventConfirmThreshold}
+                      onChange={(e) => setEventConfirmThreshold(parseInt(e.target.value, 10) || 0)}
                     />
                   </div>
                 )}

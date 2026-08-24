@@ -33,6 +33,7 @@ export interface ICreateStreamRequest {
   scoreboardAwayTeam?: string | null;
   scoreboardHomeColor?: string | null;
   scoreboardAwayColor?: string | null;
+  sport?: string;
 }
 
 export class OwnerDirectStreamService {
@@ -83,6 +84,7 @@ export class OwnerDirectStreamService {
       scoreboardAwayTeam: input.scoreboardAwayTeam,
       scoreboardHomeColor: input.scoreboardHomeColor,
       scoreboardAwayColor: input.scoreboardAwayColor,
+      sport: input.sport ?? 'soccer',
     });
   }
 

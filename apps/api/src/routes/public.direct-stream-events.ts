@@ -89,6 +89,9 @@ router.get(
           // Viewer editing permissions
           allowViewerScoreEdit: config.allowViewerScoreEdit,
           allowViewerNameEdit: config.allowViewerNameEdit,
+          allowViewerReporting: config.allowViewerReporting,
+          eventConfirmThreshold: config.eventConfirmThreshold,
+          sport: config.sport,
           // Anonymous feature flags
           allowAnonymousScoreEdit: config.allowAnonymousScoreEdit,
           allowAnonymousChat: config.allowAnonymousChat,

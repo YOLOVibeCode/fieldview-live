@@ -38,6 +38,8 @@ export interface ICreateOwnerDirectStreamInput {
   scoreboardAwayTeam?: string | null;
   scoreboardHomeColor?: string | null;
   scoreboardAwayColor?: string | null;
+
+  sport?: string;
 }
 
 /**

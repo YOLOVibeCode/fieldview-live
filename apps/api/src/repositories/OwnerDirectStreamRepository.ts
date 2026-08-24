@@ -107,6 +107,7 @@ export class OwnerDirectStreamRepository
         scoreboardAwayTeam: input.scoreboardAwayTeam,
         scoreboardHomeColor: input.scoreboardHomeColor,
         scoreboardAwayColor: input.scoreboardAwayColor,
+        sport: input.sport ?? 'soccer',
       },
     });
   }

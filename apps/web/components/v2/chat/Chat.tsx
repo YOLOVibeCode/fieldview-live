@@ -23,6 +23,27 @@
 import { cn } from '@/lib/utils';
 import { ChatMessageList, type ChatMessageData } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
+import { ReportEventSheet } from './ReportEventSheet';
+import { useState } from 'react';
+
+export interface ChatReportingConfig {
+  sportId: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  viewerId?: string;
+  isProducer?: boolean;
+  onReport: (eventTypeId: string, team?: 'home' | 'away', detail?: ReportDetail) => void;
+  onConfirmEvent: (eventId: string) => void;
+  onResolveEvent?: (eventId: string, action: 'confirm' | 'reject') => void;
+}
+
+export interface ReportDetail {
+  jerseyNumber?: number;
+  detail?: string;
+  detailValue?: number;
+  note?: string;
+  filmTimeSeconds?: number;
+}
 
 export interface ChatProps {
   messages: ChatMessageData[];
@@ -36,6 +57,9 @@ export interface ChatProps {
   variant?: 'default' | 'compact' | 'twitch';
   className?: string;
   'data-testid'?: string;
+  reporting?: ChatReportingConfig;
+  /** Hide scoring/period event cards (shown in the Plays tab instead) */
+  hideScoringEvents?: boolean;
 }
 
 /**
@@ -55,7 +79,10 @@ export function Chat({
   variant = 'default',
   className,
   'data-testid': dataTestId,
+  reporting,
+  hideScoringEvents = false,
 }: ChatProps) {
+  const [reportOpen, setReportOpen] = useState(false);
   return (
     <div
       role="region"
@@ -96,6 +123,11 @@ export function Chat({
         isLoading={isLoading}
         emptyMessage={emptyMessage}
         variant={variant}
+        viewerId={reporting?.viewerId}
+        isProducer={reporting?.isProducer}
+        onConfirmEvent={reporting?.onConfirmEvent}
+        onResolveEvent={reporting?.onResolveEvent}
+        hideScoringEvents={hideScoringEvents}
       />
       
       {/* Input */}
@@ -104,8 +136,20 @@ export function Chat({
           onSend={onSend}
           disabled={disabled}
           isLoading={isLoading}
+          onReportClick={reporting ? () => setReportOpen(true) : undefined}
         />
       </div>
+      {reporting && (
+        <ReportEventSheet
+          isOpen={reportOpen}
+          onClose={() => setReportOpen(false)}
+          sportId={reporting.sportId}
+          homeTeamName={reporting.homeTeamName}
+          awayTeamName={reporting.awayTeamName}
+          onReport={reporting.onReport}
+          category="hype"
+        />
+      )}
     </div>
   );
 }

@@ -4,3 +4,4 @@
 export * from './entities/index';
 export * from './schemas/index';
 export * from './utils/index';
+export * from './sports/index';

@@ -18,6 +18,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TouchButton, Icon } from '@/components/v2/primitives';
 
@@ -29,6 +30,7 @@ export interface ChatInputProps {
   maxLength?: number;
   autoFocus?: boolean;
   className?: string;
+  onReportClick?: () => void;
 }
 
 /**
@@ -44,6 +46,7 @@ export function ChatInput({
   maxLength = 500,
   autoFocus = false,
   className,
+  onReportClick,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +83,20 @@ export function ChatInput({
         className
       )}
     >
+      {onReportClick && (
+        <TouchButton
+          type="button"
+          onClick={onReportClick}
+          disabled={disabled}
+          variant="secondary"
+          size="sm"
+          aria-label="Report a highlight"
+          data-testid="btn-report-event"
+        >
+          <Flag className="h-4 w-4" />
+        </TouchButton>
+      )}
+
       {/* Input Field */}
       <input
         ref={inputRef}

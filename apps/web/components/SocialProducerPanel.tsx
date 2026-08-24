@@ -10,6 +10,7 @@ import { apiRequest } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { scoreboardApi } from '@/lib/api/scoreboard';
+import { resolveClockSeconds } from '@fieldview/data-model';
 
 interface GameScoreboard {
   id: string;
@@ -22,11 +23,16 @@ interface GameScoreboard {
   clockMode: 'stopped' | 'running' | 'paused';
   clockSeconds: number;
   clockStartedAt: string | null;
+  clockDirection?: 'up' | 'down' | 'none';
   isVisible: boolean;
   position: string;
   editMode: 'admin_only' | 'public' | 'password';
   lastEditedBy: string | null;
   lastEditedAt: string | null;
+  period?: number;
+  periodDetail?: string | null;
+  periodLabel?: string;
+  hideClock?: boolean;
 }
 
 interface SocialProducerPanelProps {
@@ -202,13 +208,14 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
 
   const getCurrentClockSeconds = (): number => {
     if (!scoreboard) return 0;
-    
-    if (scoreboard.clockMode === 'running' && scoreboard.clockStartedAt) {
-      const elapsed = Math.floor((Date.now() - new Date(scoreboard.clockStartedAt).getTime()) / 1000);
-      return scoreboard.clockSeconds + elapsed;
-    }
-    
-    return scoreboard.clockSeconds;
+
+    return resolveClockSeconds({
+      mode: scoreboard.clockMode,
+      clockDirection: scoreboard.clockDirection ?? 'up',
+      clockSeconds: scoreboard.clockSeconds,
+      clockStartedAt: scoreboard.clockStartedAt,
+      now: new Date(),
+    });
   };
 
   const [displayTime, setDisplayTime] = useState(0);
@@ -519,7 +526,40 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
           </div>
         </div>
 
+        {/* Period */}
+        <div className="space-y-2">
+          <Label>Period</Label>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              data-testid="btn-period-minus"
+              onClick={() => updateScoreboard({ period: Math.max(1, (scoreboard.period ?? 1) - 1) })}
+              disabled={saving}
+              variant="outline"
+              size="sm"
+              aria-label="Previous period"
+            >
+              -
+            </Button>
+            <span data-testid="period-display" className="flex-1 text-center font-semibold">
+              {scoreboard.periodLabel || `P${scoreboard.period ?? 1}`}
+            </span>
+            <Button
+              type="button"
+              data-testid="btn-period-plus"
+              onClick={() => updateScoreboard({ period: (scoreboard.period ?? 1) + 1 })}
+              disabled={saving}
+              variant="outline"
+              size="sm"
+              aria-label="Next period"
+            >
+              +
+            </Button>
+          </div>
+        </div>
+
         {/* Clock */}
+        {!scoreboard.hideClock && (
         <div className="space-y-3">
           <Label>Game Clock</Label>
           <div 
@@ -565,6 +605,7 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
             </Button>
           </div>
         </div>
+        )}
 
         {/* Visibility Toggle */}
         <div className="flex items-center justify-between">

@@ -142,6 +142,12 @@ router.get(
           res.write(`data: ${JSON.stringify(payload)}\n\n`);
         });
 
+        const { getGameEventPubSub } = await import('../lib/game-event-pubsub');
+        const unsubGameEvent = getGameEventPubSub().subscribe(gameId, (payload) => {
+          res.write(`event: game_event\n`);
+          res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        });
+
         // Keep connection alive with ping every 30s
         const pingInterval = setInterval(() => {
           res.write(`: ping\n\n`);
@@ -152,6 +158,7 @@ router.get(
           clearInterval(pingInterval);
           unsubscribe();
           unsubBroadcast();
+          unsubGameEvent();
           logger.info(
             { gameId, viewerId: claims.viewerId },
             'Chat SSE connection closed'

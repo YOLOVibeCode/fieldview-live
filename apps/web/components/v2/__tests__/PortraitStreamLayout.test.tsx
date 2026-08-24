@@ -103,5 +103,19 @@ describe('PortraitStreamLayout', () => {
       fireEvent.click(screen.getByTestId('compact-score-bar'));
       expect(screen.getByTestId('scoreboard-portrait-expanded')).toBeInTheDocument();
     });
+
+    it('should expand via chevron when crowdsource is on, not via team tap', () => {
+      const crowdsource = {
+        enabled: true,
+        onTapTeam: vi.fn(),
+        onTapPeriod: vi.fn(),
+        onConfirmPending: vi.fn(),
+      };
+      render(<PortraitStreamLayout {...defaultProps} crowdsource={crowdsource} />);
+      fireEvent.click(screen.getByTestId('btn-overlay-team-home'));
+      expect(crowdsource.onTapTeam).toHaveBeenCalledWith('home');
+      fireEvent.click(screen.getByTestId('btn-expand-scoreboard'));
+      expect(screen.getByTestId('scoreboard-portrait-expanded')).toBeInTheDocument();
+    });
   });
 });

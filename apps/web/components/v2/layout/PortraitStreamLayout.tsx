@@ -11,9 +11,10 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { CompactScoreBar } from '@/components/v2/scoreboard/CompactScoreBar';
 import { Scoreboard, type TeamData } from '@/components/v2/scoreboard';
+import type { OverlayCrowdsourceProps } from '@/components/v2/scoreboard/overlayCrowdsource';
 import { Badge } from '@/components/v2/primitives';
 
-export type PortraitTab = 'chat' | 'bookmarks';
+export type PortraitTab = 'chat' | 'bookmarks' | 'plays';
 
 export interface PortraitStreamLayoutProps {
   /** Video player + overlays (StreamPlayer, status overlays, bookmark controls, paywall) */
@@ -24,9 +25,11 @@ export interface PortraitStreamLayoutProps {
   awayTeam: TeamData;
   period?: string;
   time?: string;
+  sportId?: string;
   scoreboardEnabled: boolean;
   scoreboardEditable: boolean;
   onScoreUpdate?: (team: 'home' | 'away', newScore: number) => void;
+  crowdsource?: OverlayCrowdsourceProps;
 
   /** Chat content (rendered as embedded) */
   chatContent: ReactNode;
@@ -37,6 +40,11 @@ export interface PortraitStreamLayoutProps {
   bookmarkContent: ReactNode;
   bookmarkCount: number;
   bookmarksAvailable: boolean;
+
+  /** Play-by-play feed content */
+  playsContent?: ReactNode;
+  playsAvailable?: boolean;
+  playsCount?: number;
 
   /** External tab control (optional - for keyboard shortcut integration) */
   activeTab?: PortraitTab;
@@ -49,15 +57,20 @@ export function PortraitStreamLayout({
   awayTeam,
   period,
   time,
+  sportId,
   scoreboardEnabled,
   scoreboardEditable,
   onScoreUpdate,
+  crowdsource,
   chatContent,
   chatMessageCount,
   chatEnabled,
   bookmarkContent,
   bookmarkCount,
   bookmarksAvailable,
+  playsContent,
+  playsAvailable = false,
+  playsCount = 0,
   activeTab: controlledTab,
   onTabChange,
 }: PortraitStreamLayoutProps) {
@@ -67,7 +80,7 @@ export function PortraitStreamLayout({
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = onTabChange ?? setInternalTab;
 
-  const showTabs = chatEnabled || bookmarksAvailable;
+  const showTabs = chatEnabled || bookmarksAvailable || playsAvailable;
 
   return (
     <div className="flex flex-col h-[100dvh] bg-gradient-to-b from-black via-gray-900 to-black">
@@ -83,8 +96,10 @@ export function PortraitStreamLayout({
           awayTeam={awayTeam}
           period={period}
           time={time}
+          sportId={sportId}
           isExpanded={scoreboardExpanded}
           onToggleExpand={() => setScoreboardExpanded(prev => !prev)}
+          crowdsource={crowdsource}
         />
       )}
 
@@ -161,6 +176,25 @@ export function PortraitStreamLayout({
               )}
             </button>
           )}
+          {playsAvailable && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('plays')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2',
+                'text-sm font-medium transition-colors',
+                activeTab === 'plays'
+                  ? 'text-green-400 border-b-2 border-green-400'
+                  : 'text-[var(--fv-color-text-muted)]',
+              )}
+              data-testid="portrait-tab-plays"
+            >
+              Plays
+              {playsCount > 0 && activeTab !== 'plays' && (
+                <Badge count={playsCount} max={99} color="success" />
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -170,6 +204,8 @@ export function PortraitStreamLayout({
           chatContent
         ) : activeTab === 'bookmarks' && bookmarksAvailable ? (
           bookmarkContent
+        ) : activeTab === 'plays' && playsAvailable ? (
+          playsContent
         ) : (
           // Fallback when nothing is enabled
           <div className="flex-1 flex items-center justify-center text-[var(--fv-color-text-muted)] text-sm">
