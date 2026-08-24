@@ -4,25 +4,13 @@
  * /demo/multi-channel
  *
  * Two viewer instances of the same stream on one screen.
- * Changes on Channel A (sport, clock, report) appear on Channel B, and vice versa.
+ * Stream URL, sport, and clock live in the shared toolbar — not per channel.
  */
 
 import { useRef } from 'react';
 import { SportOverlayViewer } from '@/components/demo/SportOverlayViewer';
+import { MultiChannelToolbar } from '@/components/demo/MultiChannelToolbar';
 import { DemoStreamRoom } from '@/lib/demo/DemoStreamRoom';
-import { useDemoStreamRoom } from '@/hooks/useDemoStreamRoom';
-
-function SharedActionBanner({ room }: { room: DemoStreamRoom }) {
-  const stream = useDemoStreamRoom(room, 'banner');
-  return (
-    <p
-      data-testid="shared-last-action"
-      className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
-    >
-      {stream.lastAction ?? 'Waiting for a change on either channel…'}
-    </p>
-  );
-}
 
 export default function MultiChannelDemoPage() {
   const roomRef = useRef<DemoStreamRoom | null>(null);
@@ -34,10 +22,10 @@ export default function MultiChannelDemoPage() {
       <header className="flex flex-col gap-2">
         <h1 className="text-white text-xl font-semibold">Multi-channel overlay PoC</h1>
         <p className="text-sm text-white/50">
-          Each panel is its own viewer on the same film. Report or start the clock on one side —
-          the other side should update immediately.
+          Load one stream, pick one sport overlay. Each panel is its own viewer — report or
+          confirm on one side and the other updates immediately.
         </p>
-        <SharedActionBanner room={room} />
+        <MultiChannelToolbar room={room} />
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -47,6 +35,8 @@ export default function MultiChannelDemoPage() {
             viewerId="channel-a"
             label="Channel A"
             panelTestId="channel-panel-a"
+            showProducerControls={false}
+            showPlayback
           />
         </section>
         <section className="rounded-xl border border-rose-500/40 bg-rose-950/30 p-3">
@@ -55,6 +45,8 @@ export default function MultiChannelDemoPage() {
             viewerId="channel-b"
             label="Channel B"
             panelTestId="channel-panel-b"
+            showProducerControls={false}
+            showPlayback
           />
         </section>
       </div>
