@@ -63,8 +63,20 @@ export async function checkAndPollVeoStreams(): Promise<void> {
       continue;
     }
 
+    // Prefer the browser-free HTTP path when a seeded session cookie exists.
+    // Falls back to Playwright only when there is no cookie (dev; needs Chromium).
+    let sessionCookie: string | undefined;
+    if (veo.veoSessionCookieEncrypted) {
+      try {
+        sessionCookie = decrypt(veo.veoSessionCookieEncrypted);
+      } catch (err) {
+        logger.warn({ err, ownerAccountId }, 'Veo polling: failed to decrypt Veo session cookie — falling back');
+      }
+    }
+    const httpMode = !!sessionCookie;
+
     const config = {
-      credentials: { email: veo.veoEmail, password: veoPassword },
+      credentials: { email: veo.veoEmail, password: veoPassword, sessionCookie },
       diagnosticsUrl: veo.veoDiagnosticsUrl,
       ownerAccountId,
       minConfidence: 0.7,
@@ -74,7 +86,8 @@ export async function checkAndPollVeoStreams(): Promise<void> {
     };
 
     try {
-      const poller = createVeoPollingOrchestrator();
+      const poller = createVeoPollingOrchestrator({ httpMode });
+      logger.info({ ownerAccountId, mode: httpMode ? 'http' : 'playwright' }, 'Veo polling mode selected');
       await veoPollingSessionManager.startPolling(ownerAccountId, poller, config);
       logger.info(
         { ownerAccountId, eventCount: events.filter((e) => e.directStream.ownerAccountId === ownerAccountId).length },

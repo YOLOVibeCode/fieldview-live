@@ -108,6 +108,9 @@ export interface IEffectiveEventConfig {
   // Viewer editing permissions (resolved from parent + overrides)
   allowViewerScoreEdit: boolean;
   allowViewerNameEdit: boolean;
+  allowViewerReporting: boolean;
+  eventConfirmThreshold: number;
+  sport: string;
 
   // Anonymous feature flags (from parent)
   allowAnonymousScoreEdit: boolean;

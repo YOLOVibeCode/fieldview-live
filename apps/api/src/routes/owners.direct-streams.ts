@@ -21,6 +21,7 @@ import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { OwnerDirectStreamRepository } from '../repositories/OwnerDirectStreamRepository';
 import { OwnerDirectStreamService } from '../services/OwnerDirectStreamService';
+import { sportRegistry } from '@fieldview/data-model';
 
 // Validation schemas (inline to avoid cross-package ZodError instanceof issues)
 const CreateOwnerDirectStreamSchema = z.object({
@@ -45,7 +46,13 @@ const CreateOwnerDirectStreamSchema = z.object({
   scoreboardAwayTeam: z.string().max(100).optional(),
   scoreboardHomeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a hex color').optional(),
   scoreboardAwayColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a hex color').optional(),
-});
+  sport: z.string().min(1).max(40).optional().default('soccer'),
+}).refine(
+  (data) => {
+    try { sportRegistry.getSport(data.sport ?? 'soccer'); return true; } catch { return false; }
+  },
+  { message: 'Unknown sport id', path: ['sport'] }
+);
 
 const UpdateOwnerDirectStreamSchema = z.object({
   title: z.string().min(1).max(200).optional(),

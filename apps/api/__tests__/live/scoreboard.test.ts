@@ -374,6 +374,80 @@ describe('Social Producer Panel APIs', () => {
     });
   });
 
+  describe('Sport-aware clock seeds', () => {
+    const FOOTBALL_SLUG = 'test-scoreboard-football';
+    let footballStreamId: string;
+
+    beforeAll(async () => {
+      const hashedPassword = await hashPassword('test2026');
+      const footballStream = await prisma.directStream.create({
+        data: {
+          slug: FOOTBALL_SLUG,
+          title: 'Football Clock Test',
+          adminPassword: hashedPassword,
+          sport: 'football',
+          chatEnabled: false,
+        },
+      });
+      footballStreamId = footballStream.id;
+    });
+
+    afterAll(async () => {
+      await prisma.gameScoreboard.deleteMany({ where: { directStreamId: footballStreamId } });
+      await prisma.directStream.delete({ where: { id: footballStreamId } });
+    });
+
+    beforeEach(async () => {
+      await prisma.gameScoreboard.deleteMany({ where: { directStreamId: footballStreamId } });
+      await prisma.gameScoreboard.create({
+        data: { directStreamId: footballStreamId, producerPassword: null },
+      });
+    });
+
+    it('football reset → clockSeconds === 720 (12:00)', async () => {
+      const res = await request
+        .post(`/api/direct/${FOOTBALL_SLUG}/scoreboard/clock/reset`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.clockMode).toBe('stopped');
+      expect(res.body.clockSeconds).toBe(720);
+    });
+
+    it('soccer reset → clockSeconds === 0', async () => {
+      // The SLUG stream has soccer sport (default)
+      await prisma.gameScoreboard.create({
+        data: { directStreamId: testStreamId, producerPassword: null },
+      });
+
+      const res = await request
+        .post(`/api/direct/${SLUG}/scoreboard/clock/reset`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.clockSeconds).toBe(0);
+    });
+
+    it('football running 5s ago with base=60 → pause yields <= 55', async () => {
+      // Football counts DOWN: started with 60s, 5s elapsed → should be ≤ 55 (not 65)
+      await prisma.gameScoreboard.updateMany({
+        where: { directStreamId: footballStreamId },
+        data: {
+          clockMode: 'running',
+          clockStartedAt: new Date(Date.now() - 5000),
+          clockSeconds: 60,
+        },
+      });
+
+      const res = await request
+        .post(`/api/direct/${FOOTBALL_SLUG}/scoreboard/clock/pause`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.clockMode).toBe('paused');
+      // Should count DOWN: 60 - 5 = 55 (or ±1 for timing)
+      expect(res.body.clockSeconds).toBeLessThanOrEqual(56);
+      expect(res.body.clockSeconds).toBeGreaterThanOrEqual(54);
+    });
+  });
+
   describe('Admin Panel - Create Scoreboard with Producer Password', () => {
     it('should create scoreboard with optional producer password', async () => {
       const res = await request

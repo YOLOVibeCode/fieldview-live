@@ -76,6 +76,8 @@ vi.mock('@/hooks/useGameChatV2', () => ({
     currentUserId: 'viewer-1',
     latestBroadcast: null,
     setLatestBroadcast: vi.fn(),
+    latestGameEvent: null,
+    setLatestGameEvent: vi.fn(),
   }),
 }));
 

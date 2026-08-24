@@ -21,6 +21,7 @@ import {
 import { apiRequest, ApiError } from '../../../lib/api-client';
 import { EventManagement } from './EventManagement';
 import { ErrorToast } from '@/components/v2/ErrorToast';
+import { sportRegistry } from '@fieldview/data-model';
 
 interface DirectStream {
   id: string;
@@ -62,6 +63,7 @@ export default function SuperAdminDirectStreamsPage() {
     chatEnabled: true,
     scoreboardEnabled: false,
     paywallEnabled: false,
+    sport: 'soccer',
   });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState(false);
@@ -75,6 +77,7 @@ export default function SuperAdminDirectStreamsPage() {
       chatEnabled: true,
       scoreboardEnabled: false,
       paywallEnabled: false,
+      sport: 'soccer',
     });
     setCreateErrors({});
   };
@@ -110,6 +113,7 @@ export default function SuperAdminDirectStreamsPage() {
         chatEnabled: createForm.chatEnabled,
         scoreboardEnabled: createForm.scoreboardEnabled,
         paywallEnabled: createForm.paywallEnabled,
+        sport: createForm.sport,
       };
       if (createForm.streamUrl) {
         body.streamUrl = createForm.streamUrl;
@@ -516,6 +520,21 @@ export default function SuperAdminDirectStreamsPage() {
                       {createErrors.streamUrl}
                     </span>
                   )}
+                </div>
+
+                <div>
+                  <label htmlFor="create-sport" className="block text-sm font-medium text-foreground mb-1">Sport</label>
+                  <select
+                    id="create-sport"
+                    data-testid="dropdown-sport"
+                    value={createForm.sport}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, sport: e.target.value }))}
+                    className="w-full border border-border rounded px-3 py-2 bg-input text-foreground"
+                  >
+                    {sportRegistry.listSports().map((s) => (
+                      <option key={s.id} value={s.id}>{s.displayName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="border-t border-border pt-4 space-y-3">

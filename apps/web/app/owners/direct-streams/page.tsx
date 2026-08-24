@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { sportRegistry } from '@fieldview/data-model';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -89,6 +90,7 @@ export default function OwnerDirectStreamsPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newStreamUrl, setNewStreamUrl] = useState('');
+  const [newSport, setNewSport] = useState('soccer');
   const [creating, setCreating] = useState(false);
 
   // Archive
@@ -182,6 +184,7 @@ export default function OwnerDirectStreamsPage() {
           streamUrl: newStreamUrl.trim() || undefined,
           chatEnabled: true,
           scoreboardEnabled: false,
+          sport: newSport,
         },
       });
       setShowCreate(false);
@@ -189,6 +192,7 @@ export default function OwnerDirectStreamsPage() {
       setNewTitle('');
       setNewPassword('');
       setNewStreamUrl('');
+      setNewSport('soccer');
       await fetchStreams();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create stream');
@@ -289,6 +293,20 @@ export default function OwnerDirectStreamsPage() {
                 <div className="space-y-1">
                   <Label htmlFor="new-stream-url">Stream URL (optional)</Label>
                   <Input id="new-stream-url" type="url" placeholder="https://stream.mux.com/..." value={newStreamUrl} onChange={(e) => setNewStreamUrl(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-sport">Sport</Label>
+                  <select
+                    id="new-sport"
+                    data-testid="dropdown-sport"
+                    className="w-full border rounded px-2 py-2 text-sm bg-background"
+                    value={newSport}
+                    onChange={(e) => setNewSport(e.target.value)}
+                  >
+                    {sportRegistry.listSports().map((s) => (
+                      <option key={s.id} value={s.id}>{s.displayName}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="mt-4">

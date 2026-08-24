@@ -9,6 +9,10 @@ import { logger } from '../lib/logger';
 import { comparePassword, hashPassword } from '../lib/encryption';
 import { adminJwtAuth } from '../middleware/admin-jwt';
 import {
+  PeriodLabeler,
+  sportRegistry,
+  seedClockSeconds,
+  resolveClockSeconds,
   UpdateGameScoreboardSchema,
   ValidateProducerPasswordSchema,
 } from '@fieldview/data-model';
@@ -16,6 +20,7 @@ import { getScoreboardPubSub, type ScoreboardEvent } from '../lib/scoreboard-pub
 import { NotFoundError, BadRequestError, UnauthorizedError, ForbiddenError, ConflictError } from '../lib/errors';
 
 const router: Router = Router();
+const periodLabeler = new PeriodLabeler(sportRegistry);
 
 function resolveParentSlug(slug: string): string {
   const key = slug.toLowerCase();
@@ -40,10 +45,15 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFu
       throw new NotFoundError('Stream not found');
     }
 
-    // Auto-create scoreboard with 0-0 score if it doesn't exist
+    // Auto-create scoreboard with sport-aware seed clock if it doesn't exist
     if (!stream.scoreboard) {
       logger.info({ slug }, 'Auto-creating scoreboard with default 0-0 score');
-      
+
+      let seedSeconds = 0;
+      try {
+        seedSeconds = seedClockSeconds(sportRegistry.getSport(stream.sport));
+      } catch { /* use 0 */ }
+
       await prisma.gameScoreboard.create({
         data: {
           directStreamId: stream.id,
@@ -54,7 +64,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFu
           homeScore: 0,
           awayScore: 0,
           clockMode: 'stopped',
-          clockSeconds: 0,
+          clockSeconds: seedSeconds,
           isVisible: true,
           position: 'top',
         },
@@ -70,25 +80,13 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFu
     const { scoreboard } = stream!;
 
     // Public response (don't expose password hash)
-    const response = {
-      id: scoreboard!.id,
-      homeTeamName: scoreboard!.homeTeamName,
-      awayTeamName: scoreboard!.awayTeamName,
-      homeJerseyColor: scoreboard!.homeJerseyColor,
-      awayJerseyColor: scoreboard!.awayJerseyColor,
-      homeScore: scoreboard!.homeScore,
-      awayScore: scoreboard!.awayScore,
-      clockMode: scoreboard!.clockMode,
-      clockSeconds: scoreboard!.clockSeconds,
-      clockStartedAt: scoreboard!.clockStartedAt?.toISOString() ?? null,
-      isVisible: scoreboard!.isVisible,
-      position: scoreboard!.position,
-      requiresPassword: !!scoreboard!.producerPassword,
-      lastEditedBy: scoreboard!.lastEditedBy,
-      lastEditedAt: scoreboard!.lastEditedAt?.toISOString() ?? null,
-    };
+    const response = toScoreboardEvent(scoreboard!, stream!.sport);
 
-    res.json(response);
+    res.json({
+      ...response,
+      id: scoreboard!.id,
+      requiresPassword: !!scoreboard!.producerPassword,
+    });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to fetch scoreboard');
     next(error);
@@ -96,7 +94,35 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFu
 });
 
 /** Build a ScoreboardEvent from a Prisma scoreboard record */
-function toScoreboardEvent(sb: any): ScoreboardEvent {
+function toScoreboardEvent(sb: {
+  homeTeamName: string;
+  awayTeamName: string;
+  homeJerseyColor: string;
+  awayJerseyColor: string;
+  homeScore: number;
+  awayScore: number;
+  clockMode: string;
+  clockSeconds: number;
+  clockStartedAt: Date | string | null;
+  isVisible: boolean;
+  position: string;
+  lastEditedBy: string | null;
+  lastEditedAt: Date | string | null;
+  period?: number;
+  periodDetail?: string | null;
+}, sport = 'generic'): ScoreboardEvent {
+  const period = sb.period ?? 1;
+  const periodDetail = sb.periodDetail ?? null;
+  let hideClock = false;
+  let clockDirection: 'up' | 'down' | 'none' = 'up';
+  try {
+    const sportConfig = sportRegistry.getSport(sport);
+    hideClock = sportConfig.clock.mode === 'none';
+    clockDirection = sportConfig.clock.mode;
+  } catch {
+    hideClock = false;
+    clockDirection = 'up';
+  }
   return {
     homeTeamName: sb.homeTeamName,
     awayTeamName: sb.awayTeamName,
@@ -106,11 +132,21 @@ function toScoreboardEvent(sb: any): ScoreboardEvent {
     awayScore: sb.awayScore,
     clockMode: sb.clockMode,
     clockSeconds: sb.clockSeconds,
-    clockStartedAt: sb.clockStartedAt?.toISOString?.() ?? sb.clockStartedAt ?? null,
+    clockStartedAt: typeof sb.clockStartedAt === 'string'
+      ? sb.clockStartedAt
+      : sb.clockStartedAt?.toISOString?.() ?? null,
     isVisible: sb.isVisible,
     position: sb.position,
     lastEditedBy: sb.lastEditedBy,
-    lastEditedAt: sb.lastEditedAt?.toISOString?.() ?? sb.lastEditedAt ?? null,
+    lastEditedAt: typeof sb.lastEditedAt === 'string'
+      ? sb.lastEditedAt
+      : sb.lastEditedAt?.toISOString?.() ?? null,
+    period,
+    periodDetail,
+    periodLabel: periodLabeler.formatPeriod(sport, period, periodDetail),
+    sport,
+    hideClock,
+    clockDirection,
   };
 }
 
@@ -139,7 +175,7 @@ router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
       });
 
       if (stream?.scoreboard) {
-        const snapshot = toScoreboardEvent(stream.scoreboard);
+        const snapshot = toScoreboardEvent(stream.scoreboard, stream.sport);
         res.write(`event: scoreboard_snapshot\n`);
         res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
       }
@@ -304,7 +340,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
     });
 
     // Broadcast to SSE subscribers
-    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));
 
     res.json({
       id: updatedScoreboard.id,
@@ -348,9 +384,17 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
     const now = new Date();
     const { scoreboard } = stream;
 
-    // If paused, resume from current clockSeconds
-    // If stopped, start from 0
-    const currentSeconds = scoreboard.clockMode === 'paused' ? scoreboard.clockSeconds : 0;
+    // If paused, resume from current clockSeconds; if stopped, seed from sport catalog
+    let currentSeconds: number;
+    if (scoreboard.clockMode === 'paused') {
+      currentSeconds = scoreboard.clockSeconds;
+    } else {
+      try {
+        currentSeconds = seedClockSeconds(sportRegistry.getSport(stream.sport));
+      } catch {
+        currentSeconds = 0;
+      }
+    }
 
     const updatedScoreboard = await prisma.gameScoreboard.update({
       where: { id: scoreboard.id },
@@ -361,7 +405,7 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
       },
     });
 
-    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));
 
     res.json({
       clockMode: updatedScoreboard.clockMode,
@@ -393,11 +437,20 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
 
     const { scoreboard } = stream;
 
-    // Calculate elapsed time if running
+    // Resolve current clock value respecting sport direction (up/down/none)
     let finalSeconds = scoreboard.clockSeconds;
     if (scoreboard.clockMode === 'running' && scoreboard.clockStartedAt) {
-      const elapsed = Math.floor((Date.now() - scoreboard.clockStartedAt.getTime()) / 1000);
-      finalSeconds = scoreboard.clockSeconds + elapsed;
+      let clockDirection: 'up' | 'down' | 'none' = 'up';
+      try {
+        clockDirection = sportRegistry.getSport(stream.sport).clock.mode;
+      } catch { /* default up */ }
+
+      finalSeconds = resolveClockSeconds({
+        mode: 'running',
+        clockDirection,
+        clockSeconds: scoreboard.clockSeconds,
+        clockStartedAt: scoreboard.clockStartedAt,
+      });
     }
 
     const updatedScoreboard = await prisma.gameScoreboard.update({
@@ -409,7 +462,7 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
       },
     });
 
-    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));
 
     res.json({
       clockMode: updatedScoreboard.clockMode,
@@ -439,16 +492,21 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
       throw new NotFoundError('Scoreboard not found');
     }
 
+    let seedSeconds = 0;
+    try {
+      seedSeconds = seedClockSeconds(sportRegistry.getSport(stream.sport));
+    } catch { /* default 0 */ }
+
     const updatedScoreboard = await prisma.gameScoreboard.update({
       where: { id: stream.scoreboard.id },
       data: {
         clockMode: 'stopped',
-        clockSeconds: 0,
+        clockSeconds: seedSeconds,
         clockStartedAt: null,
       },
     });
 
-    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));
 
     res.json({
       clockMode: updatedScoreboard.clockMode,
@@ -611,7 +669,7 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
     });
 
     // Broadcast to SSE subscribers
-    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard));
+    getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));
 
     logger.info({
       slug,

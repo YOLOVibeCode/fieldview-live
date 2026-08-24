@@ -128,4 +128,45 @@ describe('CompactScoreBar', () => {
       expect(btn).toHaveAttribute('type', 'button');
     });
   });
+
+  describe('crowdsource taps', () => {
+    const crowdsource = {
+      enabled: true,
+      onTapTeam: vi.fn(),
+      onTapPeriod: vi.fn(),
+      onConfirmPending: vi.fn(),
+    };
+
+    beforeEach(() => {
+      crowdsource.onTapTeam.mockClear();
+      crowdsource.onTapPeriod.mockClear();
+      crowdsource.onConfirmPending.mockClear();
+      defaultProps.onToggleExpand.mockClear();
+    });
+
+    it('tapping home reports for home and does not expand', () => {
+      render(<CompactScoreBar {...defaultProps} crowdsource={crowdsource} />);
+      fireEvent.click(screen.getByTestId('btn-overlay-team-home'));
+      expect(crowdsource.onTapTeam).toHaveBeenCalledWith('home');
+      expect(defaultProps.onToggleExpand).not.toHaveBeenCalled();
+    });
+
+    it('tapping away reports for away', () => {
+      render(<CompactScoreBar {...defaultProps} crowdsource={crowdsource} />);
+      fireEvent.click(screen.getByTestId('btn-overlay-team-away'));
+      expect(crowdsource.onTapTeam).toHaveBeenCalledWith('away');
+    });
+
+    it('tapping period opens period events', () => {
+      render(<CompactScoreBar {...defaultProps} crowdsource={crowdsource} />);
+      fireEvent.click(screen.getByTestId('btn-overlay-period'));
+      expect(crowdsource.onTapPeriod).toHaveBeenCalledTimes(1);
+    });
+
+    it('chevron still expands the full board', () => {
+      render(<CompactScoreBar {...defaultProps} crowdsource={crowdsource} />);
+      fireEvent.click(screen.getByTestId('btn-expand-scoreboard'));
+      expect(defaultProps.onToggleExpand).toHaveBeenCalledTimes(1);
+    });
+  });
 });

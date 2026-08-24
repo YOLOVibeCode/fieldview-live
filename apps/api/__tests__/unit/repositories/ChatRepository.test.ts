@@ -14,6 +14,7 @@ describe('ChatRepository', () => {
       findUnique: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
       delete: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
@@ -26,6 +27,7 @@ describe('ChatRepository', () => {
         findUnique: vi.fn(),
         count: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
         delete: vi.fn(),
         deleteMany: vi.fn(),
       },

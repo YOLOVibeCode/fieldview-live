@@ -12,6 +12,8 @@ export interface ChatMessageData {
   displayName: string;
   message: string;
   directStreamId?: string; // 🆕 For chat preservation
+  kind?: string;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -57,5 +59,10 @@ export interface IChatWriter {
    * Delete all messages for a game (cascades with Game deletion already)
    */
   deleteGameMessages(gameId: string): Promise<number>;
+
+  /**
+   * Patch metadata on a game-event chat card after confirm/reject.
+   */
+  updateMessageMetadata(id: string, metadata: Record<string, unknown>): Promise<void>;
 }
 
