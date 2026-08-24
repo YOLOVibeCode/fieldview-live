@@ -207,8 +207,9 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
           listed: data.listed,
           sendReminders: data.sendReminders,
           reminderMinutes: data.reminderMinutes,
+          sport: data.sport ?? 'soccer',
           ownerAccountId: defaultOwner.id,
-          gameId: game.id, // 🆕 Link to auto-created Game
+          gameId: game.id,
         },
         include: {
           ownerAccount: {

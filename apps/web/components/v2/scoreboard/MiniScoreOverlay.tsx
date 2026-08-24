@@ -1,24 +1,34 @@
 /**
  * MiniScoreOverlay - VeoLive-style scoreboard overlay on video
  *
- * Top-center bar: [X] --:-- [colorBar] TCS 0 - 0 KEL [colorBar]
- * ~250-300px wide, ~28-30px tall. Dismissible with restore button.
+ * Top-center bar: [X] period clock [colorBar] TCS 0 - 0 KEL [colorBar]
+ * Crowdsource: tap team → scoring sheet, tap period → period sheet, chip → confirm.
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { X, PanelRightOpen } from 'lucide-react';
 import type { TeamData } from './Scoreboard';
+import type { OverlayCrowdsourceProps } from './overlayCrowdsource';
+import { PendingEventChip } from './PendingEventChip';
+import { SportScoreLine } from './SportScoreLine';
 
 export interface MiniScoreOverlayProps {
   homeTeam: TeamData;
   awayTeam: TeamData;
   period?: string;
   time?: string;
+  sportId?: string;
+  crowdsource?: OverlayCrowdsourceProps;
   className?: string;
   'data-testid'?: string;
+}
+
+function stopAnd(e: MouseEvent, fn?: () => void) {
+  e.stopPropagation();
+  fn?.();
 }
 
 export function MiniScoreOverlay({
@@ -26,27 +36,26 @@ export function MiniScoreOverlay({
   awayTeam,
   period,
   time,
+  sportId,
+  crowdsource,
   className,
   'data-testid': dataTestId = 'mini-score-overlay',
 }: MiniScoreOverlayProps) {
   const [isVisible, setIsVisible] = useState(true);
 
-  const homeAbbr = (homeTeam.abbreviation || homeTeam.name).slice(0, 3).toUpperCase();
-  const awayAbbr = (awayTeam.abbreviation || awayTeam.name).slice(0, 3).toUpperCase();
-  const clockDisplay = time ?? period ?? '--:--';
-
+  const reporting = crowdsource?.enabled === true;
   const overlayPosition = 'absolute top-2 left-1/2 -translate-x-1/2 z-20';
 
   if (!isVisible) {
     return (
       <button
         type="button"
-        onClick={() => setIsVisible(true)}
+        onClick={(e) => stopAnd(e, () => setIsVisible(true))}
         data-testid={`${dataTestId}-restore`}
         aria-label="Show scoreboard"
         className={cn(
           overlayPosition,
-          'w-8 h-7 rounded',
+          'w-8 h-7 rounded pointer-events-auto',
           'bg-black/70 backdrop-blur-sm',
           'flex items-center justify-center',
           'text-white/80 hover:text-white hover:bg-black/85',
@@ -60,57 +69,47 @@ export function MiniScoreOverlay({
   }
 
   return (
-    <div
-      role="region"
-      aria-label="Mini scoreboard"
-      data-testid={dataTestId}
-      className={cn(
-        overlayPosition,
-        'flex items-center',
-        'min-w-[240px] h-7 px-2',
-        'bg-black/70 backdrop-blur-sm rounded-sm',
-        'text-white font-bold text-sm',
-        className,
-      )}
-    >
-      {/* X dismiss - far left */}
-      <button
-        type="button"
-        onClick={() => setIsVisible(false)}
-        data-testid={`${dataTestId}-dismiss`}
-        aria-label="Hide scoreboard"
-        className="shrink-0 p-1 rounded hover:bg-white/20 transition-colors mr-2"
+    <div className={cn(overlayPosition, 'flex flex-col items-center gap-1 pointer-events-auto', className)}>
+      <div
+        role="region"
+        aria-label="Mini scoreboard"
+        data-testid={dataTestId}
+        className={cn(
+          'flex items-center',
+          'min-w-[240px] h-7 px-2',
+          'bg-black/70 backdrop-blur-sm rounded-sm',
+          'text-white font-bold text-sm',
+        )}
       >
-        <X className="h-3.5 w-3.5" />
-      </button>
+        <button
+          type="button"
+          onClick={(e) => stopAnd(e, () => setIsVisible(false))}
+          data-testid={`${dataTestId}-dismiss`}
+          aria-label="Hide scoreboard"
+          className="shrink-0 p-1 rounded hover:bg-white/20 transition-colors mr-2"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
 
-      {/* Clock */}
-      <span className="tabular-nums text-white/90 shrink-0 mr-3 font-mono text-xs">
-        {clockDisplay}
-      </span>
-
-      {/* Home: color bar + abbr + score */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span
-          className="w-[3px] self-stretch shrink-0 rounded-sm"
-          style={{ backgroundColor: homeTeam.color }}
-        />
-        <span>{homeAbbr}</span>
-        <span className="tabular-nums">{homeTeam.score}</span>
-      </div>
-
-      {/* Separator */}
-      <span className="mx-2 shrink-0">-</span>
-
-      {/* Away: score + abbr + color bar */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="tabular-nums">{awayTeam.score}</span>
-        <span>{awayAbbr}</span>
-        <span
-          className="w-[3px] self-stretch shrink-0 rounded-sm"
-          style={{ backgroundColor: awayTeam.color }}
+        <SportScoreLine
+          sportId={sportId}
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period={period}
+          time={time}
+          crowdsource={reporting ? crowdsource : undefined}
+          variant="overlay"
+          className="flex-1"
         />
       </div>
+
+      {reporting && crowdsource.pendingEvent && (
+        <PendingEventChip
+          event={crowdsource.pendingEvent}
+          viewerId={crowdsource.viewerId}
+          onConfirm={crowdsource.onConfirmPending}
+        />
+      )}
     </div>
   );
 }

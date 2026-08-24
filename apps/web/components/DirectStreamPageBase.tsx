@@ -40,9 +40,14 @@ import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
 import { StreamPlayer } from '@/components/v2/video/StreamPlayer';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
-import { Chat } from '@/components/v2/chat';
+import { Chat, ReportEventSheet } from '@/components/v2/chat';
 import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
-import { MiniScoreOverlay, Scoreboard } from '@/components/v2/scoreboard';
+import { GameEventToast } from '@/components/v2/chat/GameEventToast';
+import { ScoreAlertsOptIn } from '@/components/v2/chat/ScoreAlertsOptIn';
+import { confirmGameEvent, reportGameEvent, resolveGameEvent } from '@/lib/api/gameEvents';
+import { MiniScoreOverlay, Scoreboard, toOverlayPendingEvent } from '@/components/v2/scoreboard';
+import type { OverlayCrowdsourceProps } from '@/components/v2/scoreboard';
+import { pickPendingOverlayEvent } from '@/lib/chat/pickPendingOverlayEvent';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { ViewerAuthModal } from '@/components/v2/auth';
 import { GuestNamePrompt } from '@/components/v2/chat/GuestNamePrompt';
@@ -58,6 +63,7 @@ import { BookmarkToast, useBookmarkToasts } from '@/components/v2/video/Bookmark
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
+import { PlayByPlayFeed } from '@/components/v2/plays/PlayByPlayFeed';
 import { WelcomeMessageBanner, isWelcomeDismissed } from '@/components/v2/WelcomeMessageBanner';
 import { NotifyMeForm } from '@/components/v2/NotifyMeForm';
 import { ViewerIdentityBar } from '@/components/v2/ViewerIdentityBar';
@@ -145,6 +151,9 @@ export interface Bootstrap {
   welcomeMessage?: string | null;
   allowViewerScoreEdit?: boolean;
   allowViewerNameEdit?: boolean;
+  allowViewerReporting?: boolean;
+  eventConfirmThreshold?: number;
+  sport?: string;
   allowAnonymousChat?: boolean;
   allowAnonymousScoreEdit?: boolean;
   // Scheduling & reminders
@@ -810,6 +819,72 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     allowAnonymousEdit: bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit,
   });
 
+  const reporting = useMemo(() => {
+    if (!bootstrap?.allowViewerReporting || !viewer.token || !bootstrap.slug) return undefined;
+    return {
+      sportId: bootstrap.sport || 'generic',
+      homeTeamName: scoreboardData.homeTeam.name || 'Home',
+      awayTeamName: scoreboardData.awayTeam.name || 'Away',
+      viewerId: viewer.viewerId || undefined,
+      isProducer: !!adminJwt,
+      onReport: (eventTypeId: string, team?: 'home' | 'away', detail?: import('@/components/v2/chat/Chat').ReportDetail) => {
+        void reportGameEvent(bootstrap.slug, viewer.token!, {
+          eventTypeId,
+          team,
+          jerseyNumber: detail?.jerseyNumber,
+          detail: detail?.detail,
+          detailValue: detail?.detailValue,
+          note: detail?.note,
+          // filmTimeSeconds from detail takes precedence (explicitly set by caller);
+          // fall back to the live currentTime captured at report time
+          filmTimeSeconds: detail?.filmTimeSeconds ?? Math.floor(currentTime),
+        });
+      },
+      onConfirmEvent: (eventId: string) => {
+        void confirmGameEvent(bootstrap.slug, eventId, viewer.token!);
+      },
+      onResolveEvent: adminJwt
+        ? (eventId: string, action: 'confirm' | 'reject') => {
+            void resolveGameEvent(bootstrap.slug, eventId, action, adminJwt);
+          }
+        : undefined,
+    };
+  }, [
+    bootstrap?.allowViewerReporting,
+    bootstrap?.slug,
+    bootstrap?.sport,
+    viewer.token,
+    viewer.viewerId,
+    scoreboardData.homeTeam.name,
+    scoreboardData.awayTeam.name,
+    adminJwt,
+    currentTime,
+  ]);
+
+  const [overlayReport, setOverlayReport] = useState<{
+    category: 'scoring' | 'period';
+    team?: 'home' | 'away';
+  } | null>(null);
+
+  const overlayCrowdsource = useMemo((): OverlayCrowdsourceProps | undefined => {
+    if (!reporting) return undefined;
+    const pending = pickPendingOverlayEvent(chatV2.messages);
+    return {
+      enabled: true,
+      pendingEvent: pending ? toOverlayPendingEvent(pending) : null,
+      viewerId: viewer.viewerId || undefined,
+      onTapTeam: (team) => setOverlayReport({ category: 'scoring', team }),
+      onTapPeriod: () => setOverlayReport({ category: 'period' }),
+      onConfirmPending: reporting.onConfirmEvent,
+    };
+  }, [reporting, chatV2.messages, viewer.viewerId]);
+
+  const scoreboardEditable =
+    !!adminJwt ||
+    (!bootstrap?.allowViewerReporting &&
+      (!!viewer.isUnlocked ||
+        (!!bootstrap?.allowAnonymousScoreEdit && !!bootstrap?.allowViewerScoreEdit)));
+
   // Live viewer count
   const viewerCount = useViewerCount({
     slug: bootstrap?.slug || null,
@@ -1059,6 +1134,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       awayTeam={scoreboardData.awayTeam}
                       period={scoreboardData.period}
                       time={scoreboardData.time}
+                      sportId={scoreboardData.sportId ?? bootstrap?.sport}
+                      crowdsource={overlayCrowdsource}
                     />
                   )}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
@@ -1098,6 +1175,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   onDismiss={() => chatV2.setLatestBroadcast(null)}
                 />
               )}
+              {chatV2.latestGameEvent && (
+                <GameEventToast
+                  event={chatV2.latestGameEvent}
+                  homeTeamName={scoreboardData.homeTeam.name}
+                  awayTeamName={scoreboardData.awayTeam.name}
+                  onDismiss={() => chatV2.setLatestGameEvent(null)}
+                />
+              )}
             </div>
           }
 
@@ -1106,9 +1191,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           awayTeam={scoreboardData.awayTeam}
           period={scoreboardData.period}
           time={scoreboardData.time}
+          sportId={scoreboardData.sportId ?? bootstrap?.sport}
           scoreboardEnabled={bootstrap?.scoreboardEnabled ?? false}
-          scoreboardEditable={!!adminJwt || viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+          scoreboardEditable={scoreboardEditable}
           onScoreUpdate={scoreboardData.updateScore}
+          crowdsource={overlayCrowdsource}
 
           // Chat
           chatContent={
@@ -1133,6 +1220,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 variant="twitch"
                 className="h-full"
                 data-testid="chat-portrait"
+                reporting={reporting}
+                hideScoringEvents={!!bootstrap?.allowViewerReporting && !!bootstrap?.scoreboardEnabled}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center p-4">
@@ -1175,6 +1264,20 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           bookmarkCount={bookmarkMarkers.bookmarks.length}
           bookmarksAvailable={!!viewer.isUnlocked && !!viewer.viewerId}
 
+          // Plays tab
+          playsAvailable={!!bootstrap?.allowViewerReporting && !!bootstrap?.scoreboardEnabled}
+          playsContent={
+            bootstrap?.slug && bootstrap?.sport ? (
+              <PlayByPlayFeed
+                slug={bootstrap.slug}
+                sportId={bootstrap.sport || 'generic'}
+                homeTeamName={scoreboardData.homeTeam.name || 'Home'}
+                awayTeamName={scoreboardData.awayTeam.name || 'Away'}
+                latestEvent={chatV2.latestGameEvent}
+              />
+            ) : undefined
+          }
+
           // Tab control
           activeTab={portraitActiveTab}
           onTabChange={setPortraitActiveTab}
@@ -1193,6 +1296,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             priceInCents={bootstrap.priceInCents || 0}
             paywallMessage={bootstrap.paywallMessage}
             allowSavePayment={bootstrap.allowSavePayment}
+          />
+        )}
+
+        {reporting && (
+          <ReportEventSheet
+            isOpen={overlayReport !== null}
+            onClose={() => setOverlayReport(null)}
+            sportId={reporting.sportId}
+            homeTeamName={reporting.homeTeamName}
+            awayTeamName={reporting.awayTeamName}
+            onReport={reporting.onReport}
+            category={overlayReport?.category}
+            preselectedTeam={overlayReport?.team}
           />
         )}
 
@@ -1308,6 +1424,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     awayJerseyColor: bootstrap?.scoreboardAwayColor || undefined,
                     allowViewerScoreEdit: bootstrap?.allowViewerScoreEdit,
                     allowViewerNameEdit: bootstrap?.allowViewerNameEdit,
+                    allowViewerReporting: bootstrap?.allowViewerReporting,
+                    eventConfirmThreshold: bootstrap?.eventConfirmThreshold,
+                    sport: bootstrap?.sport,
                     allowAnonymousChat: bootstrap?.allowAnonymousChat,
                     allowAnonymousScoreEdit: bootstrap?.allowAnonymousScoreEdit,
                     welcomeMessage: bootstrap?.welcomeMessage ?? undefined,
@@ -1365,7 +1484,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     period={scoreboardData.period}
                     time={scoreboardData.time}
                     mode="minimal"
-                    editable={!!adminJwt || viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+                    editable={scoreboardEditable}
                     onScoreUpdate={scoreboardData.updateScore}
                     data-testid="scoreboard-v2"
                   />
@@ -1465,7 +1584,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         period={scoreboardData.period}
                         time={scoreboardData.time}
                         mode="sidebar"
-                        editable={!!adminJwt || viewer.isUnlocked || (bootstrap?.allowAnonymousScoreEdit && bootstrap?.allowViewerScoreEdit) || false}
+                        editable={scoreboardEditable}
                         onScoreUpdate={scoreboardData.updateScore}
                         data-testid="scoreboard-v2"
                       />
@@ -1691,6 +1810,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       awayTeam={scoreboardData.awayTeam}
                       period={scoreboardData.period}
                       time={scoreboardData.time}
+                      sportId={scoreboardData.sportId ?? bootstrap?.sport}
+                      crowdsource={overlayCrowdsource}
                     />
                   )}
                   {/* Bookmark markers overlaid on the timeline */}
@@ -1729,6 +1850,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <AdminBroadcast
                   message={chatV2.latestBroadcast.message}
                   onDismiss={() => chatV2.setLatestBroadcast(null)}
+                />
+              )}
+              {chatV2.latestGameEvent && (
+                <GameEventToast
+                  event={chatV2.latestGameEvent}
+                  homeTeamName={scoreboardData.homeTeam.name}
+                  awayTeamName={scoreboardData.awayTeam.name}
+                  onDismiss={() => chatV2.setLatestGameEvent(null)}
                 />
               )}
 
@@ -1971,6 +2100,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         variant="twitch"
                         className="h-full"
                         data-testid="chat-panel-v2"
+                        reporting={reporting}
                       />
                     ) : (
                       <div className="flex-1 flex flex-col">
@@ -2093,6 +2223,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         )}
                       </div>
                     </div>
+                    {bootstrap?.allowViewerReporting && bootstrap.slug && (
+                      <div className="px-4 py-2 border-b border-outline">
+                        <ScoreAlertsOptIn slug={bootstrap.slug} />
+                      </div>
+                    )}
 
                     {/* Guest name bar for anonymous users */}
                     {viewer.isUnlocked && isAnonymousViewer && (
@@ -2145,6 +2280,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                           variant="twitch"
                           className="h-full"
                           data-testid="chat-panel-v2"
+                          reporting={reporting}
                         />
                       ) : (
                         <div className="flex-1 flex flex-col">
@@ -2224,6 +2360,18 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         )}
 
         {/* v2 Viewer Auth Modal */}
+        {reporting && (
+          <ReportEventSheet
+            isOpen={overlayReport !== null}
+            onClose={() => setOverlayReport(null)}
+            sportId={reporting.sportId}
+            homeTeamName={reporting.homeTeamName}
+            awayTeamName={reporting.awayTeamName}
+            onReport={reporting.onReport}
+            category={overlayReport?.category}
+            preselectedTeam={overlayReport?.team}
+          />
+        )}
         <ViewerAuthModal
           isOpen={showViewerAuthModal}
           onClose={() => setShowViewerAuthModal(false)}

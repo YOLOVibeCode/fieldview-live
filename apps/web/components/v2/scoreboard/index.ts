@@ -22,3 +22,9 @@ export type { CompactScoreBarProps } from './CompactScoreBar';
 export { MiniScoreOverlay } from './MiniScoreOverlay';
 export type { MiniScoreOverlayProps } from './MiniScoreOverlay';
 
+export { SportScoreLine } from './SportScoreLine';
+export type { SportScoreLineProps } from './SportScoreLine';
+
+export type { OverlayCrowdsourceProps, OverlayPendingEvent } from './overlayCrowdsource';
+export { toOverlayPendingEvent } from './overlayCrowdsource';
+

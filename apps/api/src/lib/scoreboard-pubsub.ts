@@ -21,6 +21,12 @@ export interface ScoreboardEvent {
   position: string;
   lastEditedBy: string | null;
   lastEditedAt: string | null;
+  period: number;
+  periodDetail: string | null;
+  periodLabel: string;
+  sport: string;
+  hideClock: boolean;
+  clockDirection: 'up' | 'down' | 'none';
 }
 
 export interface IScoreboardPubSub {

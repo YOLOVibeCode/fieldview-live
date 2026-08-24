@@ -39,7 +39,12 @@ function checkEmailProvider(): EmailProviderCheck {
 async function checkDatabase(): Promise<HealthCheck> {
   try {
     const start = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Database check timeout')), 3000)
+      ),
+    ]);
     const latency = Date.now() - start;
     return { status: 'ok', latency };
   } catch (error) {
@@ -53,7 +58,12 @@ async function checkDatabase(): Promise<HealthCheck> {
 async function checkRedis(): Promise<HealthCheck> {
   try {
     const start = Date.now();
-    await redisClient.ping();
+    await Promise.race([
+      redisClient.ping(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Redis check timeout')), 3000)
+      ),
+    ]);
     const latency = Date.now() - start;
     return { status: 'ok', latency };
   } catch (error) {

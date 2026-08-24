@@ -174,6 +174,8 @@ model ViewerIdentity {
   subscriptions             Subscription[]
   viewerSquareCustomers     ViewerSquareCustomer[]
   chatMessages              GameChatMessage[]
+  reportedGameEvents        GameEvent[]                @relation("GameEventReporter")
+  gameEventConfirmations    GameEventConfirmation[]
   directStreamRegistrations DirectStreamRegistration[]
   emailVerificationTokens   EmailVerificationToken[]
   viewerRefreshTokens       ViewerRefreshToken[] // 🆕 Refresh tokens for re-consent
@@ -345,6 +347,8 @@ model GameChatMessage {
   viewerId    String   @db.Uuid
   displayName String // e.g., "First L." for privacy
   message     String // 1-240 chars
+  kind        String   @default("text") // 'text' | 'game_event'
+  metadata    Json?
   createdAt   DateTime @default(now())
 
   // 🆕 Direct stream reference for chat preservation
@@ -353,6 +357,7 @@ model GameChatMessage {
   game         Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
   viewer       ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
   directStream DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: SetNull)
+  gameEvent    GameEvent?
 
   @@index([gameId])
   @@index([viewerId])
@@ -548,6 +553,7 @@ model Subscription {
   organizationId String? @db.Uuid // Subscribe to all events in org
   channelId      String? @db.Uuid // Subscribe to all events in team/channel
   eventId        String? @db.Uuid // Subscribe to specific event
+  directStreamId String? @db.Uuid // Score alerts for a live DirectStream
 
   // Notification preferences
   preference  String    @default("email") // 'email' | 'sms' | 'both'
@@ -565,13 +571,15 @@ model Subscription {
   organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   channel      WatchChannel?  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   event        Event?         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  // Note: At least one target (organizationId, channelId, or eventId) must be set
+  directStream DirectStream?  @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  // Note: At least one target (organizationId, channelId, eventId, or directStreamId) must be set
   // This is enforced at the application level via Zod schema validation
 
   @@index([viewerId])
   @@index([organizationId])
   @@index([channelId])
   @@index([eventId])
+  @@index([directStreamId])
   @@index([status])
   @@index([confirmed])
 }
@@ -673,6 +681,11 @@ model DirectStream {
   chatEnabled       Boolean @default(true)
   scoreboardEnabled Boolean @default(false)
 
+  // Sport + crowdsourced event reporting
+  sport                   String  @default("soccer") // soccer | football | basketball | lacrosse | baseball | volleyball | hockey | generic
+  allowViewerReporting    Boolean @default(false) // Viewers can report structured game events
+  eventConfirmThreshold   Int     @default(2) // Extra confirmations beyond the reporter before scoreboard apply
+
   // 🆕 Viewer scoreboard editing permissions
   allowViewerScoreEdit Boolean @default(false) // Viewers can edit scores
   allowViewerNameEdit  Boolean @default(false) // Viewers can edit team names
@@ -716,6 +729,8 @@ model DirectStream {
   events              DirectStreamEvent[] // 🆕 Sub-events under this parent stream
   videoClips          VideoClip[] // DVR clips from this stream
   videoBookmarks      VideoBookmark[] // Bookmarks from this stream
+  gameEvents          GameEvent[]
+  scoreAlertSubs      Subscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -788,6 +803,10 @@ model GameScoreboard {
   // Score Tracking
   homeScore Int @default(0)
   awayScore Int @default(0)
+
+  // Period (1-based). periodDetail is baseball top/bottom.
+  period       Int     @default(1)
+  periodDetail String?
 
   // Game Clock (server-synced persistence)
   clockMode      String    @default("stopped") // stopped | running | paused
@@ -1017,4 +1036,54 @@ model OwnerAccountFingerprint {
   @@unique([ownerAccountId, deviceFingerprintId])
   @@index([deviceFingerprintId])
   @@index([ownerAccountId])
+}
+
+// Crowdsourced in-game events (goal, touchdown, period-end, hype, etc.)
+model GameEvent {
+  id                 String    @id @default(uuid()) @db.Uuid
+  directStreamId     String    @db.Uuid
+  sport              String
+  eventType          String
+  team               String? // 'home' | 'away'
+  pointsDelta        Int       @default(0)
+  period             Int?
+  periodDetail       String?
+  clockSeconds       Int?
+  reportedByViewerId String    @db.Uuid
+  displayName        String
+  status             String    @default("pending") // pending | confirmed | rejected
+  resolvedBy         String? // consensus | producer | auto
+  chatMessageId      String?   @unique @db.Uuid
+  confirmedAt        DateTime?
+  // Narration detail fields (added for social play-by-play)
+  jerseyNumber       Int?      // Reporter-supplied jersey number 0-99
+  detail             String?   // Selected detail option id (e.g. 'run', 'header')
+  detailValue        Int?      // Numeric detail value (e.g. yards)
+  note               String?   @db.VarChar(80) // Free-text note, max 80 chars
+  filmTimeSeconds    Int?      // HLS player position at report time (DVR anchor; session-stable only)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  directStream  DirectStream            @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  reporter      ViewerIdentity          @relation("GameEventReporter", fields: [reportedByViewerId], references: [id], onDelete: Cascade)
+  chatMessage   GameChatMessage?        @relation(fields: [chatMessageId], references: [id], onDelete: SetNull)
+  confirmations GameEventConfirmation[]
+
+  @@index([directStreamId, createdAt])
+  @@index([directStreamId, status])
+  @@index([reportedByViewerId])
+}
+
+model GameEventConfirmation {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @db.Uuid
+  viewerId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  event  GameEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  viewer ViewerIdentity @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, viewerId])
+  @@index([eventId])
+  @@index([viewerId])
 }
