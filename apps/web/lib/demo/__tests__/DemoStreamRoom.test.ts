@@ -27,6 +27,15 @@ describe('DemoStreamRoom', () => {
     expect(snap.clockStatus).toBe('stopped');
     expect(snap.clockSeconds).toBe(0);
     expect(snap.pendingEvent).toBeNull();
+    expect(snap.playbackSrc).toContain('stream.mux.com');
+  });
+
+  it('setPlaybackSrc notifies subscribers', () => {
+    const urls: string[] = [];
+    room.subscribe(() => urls.push(room.getSnapshot().playbackSrc));
+    room.setPlaybackSrc('https://example.com/live.m3u8', 'producer');
+    expect(room.getSnapshot().playbackSrc).toBe('https://example.com/live.m3u8');
+    expect(urls).toEqual(['https://example.com/live.m3u8']);
   });
 
   it('notifies every subscriber when sport changes', () => {
