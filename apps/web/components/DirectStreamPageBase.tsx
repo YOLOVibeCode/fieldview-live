@@ -38,7 +38,7 @@ import { SocialProducerPanel } from '@/components/SocialProducerPanel';
 import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
-import { StreamPlayer } from '@/components/v2/video/StreamPlayer';
+import { StreamPlayer, type StreamPlayerProps } from '@/components/v2/video/StreamPlayer';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat, ReportEventSheet } from '@/components/v2/chat';
 import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
@@ -60,6 +60,7 @@ import { ChatDebugPanel } from '@/components/ChatDebugPanel';
 import { BookmarkMarkers } from '@/components/v2/video/BookmarkMarkers';
 import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
 import { BookmarkToast, useBookmarkToasts } from '@/components/v2/video/BookmarkToast';
+import { QuickBookmarkButton } from '@/components/v2/video/QuickBookmarkButton';
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
@@ -164,6 +165,10 @@ export interface Bootstrap {
   streamProvider?: string | null;
   muxPlaybackId?: string | null;
   protectionLevel?: string | null;
+  /** UUID of the DirectStream record — use for bookmark API calls, not slug. */
+  directStreamId?: string | null;
+  /** Mux stream type: 'live:dvr' for live streams, 'on-demand' for VOD. Only set for mux_managed streams. */
+  muxStreamType?: string | null;
 }
 
 export type FontSize = 'small' | 'medium' | 'large';
@@ -206,6 +211,7 @@ interface DirectStreamPageBaseProps {
 
 export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseProps) {
   const playerRef = useRef<MediaPlayerInstance>(null);
+  const seekRef = useRef<((seconds: number) => void) | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
@@ -1118,7 +1124,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
+                  streamType={bootstrap?.muxStreamType as StreamPlayerProps['streamType']}
                   playerRef={playerRef}
+                  seekRef={seekRef}
                   onStatusChange={setStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
@@ -1144,25 +1152,31 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       duration={duration}
                       currentViewerId={viewer.viewerId || undefined}
                       onBookmarkClick={(bookmark) => {
-                        if (playerRef.current) {
-                          playerRef.current.currentTime = bookmark.timestampSeconds;
-                        }
+                        seekRef.current?.(bookmark.timestampSeconds);
                       }}
                     />
                   )}
                 </StreamPlayer>
               )}
 
-              {/* Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet) */}
+              {/* One-tap quick bookmark — portrait */}
+              {viewer.isUnlocked && viewer.viewerId && bootstrap?.directStreamId && streamUrl && !isPaywallBlocked && (
+                <div className="absolute top-3 right-3 z-20">
+                  <QuickBookmarkButton
+                    directStreamId={bootstrap.directStreamId}
+                    viewerIdentityId={viewer.viewerId}
+                    getCurrentTime={() => currentTime}
+                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
+                  />
+                </div>
+              )}
 
               {/* Real-time bookmark toast notifications (portrait) */}
               {bookmarkToasts.toasts.length > 0 && (
                 <BookmarkToast
                   toasts={bookmarkToasts.toasts}
                   onJumpTo={(timestampSeconds) => {
-                    if (playerRef.current) {
-                      playerRef.current.currentTime = timestampSeconds;
-                    }
+                    seekRef.current?.(timestampSeconds);
                   }}
                   onDismiss={bookmarkToasts.dismissToast}
                 />
@@ -1242,17 +1256,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
           // Bookmarks
           bookmarkContent={
-            viewer.isUnlocked && viewer.viewerId && bootstrap?.slug ? (
+            viewer.isUnlocked && viewer.viewerId && bootstrap?.directStreamId ? (
               <BookmarkPanel
                 isOpen={true}
                 onClose={() => setPortraitActiveTab('chat')}
-                directStreamId={bootstrap.slug}
+                directStreamId={bootstrap.directStreamId}
                 viewerId={viewer.viewerId}
                 mode="inline"
                 onSeek={(timeSeconds) => {
-                  if (playerRef.current) {
-                    playerRef.current.currentTime = timeSeconds;
-                  }
+                  seekRef.current?.(timeSeconds);
                 }}
               />
             ) : (
@@ -1794,7 +1806,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
+                  streamType={bootstrap?.muxStreamType as StreamPlayerProps['streamType']}
                   playerRef={playerRef}
+                  seekRef={seekRef}
                   onStatusChange={setStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
@@ -1821,25 +1835,31 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       duration={duration}
                       currentViewerId={viewer.viewerId || undefined}
                       onBookmarkClick={(bookmark) => {
-                        if (playerRef.current) {
-                          playerRef.current.currentTime = bookmark.timestampSeconds;
-                        }
+                        seekRef.current?.(bookmark.timestampSeconds);
                       }}
                     />
                   )}
                 </StreamPlayer>
               )}
 
-              {/* Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet) */}
+              {/* One-tap quick bookmark — landscape */}
+              {viewer.isUnlocked && viewer.viewerId && bootstrap?.directStreamId && streamUrl && !isPaywallBlocked && (
+                <div className="absolute top-3 right-3 z-20">
+                  <QuickBookmarkButton
+                    directStreamId={bootstrap.directStreamId}
+                    viewerIdentityId={viewer.viewerId}
+                    getCurrentTime={() => currentTime}
+                    onBookmarkCreated={bookmarkMarkers.addBookmarkOptimistic}
+                  />
+                </div>
+              )}
 
               {/* Real-time bookmark toast notifications */}
               {bookmarkToasts.toasts.length > 0 && (
                 <BookmarkToast
                   toasts={bookmarkToasts.toasts}
                   onJumpTo={(timestampSeconds) => {
-                    if (playerRef.current) {
-                      playerRef.current.currentTime = timestampSeconds;
-                    }
+                    seekRef.current?.(timestampSeconds);
                   }}
                   onDismiss={bookmarkToasts.dismissToast}
                 />
@@ -1969,12 +1989,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 <BookmarkPanel
                   isOpen={true}
                   onClose={bookmarkPanel.collapse}
-                  directStreamId={bootstrap.slug}
+                  directStreamId={bootstrap.directStreamId ?? bootstrap.slug}
                   viewerId={viewer.viewerId}
                   onSeek={(timeSeconds) => {
-                    if (playerRef.current) {
-                      playerRef.current.currentTime = timeSeconds;
-                    }
+                    seekRef.current?.(timeSeconds);
                   }}
                   mode="inline"
                 />
@@ -1984,17 +2002,15 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         )}
 
         {/* Bookmark Panel - Mobile landscape only (bottom sheet). Portrait uses tab content in PortraitStreamLayout. */}
-        {isMobile && !isPortrait && viewer.isUnlocked && viewer.viewerId && bootstrap?.slug && (
+        {isMobile && !isPortrait && viewer.isUnlocked && viewer.viewerId && (bootstrap?.directStreamId ?? bootstrap?.slug) && (
           <BookmarkPanel
             isOpen={!bookmarkPanel.isCollapsed}
             onClose={bookmarkPanel.collapse}
-            directStreamId={bootstrap.slug}
+            directStreamId={bootstrap.directStreamId ?? bootstrap.slug}
             viewerId={viewer.viewerId}
             isMobile={true}
             onSeek={(timeSeconds) => {
-              if (playerRef.current) {
-                playerRef.current.currentTime = timeSeconds;
-              }
+              seekRef.current?.(timeSeconds);
             }}
           />
         )}

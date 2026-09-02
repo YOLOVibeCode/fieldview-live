@@ -13,7 +13,7 @@
  * - Seek controls via SeekOverlay (tap-to-reveal buttons)
  */
 
-import { useRef, useState, useCallback, type ReactNode } from 'react';
+import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import {
   MediaPlayer,
   MediaProvider,
@@ -48,6 +48,8 @@ export interface VidstackPlayerProps {
   onDurationChange?: (duration: number) => void;
   /** Ref to access the MediaPlayer instance for external control */
   playerRef?: React.MutableRefObject<MediaPlayerInstance | null>;
+  /** Ref filled with a seekTo(seconds) function — works on both Vidstack and Mux */
+  seekRef?: React.MutableRefObject<((seconds: number) => void) | null>;
   /** Additional className for the player container */
   className?: string;
   /** Children rendered as overlays on top of the player */
@@ -64,6 +66,7 @@ export function VidstackPlayer({
   onTimeUpdate,
   onDurationChange,
   playerRef: externalRef,
+  seekRef,
   className,
   children,
   'data-testid': testId = 'vidstack-player',
@@ -71,6 +74,19 @@ export function VidstackPlayer({
   const internalRef = useRef<MediaPlayerInstance>(null);
   const playerRef = externalRef ?? internalRef;
   const [isPaused, setIsPaused] = useState(false);
+
+  // Wire seekRef so callers (e.g., bookmark jump) can seek uniformly
+  useEffect(() => {
+    if (!seekRef) return;
+    seekRef.current = (seconds: number) => {
+      if (playerRef.current) {
+        playerRef.current.currentTime = seconds;
+      }
+    };
+    return () => {
+      if (seekRef) seekRef.current = null;
+    };
+  }, [seekRef, playerRef]);
 
   // Track status changes
   const handleCanPlay = useCallback(() => {

@@ -13,7 +13,7 @@
  * The built-in seek bar and skip buttons are hidden via mux-overrides.css.
  */
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 
 import type { PlayerStatus } from './VidstackPlayer';
@@ -50,6 +50,8 @@ export interface MuxStreamPlayerProps {
   className?: string;
   /** Mux Data metadata for analytics */
   metadata?: Record<string, string>;
+  /** Ref filled with a seekTo(seconds) function — works on Mux player */
+  seekRef?: React.MutableRefObject<((seconds: number) => void) | null>;
   /** data-testid for testing */
   'data-testid'?: string;
 }
@@ -65,12 +67,26 @@ export function MuxStreamPlayer({
   onDurationChange,
   className,
   metadata,
+  seekRef,
   'data-testid': testId = 'mux-player',
 }: MuxStreamPlayerProps) {
   const playerRef = useRef<{ currentTime: number; play(): void; pause(): void; paused: boolean } | null>(null);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+
+  // Wire seekRef so callers (e.g., bookmark jump) can seek the Mux player uniformly
+  useEffect(() => {
+    if (!seekRef) return;
+    seekRef.current = (seconds: number) => {
+      if (playerRef.current) {
+        playerRef.current.currentTime = seconds;
+      }
+    };
+    return () => {
+      if (seekRef) seekRef.current = null;
+    };
+  }, [seekRef]);
 
   const handleWaiting = useCallback(() => {
     onStatusChange?.('loading');

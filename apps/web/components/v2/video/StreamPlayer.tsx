@@ -39,6 +39,8 @@ export interface StreamPlayerProps {
   onDurationChange?: (duration: number) => void;
   /** Ref for Vidstack player instance (only available for non-Mux streams) */
   playerRef?: React.MutableRefObject<MediaPlayerInstance | null>;
+  /** Ref filled with a seekTo(seconds) function — works on both Mux and Vidstack */
+  seekRef?: React.MutableRefObject<((seconds: number) => void) | null>;
   /** Additional className for the player container */
   className?: string;
   /** Children rendered as overlays on top of the player */
@@ -61,6 +63,7 @@ export function StreamPlayer({
   onTimeUpdate,
   onDurationChange,
   playerRef,
+  seekRef,
   className,
   children,
   metadata,
@@ -82,6 +85,7 @@ export function StreamPlayer({
           onTimeUpdate={onTimeUpdate}
           onDurationChange={onDurationChange}
           metadata={metadata}
+          seekRef={seekRef}
           data-testid={testId ?? 'stream-player-mux'}
         />
         {children && (
@@ -102,6 +106,7 @@ export function StreamPlayer({
       onTimeUpdate={onTimeUpdate}
       onDurationChange={onDurationChange}
       playerRef={playerRef}
+      seekRef={seekRef}
       className={className}
       data-testid={testId ?? 'stream-player-vidstack'}
     >

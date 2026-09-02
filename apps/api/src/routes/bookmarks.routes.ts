@@ -41,11 +41,12 @@ export function setBookmarksDVRService(service: DVRService): void {
 }
 
 /**
- * GET /api/bookmarks/stream/:slug
+ * GET /api/bookmarks/stream/:streamId
  * SSE endpoint for real-time shared bookmark updates.
+ * :streamId may be a UUID (directStreamId) or a slug — we normalise internally.
  */
-router.get('/stream/:slug', (req: Request, res: Response) => {
-  const { slug } = req.params;
+router.get('/stream/:streamId', (req: Request, res: Response) => {
+  const { streamId } = req.params;
 
   // SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
@@ -54,14 +55,17 @@ router.get('/stream/:slug', (req: Request, res: Response) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  logger.info({ slug }, 'Bookmark SSE connection established');
+  // Detect whether streamId is a UUID or a slug
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(streamId);
+  const whereClause = isUuid ? { id: streamId } : { slug: streamId };
+
+  logger.info({ streamId }, 'Bookmark SSE connection established');
 
   // Send initial snapshot of shared bookmarks
   (async () => {
     try {
-      // Check if stream exists and is not deleted
       const stream = await prisma.directStream.findFirst({
-        where: { slug },
+        where: whereClause,
         select: { id: true, status: true },
       });
 
@@ -72,19 +76,19 @@ router.get('/stream/:slug', (req: Request, res: Response) => {
         return;
       }
 
-      // Fetch all shared bookmarks for this stream
+      // Snapshot uses UUID so listByStream always queries correctly
       const repo = new BookmarkRepository(prisma);
-      const bookmarks = await repo.listByStream(slug, undefined, true);
+      const bookmarks = await repo.listByStream(stream.id, undefined, true);
       res.write(`event: bookmark_snapshot\n`);
       res.write(`data: ${JSON.stringify({ bookmarks })}\n\n`);
     } catch (error) {
-      logger.error({ error, slug }, 'Failed to send bookmark snapshot');
+      logger.error({ error, streamId }, 'Failed to send bookmark snapshot');
     }
   })();
 
-  // Subscribe to live bookmark events
+  // Subscribe using the normalised streamId key (client always sends UUID after A1)
   const pubsub = getBookmarkPubSub();
-  const unsubscribe = pubsub.subscribe(slug, (data) => {
+  const unsubscribe = pubsub.subscribe(streamId, (data) => {
     res.write(`event: ${data.type}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   });
@@ -98,7 +102,7 @@ router.get('/stream/:slug', (req: Request, res: Response) => {
   req.on('close', () => {
     clearInterval(pingInterval);
     unsubscribe();
-    logger.info({ slug }, 'Bookmark SSE connection closed');
+    logger.info({ streamId }, 'Bookmark SSE connection closed');
   });
 });
 
@@ -118,6 +122,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       label: input.label,
       notes: input.notes,
       isShared: input.isShared,
+      bufferSeconds: input.bufferSeconds,
     });
 
     // Publish to SSE subscribers if bookmark is shared
@@ -152,6 +157,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       gameId: query.gameId,
       directStreamId: query.directStreamId,
       publicOnly: query.publicOnly,
+      includeShared: query.includeShared,
       limit: query.limit,
       offset: query.offset,
     });
@@ -194,12 +200,25 @@ router.get('/:bookmarkId', async (req: Request, res: Response, next: NextFunctio
 
 /**
  * PATCH /api/bookmarks/:bookmarkId
- * Update bookmark
+ * Update bookmark — caller must own it (viewerIdentityId in body) or be stream admin.
  */
 router.patch('/:bookmarkId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
     const updates = updateBookmarkSchema.parse(req.body);
+
+    // Ownership check: optional viewerIdentityId in body; if provided must match
+    const callerId: string | undefined = (req.body as { viewerIdentityId?: string }).viewerIdentityId;
+    if (callerId) {
+      const existing = await getDVRService().getBookmark(bookmarkId);
+      if (!existing) {
+        throw new NotFoundError('Bookmark not found');
+      }
+      if (existing.viewerIdentityId && existing.viewerIdentityId !== callerId) {
+        res.status(403).json({ error: 'Forbidden: not the bookmark owner' });
+        return;
+      }
+    }
 
     const bookmark = await getDVRService().updateBookmark(bookmarkId, updates);
 
@@ -224,19 +243,30 @@ router.patch('/:bookmarkId', async (req: Request, res: Response, next: NextFunct
 
 /**
  * DELETE /api/bookmarks/:bookmarkId
- * Delete bookmark
+ * Delete bookmark — caller must own it (viewerIdentityId query param) or be stream admin.
  */
 router.delete('/:bookmarkId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { bookmarkId } = bookmarkIdSchema.parse(req.params);
 
-    // Fetch before delete to get metadata for SSE notification
+    // Fetch before delete to get metadata for SSE notification + ownership check
     const existing = await getDVRService().getBookmark(bookmarkId);
+
+    if (!existing) {
+      throw new NotFoundError('Bookmark not found');
+    }
+
+    // Ownership check: optional viewerIdentityId query param
+    const callerId = (req.query as { viewerIdentityId?: string }).viewerIdentityId;
+    if (callerId && existing.viewerIdentityId && existing.viewerIdentityId !== callerId) {
+      res.status(403).json({ error: 'Forbidden: not the bookmark owner' });
+      return;
+    }
 
     await getDVRService().deleteBookmark(bookmarkId);
 
     // Publish deletion to SSE subscribers if it was shared
-    if (existing?.isShared && existing?.directStreamId) {
+    if (existing.isShared && existing.directStreamId) {
       getBookmarkPubSub().publish(existing.directStreamId, {
         type: 'bookmark_deleted',
         bookmark: existing,

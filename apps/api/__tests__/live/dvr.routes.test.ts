@@ -332,6 +332,21 @@ describe('DVR API Routes (TDD)', () => {
       expect(response.body.bookmark.timestampSeconds).toBe(180);
     });
 
+    it('should persist bufferSeconds when provided', async () => {
+      const response = await request(app)
+        .post('/api/bookmarks')
+        .send({
+          gameId: testGameId,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 200,
+          label: 'Buffer Test',
+          bufferSeconds: 8,
+        })
+        .expect(201);
+
+      expect(response.body.bookmark.bufferSeconds).toBe(8);
+    });
+
     it('should validate required fields', async () => {
       const response = await request(app)
         .post('/api/bookmarks')
@@ -353,6 +368,7 @@ describe('DVR API Routes (TDD)', () => {
           viewerIdentityId: testViewerId,
           timestampSeconds: 120,
           label: 'Bookmark 1',
+          isShared: true,
         });
 
       await request(app)
@@ -362,6 +378,7 @@ describe('DVR API Routes (TDD)', () => {
           viewerIdentityId: testViewerId,
           timestampSeconds: 240,
           label: 'Bookmark 2',
+          isShared: false,
         });
     });
 
@@ -381,6 +398,14 @@ describe('DVR API Routes (TDD)', () => {
 
       expect(response.body.bookmarks).toBeDefined();
       expect(response.body.bookmarks.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should forward includeShared — returns shared + own when both params given', async () => {
+      const response = await request(app)
+        .get(`/api/bookmarks?directStreamId=00000000-0000-0000-0000-000000000001&viewerId=${testViewerId}&includeShared=true`)
+        .expect(200);
+      // No bookmarks match this fakeStreamId, but the query should not error
+      expect(response.body.bookmarks).toBeDefined();
     });
   });
 
@@ -410,6 +435,52 @@ describe('DVR API Routes (TDD)', () => {
       expect(response.body.bookmark.notes).toBe('New notes');
       expect(response.body.bookmark.isShared).toBe(true);
     });
+
+    it('should reject PATCH from non-owner viewer (403)', async () => {
+      const createRes = await request(app)
+        .post('/api/bookmarks')
+        .send({
+          gameId: testGameId,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 301,
+          label: 'Owner Only',
+        });
+
+      const bookmarkId = createRes.body.bookmark.id;
+
+      const response = await request(app)
+        .patch(`/api/bookmarks/${bookmarkId}`)
+        .send({
+          label: 'Hack attempt',
+          viewerIdentityId: '00000000-0000-0000-0000-000000000099', // wrong owner
+        })
+        .expect(403);
+
+      expect(response.body.error).toMatch(/Forbidden/i);
+    });
+
+    it('should allow PATCH from the owning viewer', async () => {
+      const createRes = await request(app)
+        .post('/api/bookmarks')
+        .send({
+          gameId: testGameId,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 302,
+          label: 'Mine',
+        });
+
+      const bookmarkId = createRes.body.bookmark.id;
+
+      const response = await request(app)
+        .patch(`/api/bookmarks/${bookmarkId}`)
+        .send({
+          label: 'My update',
+          viewerIdentityId: testViewerId, // correct owner
+        })
+        .expect(200);
+
+      expect(response.body.bookmark.label).toBe('My update');
+    });
   });
 
   describe('DELETE /api/bookmarks/:bookmarkId', () => {
@@ -428,6 +499,109 @@ describe('DVR API Routes (TDD)', () => {
       await request(app)
         .delete(`/api/bookmarks/${bookmarkId}`)
         .expect(204);
+    });
+
+    it('should reject DELETE from non-owner viewer (403)', async () => {
+      const createRes = await request(app)
+        .post('/api/bookmarks')
+        .send({
+          gameId: testGameId,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 361,
+          label: 'Protected',
+        });
+
+      const bookmarkId = createRes.body.bookmark.id;
+
+      const response = await request(app)
+        .delete(`/api/bookmarks/${bookmarkId}?viewerIdentityId=00000000-0000-0000-0000-000000000099`)
+        .expect(403);
+
+      expect(response.body.error).toMatch(/Forbidden/i);
+    });
+
+    it('should allow DELETE from owning viewer', async () => {
+      const createRes = await request(app)
+        .post('/api/bookmarks')
+        .send({
+          gameId: testGameId,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 362,
+          label: 'Own Delete',
+        });
+
+      const bookmarkId = createRes.body.bookmark.id;
+
+      await request(app)
+        .delete(`/api/bookmarks/${bookmarkId}?viewerIdentityId=${testViewerId}`)
+        .expect(204);
+    });
+  });
+
+  /**
+   * SSE pubsub unit test — verifies that a subscriber receives `bookmark_created`
+   * when a bookmark is published to the same channel key (UUID).
+   */
+  describe('Bookmark SSE pubsub publish/subscribe', () => {
+    it('subscriber receives bookmark_created on the same UUID key', async () => {
+      const { getBookmarkPubSub } = await import('@/lib/bookmark-pubsub');
+      const pubsub = getBookmarkPubSub();
+      const channelKey = '00000000-0000-0000-0000-000000000100';
+
+      const received: unknown[] = [];
+      const unsub = pubsub.subscribe(channelKey, (data) => received.push(data));
+
+      pubsub.publish(channelKey, {
+        type: 'bookmark_created',
+        bookmark: {
+          id: '00000000-0000-0000-0000-000000000200',
+          directStreamId: channelKey,
+          gameId: null,
+          clipId: null,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 99,
+          label: 'SSE Test',
+          notes: null,
+          isShared: true,
+          bufferSeconds: 5,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      unsub();
+
+      expect(received).toHaveLength(1);
+      expect((received[0] as { type: string }).type).toBe('bookmark_created');
+    });
+
+    it('subscriber on a different key does NOT receive the event', async () => {
+      const { getBookmarkPubSub } = await import('@/lib/bookmark-pubsub');
+      const pubsub = getBookmarkPubSub();
+
+      const received: unknown[] = [];
+      const unsub = pubsub.subscribe('slug-OTHER', (data) => received.push(data));
+
+      pubsub.publish('different-uuid-key', {
+        type: 'bookmark_created',
+        bookmark: {
+          id: '00000000-0000-0000-0000-000000000201',
+          directStreamId: 'different-uuid-key',
+          gameId: null,
+          clipId: null,
+          viewerIdentityId: testViewerId,
+          timestampSeconds: 50,
+          label: 'No Receive',
+          notes: null,
+          isShared: true,
+          bufferSeconds: 5,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      unsub();
+      expect(received).toHaveLength(0);
     });
   });
 
