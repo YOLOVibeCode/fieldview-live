@@ -71,7 +71,7 @@ const SeedDirectStreamBody = z.object({
  *   ]
  * }
  */
-router.post('/direct-stream', (req: Request, res: Response, next: NextFunction) => {
+function handleSeedDirectStream(req: Request, res: Response, next: NextFunction): void {
   void (async () => {
     try {
       const parsed = SeedDirectStreamBody.safeParse(req.body);
@@ -108,6 +108,7 @@ router.post('/direct-stream', (req: Request, res: Response, next: NextFunction) 
           scoreboardAwayTeam: body.scoreboardAwayTeam ?? null,
           scoreboardHomeColor: body.scoreboardHomeColor ?? null,
           scoreboardAwayColor: body.scoreboardAwayColor ?? null,
+          adminPassword: await hashPassword(body.adminPassword),
         },
         create: {
           slug: body.slug,
@@ -178,6 +179,32 @@ router.post('/direct-stream', (req: Request, res: Response, next: NextFunction) 
       next(error);
     }
   })();
+}
+
+router.post('/direct-stream', handleSeedDirectStream);
+
+const DENTON_DIABLOS_MAR25_BODY = {
+  slug: 'dentondiablos',
+  title: 'Denton Diablos',
+  adminPassword: 'devil2026',
+  scoreboardEnabled: true,
+  scoreboardHomeTeam: 'Denton Diablos',
+  scoreboardAwayTeam: 'Away',
+  scoreboardHomeColor: '#CC0000',
+  scoreboardAwayColor: '#333333',
+  events: [
+    {
+      eventSlug: 'soccer-2008-20260325',
+      title: 'Denton Diablos 2008 (Mar 25, 2026)',
+      scheduledStartAt: '2026-03-25T18:00:00-05:00',
+    },
+  ],
+};
+
+/** POST /api/admin/seed/denton-diablos-mar25 — Traklet TC-DD-001 */
+router.post('/denton-diablos-mar25', (req: Request, res: Response, next: NextFunction) => {
+  req.body = { ...DENTON_DIABLOS_MAR25_BODY };
+  handleSeedDirectStream(req, res, next);
 });
 
 export function createAdminSeedRouter(): express.Router {

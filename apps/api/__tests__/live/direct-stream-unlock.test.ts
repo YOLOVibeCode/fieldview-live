@@ -122,6 +122,47 @@ describe('DirectStream Admin Unlock API (TDD)', () => {
       // Should fail because bcrypt is case-sensitive
       expect(res.status).toBe(401);
     });
+
+    it('returns 404 for a hierarchical slug when the event is not provisioned', async () => {
+      const res = await request
+        .post(`/api/direct/${testSlug}/missing-event/unlock-admin`)
+        .send({ password: correctPassword });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error?.message || res.body.error).toMatch(/event not found/i);
+    });
+
+    it('unlocks via parent/event path when the event exists', async () => {
+      const parent = await prisma.directStream.findUnique({ where: { slug: testSlug } });
+      if (!parent) throw new Error('parent missing');
+      await prisma.directStreamEvent.create({
+        data: {
+          directStreamId: parent.id,
+          eventSlug: 'soccer-hier-test',
+          title: 'Hier event',
+        },
+      });
+
+      const res = await request
+        .post(`/api/direct/${testSlug}/soccer-hier-test/unlock-admin`)
+        .send({ password: correctPassword });
+
+      expect(res.status).toBe(200);
+      expect(res.body.token).toBeDefined();
+    });
+  });
+
+  describe('GET /api/direct/:slug/bootstrap hierarchical', () => {
+    it('does not auto-create a slash slug for an unknown parent/event', async () => {
+      const bogusParent = `test-unlock-hier-${Date.now()}`;
+      const res = await request.get(`/api/direct/${bogusParent}/soccer-2008-20260325/bootstrap`);
+
+      expect(res.status).toBe(404);
+      const junk = await prisma.directStream.findUnique({
+        where: { slug: `${bogusParent}/soccer-2008-20260325` },
+      });
+      expect(junk).toBeNull();
+    });
   });
 });
 

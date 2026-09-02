@@ -25,6 +25,23 @@ const STATUS_MESSAGES: Record<number, string> = {
   503: 'Service temporarily unavailable. Please try again.',
 };
 
+/** Admin panel unlock: keep API password / not-found text instead of generic 401/404 copy. */
+export function getUnlockAdminMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return error.message && error.message !== 'An error occurred'
+        ? error.message
+        : 'Invalid password';
+    }
+    if (error.status === 404) {
+      return error.message && error.message !== 'An error occurred'
+        ? error.message
+        : 'Stream not found';
+    }
+  }
+  return getUserFriendlyMessage(error);
+}
+
 export function getUserFriendlyMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return ERROR_MESSAGES[error.code] || STATUS_MESSAGES[error.status] || error.message;

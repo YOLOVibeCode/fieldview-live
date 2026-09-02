@@ -45,6 +45,7 @@ import { createStreamLinksRouter } from './routes/stream-links';
 import { createDirectRouter } from './routes/direct';
 import { createDirectLifecycleRouter } from './routes/direct-lifecycle';
 import { createDirectViewerRouter } from './routes/public.direct-viewer';
+import { rewriteHierarchicalDirectPath } from './lib/direct-slug';
 import { createPublicDirectRegistrationRouter } from './routes/public.direct-registration';
 import { createPublicDirectNotifyMeRouter } from './routes/public.direct-notify-me';
 import { createPublicViewerAccountRouter } from './routes/public.viewer-account';
@@ -157,6 +158,7 @@ app.use('/api/public/coupons', createPublicCouponsRouter());
 app.use('/api/early-access', createEarlyAccessRouter());
 // Note: Subscription routes are mounted at /api/public, so routes defined as '/subscriptions' become /api/public/subscriptions
 app.use('/api/streams', createStreamLinksRouter());
+app.use('/api/direct', rewriteHierarchicalDirectPath);
 app.use('/api/direct', createDirectRouter());
 app.use('/api/direct', createDirectLifecycleRouter());
 app.use('/api/direct', scoreboardRouter);
