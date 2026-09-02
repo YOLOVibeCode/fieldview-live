@@ -19,7 +19,7 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ArrowLeftRight, Eye, EyeOff, Lock } from 'lucide-react';
 import { apiRequest } from '@/lib/api-client';
-import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { getUnlockAdminMessage, getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorToast } from '@/components/v2/ErrorToast';
 import { sportRegistry } from '@fieldview/data-model';
 
@@ -64,8 +64,8 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
     initialStreamUrl: initialSettings?.streamUrl || null
   });
   
-  // 🆕 Use parentSlug for auth if provided (DirectStreamEvents), otherwise use slug
-  const authSlug = parentSlug || slug;
+  // Parent slug for auth (event URLs like dentondiablos/soccer-... unlock the parent)
+  const authSlug = (parentSlug || slug.split('/')[0] || slug).toLowerCase();
   
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
@@ -158,7 +158,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
         }
       })
       .catch((err) => {
-        setToastError(getUserFriendlyMessage(err));
+        setToastError(getUnlockAdminMessage(err));
       })
       .finally(() => setIsUnlocking(false));
   }, [isUnlocked, slug, onAuthSuccess]);
@@ -211,7 +211,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
       } : undefined;
       onAuthSuccess?.(data.token, viewerInfo);
     } catch (error) {
-      const errorMessage = getUserFriendlyMessage(error);
+      const errorMessage = getUnlockAdminMessage(error);
       console.error('[AdminPanel] ❌ Unlock error caught', {
         error,
         errorMessage,

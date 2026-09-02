@@ -14,8 +14,9 @@ import { createDirectRouter } from '../direct';
 import { prisma } from '../../lib/prisma';
 
 vi.mock('../../lib/prisma', () => ({
-  prisma: {
+    prisma: {
     directStream: { findUnique: vi.fn() },
+    directStreamEvent: { findUnique: vi.fn() },
     viewerIdentity: { findUnique: vi.fn() },
     entitlement: { findFirst: vi.fn() },
   },
