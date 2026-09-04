@@ -349,6 +349,8 @@ pnpm format:check
 pnpm type-check
 ```
 
+- **Liveness:** `GET /health` on the API (default port 4301) returns `{ "status": "ok", "uptime": <seconds> }`.
+
 ## Project Structure
 
 ```
