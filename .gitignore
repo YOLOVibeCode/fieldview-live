@@ -23,7 +23,12 @@ out/
 # IDE
 .vscode/
 .idea/
-.cursor/
+# .cursor/ is committed selectively: rules + hooks travel with the repo so cloud
+# agents get them; anything else in there (mcp.json etc.) stays local.
+.cursor/*
+!.cursor/rules/
+!.cursor/hooks/
+!.cursor/hooks.json
 
 # TypeScript
 *.tsbuildinfo
