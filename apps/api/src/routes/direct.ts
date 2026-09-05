@@ -252,10 +252,18 @@ router.get(
           paywallMessage: directStream.paywallMessage,
           allowSavePayment: directStream.allowSavePayment,
           scoreboardEnabled: isEvent ? (directStreamEvent?.scoreboardEnabled ?? directStream.scoreboardEnabled) : directStream.scoreboardEnabled,
-          scoreboardHomeTeam: directStream.scoreboardHomeTeam,
-          scoreboardAwayTeam: directStream.scoreboardAwayTeam,
-          scoreboardHomeColor: directStream.scoreboardHomeColor,
-          scoreboardAwayColor: directStream.scoreboardAwayColor,
+          scoreboardHomeTeam: isEvent
+            ? (directStreamEvent?.scoreboardHomeTeam ?? directStream.scoreboardHomeTeam)
+            : directStream.scoreboardHomeTeam,
+          scoreboardAwayTeam: isEvent
+            ? (directStreamEvent?.scoreboardAwayTeam ?? directStream.scoreboardAwayTeam)
+            : directStream.scoreboardAwayTeam,
+          scoreboardHomeColor: isEvent
+            ? (directStreamEvent?.scoreboardHomeColor ?? directStream.scoreboardHomeColor)
+            : directStream.scoreboardHomeColor,
+          scoreboardAwayColor: isEvent
+            ? (directStreamEvent?.scoreboardAwayColor ?? directStream.scoreboardAwayColor)
+            : directStream.scoreboardAwayColor,
           welcomeMessage: directStream.welcomeMessage,
           // Scheduling & reminders (event-specific if available)
           scheduledStartAt: isEvent && directStreamEvent?.scheduledStartAt ? directStreamEvent.scheduledStartAt : directStream.scheduledStartAt,
