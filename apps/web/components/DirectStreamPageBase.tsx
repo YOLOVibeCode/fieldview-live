@@ -62,6 +62,7 @@ import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
 import { BookmarkToast, useBookmarkToasts } from '@/components/v2/video/BookmarkToast';
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
+import { useVideoElementReady } from '@/hooks/useVideoElementReady';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
 import { PlayByPlayFeed } from '@/components/v2/plays/PlayByPlayFeed';
 import { WelcomeMessageBanner, isWelcomeDismissed } from '@/components/v2/WelcomeMessageBanner';
@@ -268,6 +269,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Compute isBlocked based on bootstrap and paywall state
   // This overrides the hook's internal calculation since we have bootstrap data
   const isPaywallBlocked = bootstrap?.paywallEnabled && !paywall.hasPaid;
+
+  const markMediaReadyFromVideo = useCallback(() => {
+    setMediaReady(true);
+    setStatus((prev) => (prev === 'loading' ? 'playing' : prev));
+  }, []);
+  useVideoElementReady(
+    containerRef,
+    Boolean(streamUrl) && !isPaywallBlocked && status !== 'error',
+    markMediaReadyFromVideo,
+    streamUrl,
+  );
 
   // Collapsible panel state (non-fullscreen mode)
   // Use a stable key derived from bootstrapUrl (constant from first render)
@@ -1116,7 +1128,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {status === 'loading' && bootstrap?.streamUrl && !mediaReady && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 backdrop-blur-sm pointer-events-none">
                   <div className="text-center text-white">
                     <div className="w-12 h-12 mx-auto mb-3 border-3 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
                     <p className="text-sm font-medium">Loading stream...</p>
@@ -1793,7 +1805,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
 
               {status === 'loading' && bootstrap?.streamUrl && !mediaReady && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm" data-testid="loading-overlay">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm pointer-events-none" data-testid="loading-overlay">
                   <div className="text-center text-white">
                     {/* Animated loading spinner */}
                     <div className="mb-6">
