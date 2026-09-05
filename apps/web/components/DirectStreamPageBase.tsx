@@ -211,6 +211,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'incoming' | 'error'>('loading');
+  const [mediaReady, setMediaReady] = useState(false);
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
   const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(false);
@@ -236,6 +237,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const [showNotifyMe, setShowNotifyMe] = useState(false);
   const isPortrait = isMobile && orientation === 'portrait';
+
+  const handlePlayerStatus = useCallback(
+    (next: 'loading' | 'playing' | 'offline' | 'incoming' | 'error') => {
+      setStatus(next);
+      if (next === 'playing') setMediaReady(true);
+      if (next === 'error' || next === 'offline' || next === 'incoming') setMediaReady(false);
+      config.onStreamStatusChange?.(next);
+    },
+    [config],
+  );
 
   const isScheduledWithinMinutes = (scheduledAt: string | null | undefined, minutes: number): boolean => {
     if (!scheduledAt) return false;
@@ -344,6 +355,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     }
     console.log('[DirectStream] 🚀 Fetching bootstrap from:', bootstrapFetchUrl);
     setStatus('loading');
+    setMediaReady(false);
 
     apiRequest<Bootstrap>(bootstrapFetchUrl, { retries: 1 })
       .then((data: Bootstrap) => {
@@ -1103,7 +1115,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {status === 'loading' && bootstrap?.streamUrl && (
+              {status === 'loading' && bootstrap?.streamUrl && !mediaReady && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 backdrop-blur-sm">
                   <div className="text-center text-white">
                     <div className="w-12 h-12 mx-auto mb-3 border-3 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
@@ -1112,14 +1124,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* StreamPlayer */}
-              {streamUrl && !isPaywallBlocked && (
+              {/* StreamPlayer — unmount on error so Mux's native error UI is not a second overlay */}
+              {streamUrl && !isPaywallBlocked && status !== 'error' && (
                 <StreamPlayer
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
                   playerRef={playerRef}
-                  onStatusChange={setStatus}
+                  onStatusChange={handlePlayerStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
                   className="absolute inset-0 w-full h-full"
@@ -1336,7 +1348,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           <div className={`bg-black/60 backdrop-blur-md border-b border-white/10 p-4 rounded-t-lg shadow-2xl ${config.headerClassName || ''}`}>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight">{config.title}</h1>
+                <h1
+                  className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight"
+                  data-testid="heading-stream-title"
+                >
+                  {bootstrap?.title?.trim() || config.title}
+                </h1>
                 <div className="flex items-center gap-3">
                   {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
                   {viewerCount.count > 0 && (
@@ -1775,7 +1792,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {status === 'loading' && bootstrap?.streamUrl && (
+              {status === 'loading' && bootstrap?.streamUrl && !mediaReady && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm" data-testid="loading-overlay">
                   <div className="text-center text-white">
                     {/* Animated loading spinner */}
@@ -1788,14 +1805,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* Stream Player - routes to MuxPlayer or VidstackPlayer based on provider */}
-              {streamUrl && !isPaywallBlocked && (
+              {/* Unmount on error so Mux's built-in error chrome is not a second "Unable to Load" */}
+              {streamUrl && !isPaywallBlocked && status !== 'error' && (
                 <StreamPlayer
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
                   playerRef={playerRef}
-                  onStatusChange={setStatus}
+                  onStatusChange={handlePlayerStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
                   className="absolute inset-0 w-full h-full"

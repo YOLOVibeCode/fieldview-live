@@ -13,7 +13,7 @@
  * - Seek controls via SeekOverlay (tap-to-reveal buttons)
  */
 
-import { useRef, useState, useCallback, type ReactNode } from 'react';
+import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import {
   MediaPlayer,
   MediaProvider,
@@ -71,14 +71,19 @@ export function VidstackPlayer({
   const internalRef = useRef<MediaPlayerInstance>(null);
   const playerRef = externalRef ?? internalRef;
   const [isPaused, setIsPaused] = useState(false);
+  const readyRef = useRef(false);
 
-  // Track status changes
+  useEffect(() => {
+    readyRef.current = false;
+  }, [src]);
+
   const handleCanPlay = useCallback(() => {
+    readyRef.current = true;
     onStatusChange?.('playing');
   }, [onStatusChange]);
 
   const handleWaiting = useCallback(() => {
-    onStatusChange?.('loading');
+    if (!readyRef.current) onStatusChange?.('loading');
   }, [onStatusChange]);
 
   const handleError = useCallback(() => {
