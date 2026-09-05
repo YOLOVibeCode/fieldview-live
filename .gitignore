@@ -23,7 +23,8 @@ out/
 # IDE
 .vscode/
 .idea/
-.cursor/
+.cursor/*
+!.cursor/rules/
 
 # TypeScript
 *.tsbuildinfo
