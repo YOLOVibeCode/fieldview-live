@@ -140,6 +140,28 @@ describe('hierarchical DirectStream routes', () => {
     expect(res.body.parentSlug).toBe(PARENT_SLUG);
   });
 
+  it('GET encoded parent/event/bootstrap uses event title, away team, and BYO HLS override', async () => {
+    dsFindUnique.mockResolvedValue(parentStream());
+    evFindUnique.mockResolvedValue({
+      ...eventRecord(),
+      title: 'Twin Cities vs Rivals',
+      scoreboardHomeTeam: 'Twin Cities',
+      scoreboardAwayTeam: 'Rivals',
+      streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    });
+
+    const encodedSlug = `${PARENT_SLUG}%2F${EVENT_SLUG}`;
+    const res = await request(app()).get(`/api/direct/${encodedSlug}/bootstrap`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('Twin Cities vs Rivals');
+    expect(res.body.scoreboardHomeTeam).toBe('Twin Cities');
+    expect(res.body.scoreboardAwayTeam).toBe('Rivals');
+    expect(res.body.streamProvider).toBe('byo_hls');
+    expect(res.body.muxPlaybackId).toBeNull();
+    expect(res.body.streamUrl).toContain('test-streams.mux.dev');
+  });
+
   it('POST parent/event/unlock-admin 404s when the event is missing', async () => {
     dsFindUnique.mockResolvedValue(parentStream());
     evFindUnique.mockResolvedValue(null);
