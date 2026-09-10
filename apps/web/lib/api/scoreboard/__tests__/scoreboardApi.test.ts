@@ -52,11 +52,14 @@ describe('ScoreboardApiClient', () => {
         })
       );
       
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         homeTeam: { name: 'Home', score: 10, color: '#3B82F6' },
         awayTeam: { name: 'Away', score: 8, color: '#EF4444' },
-        period: 'Stopped',
+        period: undefined,
         time: '00:00',
+        clockMode: 'stopped',
+        clockSeconds: 0,
+        clockStartedAt: null,
       });
     });
 
@@ -254,9 +257,8 @@ describe('ScoreboardApiClient', () => {
         expect.objectContaining({
           homeTeam: { name: 'Home', score: 10, color: '#3B82F6' },
           awayTeam: { name: 'Away', score: 8, color: '#EF4444' },
-          period: 'Running',
+          clockMode: 'running',
         }),
-        mockRawData
       );
     });
 
@@ -347,7 +349,7 @@ describe('ScoreboardApiClient', () => {
       const result = await scoreboardApi.fetch('test-slug');
       
       expect(result.time).toBe('02:05');
-      expect(result.period).toBe('Stopped');
+      expect(result.period).toBeUndefined();
     });
 
     it('should calculate live time for running clock', async () => {
@@ -372,35 +374,28 @@ describe('ScoreboardApiClient', () => {
       
       // Should be ~123 seconds (2:03), allowing for small timing variance
       expect(result.time).toMatch(/02:0[23]/);
-      expect(result.period).toBe('Running');
+      expect(result.period).toBeUndefined();
     });
 
-    it('should map clockMode to period text', async () => {
-      const testCases = [
-        { clockMode: 'running', expected: 'Running' },
-        { clockMode: 'paused', expected: 'Paused' },
-        { clockMode: 'stopped', expected: 'Stopped' },
-      ];
+    it('should use periodLabel from API when provided', async () => {
+      const mockResponse = {
+        id: '123',
+        homeTeamName: 'Home',
+        awayTeamName: 'Away',
+        homeScore: 0,
+        awayScore: 0,
+        homeJerseyColor: '#3B82F6',
+        awayJerseyColor: '#EF4444',
+        clockMode: 'running',
+        clockSeconds: 0,
+        clockStartedAt: null,
+        periodLabel: '2nd Half',
+      };
 
-      for (const { clockMode, expected } of testCases) {
-        const mockResponse = {
-          id: '123',
-          homeTeamName: 'Home',
-          awayTeamName: 'Away',
-          homeScore: 0,
-          awayScore: 0,
-          homeJerseyColor: '#3B82F6',
-          awayJerseyColor: '#EF4444',
-          clockMode,
-          clockSeconds: 0,
-          clockStartedAt: null,
-        };
-        
-        mockApiRequest.mockResolvedValue(mockResponse);
-        const result = await scoreboardApi.fetch('test-slug');
-        
-        expect(result.period).toBe(expected);
-      }
+      mockApiRequest.mockResolvedValue(mockResponse);
+      const result = await scoreboardApi.fetch('test-slug');
+
+      expect(result.period).toBe('2nd Half');
     });
 
     it('should handle negative time', async () => {

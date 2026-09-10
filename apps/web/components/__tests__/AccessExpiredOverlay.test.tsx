@@ -91,7 +91,7 @@ describe('AccessExpiredOverlay', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
-      json: async () => ({ message: 'Too many requests' }),
+      json: async () => ({ error: 'Too many requests' }),
     } as Response);
 
     render(<AccessExpiredOverlay streamId="stream-123" />);

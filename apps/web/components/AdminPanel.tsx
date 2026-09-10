@@ -18,7 +18,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ArrowLeftRight, Eye, EyeOff, Lock } from 'lucide-react';
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, ApiError } from '@/lib/api-client';
 import { getUnlockAdminMessage, getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorToast } from '@/components/v2/ErrorToast';
 import { sportRegistry } from '@fieldview/data-model';
@@ -354,16 +354,16 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
         console.log('[AdminPanel] 🔄 Reloading page to show new settings');
         window.location.reload(); // Refresh to show new settings
       }, 1000);
-    } catch (error) {
+    } catch (error: unknown) {
       const errorMessage = getUserFriendlyMessage(error);
       console.error('[AdminPanel] ❌ Save settings error', {
         error,
         errorMessage,
-        errorType: error?.constructor?.name
+        errorType: error instanceof Error ? error.constructor.name : typeof error
       });
       
       // Check for token expiration
-      if (error.status === 401) {
+      if (error instanceof ApiError && error.status === 401) {
         console.error('[AdminPanel] ❌ Token expired (401)');
         setIsUnlocked(false);
         setAdminToken(null);

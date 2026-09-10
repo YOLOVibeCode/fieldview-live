@@ -39,7 +39,10 @@ describe('ResetPasswordPage', () => {
     render(<ResetPasswordPage />);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/password-reset/verify/test-token-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/auth/password-reset/verify/test-token-123',
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
     });
 
     await waitFor(() => {
@@ -51,7 +54,7 @@ describe('ResetPasswordPage', () => {
     const mockFetch = vi.mocked(fetch);
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ message: 'Invalid token' }),
+      json: async () => ({ error: 'Invalid token' }),
     } as Response);
 
     render(<ResetPasswordPage />);

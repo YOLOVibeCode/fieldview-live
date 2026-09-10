@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, ArrowLeftRight, Lock, Play, Pause, RotateCcw, Eye, EyeOff } from 'lucide-react';
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, ApiError } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { scoreboardApi } from '@/lib/api/scoreboard';
@@ -93,9 +93,9 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
       if (data.editMode === 'public') {
         setIsLocked(false);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       // Only set error for real errors, not missing data or network issues
-      if (err.status === 404) {
+      if (err instanceof ApiError && err.status === 404) {
         console.log('[SocialProducerPanel] No scoreboard found, showing empty state');
         setScoreboard(null);
         setError(null);

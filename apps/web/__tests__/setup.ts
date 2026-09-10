@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom';
 
+// Relative API paths in tests match fetch mocks (components use apiRequest → `${API_URL}${endpoint}`).
+process.env.NEXT_PUBLIC_API_URL = '';
+
 // Mock EventSource globally for all tests
 class MockEventSource {
   url: string;
