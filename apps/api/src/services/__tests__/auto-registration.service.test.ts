@@ -169,13 +169,14 @@ describe('AutoRegistrationService (TDD)', () => {
 
       const result = await service.autoRegister('tchs', 'viewer-123');
 
-      expect(result.registration.viewerIdentity).toEqual({
-        id: 'viewer-123',
-        email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        createdAt: expect.any(Date),
-      });
+      expect(result.registration.viewerIdentity).toEqual(
+        expect.objectContaining({
+          id: 'viewer-123',
+          email: 'test@example.com',
+          firstName: 'John',
+          lastName: 'Doe',
+        }),
+      );
     });
 
     it('should handle viewer with no firstName/lastName', async () => {

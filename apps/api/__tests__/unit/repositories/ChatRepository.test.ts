@@ -95,7 +95,12 @@ describe('ChatRepository', () => {
 
       expect(result).toEqual(mockCreated);
       expect(mockPrisma.gameChatMessage.create).toHaveBeenCalledWith({
-        data: messageData,
+        data: {
+          ...messageData,
+          directStreamId: undefined,
+          kind: 'text',
+          metadata: undefined,
+        },
       });
     });
   });

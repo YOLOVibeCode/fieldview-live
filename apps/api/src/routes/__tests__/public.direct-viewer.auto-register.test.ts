@@ -7,6 +7,8 @@ import request from 'supertest';
 import express, { type Express } from 'express';
 import { createDirectViewerRouter } from '../public.direct-viewer';
 import { createAutoRegistrationService } from '../../services/auto-registration.implementations';
+import { errorHandler } from '../../middleware/errorHandler';
+import { NotFoundError } from '../../lib/errors';
 import type { ViewerIdentity, DirectStreamRegistration } from '@prisma/client';
 
 // Mock the auto-registration service
@@ -45,6 +47,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
     app = express();
     app.use(express.json());
     app.use('/api/public', createDirectViewerRouter());
+    app.use(errorHandler);
   });
 
   afterEach(() => {
@@ -69,7 +72,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
 
   it('should return 404 if stream not found', async () => {
     vi.mocked(createAutoRegistrationService).mockReturnValue({
-      autoRegister: vi.fn().mockRejectedValue(new Error('Stream not found: nonexistent')),
+      autoRegister: vi.fn().mockRejectedValue(new NotFoundError('Stream not found: nonexistent')),
     } as any);
 
     const response = await request(app)
@@ -80,12 +83,12 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       });
 
     expect(response.status).toBe(404);
-    expect(response.body.error).toContain('Stream not found');
+    expect(response.body.error.message).toContain('Stream not found');
   });
 
   it('should return 404 if viewer not found', async () => {
     vi.mocked(createAutoRegistrationService).mockReturnValue({
-      autoRegister: vi.fn().mockRejectedValue(new Error('Viewer identity not found: nonexistent')),
+      autoRegister: vi.fn().mockRejectedValue(new NotFoundError('Viewer identity not found: nonexistent')),
     } as any);
 
     const response = await request(app)
@@ -96,7 +99,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       });
 
     expect(response.status).toBe(404);
-    expect(response.body.error).toContain('Viewer identity not found');
+    expect(response.body.error.message).toContain('Viewer identity not found');
   });
 
   it('should return existing registration if already registered', async () => {
@@ -181,7 +184,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       });
 
     expect(response.status).toBe(500);
-    expect(response.body.error).toContain('Auto-registration failed');
+    expect(response.body.error.code).toBe('INTERNAL_ERROR');
   });
 });
 

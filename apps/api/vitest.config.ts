@@ -5,6 +5,15 @@ import { config as dotenvConfig } from 'dotenv';
 // Load environment variables from .env file for tests
 dotenvConfig({ path: resolve(__dirname, '.env') });
 
+const dbIntegrationPatterns = process.env.DATABASE_URL
+  ? []
+  : [
+      'src/repositories/__tests__/**',
+      'src/jobs/__tests__/cleanup.test.ts',
+      '__tests__/services/AbuseDetectionService.test.ts',
+      'src/services/__tests__/DVRService.test.ts',
+    ];
+
 export default defineConfig({
   test: {
     // IMPORTANT: Setting `exclude` overrides Vitest defaults. Include node_modules, build output, etc.
@@ -15,6 +24,7 @@ export default defineConfig({
       '**/coverage/**',
       '**/.next/**',
       '__tests__/live/**',
+      ...dbIntegrationPatterns,
     ],
     coverage: {
       provider: 'v8',

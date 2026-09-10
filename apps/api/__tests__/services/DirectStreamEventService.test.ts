@@ -96,7 +96,7 @@ class MockDirectStreamEventWriter implements IDirectStreamEventWriter {
   
   async create(input: ICreateDirectStreamEventInput) {
     const event: DirectStreamEvent = {
-      id: `event-${Date.now()}`,
+      id: `event-${Date.now()}-${Math.random()}`,
       directStreamId: input.directStreamId,
       eventSlug: input.eventSlug,
       title: input.title,
@@ -278,7 +278,8 @@ describe('DirectStreamEventService', () => {
         eventSlug: 'test',
         title: 'Original Title',
       });
-      
+      reader._setEvent(created);
+
       const updated = await service.updateEvent(created.id, {
         title: 'Updated Title',
       });
@@ -374,9 +375,9 @@ describe('DirectStreamEventService', () => {
   
   describe('listEvents', () => {
     it('should list events by parent', async () => {
-      await writer.create({ directStreamId: 'parent-123', eventSlug: 'event-1', title: 'Event 1' });
-      await writer.create({ directStreamId: 'parent-123', eventSlug: 'event-2', title: 'Event 2' });
-      await writer.create({ directStreamId: 'parent-456', eventSlug: 'event-3', title: 'Event 3' });
+      reader._setEvent(await writer.create({ directStreamId: 'parent-123', eventSlug: 'event-1', title: 'Event 1' }));
+      reader._setEvent(await writer.create({ directStreamId: 'parent-123', eventSlug: 'event-2', title: 'Event 2' }));
+      reader._setEvent(await writer.create({ directStreamId: 'parent-456', eventSlug: 'event-3', title: 'Event 3' }));
       
       const events = await service.listEvents('parent-123');
       
@@ -387,8 +388,11 @@ describe('DirectStreamEventService', () => {
     
     it('should filter by status', async () => {
       const e1 = await writer.create({ directStreamId: 'parent-123', eventSlug: 'active-event', title: 'Active' });
+      reader._setEvent(e1);
       const e2 = await writer.create({ directStreamId: 'parent-123', eventSlug: 'archived-event', title: 'Archived' });
-      await writer.archive(e2.id);
+      reader._setEvent(e2);
+      const archived = await writer.archive(e2.id);
+      reader._setEvent(archived);
       
       const activeEvents = await service.listEvents('parent-123', { status: 'active' });
       expect(activeEvents).toHaveLength(1);
