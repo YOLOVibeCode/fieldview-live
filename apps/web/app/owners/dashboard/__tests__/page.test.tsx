@@ -75,8 +75,9 @@ describe('OwnerDashboardPage', () => {
   ])('shows badge "%s" for the matching status', async (label, mockStatus) => {
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(mockStatus);
     render(<OwnerDashboardPage />);
-    const badge = await screen.findByTestId('status-payments-badge');
-    expect(badge).toHaveTextContent(label);
+    await waitFor(() => {
+      expect(screen.getByTestId('status-payments-badge')).toHaveTextContent(label);
+    });
   });
 
   it('shows success toast when payments_connected=true', async () => {
