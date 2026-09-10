@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { sportRegistry } from '../registry';
+
 import { buildNarration } from '../narration';
+import { sportRegistry } from '../registry';
 
 describe('buildNarration', () => {
   describe('football touchdown', () => {

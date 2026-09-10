@@ -110,7 +110,7 @@ export function NetworkDebugTab({ requests, onClear }: NetworkDebugTabProps) {
                     </div>
                   )}
                 </div>
-                {request.responseBody && (
+                {request.responseBody != null && (
                   <details className="mt-2">
                     <summary className="text-gray-500 cursor-pointer hover:text-gray-300">
                       Response Body

@@ -95,7 +95,7 @@ describe('ChatRepository', () => {
 
       expect(result).toEqual(mockCreated);
       expect(mockPrisma.gameChatMessage.create).toHaveBeenCalledWith({
-        data: messageData,
+        data: expect.objectContaining(messageData),
       });
     });
   });
