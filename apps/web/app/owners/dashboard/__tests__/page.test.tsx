@@ -65,20 +65,18 @@ describe('OwnerDashboardPage', () => {
   });
 
   it.each([
-    ['Not started', status()],
-    ['Agreement needed', status({ connected: true })],
-    ['Connect Square', status({ agreementAccepted: true })],
-    ['Add location', status({ agreementAccepted: true, connected: true })],
-    ['Ready', status({ agreementAccepted: true, connected: true })],
-  ])('shows badge "%s" for the matching status', async (label, mockStatus) => {
+    ['Not started', status(), false],
+    ['Agreement needed', status({ connected: true }), false],
+    ['Connect Square', status({ agreementAccepted: true }), false],
+    ['Add location', status({ agreementAccepted: true, connected: true }), false],
+    ['Ready', status({ agreementAccepted: true, connected: true }), true],
+  ])('shows badge "%s" for the matching status', async (label, mockStatus, locationSaved) => {
+    sessionStorage.clear();
+    if (locationSaved) sessionStorage.setItem('owner_payments_location_saved', '1');
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(mockStatus);
     render(<OwnerDashboardPage />);
     const badge = await screen.findByTestId('status-payments-badge');
-    if (label === 'Ready') {
-      expect(badge).toHaveTextContent('Add location');
-    } else {
-      expect(badge).toHaveTextContent(label);
-    }
+    expect(badge).toHaveTextContent(label);
   });
 
   it('shows success toast when payments_connected=true', async () => {

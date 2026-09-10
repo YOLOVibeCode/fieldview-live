@@ -15,6 +15,8 @@ import {
   getPaymentsReadinessPhase,
   isPaymentsReady,
   isStepComplete,
+  markLocationSavedInSession,
+  readLocationSavedFromSession,
   type PaymentsStep,
 } from '@/lib/owner-payments-readiness';
 
@@ -37,7 +39,7 @@ function PaymentsInner() {
   const [status, setStatus] = useState<OwnerPaymentsStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [locationId, setLocationId] = useState('');
-  const [locationSaved, setLocationSaved] = useState(false);
+  const [locationSaved, setLocationSaved] = useState(readLocationSavedFromSession);
   const [justConnected, setJustConnected] = useState(false);
 
   const fetchStatus = useCallback(async () => {
@@ -113,6 +115,7 @@ function PaymentsInner() {
     setError(null);
     try {
       await apiClient.ownerSetPaymentLocation(token, locationId.trim());
+      markLocationSavedInSession();
       setLocationSaved(true);
       await fetchStatus();
     } catch (e) {

@@ -1,5 +1,18 @@
 import type { OwnerPaymentsStatus } from '@/lib/api-client';
 
+const LOCATION_SAVED_SESSION_KEY = 'owner_payments_location_saved';
+
+export function markLocationSavedInSession(): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem(LOCATION_SAVED_SESSION_KEY, '1');
+  }
+}
+
+export function readLocationSavedFromSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return sessionStorage.getItem(LOCATION_SAVED_SESSION_KEY) === '1';
+}
+
 export type PaymentsReadinessPhase =
   | 'not_started'
   | 'agreement_needed'

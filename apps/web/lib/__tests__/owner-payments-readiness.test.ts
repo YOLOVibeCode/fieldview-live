@@ -7,6 +7,8 @@ import {
   getPaymentsReadinessPhase,
   isPaymentsReady,
   isStepComplete,
+  markLocationSavedInSession,
+  readLocationSavedFromSession,
 } from '@/lib/owner-payments-readiness';
 
 function status(over: Partial<OwnerPaymentsStatus> = {}): OwnerPaymentsStatus {
@@ -64,5 +66,12 @@ describe('owner-payments-readiness', () => {
     expect(isStepComplete(2, connected, false)).toBe(true);
     expect(isStepComplete(3, connected, false)).toBe(false);
     expect(isStepComplete(3, connected, true)).toBe(true);
+  });
+
+  it('persists location saved state in sessionStorage', () => {
+    sessionStorage.clear();
+    expect(readLocationSavedFromSession()).toBe(false);
+    markLocationSavedInSession();
+    expect(readLocationSavedFromSession()).toBe(true);
   });
 });

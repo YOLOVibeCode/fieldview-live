@@ -6,7 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
-import { getPaymentsBadgeLabel, getPaymentsReadinessPhase } from '@/lib/owner-payments-readiness';
+import {
+  getPaymentsBadgeLabel,
+  getPaymentsReadinessPhase,
+  readLocationSavedFromSession,
+} from '@/lib/owner-payments-readiness';
 
 function DashboardInner() {
   const router = useRouter();
@@ -75,8 +79,9 @@ function DashboardInner() {
     );
   }
 
+  const locationSaved = readLocationSavedFromSession();
   const badgeLabel = paymentsStatus
-    ? getPaymentsBadgeLabel(getPaymentsReadinessPhase(paymentsStatus, false))
+    ? getPaymentsBadgeLabel(getPaymentsReadinessPhase(paymentsStatus, locationSaved))
     : 'Not started';
 
   return (
