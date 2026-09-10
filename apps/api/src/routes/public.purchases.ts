@@ -14,6 +14,7 @@ import { BadRequestError, NotFoundError } from '../lib/errors';
 import { getEmailProvider } from '../lib/email';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
+import { buildReceiptStreamUrl } from '../lib/receipt-stream-url';
 import { validateRequest } from '../middleware/validation';
 import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
@@ -177,12 +178,13 @@ function getHandlers(): PublicPurchaseHandlers {
           });
 
           if (relayViewer?.email) {
+            const streamUrl = await buildReceiptStreamUrl(purchase, entitlement.tokenId);
             await receiptService.sendPurchaseReceipt({
               to: relayViewer.email,
               purchaseId,
               amountCents: purchase.amountCents,
               currency: purchase.currency || 'USD',
-              streamUrl: `${APP_URL}/stream/${entitlement.tokenId}`,
+              streamUrl,
             });
           }
 
@@ -389,12 +391,13 @@ function getHandlers(): PublicPurchaseHandlers {
         // Send receipt email (best-effort)
         const viewerEmail = viewer?.email || null;
         if (viewerEmail) {
+          const streamUrl = await buildReceiptStreamUrl(purchase, entitlement.tokenId);
           await receiptService.sendPurchaseReceipt({
             to: viewerEmail,
             purchaseId,
             amountCents: purchase.amountCents,
             currency: purchase.currency || 'USD',
-            streamUrl: `${APP_URL}/stream/${entitlement.tokenId}`,
+            streamUrl,
           });
         }
 

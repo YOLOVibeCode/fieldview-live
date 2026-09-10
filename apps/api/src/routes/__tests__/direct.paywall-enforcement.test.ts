@@ -19,6 +19,7 @@ vi.mock('../../lib/prisma', () => ({
     directStreamEvent: { findUnique: vi.fn() },
     viewerIdentity: { findUnique: vi.fn() },
     entitlement: { findFirst: vi.fn() },
+    ownerAccount: { findUnique: vi.fn() },
   },
 }));
 
@@ -53,9 +54,28 @@ function app(): Express {
 const dsFindUnique = prisma.directStream.findUnique as unknown as ReturnType<typeof vi.fn>;
 const viewerFindUnique = prisma.viewerIdentity.findUnique as unknown as ReturnType<typeof vi.fn>;
 const entFindFirst = prisma.entitlement.findFirst as unknown as ReturnType<typeof vi.fn>;
+const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<typeof vi.fn>;
+
+const unreadyOwner = {
+  relayRecipientKey: null,
+  agreementAcceptedVersion: null,
+  squareLocationId: null,
+  squareAccessTokenEncrypted: null,
+  squareTokenExpiresAt: null,
+};
+
+const relayReadyOwner = {
+  relayRecipientKey: 'owner-1',
+  agreementAcceptedVersion: 'v1',
+  squareLocationId: 'LOC1',
+  squareAccessTokenEncrypted: null,
+  squareTokenExpiresAt: null,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  ownerFindUnique.mockResolvedValue(unreadyOwner);
 });
 
 describe('GET /api/direct/:slug/bootstrap — paywall URL gating', () => {
@@ -110,6 +130,35 @@ describe('GET /api/direct/:slug/bootstrap — paywall URL gating', () => {
     expect(res.body.streamLocked).toBe(true);
     expect(res.body.streamUrl).toBeNull();
     expect(res.body.muxPlaybackId).toBeNull();
+  });
+
+  it('returns paymentsReady true when paywall is off', async () => {
+    dsFindUnique.mockResolvedValue(paywalledStream({ paywallEnabled: false }));
+
+    const res = await request(app()).get('/api/direct/paid-stream/bootstrap');
+
+    expect(res.status).toBe(200);
+    expect(res.body.paymentsReady).toBe(true);
+  });
+
+  it('returns paymentsReady false when paywall on and owner not connected', async () => {
+    dsFindUnique.mockResolvedValue(paywalledStream());
+    ownerFindUnique.mockResolvedValue(unreadyOwner);
+
+    const res = await request(app()).get('/api/direct/paid-stream/bootstrap');
+
+    expect(res.status).toBe(200);
+    expect(res.body.paymentsReady).toBe(false);
+  });
+
+  it('returns paymentsReady true when paywall on and owner is relay-ready', async () => {
+    dsFindUnique.mockResolvedValue(paywalledStream());
+    ownerFindUnique.mockResolvedValue(relayReadyOwner);
+
+    const res = await request(app()).get('/api/direct/paid-stream/bootstrap');
+
+    expect(res.status).toBe(200);
+    expect(res.body.paymentsReady).toBe(true);
   });
 });
 
