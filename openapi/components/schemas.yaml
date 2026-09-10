@@ -281,6 +281,10 @@ components:
         entitlementToken:
           type: string
           description: Present when a valid entitlement exists for this purchase.
+        watchUrl:
+          type: string
+          format: uri
+          description: Watch link for this purchase (`/direct/{slug}` for DirectStream, `/stream/{token}` for games).
 
     # Admin Auth
     AdminLoginRequest:

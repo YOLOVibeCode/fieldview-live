@@ -36,6 +36,7 @@ type Status = {
   agreementVersion: string | null;
   connected: boolean;
   connectedAt: string | null;
+  locationId: string | null;
 };
 
 const status = (over: Partial<Status> = {}): Status => ({
@@ -45,6 +46,7 @@ const status = (over: Partial<Status> = {}): Status => ({
   agreementVersion: null,
   connected: false,
   connectedAt: null,
+  locationId: null,
   ...over,
 });
 
@@ -65,14 +67,12 @@ describe('OwnerDashboardPage', () => {
   });
 
   it.each([
-    ['Not started', status(), false],
-    ['Agreement needed', status({ connected: true }), false],
-    ['Connect Square', status({ agreementAccepted: true }), false],
-    ['Add location', status({ agreementAccepted: true, connected: true }), false],
-    ['Ready', status({ agreementAccepted: true, connected: true }), true],
-  ])('shows badge "%s" for the matching status', async (label, mockStatus, locationSaved) => {
-    sessionStorage.clear();
-    if (locationSaved) sessionStorage.setItem('owner_payments_location_saved', '1');
+    ['Not started', status()],
+    ['Agreement needed', status({ connected: true })],
+    ['Connect Square', status({ agreementAccepted: true })],
+    ['Add location', status({ agreementAccepted: true, connected: true })],
+    ['Ready', status({ agreementAccepted: true, connected: true, locationId: 'LOC1' })],
+  ])('shows badge "%s" for the matching status', async (label, mockStatus) => {
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(mockStatus);
     render(<OwnerDashboardPage />);
     const badge = await screen.findByTestId('status-payments-badge');

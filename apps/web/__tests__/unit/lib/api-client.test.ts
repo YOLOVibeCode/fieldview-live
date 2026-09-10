@@ -81,6 +81,7 @@ describe('api-client', () => {
         agreementVersion: 'v1',
         connected: true,
         connectedAt: '2026-07-20T00:00:00Z',
+        locationId: 'LOC1',
       }),
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -95,6 +96,7 @@ describe('api-client', () => {
     expect(init?.headers?.Authorization).toBe('Bearer owner_token_abc');
     expect(result.connected).toBe(true);
     expect(result.merchantId).toBe('ML1');
+    expect(result.locationId).toBe('LOC1');
   });
 
   it('ownerPaymentsConnect POSTs and returns the authorize URL', async () => {
