@@ -31,7 +31,7 @@ export class BookmarkRepository implements IBookmarkReader, IBookmarkWriter {
         timestampSeconds: data.timestampSeconds,
         label: data.label,
         notes: data.notes,
-        isShared: data.isShared ?? true,
+        isShared: data.isShared ?? false,
         bufferSeconds: data.bufferSeconds ?? 5,
       },
     });
