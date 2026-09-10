@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { extractDirectStreamSlug, parseDirectStreamReturnPath } from '@/lib/checkout-return';
+import { extractDirectStreamSlug, parseDirectStreamReturnPath, watchPathFromPurchaseStatus } from '@/lib/checkout-return';
 
 describe('checkout-return', () => {
   it('parses absolute direct stream return URLs', () => {
@@ -22,5 +22,20 @@ describe('checkout-return', () => {
   it('returns null for invalid return URLs', () => {
     expect(parseDirectStreamReturnPath('/checkout/foo')).toBeNull();
     expect(extractDirectStreamSlug('')).toBeNull();
+  });
+});
+
+describe('watchPathFromPurchaseStatus', () => {
+  it('uses /direct/{slug} from an absolute watchUrl', () => {
+    expect(
+      watchPathFromPurchaseStatus({
+        watchUrl: 'https://fieldview.live/direct/paid-stream',
+        entitlementToken: 'tok',
+      }),
+    ).toBe('/direct/paid-stream');
+  });
+
+  it('falls back to /stream/{token} for game purchases', () => {
+    expect(watchPathFromPurchaseStatus({ entitlementToken: 'tok' })).toBe('/stream/tok');
   });
 });

@@ -4,20 +4,19 @@
 
 import { prisma } from './prisma';
 
-const APP_URL = process.env.APP_URL || 'https://fieldview.live';
-
 export async function buildReceiptStreamUrl(
   purchase: { directStreamId?: string | null; gameId?: string | null },
   entitlementToken: string,
 ): Promise<string> {
+  const appUrl = (process.env.APP_URL || 'https://fieldview.live').replace(/\/$/, '');
   if (purchase.directStreamId) {
     const directStream = await prisma.directStream.findUnique({
       where: { id: purchase.directStreamId },
       select: { slug: true },
     });
     if (directStream?.slug) {
-      return `${APP_URL}/direct/${directStream.slug}`;
+      return `${appUrl}/direct/${directStream.slug}`;
     }
   }
-  return `${APP_URL}/stream/${entitlementToken}`;
+  return `${appUrl}/stream/${entitlementToken}`;
 }

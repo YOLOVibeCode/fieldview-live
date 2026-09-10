@@ -9,7 +9,6 @@ import { apiClient, type OwnerEarningsTotals, type OwnerPaymentsStatus } from '@
 import {
   getPaymentsBadgeLabel,
   getPaymentsReadinessPhase,
-  readLocationSavedFromSession,
 } from '@/lib/owner-payments-readiness';
 
 function formatCurrency(cents: number, currency = 'USD'): string {
@@ -102,9 +101,8 @@ function DashboardInner() {
     );
   }
 
-  const locationSaved = readLocationSavedFromSession();
   const badgeLabel = paymentsStatus
-    ? getPaymentsBadgeLabel(getPaymentsReadinessPhase(paymentsStatus, locationSaved))
+    ? getPaymentsBadgeLabel(getPaymentsReadinessPhase(paymentsStatus))
     : 'Not started';
 
   return (

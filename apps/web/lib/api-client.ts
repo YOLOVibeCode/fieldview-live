@@ -165,6 +165,7 @@ export interface OwnerPaymentsStatus {
   agreementVersion: string | null;
   connected: boolean;
   connectedAt: string | null;
+  locationId: string | null;
 }
 
 export interface OwnerPurchaseEarnings {
@@ -241,6 +242,7 @@ export interface PurchaseStatusResponse {
   purchaseId: string;
   status: 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   entitlementToken?: string;
+  watchUrl?: string;
 }
 
 export interface Purchase {

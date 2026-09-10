@@ -31,12 +31,14 @@ describe('Public Purchases Routes', () => {
         purchaseId: 'purchase-1',
         status: 'paid',
         entitlementToken: 'token-123',
+        watchUrl: 'https://fieldview.live/direct/paid-stream',
       });
 
       const response = await request.get('/api/public/purchases/purchase-1/status').expect(200);
       expect(response.body.purchaseId).toBe('purchase-1');
       expect(response.body.status).toBe('paid');
       expect(response.body.entitlementToken).toBe('token-123');
+      expect(response.body.watchUrl).toBe('https://fieldview.live/direct/paid-stream');
       expect(mockHandlers.getStatus).toHaveBeenCalledWith('purchase-1');
     });
 
