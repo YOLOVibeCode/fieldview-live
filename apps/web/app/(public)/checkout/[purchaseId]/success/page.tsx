@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api-client';
 import { dataEventBus, DataEvents } from '@/lib/event-bus';
+import { watchPathFromPurchaseStatus } from '@/lib/checkout-return';
 
 export default function CheckoutSuccessPage() {
   const params = useParams();
@@ -13,6 +14,7 @@ export default function CheckoutSuccessPage() {
   const purchaseId = params.purchaseId as string;
 
   const [entitlementToken, setEntitlementToken] = useState<string | null>(null);
+  const [watchPath, setWatchPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export default function CheckoutSuccessPage() {
         const data = await apiClient.getPurchaseStatus(purchaseId);
         if (data.status === 'paid' && data.entitlementToken) {
           setEntitlementToken(data.entitlementToken);
+          setWatchPath(watchPathFromPurchaseStatus(data));
           dataEventBus.emit(DataEvents.PURCHASE_COMPLETED, {
             purchaseId,
             entitlementToken: data.entitlementToken,
@@ -96,12 +99,13 @@ export default function CheckoutSuccessPage() {
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-3 pt-2">
-          {entitlementToken && (
+          {entitlementToken && watchPath && (
             <Button
               className="w-full text-base sm:text-lg py-3"
               size="lg"
-              onClick={() => router.push(`/stream/${entitlementToken}`)}
+              onClick={() => router.push(watchPath)}
               aria-label="Watch stream"
+              data-testid="btn-watch-stream"
             >
               Watch Stream
             </Button>

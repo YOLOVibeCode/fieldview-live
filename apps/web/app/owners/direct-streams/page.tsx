@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { sportRegistry } from '@fieldview/data-model';
 import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
-import { isPaymentsReady, readLocationSavedFromSession } from '@/lib/owner-payments-readiness';
+import { isPaymentsReady } from '@/lib/owner-payments-readiness';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -92,7 +92,6 @@ export default function OwnerDirectStreamsPage() {
   const [editListed, setEditListed] = useState(true);
   const [saving, setSaving] = useState(false);
   const [paymentsStatus, setPaymentsStatus] = useState<OwnerPaymentsStatus | null>(null);
-  const [locationSaved] = useState(readLocationSavedFromSession);
   const [paymentsNotConnectedError, setPaymentsNotConnectedError] = useState<string | null>(null);
 
   // Create drawer
@@ -152,7 +151,7 @@ export default function OwnerDirectStreamsPage() {
     }
   }, [authenticated, fetchStreams, fetchPaymentsStatus]);
 
-  const paymentsReady = paymentsStatus ? isPaymentsReady(paymentsStatus, locationSaved) : false;
+  const paymentsReady = paymentsStatus ? isPaymentsReady(paymentsStatus) : false;
 
   function startEdit(s: DirectStream) {
     if (editingId === s.id) { setEditingId(null); return; }

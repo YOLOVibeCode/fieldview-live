@@ -40,6 +40,7 @@ type Status = {
   agreementVersion: string | null;
   connected: boolean;
   connectedAt: string | null;
+  locationId: string | null;
 };
 
 const status = (over: Partial<Status> = {}): Status => ({
@@ -49,6 +50,7 @@ const status = (over: Partial<Status> = {}): Status => ({
   agreementVersion: 'v1',
   connected: false,
   connectedAt: null,
+  locationId: null,
   ...over,
 });
 

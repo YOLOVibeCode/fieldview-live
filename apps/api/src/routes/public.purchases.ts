@@ -31,7 +31,12 @@ const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 
 interface PublicPurchaseHandlers {
   get(purchaseId: string): Promise<{ id: string; amountCents: number; currency: string; status: string }>;
-  getStatus(purchaseId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;
+  getStatus(purchaseId: string): Promise<{
+    purchaseId: string;
+    status: string;
+    entitlementToken?: string;
+    watchUrl?: string;
+  }>;
   processPayment(purchaseId: string, sourceId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;
 }
 
@@ -75,10 +80,15 @@ function getHandlers(): PublicPurchaseHandlers {
           throw new NotFoundError('Purchase not found');
         }
         const entitlement = await entitlementRepo.getByPurchaseId(purchaseId);
+        const entitlementToken = entitlement?.tokenId;
+        const watchUrl = entitlementToken
+          ? await buildReceiptStreamUrl(purchase, entitlementToken)
+          : undefined;
         return {
           purchaseId,
           status: purchase.status,
-          entitlementToken: entitlement?.tokenId,
+          entitlementToken,
+          watchUrl,
         };
       },
 

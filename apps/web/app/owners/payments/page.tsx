@@ -15,8 +15,6 @@ import {
   getPaymentsReadinessPhase,
   isPaymentsReady,
   isStepComplete,
-  markLocationSavedInSession,
-  readLocationSavedFromSession,
   type PaymentsStep,
 } from '@/lib/owner-payments-readiness';
 
@@ -39,7 +37,7 @@ function PaymentsInner() {
   const [status, setStatus] = useState<OwnerPaymentsStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [locationId, setLocationId] = useState('');
-  const [locationSaved, setLocationSaved] = useState(readLocationSavedFromSession);
+  const [locationSavedOptimistic, setLocationSavedOptimistic] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
 
   const fetchStatus = useCallback(async () => {
@@ -48,7 +46,9 @@ function PaymentsInner() {
     setLoading(true);
     setError(null);
     try {
-      setStatus(await apiClient.ownerPaymentsStatus(token));
+      const next = await apiClient.ownerPaymentsStatus(token);
+      setStatus(next);
+      if (next.locationId) setLocationId(next.locationId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load payments status');
     } finally {
@@ -115,8 +115,7 @@ function PaymentsInner() {
     setError(null);
     try {
       await apiClient.ownerSetPaymentLocation(token, locationId.trim());
-      markLocationSavedInSession();
-      setLocationSaved(true);
+      setLocationSavedOptimistic(true);
       await fetchStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save location');
@@ -139,9 +138,10 @@ function PaymentsInner() {
     );
   }
 
-  const phase = status ? getPaymentsReadinessPhase(status, locationSaved) : null;
-  const activeStep = status ? getActiveStep(status, locationSaved) : 1;
-  const ready = status ? isPaymentsReady(status, locationSaved) : false;
+  const locationSaved = Boolean(status?.locationId?.trim()) || locationSavedOptimistic;
+  const phase = status ? getPaymentsReadinessPhase(status, locationSavedOptimistic) : null;
+  const activeStep = status ? getActiveStep(status, locationSavedOptimistic) : 1;
+  const ready = status ? isPaymentsReady(status, locationSavedOptimistic) : false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -202,7 +202,7 @@ function PaymentsInner() {
 
             <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3" aria-label="Payment setup steps">
               {([1, 2, 3] as PaymentsStep[]).map((step) => {
-                const complete = isStepComplete(step, status, locationSaved);
+                const complete = isStepComplete(step, status, locationSavedOptimistic);
                 const active = activeStep === step;
                 const stepId =
                   step === 1 ? 'step-agreement' : step === 2 ? 'step-connect' : 'step-location';
