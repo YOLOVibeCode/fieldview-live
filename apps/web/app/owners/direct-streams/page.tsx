@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { sportRegistry } from '@fieldview/data-model';
+import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
+import { isPaymentsReady, readLocationSavedFromSession } from '@/lib/owner-payments-readiness';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -57,8 +59,14 @@ async function ownerApi<TResponse>(
   });
 
   if (!res.ok) {
-    const json = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(json?.error?.message || `Request failed (${res.status})`);
+    const json = (await res.json().catch(() => null)) as {
+      error?: { code?: string; message?: string };
+    } | null;
+    const err = new Error(json?.error?.message || `Request failed (${res.status})`) as Error & {
+      code?: string;
+    };
+    err.code = json?.error?.code;
+    throw err;
   }
 
   return (await res.json()) as TResponse;
@@ -83,6 +91,9 @@ export default function OwnerDirectStreamsPage() {
   const [editPrice, setEditPrice] = useState(0);
   const [editListed, setEditListed] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [paymentsStatus, setPaymentsStatus] = useState<OwnerPaymentsStatus | null>(null);
+  const [locationSaved] = useState(readLocationSavedFromSession);
+  const [paymentsNotConnectedError, setPaymentsNotConnectedError] = useState<string | null>(null);
 
   // Create drawer
   const [showCreate, setShowCreate] = useState(false);
@@ -124,9 +135,24 @@ export default function OwnerDirectStreamsPage() {
     setAuthenticated(true);
   }, [router]);
 
+  const fetchPaymentsStatus = useCallback(async () => {
+    const token = localStorage.getItem('owner_token');
+    if (!token) return;
+    try {
+      setPaymentsStatus(await apiClient.ownerPaymentsStatus(token));
+    } catch {
+      setPaymentsStatus(null);
+    }
+  }, []);
+
   useEffect(() => {
-    if (authenticated) fetchStreams();
-  }, [authenticated, fetchStreams]);
+    if (authenticated) {
+      void fetchStreams();
+      void fetchPaymentsStatus();
+    }
+  }, [authenticated, fetchStreams, fetchPaymentsStatus]);
+
+  const paymentsReady = paymentsStatus ? isPaymentsReady(paymentsStatus, locationSaved) : false;
 
   function startEdit(s: DirectStream) {
     if (editingId === s.id) { setEditingId(null); return; }
@@ -147,6 +173,7 @@ export default function OwnerDirectStreamsPage() {
     if (!token) return;
     setSaving(true);
     setError(null);
+    setPaymentsNotConnectedError(null);
     try {
       await ownerApi(`/api/owners/direct-streams/${editingId}`, token, {
         method: 'PATCH',
@@ -164,7 +191,12 @@ export default function OwnerDirectStreamsPage() {
       setEditingId(null);
       await fetchStreams();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update stream');
+      const err = e as Error & { code?: string };
+      if (err.code === 'PAYMENTS_NOT_CONNECTED') {
+        setPaymentsNotConnectedError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to update stream');
+      }
     } finally {
       setSaving(false);
     }
@@ -396,14 +428,48 @@ export default function OwnerDirectStreamsPage() {
                                   <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label>Price (cents)</Label>
-                                  <Input type="number" min={0} value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} />
+                                  <Label htmlFor={`price-${s.id}`}>Price (cents)</Label>
+                                  <Input
+                                    id={`price-${s.id}`}
+                                    type="number"
+                                    min={0}
+                                    value={editPrice}
+                                    onChange={(e) => setEditPrice(Number(e.target.value))}
+                                    disabled={!paymentsReady}
+                                    data-testid="input-price-cents"
+                                  />
                                 </div>
                                 <div className="space-y-3 pt-2">
                                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editChat} onChange={(e) => setEditChat(e.target.checked)} /> Chat</label>
                                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editScoreboard} onChange={(e) => setEditScoreboard(e.target.checked)} /> Scoreboard</label>
-                                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editPaywall} onChange={(e) => setEditPaywall(e.target.checked)} /> Paywall</label>
+                                  <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                      type="checkbox"
+                                      checked={editPaywall}
+                                      onChange={(e) => setEditPaywall(e.target.checked)}
+                                      disabled={!paymentsReady}
+                                      data-testid="checkbox-paywall"
+                                    />
+                                    Paywall
+                                  </label>
                                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editListed} onChange={(e) => setEditListed(e.target.checked)} /> Listed</label>
+                                  {!paymentsReady && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Connect payments first{' '}
+                                      <a href="/owners/payments" className="text-primary underline" data-testid="hint-connect-payments">
+                                        Set up payments
+                                      </a>
+                                    </p>
+                                  )}
+                                  {paymentsNotConnectedError && (
+                                    <p
+                                      role="alert"
+                                      data-testid="error-payments-not-connected"
+                                      className="text-xs text-red-600"
+                                    >
+                                      {paymentsNotConnectedError}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex gap-2 mt-4">
