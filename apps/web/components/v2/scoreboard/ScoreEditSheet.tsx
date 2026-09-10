@@ -133,7 +133,7 @@ export function ScoreEditSheet({
         {/* Quick Increment Buttons */}
         <div className="flex justify-center gap-3">
           <TouchButton
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={() => handleIncrement(1)}
             className="min-w-[80px]"
@@ -141,7 +141,7 @@ export function ScoreEditSheet({
             +1
           </TouchButton>
           <TouchButton
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={() => handleIncrement(2)}
             className="min-w-[80px]"
@@ -149,7 +149,7 @@ export function ScoreEditSheet({
             +2
           </TouchButton>
           <TouchButton
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={() => handleIncrement(3)}
             className="min-w-[80px]"

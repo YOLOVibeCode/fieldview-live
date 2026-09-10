@@ -18,7 +18,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ArrowLeftRight, Eye, EyeOff, Lock } from 'lucide-react';
-import { apiRequest } from '@/lib/api-client';
+import { ApiError, apiRequest } from '@/lib/api-client';
 import { getUnlockAdminMessage, getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorToast } from '@/components/v2/ErrorToast';
 import { sportRegistry } from '@fieldview/data-model';
@@ -363,7 +363,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
       });
       
       // Check for token expiration
-      if (error.status === 401) {
+      if (error instanceof ApiError && error.status === 401) {
         console.error('[AdminPanel] ❌ Token expired (401)');
         setIsUnlocked(false);
         setAdminToken(null);

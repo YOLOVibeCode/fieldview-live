@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ScoreDeltaCalculator } from '../scoreDelta';
+
 import { sportRegistry } from '../registry';
+import { ScoreDeltaCalculator } from '../scoreDelta';
 
 const calc = new ScoreDeltaCalculator();
 
