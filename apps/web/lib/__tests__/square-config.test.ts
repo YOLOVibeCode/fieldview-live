@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-import { resolveSquareConfig } from '@/lib/square-config';
+import { isSquareConfigReady, resolveSquareConfig } from '@/lib/square-config';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -12,6 +12,7 @@ describe('resolveSquareConfig', () => {
     vi.stubEnv('NEXT_PUBLIC_SQUARE_LOCATION_ID', 'legacy-loc');
     vi.stubEnv('NEXT_PUBLIC_SQUARE_ENVIRONMENT', 'sandbox');
     expect(resolveSquareConfig(null)).toEqual({
+      ok: true,
       applicationId: 'legacy-app',
       locationId: 'legacy-loc',
       environment: 'sandbox',
@@ -23,14 +24,23 @@ describe('resolveSquareConfig', () => {
     vi.stubEnv('NEXT_PUBLIC_SQUARE_APPLICATION_ID', 'legacy-app');
     vi.stubEnv('NEXT_PUBLIC_SQUARE_LOCATION_ID', 'legacy-loc');
     const r = resolveSquareConfig({ provider: 'legacy' });
-    expect(r.applicationId).toBe('legacy-app');
-    expect(r.locationId).toBe('legacy-loc');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.applicationId).toBe('legacy-app');
+      expect(r.locationId).toBe('legacy-loc');
+    }
   });
 
   it('uses relay values + production SDK url when provider is relay', () => {
     expect(
-      resolveSquareConfig({ provider: 'relay', applicationId: 'relay-app', environment: 'production', locationId: 'relay-loc' }),
+      resolveSquareConfig({
+        provider: 'relay',
+        applicationId: 'relay-app',
+        environment: 'production',
+        locationId: 'relay-loc',
+      }),
     ).toEqual({
+      ok: true,
       applicationId: 'relay-app',
       locationId: 'relay-loc',
       environment: 'production',
@@ -38,16 +48,49 @@ describe('resolveSquareConfig', () => {
     });
   });
 
-  it('falls back locationId to NEXT_PUBLIC when the relay returns a null location', () => {
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_LOCATION_ID', 'legacy-loc');
-    const r = resolveSquareConfig({ provider: 'relay', applicationId: 'relay-app', environment: 'sandbox', locationId: null });
-    expect(r.applicationId).toBe('relay-app');
-    expect(r.locationId).toBe('legacy-loc');
-    expect(r.sdkUrl).toContain('sandbox.web.squarecdn.com');
+  it('blocks when relay returns a null coach location', () => {
+    expect(
+      resolveSquareConfig({
+        provider: 'relay',
+        applicationId: 'relay-app',
+        environment: 'sandbox',
+        locationId: null,
+      }),
+    ).toEqual({ ok: false, reason: 'COACH_LOCATION_MISSING' });
+  });
+
+  it('blocks when relay returns an empty coach location', () => {
+    expect(
+      resolveSquareConfig({
+        provider: 'relay',
+        applicationId: 'relay-app',
+        environment: 'sandbox',
+        locationId: '  ',
+      }),
+    ).toEqual({ ok: false, reason: 'COACH_LOCATION_MISSING' });
   });
 
   it('treats relay-without-applicationId as legacy', () => {
     vi.stubEnv('NEXT_PUBLIC_SQUARE_APPLICATION_ID', 'legacy-app');
-    expect(resolveSquareConfig({ provider: 'relay' }).applicationId).toBe('legacy-app');
+    const r = resolveSquareConfig({ provider: 'relay' });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.applicationId).toBe('legacy-app');
+    }
+  });
+});
+
+describe('isSquareConfigReady', () => {
+  it('narrows to success config', () => {
+    const resolved = resolveSquareConfig({
+      provider: 'relay',
+      applicationId: 'relay-app',
+      environment: 'sandbox',
+      locationId: 'loc',
+    });
+    expect(isSquareConfigReady(resolved)).toBe(true);
+    if (isSquareConfigReady(resolved)) {
+      expect(resolved.applicationId).toBe('relay-app');
+    }
   });
 });

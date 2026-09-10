@@ -143,6 +143,8 @@ export interface Bootstrap {
   priceInCents?: number;
   paywallMessage?: string | null;
   allowSavePayment?: boolean;
+  /** When false, viewer cannot pay yet (coach setup incomplete). Undefined means ready. */
+  paymentsReady?: boolean;
   scoreboardEnabled?: boolean;
   scoreboardHomeTeam?: string | null;
   scoreboardAwayTeam?: string | null;
@@ -1296,6 +1298,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             priceInCents={bootstrap.priceInCents || 0}
             paywallMessage={bootstrap.paywallMessage}
             allowSavePayment={bootstrap.allowSavePayment}
+            paymentsReady={bootstrap.paymentsReady}
           />
         )}
 
@@ -1619,6 +1622,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               priceInCents={bootstrap.priceInCents || 0}
               paywallMessage={bootstrap.paywallMessage}
               allowSavePayment={bootstrap.allowSavePayment}
+              paymentsReady={bootstrap.paymentsReady}
             />
           )}
 
@@ -1653,14 +1657,24 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     <p className="text-xl font-bold text-amber-400 mb-6">
                       ${((bootstrap.priceInCents || 0) / 100).toFixed(2)}
                     </p>
-                    <TouchButton
-                      onClick={paywall.openPaywall}
-                      variant="primary"
-                      className="bg-amber-500 hover:bg-amber-600 shadow-2xl shadow-amber-500/20 hover:shadow-amber-500/40 transition-shadow"
-                      data-testid="btn-unlock-stream"
-                    >
-                      Unlock Stream
-                    </TouchButton>
+                    {bootstrap.paymentsReady === false ? (
+                      <p
+                        data-testid="error-payments-unavailable"
+                        className="text-sm text-amber-200/90"
+                        role="alert"
+                      >
+                        Payments not yet available for this stream
+                      </p>
+                    ) : (
+                      <TouchButton
+                        onClick={paywall.openPaywall}
+                        variant="primary"
+                        className="bg-amber-500 hover:bg-amber-600 shadow-2xl shadow-amber-500/20 hover:shadow-amber-500/40 transition-shadow"
+                        data-testid="btn-unlock-stream"
+                      >
+                        Unlock Stream
+                      </TouchButton>
+                    )}
                   </div>
                 </div>
               )}
