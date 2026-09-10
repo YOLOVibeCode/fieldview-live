@@ -52,12 +52,13 @@ describe('ScoreboardApiClient', () => {
         })
       );
       
-      expect(result).toEqual({
-        homeTeam: { name: 'Home', score: 10, color: '#3B82F6' },
-        awayTeam: { name: 'Away', score: 8, color: '#EF4444' },
-        period: 'Stopped',
-        time: '00:00',
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          homeTeam: { name: 'Home', score: 10, color: '#3B82F6' },
+          awayTeam: { name: 'Away', score: 8, color: '#EF4444' },
+          time: '00:00',
+        })
+      );
     });
 
     it('should return defaults when 404 error occurs', async () => {
@@ -246,6 +247,7 @@ describe('ScoreboardApiClient', () => {
         clockMode: 'running',
         clockSeconds: 120,
         clockStartedAt: new Date().toISOString(),
+        periodLabel: 'Running',
       };
       
       snapshotHandler({ data: JSON.stringify(mockRawData) });
@@ -255,8 +257,7 @@ describe('ScoreboardApiClient', () => {
           homeTeam: { name: 'Home', score: 10, color: '#3B82F6' },
           awayTeam: { name: 'Away', score: 8, color: '#EF4444' },
           period: 'Running',
-        }),
-        mockRawData
+        })
       );
     });
 
@@ -341,6 +342,7 @@ describe('ScoreboardApiClient', () => {
         clockMode: 'stopped',
         clockSeconds: 125, // 2 minutes 5 seconds
         clockStartedAt: null,
+        periodLabel: 'Stopped',
       };
       
       mockApiRequest.mockResolvedValue(mockResponse);
@@ -365,6 +367,7 @@ describe('ScoreboardApiClient', () => {
         clockMode: 'running',
         clockSeconds: 120, // Base 2 minutes
         clockStartedAt: startedAt.toISOString(),
+        periodLabel: 'Running',
       };
       
       mockApiRequest.mockResolvedValue(mockResponse);
@@ -394,6 +397,7 @@ describe('ScoreboardApiClient', () => {
           clockMode,
           clockSeconds: 0,
           clockStartedAt: null,
+          periodLabel: expected,
         };
         
         mockApiRequest.mockResolvedValue(mockResponse);

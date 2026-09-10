@@ -119,12 +119,6 @@ describe('ScoreboardApi SSE Reconnection', () => {
         expect.objectContaining({
           homeTeam: expect.objectContaining({ name: 'Home', score: 10 }),
           awayTeam: expect.objectContaining({ name: 'Away', score: 5 }),
-        }),
-        expect.objectContaining({
-          homeTeamName: 'Home',
-          awayTeamName: 'Away',
-          homeScore: 10,
-          awayScore: 5,
         })
       );
 

@@ -133,6 +133,8 @@ function ChatMessageForm({ chat }: { chat: { sendMessage: (text: string) => Prom
 
 export interface Bootstrap {
   slug: string;
+  directStreamId?: string;
+  parentSlug?: string;
   gameId: string | null;
   streamUrl: string | null;
   /** True when the server withheld streamUrl because this paywalled stream is not yet entitled. */
@@ -1202,7 +1204,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             showGuestNamePrompt ? (
               <div className="flex-1 flex items-center justify-center p-4">
                 <GuestNamePrompt 
-                  slug={bootstrap.slug} 
+                  slug={bootstrap?.slug ?? ''} 
                   onSubmit={handleGuestNameSubmit}
                   data-testid="guest-name-prompt-portrait"
                 />
