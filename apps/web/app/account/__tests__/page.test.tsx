@@ -201,7 +201,8 @@ describe('Account Page', () => {
         if (typeof url === 'string' && url.includes('/viewer/') && opts?.method === 'PATCH') {
           return Promise.resolve({
             ok: false,
-            json: () => Promise.resolve({ error: 'Server error' }),
+            json: () =>
+              Promise.resolve({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } }),
           });
         }
         if (typeof url === 'string' && url.includes('/subscriptions')) {
@@ -231,7 +232,9 @@ describe('Account Page', () => {
       await user.type(firstNameInput, 'Janet');
       await user.click(screen.getByTestId('btn-save-profile'));
       await waitFor(() => expect(screen.getByTestId('error-profile')).toBeInTheDocument());
-      expect(screen.getByTestId('error-profile')).toHaveTextContent('Server error');
+      expect(screen.getByTestId('error-profile')).toHaveTextContent(
+        'Something went wrong on our end. Please try again.'
+      );
     });
   });
 

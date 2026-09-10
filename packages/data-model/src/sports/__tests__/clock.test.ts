@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
+
 import { seedClockSeconds, resolveClockSeconds, formatClock } from '../clock';
-import { footballConfig } from '../configs/football';
-import { soccerConfig } from '../configs/soccer';
 import { baseballConfig } from '../configs/baseball';
 import { basketballConfig } from '../configs/basketball';
+import { footballConfig } from '../configs/football';
 import { hockeyConfig } from '../configs/hockey';
+import { soccerConfig } from '../configs/soccer';
 
 describe('seedClockSeconds', () => {
   it('football (down, 720s) → 720', () => {

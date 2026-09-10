@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+
 import {
   createBookmarkSchema,
   updateBookmarkSchema,
@@ -80,7 +81,7 @@ describe('Bookmark Validation', () => {
 
     describe('notes field', () => {
       it('should accept undefined notes', () => {
-        const { notes, ...bookmarkWithoutNotes } = validBookmark;
+        const bookmarkWithoutNotes = (({ notes: _notes, ...rest }) => rest)(validBookmark);
         const result = createBookmarkSchema.safeParse(bookmarkWithoutNotes);
         expect(result.success).toBe(true);
       });
@@ -176,7 +177,7 @@ describe('Bookmark Validation', () => {
 
     describe('gameId/directStreamId requirement', () => {
       it('should accept bookmark with gameId', () => {
-        const { directStreamId, ...bookmarkWithGameId } = validBookmark;
+        const bookmarkWithGameId = (({ directStreamId: _directStreamId, ...rest }) => rest)(validBookmark);
         const result = createBookmarkSchema.safeParse({
           ...bookmarkWithGameId,
           gameId: '550e8400-e29b-41d4-a716-446655440002',
@@ -198,7 +199,7 @@ describe('Bookmark Validation', () => {
       });
 
       it('should reject bookmark without gameId or directStreamId', () => {
-        const { directStreamId, ...bookmarkWithoutIds } = validBookmark;
+        const bookmarkWithoutIds = (({ directStreamId: _directStreamId, ...rest }) => rest)(validBookmark);
         const result = createBookmarkSchema.safeParse(bookmarkWithoutIds);
         expect(result.success).toBe(false);
         if (!result.success) {
