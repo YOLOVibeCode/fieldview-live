@@ -7,6 +7,7 @@
 
 import express, { type Router } from 'express';
 
+import { mapPaidPurchasesToEarnings, sumOwnerEarnings } from '../lib/owner-earnings';
 import { prisma } from '../lib/prisma';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
@@ -46,7 +47,27 @@ router.get('/me/ledger', requireOwnerAuth, (req: AuthRequest, res, next) => {
       }
 
       const ledgerRepo = getLedgerRepo();
-      const entries = await ledgerRepo.findByOwnerAccountId(req.ownerAccountId);
+      const ownerAccountId = req.ownerAccountId;
+      const [entries, paidPurchases] = await Promise.all([
+        ledgerRepo.findByOwnerAccountId(ownerAccountId),
+        prisma.purchase.findMany({
+          where: {
+            recipientOwnerAccountId: ownerAccountId,
+            status: 'paid',
+          },
+          select: {
+            id: true,
+            amountCents: true,
+            platformFeeCents: true,
+            processorFeeCents: true,
+            ownerNetCents: true,
+          },
+          orderBy: { paidAt: 'desc' },
+        }),
+      ]);
+
+      const purchases = mapPaidPurchasesToEarnings(paidPurchases);
+      const totals = sumOwnerEarnings(purchases);
 
       res.json({
         entries: entries.map((entry) => ({
@@ -59,6 +80,8 @@ router.get('/me/ledger', requireOwnerAuth, (req: AuthRequest, res, next) => {
           description: entry.description,
           createdAt: entry.createdAt,
         })),
+        purchases,
+        totals,
       });
     } catch (error) {
       next(error);

@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     ownerPaymentsStatus: vi.fn(),
+    ownerLedger: vi.fn(),
   },
 }));
 
@@ -48,11 +49,19 @@ const status = (over: Partial<Status> = {}): Status => ({
   ...over,
 });
 
+const emptyTotals = {
+  grossCents: 0,
+  platformFeeCents: 0,
+  processorFeeCents: 0,
+  ownerNetCents: 0,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   searchParams.delete('payments_connected');
   localStorage.setItem('owner_token', 't');
   localStorage.setItem('owner_token_expires', new Date(Date.now() + 3_600_000).toISOString());
+  vi.mocked(apiClient.ownerLedger).mockResolvedValue({ entries: [], purchases: [], totals: emptyTotals });
 });
 
 describe('OwnerDashboardPage', () => {
@@ -91,5 +100,39 @@ describe('OwnerDashboardPage', () => {
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(status());
     render(<OwnerDashboardPage />);
     expect(await screen.findByTestId('link-payments')).toHaveAttribute('href', '/owners/payments');
+  });
+
+  it('shows empty earnings state when there are no paid purchases', async () => {
+    vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(status());
+    render(<OwnerDashboardPage />);
+    expect(await screen.findByTestId('empty-earnings')).toHaveTextContent('No paid purchases yet');
+  });
+
+  it('shows gross, platform fee, and payout when earnings exist', async () => {
+    vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(status());
+    vi.mocked(apiClient.ownerLedger).mockResolvedValue({
+      entries: [],
+      purchases: [
+        {
+          purchaseId: 'p1',
+          grossCents: 1000,
+          platformFeeCents: 100,
+          processorFeeCents: 59,
+          ownerNetCents: 841,
+        },
+      ],
+      totals: {
+        grossCents: 1000,
+        platformFeeCents: 100,
+        processorFeeCents: 59,
+        ownerNetCents: 841,
+      },
+    });
+
+    render(<OwnerDashboardPage />);
+
+    expect(await screen.findByTestId('earnings-gross')).toHaveTextContent('$10.00');
+    expect(screen.getByTestId('earnings-platform-fee')).toHaveTextContent('$1.00');
+    expect(screen.getByTestId('earnings-net')).toHaveTextContent('$8.41');
   });
 });

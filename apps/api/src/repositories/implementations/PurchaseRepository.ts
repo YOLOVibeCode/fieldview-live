@@ -65,6 +65,7 @@ export class PurchaseRepository implements IPurchaseReader, IPurchaseWriter {
         ...(data.status && { status: data.status }),
         ...(data.paymentProviderPaymentId !== undefined && { paymentProviderPaymentId: data.paymentProviderPaymentId }),
         ...(data.paymentProviderCustomerId !== undefined && { paymentProviderCustomerId: data.paymentProviderCustomerId }),
+        ...(data.platformFeeCents !== undefined && { platformFeeCents: data.platformFeeCents }),
         ...(data.processorFeeCents !== undefined && { processorFeeCents: data.processorFeeCents }),
         ...(data.ownerNetCents !== undefined && { ownerNetCents: data.ownerNetCents }),
         ...(data.paidAt !== undefined && { paidAt: data.paidAt }),
