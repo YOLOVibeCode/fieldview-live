@@ -5,17 +5,23 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
+import { apiClient, type OwnerEarningsTotals, type OwnerPaymentsStatus } from '@/lib/api-client';
 import {
   getPaymentsBadgeLabel,
   getPaymentsReadinessPhase,
 } from '@/lib/owner-payments-readiness';
+
+function formatCurrency(cents: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+}
 
 function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authenticated, setAuthenticated] = useState(false);
   const [paymentsStatus, setPaymentsStatus] = useState<OwnerPaymentsStatus | null>(null);
+  const [earningsTotals, setEarningsTotals] = useState<OwnerEarningsTotals | null>(null);
+  const [earningsLoading, setEarningsLoading] = useState(false);
   const [showConnectedToast, setShowConnectedToast] = useState(false);
 
   const fetchPaymentsStatus = useCallback(async () => {
@@ -25,6 +31,20 @@ function DashboardInner() {
       setPaymentsStatus(await apiClient.ownerPaymentsStatus(token));
     } catch {
       setPaymentsStatus(null);
+    }
+  }, []);
+
+  const fetchEarnings = useCallback(async () => {
+    const token = localStorage.getItem('owner_token');
+    if (!token) return;
+    setEarningsLoading(true);
+    try {
+      const ledger = await apiClient.ownerLedger(token);
+      setEarningsTotals(ledger.totals);
+    } catch {
+      setEarningsTotals(null);
+    } finally {
+      setEarningsLoading(false);
     }
   }, []);
 
@@ -52,8 +72,11 @@ function DashboardInner() {
   }, [router, searchParams]);
 
   useEffect(() => {
-    if (authenticated) void fetchPaymentsStatus();
-  }, [authenticated, fetchPaymentsStatus]);
+    if (authenticated) {
+      void fetchPaymentsStatus();
+      void fetchEarnings();
+    }
+  }, [authenticated, fetchPaymentsStatus, fetchEarnings]);
 
   useEffect(() => {
     if (authenticated && searchParams.get('payments_connected') === 'true') {
@@ -250,25 +273,61 @@ function DashboardInner() {
             </CardContent>
           </Card>
 
-          <Card className="card-interactive" data-testid="card-analytics">
+          <Card className="card-interactive" data-testid="card-earnings">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
                 <div>
-                  <CardTitle className="text-base sm:text-lg text-muted-foreground">Analytics</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">View your earnings and audience</CardDescription>
+                  <CardTitle className="text-base sm:text-lg">Earnings</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Gross, platform fee, and your payout</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                Coming soon
-              </span>
+            <CardContent className="pt-0" data-loading={earningsLoading}>
+              {earningsLoading && (
+                <p
+                  className="text-xs sm:text-sm text-muted-foreground"
+                  data-testid="loading-earnings"
+                  aria-live="polite"
+                >
+                  Loading earnings…
+                </p>
+              )}
+              {!earningsLoading && earningsTotals && earningsTotals.grossCents === 0 && (
+                <p
+                  className="text-xs sm:text-sm text-muted-foreground"
+                  data-testid="empty-earnings"
+                  role="status"
+                >
+                  No paid purchases yet. Earnings will appear here after your first sale.
+                </p>
+              )}
+              {!earningsLoading && earningsTotals && earningsTotals.grossCents > 0 && (
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt>Gross</dt>
+                    <dd data-testid="earnings-gross" aria-label="Gross earnings">
+                      {formatCurrency(earningsTotals.grossCents)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 text-muted-foreground">
+                    <dt>Platform fee (~10%)</dt>
+                    <dd data-testid="earnings-platform-fee" aria-label="Platform fee">
+                      {formatCurrency(earningsTotals.platformFeeCents)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 font-medium text-primary">
+                    <dt>Your payout</dt>
+                    <dd data-testid="earnings-net" aria-label="Your payout">
+                      {formatCurrency(earningsTotals.ownerNetCents)}
+                    </dd>
+                  </div>
+                </dl>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -168,6 +168,36 @@ export interface OwnerPaymentsStatus {
   locationId: string | null;
 }
 
+export interface OwnerPurchaseEarnings {
+  purchaseId: string;
+  grossCents: number;
+  platformFeeCents: number;
+  processorFeeCents: number;
+  ownerNetCents: number;
+}
+
+export interface OwnerEarningsTotals {
+  grossCents: number;
+  platformFeeCents: number;
+  processorFeeCents: number;
+  ownerNetCents: number;
+}
+
+export interface OwnerLedgerResponse {
+  entries: Array<{
+    id: string;
+    type: string;
+    amountCents: number;
+    currency: string;
+    referenceType: string;
+    referenceId: string;
+    description: string;
+    createdAt: string;
+  }>;
+  purchases: OwnerPurchaseEarnings[];
+  totals: OwnerEarningsTotals;
+}
+
 // Game types
 export interface Game {
   id: string;
@@ -834,6 +864,12 @@ export const apiClient = {
    */
   async ownerPaymentsStatus(ownerToken: string): Promise<OwnerPaymentsStatus> {
     return apiRequest<OwnerPaymentsStatus>(`/api/owners/me/payments/status`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  async ownerLedger(ownerToken: string): Promise<OwnerLedgerResponse> {
+    return apiRequest<OwnerLedgerResponse>(`/api/owners/me/ledger`, {
       headers: { ...withBearerToken(ownerToken) },
     });
   },

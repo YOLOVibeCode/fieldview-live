@@ -20,6 +20,7 @@ import { LedgerRepository } from '../repositories/implementations/LedgerReposito
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { resolveRelayChargeSettlement } from '../lib/relay-charge-settlement';
 import { getRelayConfig, isPaymentsViaRelay } from '../lib/relay';
 import { LedgerService } from '../services/LedgerService';
 import { ReceiptService } from '../services/ReceiptService';
@@ -117,8 +118,6 @@ function getHandlers(): PublicPurchaseHandlers {
         // relay's Connect Hub instead of the legacy Model A path below. Falls through
         // to Model A otherwise, so flag-off behaviour is unchanged.
         if (isPaymentsViaRelay() && ownerAccount.relayRecipientKey) {
-          const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
-          const split = calculateMarketplaceSplit(purchase.amountCents, PLATFORM_FEE_PERCENT);
           const relayViewer = await prisma.viewerIdentity.findUnique({
             where: { id: purchase.viewerId },
             select: { email: true },
@@ -135,15 +134,17 @@ function getHandlers(): PublicPurchaseHandlers {
             buyerEmailAddress: relayViewer?.email ?? undefined,
           });
 
-          // Relay charge response omits Square's processing fee; keep the estimate.
-          const processorFeeCents = purchase.processorFeeCents;
-          const platformFeeCents = split.platformFeeCents;
-          const ownerNetCents = purchase.amountCents - platformFeeCents - processorFeeCents;
+          const split = resolveRelayChargeSettlement({
+            amountCents: purchase.amountCents,
+            processorFeeCents: purchase.processorFeeCents,
+            appFeeCents: chargeResult.appFeeCents,
+          });
 
           await purchaseRepo.update(purchaseId, {
             paymentProviderPaymentId: chargeResult.paymentId,
-            processorFeeCents,
-            ownerNetCents,
+            platformFeeCents: split.platformFeeCents,
+            processorFeeCents: split.processorFeeCents,
+            ownerNetCents: split.ownerNetCents,
           });
 
           if (chargeResult.status && chargeResult.status !== 'COMPLETED') {
@@ -159,7 +160,7 @@ function getHandlers(): PublicPurchaseHandlers {
             if (existing.length === 0) {
               await ledgerService.createPurchaseLedgerEntries(
                 paidPurchase,
-                { grossAmountCents: split.grossAmountCents, platformFeeCents, processorFeeCents, ownerNetCents },
+                split,
                 undefined,
               );
             }
