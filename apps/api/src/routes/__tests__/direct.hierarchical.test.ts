@@ -8,7 +8,7 @@ import { errorHandler } from '../../middleware/errorHandler';
 
 vi.mock('../../lib/prisma', () => ({
   prisma: {
-    directStream: { findUnique: vi.fn(), create: vi.fn() },
+    directStream: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     directStreamEvent: { findUnique: vi.fn() },
     ownerAccount: { findFirst: vi.fn() },
     game: { findFirst: vi.fn(), create: vi.fn() },
@@ -17,24 +17,55 @@ vi.mock('../../lib/prisma', () => ({
   },
 }));
 
-const hashed = bcrypt.hashSync('devil2026', 4);
+const PARENT_SLUG = 'test-parent';
+const EVENT_SLUG = 'test-event';
+const ADMIN_PASSWORD = 'admin2026';
+const hashed = bcrypt.hashSync(ADMIN_PASSWORD, 4);
 
 function parentStream() {
   return {
-    id: 'ds-denton',
-    slug: 'dentondiablos',
+    id: 'ds-parent-1',
+    slug: PARENT_SLUG,
     status: 'active',
     gameId: 'game-1',
     ownerAccountId: 'owner-1',
     adminPassword: hashed,
-    title: 'Denton Diablos',
+    title: 'Test Parent Stream',
     paywallEnabled: false,
     priceInCents: 0,
+    paywallMessage: null,
+    allowSavePayment: false,
     streamUrl: null,
     chatEnabled: true,
     scoreboardEnabled: true,
-    scoreboardHomeTeam: 'Denton Diablos',
-    game: { streamSource: null },
+    scoreboardHomeTeam: 'Twin Cities',
+    scoreboardAwayTeam: 'Rivals',
+    scoreboardHomeColor: '#003366',
+    scoreboardAwayColor: '#CC0000',
+    welcomeMessage: null,
+    scheduledStartAt: null,
+    sendReminders: false,
+    reminderMinutes: null,
+    allowViewerScoreEdit: false,
+    allowViewerNameEdit: false,
+    allowViewerReporting: false,
+    eventConfirmThreshold: null,
+    sport: 'soccer',
+    allowAnonymousChat: false,
+    allowAnonymousScoreEdit: false,
+    game: { streamSource: null, state: 'live' },
+  };
+}
+
+function eventRecord() {
+  return {
+    id: 'evt-1',
+    eventSlug: EVENT_SLUG,
+    title: 'Test Event',
+    chatEnabled: true,
+    scoreboardEnabled: true,
+    streamUrl: null,
+    scheduledStartAt: null,
   };
 }
 
@@ -60,7 +91,7 @@ describe('hierarchical DirectStream routes', () => {
     dsFindUnique.mockResolvedValue(null);
 
     const res = await request(app()).get(
-      '/api/direct/dentondiablos/soccer-2008-20260325/bootstrap'
+      `/api/direct/${PARENT_SLUG}/${EVENT_SLUG}/bootstrap`
     );
 
     expect(res.status).toBe(404);
@@ -68,13 +99,54 @@ describe('hierarchical DirectStream routes', () => {
     expect(dsCreate).not.toHaveBeenCalled();
   });
 
+  it('GET parent/event/bootstrap 404s when the event is missing', async () => {
+    dsFindUnique.mockResolvedValue(parentStream());
+    evFindUnique.mockResolvedValue(null);
+
+    const res = await request(app()).get(
+      `/api/direct/${PARENT_SLUG}/${EVENT_SLUG}/bootstrap`
+    );
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toBe('Stream event not found');
+    expect(dsCreate).not.toHaveBeenCalled();
+  });
+
+  it('GET parent/event/bootstrap returns 200 when parent and event exist', async () => {
+    dsFindUnique.mockResolvedValue(parentStream());
+    evFindUnique.mockResolvedValue(eventRecord());
+
+    const res = await request(app()).get(
+      `/api/direct/${PARENT_SLUG}/${EVENT_SLUG}/bootstrap`
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.slug).toBe(`${PARENT_SLUG}/${EVENT_SLUG}`);
+    expect(res.body.parentSlug).toBe(PARENT_SLUG);
+    expect(res.body.title).toBe('Test Event');
+    expect(res.body.scoreboardHomeTeam).toBe('Twin Cities');
+    expect(res.body.scoreboardAwayTeam).toBe('Rivals');
+  });
+
+  it('GET parent%2Fevent/bootstrap returns 200 for encoded hierarchical slug', async () => {
+    dsFindUnique.mockResolvedValue(parentStream());
+    evFindUnique.mockResolvedValue(eventRecord());
+
+    const encodedSlug = `${PARENT_SLUG}%2F${EVENT_SLUG}`;
+    const res = await request(app()).get(`/api/direct/${encodedSlug}/bootstrap`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.slug).toBe(`${PARENT_SLUG}/${EVENT_SLUG}`);
+    expect(res.body.parentSlug).toBe(PARENT_SLUG);
+  });
+
   it('POST parent/event/unlock-admin 404s when the event is missing', async () => {
     dsFindUnique.mockResolvedValue(parentStream());
     evFindUnique.mockResolvedValue(null);
 
     const res = await request(app())
-      .post('/api/direct/dentondiablos/soccer-2008-20260325/unlock-admin')
-      .send({ password: 'devil2026' });
+      .post(`/api/direct/${PARENT_SLUG}/${EVENT_SLUG}/unlock-admin`)
+      .send({ password: ADMIN_PASSWORD });
 
     expect(res.status).toBe(404);
     expect(res.body.error.message).toBe('Stream event not found');
@@ -82,14 +154,14 @@ describe('hierarchical DirectStream routes', () => {
 
   it('POST parent/event/unlock-admin returns a token when the event exists', async () => {
     dsFindUnique.mockResolvedValue(parentStream());
-    evFindUnique.mockResolvedValue({ id: 'evt-1', eventSlug: 'soccer-2008-20260325' });
+    evFindUnique.mockResolvedValue(eventRecord());
     (prisma.viewerIdentity.upsert as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'v1',
     });
 
     const res = await request(app())
-      .post('/api/direct/dentondiablos/soccer-2008-20260325/unlock-admin')
-      .send({ password: 'devil2026' });
+      .post(`/api/direct/${PARENT_SLUG}/${EVENT_SLUG}/unlock-admin`)
+      .send({ password: ADMIN_PASSWORD });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();

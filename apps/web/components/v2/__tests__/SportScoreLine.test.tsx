@@ -103,6 +103,24 @@ describe('SportScoreLine (overlay variant)', () => {
     expect(screen.queryByTestId('btn-overlay-team-away')).not.toBeInTheDocument();
     expect(screen.queryByTestId('btn-overlay-period')).not.toBeInTheDocument();
   });
+
+  it('shows configured team abbreviations instead of HOM/AWA defaults', () => {
+    render(
+      <SportScoreLine
+        sportId="soccer"
+        homeTeam={{ name: 'Twin Cities', score: 0, color: '#003366' }}
+        awayTeam={{ name: 'Rivals', score: 0, color: '#CC0000' }}
+        period="H1"
+        time="12:00"
+        variant="overlay"
+      />
+    );
+
+    expect(screen.getByText('TWI')).toBeInTheDocument();
+    expect(screen.getByText('RIV')).toBeInTheDocument();
+    expect(screen.queryByText('HOM')).not.toBeInTheDocument();
+    expect(screen.queryByText('AWA')).not.toBeInTheDocument();
+  });
 });
 
 describe('SportScoreLine (bar variant)', () => {
