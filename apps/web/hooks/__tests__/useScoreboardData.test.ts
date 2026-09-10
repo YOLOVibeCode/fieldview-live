@@ -51,10 +51,9 @@ describe('useScoreboardData', () => {
 
     await waitFor(() => {
       expect(mockScoreboardApi.fetch).toHaveBeenCalledWith('test-slug');
+      expect(result.current.homeTeam.name).toBe('Home Team');
+      expect(result.current.awayTeam.name).toBe('Away Team');
     });
-
-    expect(result.current.homeTeam.name).toBe('Home Team');
-    expect(result.current.awayTeam.name).toBe('Away Team');
   });
 
   it('should return user-friendly error messages from ApiError', async () => {
