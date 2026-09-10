@@ -47,7 +47,7 @@ export function NotifyMeForm({
         const data = await apiRequest<{ subscribed?: boolean }>(
           `/api/public/direct/${slug}/notify-me/status?viewerIdentityId=${encodeURIComponent(viewerIdentityId)}`,
           {
-            retries: 1,
+            retries: 0,
           }
         );
         if (!cancelled) {

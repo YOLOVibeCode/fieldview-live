@@ -44,6 +44,15 @@ export function getUnlockAdminMessage(error: unknown): string {
 
 export function getUserFriendlyMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    // Prefer explicit API strings (e.g. `{ error: "Stream not found" }`) over generic UNKNOWN copy.
+    if (
+      error.code === 'UNKNOWN_ERROR' &&
+      error.message &&
+      error.message !== 'An error occurred' &&
+      error.message !== 'Unknown error'
+    ) {
+      return error.message;
+    }
     return ERROR_MESSAGES[error.code] || STATUS_MESSAGES[error.status] || error.message;
   }
   if (error instanceof Error) {

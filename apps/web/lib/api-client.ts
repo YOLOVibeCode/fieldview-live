@@ -7,7 +7,9 @@
  * Enhanced with retry logic and exponential backoff for transient failures.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+function getApiUrl(): string {
+  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4301';
+}
 
 export class ApiError extends Error {
   constructor(
@@ -67,7 +69,7 @@ export async function apiRequest<T>(
   options?: ApiRequestOptions
 ): Promise<T> {
   const { retries = 0, ...fetchOptions } = options || {};
-  const url = `${API_URL}${endpoint}`;
+  const url = `${getApiUrl()}${endpoint}`;
   
   let lastError: Error | null = null;
   
@@ -83,11 +85,24 @@ export async function apiRequest<T>(
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
+        const errField = error.error;
+        const code =
+          typeof errField === 'object' && errField !== null && 'code' in errField
+            ? String(errField.code)
+            : 'UNKNOWN_ERROR';
+        const message =
+          typeof errField === 'object' && errField !== null && 'message' in errField
+            ? String(errField.message)
+            : typeof errField === 'string'
+              ? errField
+              : 'An error occurred';
         const apiError = new ApiError(
           response.status,
-          error.error?.code || 'UNKNOWN_ERROR',
-          error.error?.message || 'An error occurred',
-          error.error?.details
+          code,
+          message,
+          typeof errField === 'object' && errField !== null && 'details' in errField
+            ? errField.details
+            : undefined
         );
         
         // Check if we should retry
