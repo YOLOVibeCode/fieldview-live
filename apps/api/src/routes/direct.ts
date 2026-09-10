@@ -27,6 +27,10 @@ import { ViewerIdentityRepository } from '../repositories/implementations/Viewer
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
+import {
+  assertPaymentsReadyForPaywall,
+  getOwnerPaymentsReadiness,
+} from '../lib/payments-readiness';
 import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
 import { parseDirectKey, rewriteHierarchicalDirectPath } from '../lib/direct-slug';
 
@@ -236,6 +240,19 @@ router.get(
           }
         }
 
+        const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
+          where: { id: directStream.ownerAccountId },
+          select: {
+            relayRecipientKey: true,
+            agreementAcceptedVersion: true,
+            squareLocationId: true,
+            squareAccessTokenEncrypted: true,
+            squareTokenExpiresAt: true,
+          },
+        });
+        const paymentsReady = !directStream.paywallEnabled
+          || (ownerPaymentsFields ? getOwnerPaymentsReadiness(ownerPaymentsFields).ready : false);
+
         const responseData: any = {
           slug: isEvent ? key : directStream.slug,
           parentSlug: isEvent ? directStream.slug : undefined,
@@ -247,6 +264,7 @@ router.get(
           title: isEvent && directStreamEvent?.title ? directStreamEvent.title : directStream.title,
           paywallEnabled: directStream.paywallEnabled,
           priceInCents: directStream.priceInCents,
+          paymentsReady,
           paywallMessage: directStream.paywallMessage,
           allowSavePayment: directStream.allowSavePayment,
           scoreboardEnabled: isEvent ? (directStreamEvent?.scoreboardEnabled ?? directStream.scoreboardEnabled) : directStream.scoreboardEnabled,
@@ -640,6 +658,22 @@ router.post(
         }
         if (body.reminderMinutes !== undefined) {
           parentUpdateData.reminderMinutes = body.reminderMinutes;
+        }
+
+        const effectivePaywall = body.paywallEnabled ?? existingStream.paywallEnabled;
+        const effectivePrice = body.priceInCents ?? existingStream.priceInCents;
+        const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
+          where: { id: existingStream.ownerAccountId },
+          select: {
+            relayRecipientKey: true,
+            agreementAcceptedVersion: true,
+            squareLocationId: true,
+            squareAccessTokenEncrypted: true,
+            squareTokenExpiresAt: true,
+          },
+        });
+        if (ownerPaymentsFields) {
+          assertPaymentsReadyForPaywall(ownerPaymentsFields, effectivePaywall, effectivePrice);
         }
 
         // Update in database

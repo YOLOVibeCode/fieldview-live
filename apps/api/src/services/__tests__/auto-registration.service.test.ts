@@ -176,7 +176,7 @@ describe('AutoRegistrationService (TDD)', () => {
           firstName: 'John',
           lastName: 'Doe',
           createdAt: expect.any(Date),
-        })
+        }),
       );
     });
 

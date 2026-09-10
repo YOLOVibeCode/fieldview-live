@@ -14,6 +14,8 @@ import type {
 } from '../repositories/IOwnerDirectStreamRepository';
 import { hashPassword } from '../lib/encryption';
 import { BadRequestError, ConflictError, NotFoundError } from '../lib/errors';
+import { prisma } from '../lib/prisma';
+import { assertPaymentsReadyForPaywall } from '../lib/payments-readiness';
 
 export interface ICreateStreamRequest {
   slug: string;
@@ -64,6 +66,24 @@ export class OwnerDirectStreamService {
 
     // Hash admin password
     const hashedPassword = await hashPassword(input.adminPassword);
+
+    const owner = await prisma.ownerAccount.findUnique({
+      where: { id: ownerAccountId },
+      select: {
+        relayRecipientKey: true,
+        agreementAcceptedVersion: true,
+        squareLocationId: true,
+        squareAccessTokenEncrypted: true,
+        squareTokenExpiresAt: true,
+      },
+    });
+    if (owner) {
+      assertPaymentsReadyForPaywall(
+        owner,
+        input.paywallEnabled ?? false,
+        input.priceInCents ?? 0,
+      );
+    }
 
     return this.writer.create({
       ownerAccountId,
@@ -130,6 +150,22 @@ export class OwnerDirectStreamService {
 
     // Strip fields that shouldn't be updated via this method
     const { slug: _slug, adminPassword: _pw, ...updateData } = input;
+
+    const effectivePaywall = input.paywallEnabled ?? existing.paywallEnabled;
+    const effectivePrice = input.priceInCents ?? existing.priceInCents;
+    const owner = await prisma.ownerAccount.findUnique({
+      where: { id: ownerAccountId },
+      select: {
+        relayRecipientKey: true,
+        agreementAcceptedVersion: true,
+        squareLocationId: true,
+        squareAccessTokenEncrypted: true,
+        squareTokenExpiresAt: true,
+      },
+    });
+    if (owner) {
+      assertPaymentsReadyForPaywall(owner, effectivePaywall, effectivePrice);
+    }
 
     return this.writer.update(id, updateData);
   }

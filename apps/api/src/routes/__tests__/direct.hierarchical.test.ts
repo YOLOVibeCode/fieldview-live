@@ -10,7 +10,7 @@ vi.mock('../../lib/prisma', () => ({
   prisma: {
     directStream: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     directStreamEvent: { findUnique: vi.fn() },
-    ownerAccount: { findFirst: vi.fn() },
+    ownerAccount: { findFirst: vi.fn(), findUnique: vi.fn() },
     game: { findFirst: vi.fn(), create: vi.fn() },
     viewerIdentity: { upsert: vi.fn(), findUnique: vi.fn() },
     entitlement: { findFirst: vi.fn() },
@@ -80,10 +80,18 @@ function app(): Express {
 const dsFindUnique = prisma.directStream.findUnique as unknown as ReturnType<typeof vi.fn>;
 const dsCreate = prisma.directStream.create as unknown as ReturnType<typeof vi.fn>;
 const evFindUnique = prisma.directStreamEvent.findUnique as unknown as ReturnType<typeof vi.fn>;
+const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = 'test-jwt-secret-hier';
+  ownerFindUnique.mockResolvedValue({
+    relayRecipientKey: null,
+    agreementAcceptedVersion: null,
+    squareLocationId: null,
+    squareAccessTokenEncrypted: null,
+    squareTokenExpiresAt: null,
+  });
 });
 
 describe('hierarchical DirectStream routes', () => {
