@@ -71,9 +71,10 @@ export function MuxStreamPlayer({
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const readyRef = useRef(false);
 
   const handleWaiting = useCallback(() => {
-    onStatusChange?.('loading');
+    if (!readyRef.current) onStatusChange?.('loading');
   }, [onStatusChange]);
 
   const handleError = useCallback(() => {
@@ -81,6 +82,7 @@ export function MuxStreamPlayer({
   }, [onStatusChange]);
 
   const handlePlaying = useCallback(() => {
+    readyRef.current = true;
     onStatusChange?.('playing');
     setIsPaused(false);
   }, [onStatusChange]);

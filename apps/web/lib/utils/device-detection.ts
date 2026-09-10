@@ -20,20 +20,23 @@ export function isTouchDevice(): boolean {
 }
 
 /**
+ * Classifies the device as mobile, tablet, or desktop based on viewport width.
+ */
+export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
+  if (typeof window === 'undefined') return 'desktop';
+
+  const width = window.innerWidth;
+  if (width < 768) return 'mobile';
+  if (width < 1024) return 'tablet';
+  return 'desktop';
+}
+
+/**
  * Detects if the device is mobile-sized (portrait phone or small tablet).
  */
 export function isMobileViewport(): boolean {
   if (typeof window === 'undefined') return false;
   return window.innerWidth < 768;
-}
-
-/** Classifies viewport width into mobile, tablet, or desktop. */
-export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
-  if (typeof window === 'undefined') return 'desktop';
-  const width = window.innerWidth;
-  if (width < 768) return 'mobile';
-  if (width < 1024) return 'tablet';
-  return 'desktop';
 }
 
 /**
