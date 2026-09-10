@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+
 import {
   createClipFromBookmarkSchema,
   CLIP_LIMITS,
@@ -81,7 +82,7 @@ describe('Clip Validation', () => {
       });
 
       it('should default to 5 seconds when undefined', () => {
-        const { bufferSeconds, ...clipWithoutBuffer } = validClip;
+        const clipWithoutBuffer = (({ bufferSeconds: _bufferSeconds, ...rest }) => rest)(validClip);
         const result = createClipFromBookmarkSchema.safeParse(clipWithoutBuffer);
         expect(result.success).toBe(true);
         if (result.success) {
@@ -108,7 +109,7 @@ describe('Clip Validation', () => {
       });
 
       it('should accept undefined title', () => {
-        const { title, ...clipWithoutTitle } = validClip;
+        const clipWithoutTitle = (({ title: _title, ...rest }) => rest)(validClip);
         const result = createClipFromBookmarkSchema.safeParse(clipWithoutTitle);
         expect(result.success).toBe(true);
       });
@@ -132,7 +133,7 @@ describe('Clip Validation', () => {
       });
 
       it('should accept undefined description', () => {
-        const { description, ...clipWithoutDesc } = validClip;
+        const clipWithoutDesc = (({ description: _description, ...rest }) => rest)(validClip);
         const result = createClipFromBookmarkSchema.safeParse(clipWithoutDesc);
         expect(result.success).toBe(true);
       });

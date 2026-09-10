@@ -2,21 +2,26 @@
  * Auto-Registration API Route Tests (TDD)
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import express, { type Express } from 'express';
 import { createDirectViewerRouter } from '../public.direct-viewer';
 import { createAutoRegistrationService } from '../../services/auto-registration.implementations';
-import { errorHandler } from '../../middleware/errorHandler';
 import { NotFoundError } from '../../lib/errors';
+import { errorHandler } from '../../middleware/errorHandler';
 import type { ViewerIdentity, DirectStreamRegistration } from '@prisma/client';
 
-// Mock the auto-registration service
 vi.mock('../../services/auto-registration.implementations');
 
-describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
-  let app: Express;
+function app(): Express {
+  const a = express();
+  a.use(express.json());
+  a.use('/api/public', createDirectViewerRouter());
+  a.use(errorHandler);
+  return a;
+}
 
+describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
   const mockViewer: ViewerIdentity = {
     id: 'viewer-123',
     email: 'test@example.com',
@@ -42,20 +47,12 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
     lastSeenAt: null,
   };
 
-  beforeEach(() => {
-    // Create Express app with route
-    app = express();
-    app.use(express.json());
-    app.use('/api/public', createDirectViewerRouter());
-    app.use(errorHandler);
-  });
-
   afterEach(() => {
     vi.clearAllMocks();
   });
 
   it('should return 400 if directStreamSlug is missing', async () => {
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({ viewerIdentityId: 'viewer-123' });
 
@@ -63,7 +60,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
   });
 
   it('should return 400 if viewerIdentityId is missing', async () => {
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({ directStreamSlug: 'tchs' });
 
@@ -72,10 +69,12 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
 
   it('should return 404 if stream not found', async () => {
     vi.mocked(createAutoRegistrationService).mockReturnValue({
-      autoRegister: vi.fn().mockRejectedValue(new NotFoundError('Stream not found: nonexistent')),
+      autoRegister: vi
+        .fn()
+        .mockRejectedValue(new NotFoundError('Stream not found: nonexistent')),
     } as any);
 
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({
         directStreamSlug: 'nonexistent',
@@ -83,15 +82,18 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       });
 
     expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe('NOT_FOUND');
     expect(response.body.error.message).toContain('Stream not found');
   });
 
   it('should return 404 if viewer not found', async () => {
     vi.mocked(createAutoRegistrationService).mockReturnValue({
-      autoRegister: vi.fn().mockRejectedValue(new NotFoundError('Viewer identity not found: nonexistent')),
+      autoRegister: vi
+        .fn()
+        .mockRejectedValue(new NotFoundError('Viewer identity not found: nonexistent')),
     } as any);
 
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({
         directStreamSlug: 'tchs',
@@ -99,6 +101,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       });
 
     expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe('NOT_FOUND');
     expect(response.body.error.message).toContain('Viewer identity not found');
   });
 
@@ -113,7 +116,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       }),
     } as any);
 
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({
         directStreamSlug: 'tchs',
@@ -137,7 +140,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       }),
     } as any);
 
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({
         directStreamSlug: 'tchs',
@@ -147,7 +150,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
     expect(response.status).toBe(201);
     expect(response.body.isNewRegistration).toBe(true);
     expect(response.body.registration.id).toBe('reg-789');
-    expect(response.body.registration.accessToken).toBeNull(); // No longer storing access tokens
+    expect(response.body.registration.accessToken).toBeNull();
   });
 
   it('should format dates as ISO strings', async () => {
@@ -161,7 +164,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       }),
     } as any);
 
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({
         directStreamSlug: 'tchs',
@@ -176,7 +179,7 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
       autoRegister: vi.fn().mockRejectedValue(new Error('Database connection failed')),
     } as any);
 
-    const response = await request(app)
+    const response = await request(app())
       .post('/api/public/direct/viewer/auto-register')
       .send({
         directStreamSlug: 'tchs',
@@ -185,6 +188,6 @@ describe('POST /api/public/direct/viewer/auto-register (TDD)', () => {
 
     expect(response.status).toBe(500);
     expect(response.body.error.code).toBe('INTERNAL_ERROR');
+    expect(response.body.error.message).toBe('An unexpected error occurred');
   });
 });
-

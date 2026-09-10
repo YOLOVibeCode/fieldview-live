@@ -33,7 +33,7 @@ const AuthModal = dynamic(
 );
 
 const PaywallModal = dynamic(
-  () => import('@/components/v2/paywall').then((mod) => mod.PaywallModal),
+  () => import('@/components/PaywallModal').then((mod) => mod.PaywallModal),
   { ssr: false }
 );
 
@@ -761,11 +761,6 @@ export default function DemoV2Page() {
           priceInCents={499}
           paywallMessage="🎬 This is a demo paywall! Try the bypass code: FIELDVIEW2026"
           allowSavePayment={false}
-          demoMode={true}
-          onDemoBypass={() => {
-            paywall.bypassPaywall('FIELDVIEW2026');
-            paywall.closePaywall();
-          }}
         />
       )}
     </PageShell>

@@ -4,6 +4,7 @@
  * Tests for responsive behavior detection
  */
 
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useResponsive, useBreakpoint, useIsMobile, useIsTouch } from '../useResponsive';
 import { mockWindowSize, mockTouchSupport, setViewport, VIEWPORTS } from '@/lib/v2/test-utils';

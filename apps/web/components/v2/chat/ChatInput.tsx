@@ -125,9 +125,9 @@ export function ChatInput({
       <TouchButton
         onClick={handleSend}
         disabled={!message.trim() || disabled || isLoading}
-        isLoading={isLoading}
+        loading={isLoading}
         variant="primary"
-        size="icon"
+        size="sm"
         aria-label="Send message"
         data-testid="btn-send-message"
         haptic

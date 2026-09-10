@@ -175,6 +175,7 @@ describe('AutoRegistrationService (TDD)', () => {
           email: 'test@example.com',
           firstName: 'John',
           lastName: 'Doe',
+          createdAt: expect.any(Date),
         }),
       );
     });
