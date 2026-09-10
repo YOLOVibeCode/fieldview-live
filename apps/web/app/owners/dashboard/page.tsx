@@ -1,14 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
+import { getPaymentsBadgeLabel, getPaymentsReadinessPhase } from '@/lib/owner-payments-readiness';
 
-export default function OwnerDashboardPage() {
+function DashboardInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [authenticated, setAuthenticated] = useState(false);
+  const [paymentsStatus, setPaymentsStatus] = useState<OwnerPaymentsStatus | null>(null);
+  const [showConnectedToast, setShowConnectedToast] = useState(false);
+
+  const fetchPaymentsStatus = useCallback(async () => {
+    const token = localStorage.getItem('owner_token');
+    if (!token) return;
+    try {
+      setPaymentsStatus(await apiClient.ownerPaymentsStatus(token));
+    } catch {
+      setPaymentsStatus(null);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('owner_token');
@@ -27,7 +42,21 @@ export default function OwnerDashboardPage() {
     }
 
     setAuthenticated(true);
-  }, [router]);
+
+    if (searchParams.get('payments_connected') === 'true') {
+      setShowConnectedToast(true);
+    }
+  }, [router, searchParams]);
+
+  useEffect(() => {
+    if (authenticated) void fetchPaymentsStatus();
+  }, [authenticated, fetchPaymentsStatus]);
+
+  useEffect(() => {
+    if (authenticated && searchParams.get('payments_connected') === 'true') {
+      void fetchPaymentsStatus();
+    }
+  }, [authenticated, searchParams, fetchPaymentsStatus]);
 
   function handleLogout() {
     localStorage.removeItem('owner_token');
@@ -46,9 +75,12 @@ export default function OwnerDashboardPage() {
     );
   }
 
+  const badgeLabel = paymentsStatus
+    ? getPaymentsBadgeLabel(getPaymentsReadinessPhase(paymentsStatus, false))
+    : 'Not started';
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex justify-between items-center gap-4">
@@ -66,7 +98,7 @@ export default function OwnerDashboardPage() {
               <span className="hidden sm:inline">Sign out</span>
               <span className="sm:hidden">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3 3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               </span>
             </Button>
@@ -74,8 +106,26 @@ export default function OwnerDashboardPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        {showConnectedToast && (
+          <div
+            data-testid="toast-payments-connected"
+            className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm flex items-start justify-between gap-4"
+            role="status"
+          >
+            <span>Square account connected successfully!</span>
+            <button
+              type="button"
+              onClick={() => setShowConnectedToast(false)}
+              className="text-green-700 hover:text-green-900 font-medium shrink-0"
+              aria-label="Dismiss notification"
+              data-testid="btn-dismiss-payments-connected"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="card-interactive" data-testid="card-games">
             <CardHeader className="pb-3">
@@ -161,34 +211,6 @@ export default function OwnerDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="card-interactive" data-testid="card-square">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <CardTitle className="text-base sm:text-lg">Square Payments</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Accept payments from viewers</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <a
-                href="/owners/square"
-                className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
-                data-testid="link-square-connect"
-              >
-                Manage payments
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
-            </CardContent>
-          </Card>
-
           <Card className="card-interactive" data-testid="card-payments">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
@@ -198,22 +220,30 @@ export default function OwnerDashboardPage() {
                   </svg>
                 </div>
                 <div>
-                  <CardTitle className="text-base sm:text-lg">Payouts</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Payments</CardTitle>
                   <CardDescription className="text-xs sm:text-sm">Connect Square &amp; receive payouts</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <a
-                href="/owners/payments"
-                className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
-                data-testid="link-payments"
+            <CardContent className="pt-0 space-y-2">
+              <span
+                data-testid="status-payments-badge"
+                className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium"
               >
-                Manage payouts
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
+                {badgeLabel}
+              </span>
+              <div>
+                <a
+                  href="/owners/payments"
+                  className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
+                  data-testid="link-payments"
+                >
+                  Manage payments
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
             </CardContent>
           </Card>
 
@@ -244,3 +274,19 @@ export default function OwnerDashboardPage() {
   );
 }
 
+export default function OwnerDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center space-y-4">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm sm:text-base text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      }
+    >
+      <DashboardInner />
+    </Suspense>
+  );
+}

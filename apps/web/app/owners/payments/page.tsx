@@ -9,10 +9,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
+import {
+  getActiveStep,
+  getPaymentsBadgeLabel,
+  getPaymentsReadinessPhase,
+  isPaymentsReady,
+  isStepComplete,
+  type PaymentsStep,
+} from '@/lib/owner-payments-readiness';
 
 function getOwnerToken(): string | null {
   return typeof window === 'undefined' ? null : localStorage.getItem('owner_token');
 }
+
+const STEP_LABELS: Record<PaymentsStep, string> = {
+  1: 'Accept agreement',
+  2: 'Connect Square',
+  3: 'Add location',
+};
 
 function PaymentsInner() {
   const router = useRouter();
@@ -23,6 +37,7 @@ function PaymentsInner() {
   const [status, setStatus] = useState<OwnerPaymentsStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [locationId, setLocationId] = useState('');
+  const [locationSaved, setLocationSaved] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
 
   const fetchStatus = useCallback(async () => {
@@ -47,12 +62,20 @@ function PaymentsInner() {
       return;
     }
     setAuthenticated(true);
-    if (searchParams.get('payments_connected') === 'true') setJustConnected(true);
+    if (searchParams.get('payments_connected') === 'true') {
+      setJustConnected(true);
+    }
   }, [router, searchParams]);
 
   useEffect(() => {
     if (authenticated) void fetchStatus();
   }, [authenticated, fetchStatus]);
+
+  useEffect(() => {
+    if (authenticated && searchParams.get('payments_connected') === 'true') {
+      void fetchStatus();
+    }
+  }, [authenticated, searchParams, fetchStatus]);
 
   async function handleAcceptAgreement() {
     const token = getOwnerToken();
@@ -90,6 +113,7 @@ function PaymentsInner() {
     setError(null);
     try {
       await apiClient.ownerSetPaymentLocation(token, locationId.trim());
+      setLocationSaved(true);
       await fetchStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save location');
@@ -112,13 +136,17 @@ function PaymentsInner() {
     );
   }
 
+  const phase = status ? getPaymentsReadinessPhase(status, locationSaved) : null;
+  const activeStep = status ? getActiveStep(status, locationSaved) : 1;
+  const ready = status ? isPaymentsReady(status, locationSaved) : false;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto max-w-6xl px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-semibold truncate">Payouts</h1>
+              <h1 className="text-xl sm:text-2xl font-semibold truncate">Payments</h1>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                 Connect your Square account to receive payouts for your streams
               </p>
@@ -146,77 +174,118 @@ function PaymentsInner() {
         )}
 
         {loading ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12" data-testid="loading-payments">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading payouts status…</p>
+            <p className="mt-4 text-muted-foreground">Loading payments status…</p>
           </div>
-        ) : status && !status.agreementAccepted ? (
-          <Card data-testid="card-agreement">
-            <CardHeader>
-              <CardTitle>Accept the Recipient Agreement</CardTitle>
-              <CardDescription>
-                Before connecting Square, please review and accept the{' '}
-                <a href="/legal/recipient-agreement" className="underline" target="_blank" rel="noreferrer">
-                  Recipient Agreement
-                </a>
-                . This covers how payouts and the platform fee work.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={handleAcceptAgreement} disabled={busy} data-testid="btn-accept-agreement">
-                {busy ? 'Saving…' : 'Accept & Continue'}
-              </Button>
-            </CardContent>
-          </Card>
-        ) : status && !status.connected ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Connect Square</CardTitle>
-              <CardDescription>
-                Connect your own Square account to receive payouts. Viewers&apos; payments go directly to your Square
-                balance; FieldView keeps a small platform fee. You&apos;ll be redirected to Square to authorize.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg bg-muted/50 p-4">
-                <h3 className="font-medium mb-2">How it works</h3>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>1. Click &quot;Connect Square&quot; below</li>
-                  <li>2. Authorize FieldView on Square&apos;s website</li>
-                  <li>3. You&apos;ll be redirected back here</li>
-                  <li>4. Add your Square Location ID to finish</li>
-                </ul>
-              </div>
-              <Button onClick={handleConnect} disabled={busy} className="w-full sm:w-auto" data-testid="btn-connect-payments">
-                {busy ? 'Redirecting to Square…' : 'Connect Square'}
-              </Button>
-            </CardContent>
-          </Card>
         ) : status ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-green-600">Connected</CardTitle>
-              <CardDescription>Your Square account is connected. Payouts settle directly to your Square balance.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <div className="text-xs text-muted-foreground">Merchant ID</div>
-                  <div className="font-mono text-sm">{status.merchantId || '—'}</div>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <div className="text-xs text-muted-foreground">Connected</div>
-                  <div className="text-sm">
-                    {status.connectedAt ? new Date(status.connectedAt).toLocaleDateString() : '—'}
-                  </div>
-                </div>
-              </div>
+          <>
+            <div
+              data-testid="status-payments"
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+            >
+              <span>Status:</span>
+              <span className="font-medium text-foreground">{phase ? getPaymentsBadgeLabel(phase) : '—'}</span>
+            </div>
 
-              <div className="space-y-2">
+            {ready && (
+              <div
+                data-testid="status-payments-ready"
+                className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm font-medium"
+              >
+                Ready to accept payments
+              </div>
+            )}
+
+            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3" aria-label="Payment setup steps">
+              {([1, 2, 3] as PaymentsStep[]).map((step) => {
+                const complete = isStepComplete(step, status, locationSaved);
+                const active = activeStep === step;
+                const stepId =
+                  step === 1 ? 'step-agreement' : step === 2 ? 'step-connect' : 'step-location';
+                return (
+                  <li
+                    key={step}
+                    data-testid={stepId}
+                    data-complete={complete}
+                    data-active={active}
+                    className={`rounded-lg border p-3 text-sm ${
+                      active ? 'border-primary bg-primary/5' : complete ? 'border-green-200 bg-green-50/50' : 'border-muted bg-muted/30 opacity-70'
+                    }`}
+                  >
+                    <div className="font-medium">
+                      Step {step}: {STEP_LABELS[step]}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {complete ? 'Complete' : active ? 'In progress' : 'Pending'}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <Card data-testid="card-agreement" className={activeStep !== 1 && !status.agreementAccepted ? 'opacity-60' : ''}>
+              <CardHeader>
+                <CardTitle>Step 1: Accept the Recipient Agreement</CardTitle>
+                <CardDescription>
+                  Before connecting Square, please review and accept the{' '}
+                  <a href="/legal/recipient-agreement" className="underline" target="_blank" rel="noreferrer">
+                    Recipient Agreement
+                  </a>
+                  . This covers how payouts and the platform fee work.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={handleAcceptAgreement}
+                  disabled={busy || status.agreementAccepted}
+                  data-testid="btn-accept-agreement"
+                  data-loading={busy}
+                  aria-label="Accept recipient agreement"
+                >
+                  {status.agreementAccepted ? 'Agreement accepted' : busy ? 'Saving…' : 'Accept & Continue'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className={!status.agreementAccepted ? 'opacity-60 pointer-events-none' : ''}>
+              <CardHeader>
+                <CardTitle>Step 2: Connect Square</CardTitle>
+                <CardDescription>
+                  Connect your own Square account to receive payouts. Viewers&apos; payments go directly to your Square
+                  balance; FieldView keeps a small platform fee. You&apos;ll be redirected to Square to authorize.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {status.connected && status.merchantId && (
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground">Merchant ID</div>
+                    <div className="font-mono text-sm">{status.merchantId}</div>
+                  </div>
+                )}
+                <Button
+                  onClick={handleConnect}
+                  disabled={busy || !status.agreementAccepted || status.connected}
+                  className="w-full sm:w-auto"
+                  data-testid="btn-connect-square"
+                  data-loading={busy}
+                  aria-label="Connect Square account"
+                >
+                  {status.connected ? 'Square connected' : busy ? 'Redirecting to Square…' : 'Connect Square'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className={!status.connected ? 'opacity-60 pointer-events-none' : ''}>
+              <CardHeader>
+                <CardTitle>Step 3: Square Location ID</CardTitle>
+                <CardDescription>
+                  Find this in your Square Dashboard → Account &amp; Settings → Business → Locations. Required for
+                  checkout.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
                 <Label htmlFor="location-id">Square Location ID</Label>
-                <p className="text-xs text-muted-foreground">
-                  Find this in your Square Dashboard → Account &amp; Settings → Locations. Required for checkout.
-                </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     id="location-id"
@@ -225,14 +294,25 @@ function PaymentsInner() {
                     value={locationId}
                     onChange={(e) => setLocationId(e.target.value)}
                     className="sm:max-w-xs"
+                    disabled={!status.connected}
+                    aria-describedby="location-id-help"
                   />
-                  <Button onClick={handleSaveLocation} disabled={busy || !locationId.trim()} data-testid="btn-save-location">
-                    {busy ? 'Saving…' : 'Save Location'}
+                  <Button
+                    onClick={handleSaveLocation}
+                    disabled={busy || !status.connected || !locationId.trim()}
+                    data-testid="btn-save-location"
+                    data-loading={busy}
+                    aria-label="Save Square location ID"
+                  >
+                    {busy ? 'Saving…' : locationSaved ? 'Location saved' : 'Save Location'}
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <p id="location-id-help" className="text-xs text-muted-foreground">
+                  Square Dashboard → Account &amp; Settings → Business → Locations
+                </p>
+              </CardContent>
+            </Card>
+          </>
         ) : null}
       </main>
     </div>
