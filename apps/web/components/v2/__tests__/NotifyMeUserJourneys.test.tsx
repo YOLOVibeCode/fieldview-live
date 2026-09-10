@@ -128,7 +128,7 @@ describe('Notify-Me User Journeys', () => {
 
       // Should have called the API correctly
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/public/direct/tchs/notify-me',
+        'https://api.fieldview.live/api/public/direct/tchs/notify-me',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ email: 'newuser@example.com' }),
@@ -179,7 +179,7 @@ describe('Notify-Me User Journeys', () => {
 
       // Verify API was called with viewerIdentityId (not email)
       expect(mockFetch).toHaveBeenLastCalledWith(
-        '/api/public/direct/tchs/notify-me',
+        'https://api.fieldview.live/api/public/direct/tchs/notify-me',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ viewerIdentityId: 'viewer-alice' }),
@@ -235,7 +235,7 @@ describe('Notify-Me User Journeys', () => {
       mockFetch
         .mockResolvedValueOnce({ ok: true, json: async () => ({ subscribed: false }) })
         .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'subscribed', viewerId: 'viewer-carol' }) })
-        .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+        .mockResolvedValueOnce({ ok: true })
         .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'subscribed', viewerId: 'viewer-carol' }) });
 
       render(<StreamPage authenticated viewerEmail="carol@example.com" viewerIdentityId="viewer-carol" viewerName="Carol" />);
@@ -264,7 +264,7 @@ describe('Notify-Me User Journeys', () => {
 
       // Verify DELETE was called
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/public/direct/tchs/notify-me',
+        'https://api.fieldview.live/api/public/direct/tchs/notify-me',
         expect.objectContaining({
           method: 'DELETE',
           body: JSON.stringify({ viewerIdentityId: 'viewer-carol' }),

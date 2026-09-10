@@ -80,7 +80,7 @@ describe('NotifyMeForm', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          '/api/public/direct/tchs/notify-me',
+          'https://api.fieldview.live/api/public/direct/tchs/notify-me',
           expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
@@ -192,7 +192,7 @@ describe('NotifyMeForm', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenLastCalledWith(
-          '/api/public/direct/tchs/notify-me',
+          'https://api.fieldview.live/api/public/direct/tchs/notify-me',
           expect.objectContaining({
             method: 'POST',
             body: JSON.stringify({ viewerIdentityId: 'viewer-123' }),
@@ -285,7 +285,7 @@ describe('NotifyMeForm', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenLastCalledWith(
-          '/api/public/direct/tchs/notify-me',
+          'https://api.fieldview.live/api/public/direct/tchs/notify-me',
           expect.objectContaining({
             method: 'DELETE',
             body: JSON.stringify({ viewerIdentityId: 'viewer-123' }),
