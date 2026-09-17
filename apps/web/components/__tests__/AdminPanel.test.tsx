@@ -40,7 +40,8 @@ describe('AdminPanel', () => {
     it('should show error when unlock fails', async () => {
       (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
-        json: () => Promise.resolve({ error: 'Invalid password' }),
+        status: 401,
+        json: () => Promise.resolve({ error: { code: 'UNAUTHORIZED', message: 'Invalid password' } }),
       });
       render(<AdminPanel {...defaultProps} />);
       fireEvent.change(screen.getByTestId('admin-password-input'), { target: { value: 'wrong' } });
@@ -63,6 +64,25 @@ describe('AdminPanel', () => {
       });
       expect(screen.getByTestId('stream-url-input')).toBeInTheDocument();
       expect(screen.getByTestId('save-settings-button')).toBeInTheDocument();
+    });
+
+    it('unlocks hierarchical event slugs against the parent slug', async () => {
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ token: 'jwt-token-123' }),
+      });
+      render(
+        <AdminPanel slug="dentondiablos/soccer-2008-20260325" />
+      );
+      fireEvent.change(screen.getByTestId('admin-password-input'), { target: { value: 'devil2026' } });
+      fireEvent.submit(screen.getByTestId('admin-unlock-form'));
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-panel-settings')).toBeInTheDocument();
+      });
+      const fetchMock = fetch as ReturnType<typeof vi.fn>;
+      const calledUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
+      expect(calledUrl).toContain('/api/direct/dentondiablos/unlock-admin');
+      expect(calledUrl).not.toContain('soccer-2008');
     });
 
     it('should call onAuthSuccess with token when unlock succeeds', async () => {

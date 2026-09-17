@@ -47,7 +47,7 @@ describe('loadDemoPlayback', () => {
       }),
     });
     const result = await loadDemoPlayback('tchs', fetchFn);
-    expect(fetchFn).toHaveBeenCalledWith('http://localhost:4301/api/direct/tchs/bootstrap');
+    expect(fetchFn).toHaveBeenCalledWith('https://api.fieldview.live/api/direct/tchs/bootstrap');
     expect(result).toEqual({
       src: 'https://stream.mux.com/live.m3u8',
       sportId: 'football',

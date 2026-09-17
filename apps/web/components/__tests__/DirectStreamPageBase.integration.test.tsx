@@ -284,9 +284,11 @@ describe('DirectStreamPageBase integration', () => {
   // Header — title, viewer count, admin panel
   // ====================================================================
   describe('Header', () => {
-    it('should show page title from config', async () => {
+    it('should show bootstrap title instead of the slug fallback', async () => {
       await renderPage();
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Fallback Title');
+      const heading = screen.getByTestId('heading-stream-title');
+      expect(heading).toHaveTextContent('Test Stream Title');
+      expect(heading).not.toHaveTextContent('Fallback Title');
     });
 
     it('should show viewer count', async () => {
@@ -525,6 +527,27 @@ describe('DirectStreamPageBase integration', () => {
   // D11 — Error state
   // ====================================================================
   describe('Error state (D11)', () => {
+    it('should show a single error overlay and unmount the player', async () => {
+      const bootstrap = makeBootstrap({ streamUrl: 'https://stream.example.com/live.m3u8' });
+      setupFetch(bootstrap);
+      vi.mock('@/components/v2/video/StreamPlayer', () => ({
+        StreamPlayer: ({ onStatusChange }: { onStatusChange: (s: string) => void }) => {
+          onStatusChange('error');
+          return <div data-testid="mock-stream-player">Mock Player</div>;
+        },
+      }));
+      const { DirectStreamPageBase } = await import('../DirectStreamPageBase');
+      render(
+        <DirectStreamPageBase
+          config={{ slug: 'test-stream', title: 'Fallback Title', bootstrapUrl: 'http://localhost:4301/api/public/direct/test-stream/bootstrap' }}
+        />,
+      );
+      await waitFor(() => expect(screen.getByTestId('error-overlay')).toBeInTheDocument(), { timeout: 5000 });
+      expect(screen.getAllByText('Unable to Load Stream')).toHaveLength(1);
+      expect(screen.queryByTestId('mock-stream-player')).not.toBeInTheDocument();
+      expect(screen.getByTestId('btn-update-stream')).toHaveTextContent(/Open Admin Panel/);
+    });
+
     it('should show "Unable to Load Stream" and Open Admin Panel button when status is error', async () => {
       const bootstrap = makeBootstrap({ streamUrl: 'https://stream.example.com/live.m3u8' });
       setupFetch(bootstrap);

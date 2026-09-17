@@ -58,7 +58,10 @@ describe('VerifyAccessPage', () => {
     render(<VerifyAccessPage />);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/viewer-refresh/verify/test-access-token-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/auth/viewer-refresh/verify/test-access-token-123'),
+        expect.any(Object)
+      );
     }, { timeout: 3000 });
   });
 

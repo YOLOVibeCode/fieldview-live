@@ -62,6 +62,7 @@ import { BookmarkPanel } from '@/components/v2/video/BookmarkPanel';
 import { BookmarkToast, useBookmarkToasts } from '@/components/v2/video/BookmarkToast';
 import { useBookmarkMarkers } from '@/hooks/v2/useBookmarkMarkers';
 import { useViewerCount } from '@/hooks/useViewerCount';
+import { useVideoElementReady } from '@/hooks/useVideoElementReady';
 import { PortraitStreamLayout, type PortraitTab } from '@/components/v2/layout/PortraitStreamLayout';
 import { PlayByPlayFeed } from '@/components/v2/plays/PlayByPlayFeed';
 import { WelcomeMessageBanner, isWelcomeDismissed } from '@/components/v2/WelcomeMessageBanner';
@@ -133,6 +134,8 @@ function ChatMessageForm({ chat }: { chat: { sendMessage: (text: string) => Prom
 
 export interface Bootstrap {
   slug: string;
+  directStreamId?: string;
+  parentSlug?: string;
   gameId: string | null;
   streamUrl: string | null;
   /** True when the server withheld streamUrl because this paywalled stream is not yet entitled. */
@@ -143,6 +146,8 @@ export interface Bootstrap {
   priceInCents?: number;
   paywallMessage?: string | null;
   allowSavePayment?: boolean;
+  /** When false, viewer cannot pay yet (coach setup incomplete). Undefined means ready. */
+  paymentsReady?: boolean;
   scoreboardEnabled?: boolean;
   scoreboardHomeTeam?: string | null;
   scoreboardAwayTeam?: string | null;
@@ -211,6 +216,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'offline' | 'incoming' | 'error'>('loading');
+  const [mediaReady, setMediaReady] = useState(false);
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const [isChatOverlayVisible, setIsChatOverlayVisible] = useState(false);
   const [isScoreboardOverlayVisible, setIsScoreboardOverlayVisible] = useState(false);
@@ -237,6 +243,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   const [showNotifyMe, setShowNotifyMe] = useState(false);
   const isPortrait = isMobile && orientation === 'portrait';
 
+  const handlePlayerStatus = useCallback(
+    (next: 'loading' | 'playing' | 'offline' | 'incoming' | 'error') => {
+      setStatus(next);
+      if (next === 'playing') setMediaReady(true);
+      if (next === 'error' || next === 'offline' || next === 'incoming') setMediaReady(false);
+      config.onStreamStatusChange?.(next);
+    },
+    [config],
+  );
+
   const isScheduledWithinMinutes = (scheduledAt: string | null | undefined, minutes: number): boolean => {
     if (!scheduledAt) return false;
     const at = new Date(scheduledAt).getTime();
@@ -257,6 +273,17 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Compute isBlocked based on bootstrap and paywall state
   // This overrides the hook's internal calculation since we have bootstrap data
   const isPaywallBlocked = bootstrap?.paywallEnabled && !paywall.hasPaid;
+
+  const markMediaReadyFromVideo = useCallback(() => {
+    setMediaReady(true);
+    setStatus((prev) => (prev === 'loading' ? 'playing' : prev));
+  }, []);
+  useVideoElementReady(
+    containerRef,
+    Boolean(streamUrl) && !isPaywallBlocked && status !== 'error',
+    markMediaReadyFromVideo,
+    streamUrl,
+  );
 
   // Collapsible panel state (non-fullscreen mode)
   // Use a stable key derived from bootstrapUrl (constant from first render)
@@ -344,6 +371,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     }
     console.log('[DirectStream] 🚀 Fetching bootstrap from:', bootstrapFetchUrl);
     setStatus('loading');
+    setMediaReady(false);
 
     apiRequest<Bootstrap>(bootstrapFetchUrl, { retries: 1 })
       .then((data: Bootstrap) => {
@@ -1103,8 +1131,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {status === 'loading' && bootstrap?.streamUrl && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 backdrop-blur-sm">
+              {status === 'loading' && bootstrap?.streamUrl && !mediaReady && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 backdrop-blur-sm pointer-events-none">
                   <div className="text-center text-white">
                     <div className="w-12 h-12 mx-auto mb-3 border-3 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
                     <p className="text-sm font-medium">Loading stream...</p>
@@ -1112,14 +1140,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* StreamPlayer */}
-              {streamUrl && !isPaywallBlocked && (
+              {/* StreamPlayer — unmount on error so Mux's native error UI is not a second overlay */}
+              {streamUrl && !isPaywallBlocked && status !== 'error' && (
                 <StreamPlayer
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
                   playerRef={playerRef}
-                  onStatusChange={setStatus}
+                  onStatusChange={handlePlayerStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
                   className="absolute inset-0 w-full h-full"
@@ -1202,7 +1230,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             showGuestNamePrompt ? (
               <div className="flex-1 flex items-center justify-center p-4">
                 <GuestNamePrompt 
-                  slug={bootstrap.slug} 
+                  slug={bootstrap?.slug ?? ''} 
                   onSubmit={handleGuestNameSubmit}
                   data-testid="guest-name-prompt-portrait"
                 />
@@ -1296,6 +1324,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             priceInCents={bootstrap.priceInCents || 0}
             paywallMessage={bootstrap.paywallMessage}
             allowSavePayment={bootstrap.allowSavePayment}
+            paymentsReady={bootstrap.paymentsReady}
           />
         )}
 
@@ -1336,7 +1365,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           <div className={`bg-black/60 backdrop-blur-md border-b border-white/10 p-4 rounded-t-lg shadow-2xl ${config.headerClassName || ''}`}>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight">{config.title}</h1>
+                <h1
+                  className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight"
+                  data-testid="heading-stream-title"
+                >
+                  {bootstrap?.title?.trim() || config.title}
+                </h1>
                 <div className="flex items-center gap-3">
                   {config.subtitle && <p className="text-gray-400 text-sm">{config.subtitle}</p>}
                   {viewerCount.count > 0 && (
@@ -1619,6 +1653,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               priceInCents={bootstrap.priceInCents || 0}
               paywallMessage={bootstrap.paywallMessage}
               allowSavePayment={bootstrap.allowSavePayment}
+              paymentsReady={bootstrap.paymentsReady}
             />
           )}
 
@@ -1653,14 +1688,24 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                     <p className="text-xl font-bold text-amber-400 mb-6">
                       ${((bootstrap.priceInCents || 0) / 100).toFixed(2)}
                     </p>
-                    <TouchButton
-                      onClick={paywall.openPaywall}
-                      variant="primary"
-                      className="bg-amber-500 hover:bg-amber-600 shadow-2xl shadow-amber-500/20 hover:shadow-amber-500/40 transition-shadow"
-                      data-testid="btn-unlock-stream"
-                    >
-                      Unlock Stream
-                    </TouchButton>
+                    {bootstrap.paymentsReady === false ? (
+                      <p
+                        data-testid="error-payments-unavailable"
+                        className="text-sm text-amber-200/90"
+                        role="alert"
+                      >
+                        Payments not yet available for this stream
+                      </p>
+                    ) : (
+                      <TouchButton
+                        onClick={paywall.openPaywall}
+                        variant="primary"
+                        className="bg-amber-500 hover:bg-amber-600 shadow-2xl shadow-amber-500/20 hover:shadow-amber-500/40 transition-shadow"
+                        data-testid="btn-unlock-stream"
+                      >
+                        Unlock Stream
+                      </TouchButton>
+                    )}
                   </div>
                 </div>
               )}
@@ -1775,8 +1820,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {status === 'loading' && bootstrap?.streamUrl && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm" data-testid="loading-overlay">
+              {status === 'loading' && bootstrap?.streamUrl && !mediaReady && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-gradient-to-br from-black/80 via-gray-900/80 to-black/80 backdrop-blur-sm pointer-events-none" data-testid="loading-overlay">
                   <div className="text-center text-white">
                     {/* Animated loading spinner */}
                     <div className="mb-6">
@@ -1788,14 +1833,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
 
-              {/* Stream Player - routes to MuxPlayer or VidstackPlayer based on provider */}
-              {streamUrl && !isPaywallBlocked && (
+              {/* Unmount on error so Mux's built-in error chrome is not a second "Unable to Load" */}
+              {streamUrl && !isPaywallBlocked && status !== 'error' && (
                 <StreamPlayer
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
                   playerRef={playerRef}
-                  onStatusChange={setStatus}
+                  onStatusChange={handlePlayerStatus}
                   onTimeUpdate={setCurrentTime}
                   onDurationChange={setDuration}
                   className="absolute inset-0 w-full h-full"

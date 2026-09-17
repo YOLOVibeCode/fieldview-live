@@ -67,7 +67,7 @@ describe('AccessExpiredOverlay', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/viewer-refresh/request',
+        expect.stringContaining('/api/auth/viewer-refresh/request'),
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -91,7 +91,7 @@ describe('AccessExpiredOverlay', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
-      json: async () => ({ message: 'Too many requests' }),
+      json: async () => ({ error: { code: 'RATE_LIMIT', message: 'Too many requests' } }),
     } as Response);
 
     render(<AccessExpiredOverlay streamId="stream-123" />);
@@ -103,7 +103,9 @@ describe('AccessExpiredOverlay', () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toHaveTextContent('Too many requests');
+      expect(screen.getByTestId('error-message')).toHaveTextContent(
+        'Too many requests. Please wait a moment and try again.'
+      );
     });
   });
 
@@ -182,7 +184,7 @@ describe('AccessExpiredOverlay', () => {
     const mockFetch = vi.mocked(fetch);
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ error: 'Server error' }),
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } }),
     } as Response);
 
     render(<AccessExpiredOverlay streamId="stream-123" />);
@@ -194,7 +196,9 @@ describe('AccessExpiredOverlay', () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toHaveTextContent('Server error');
+      expect(screen.getByTestId('error-message')).toHaveTextContent(
+        'Something went wrong on our end. Please try again.'
+      );
     });
   });
 

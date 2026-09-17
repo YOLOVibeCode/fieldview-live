@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getUserFriendlyMessage } from '../error-messages';
+import { getUnlockAdminMessage, getUserFriendlyMessage } from '../error-messages';
 import { ApiError } from '../api-client';
 
 describe('getUserFriendlyMessage', () => {
@@ -136,5 +136,17 @@ describe('getUserFriendlyMessage', () => {
       const error = new ApiError(503, 'UNKNOWN', 'Service unavailable');
       expect(getUserFriendlyMessage(error)).toBe('Service temporarily unavailable. Please try again.');
     });
+  });
+});
+
+describe('getUnlockAdminMessage', () => {
+  it('shows Invalid password on 401 instead of sign-in copy', () => {
+    const error = new ApiError(401, 'UNAUTHORIZED', 'Invalid password');
+    expect(getUnlockAdminMessage(error)).toBe('Invalid password');
+  });
+
+  it('shows stream/event not found on 404', () => {
+    const error = new ApiError(404, 'NOT_FOUND', 'Stream event not found');
+    expect(getUnlockAdminMessage(error)).toBe('Stream event not found');
   });
 });

@@ -42,6 +42,16 @@ export interface IRelayWebhookHandler {
  * payment updates are acknowledged/logged — extend once the webhook is live and the
  * exact forwarded event shapes are confirmed against the relay canary.
  */
+interface RelayForwardedPayment {
+  id?: string;
+  status?: string;
+}
+
+interface RelayForwardedRefund {
+  payment_id?: string;
+  status?: string;
+}
+
 export class RelayWebhookHandler implements IRelayWebhookHandler {
   constructor(
     private purchaseReader: IPurchaseReader,
@@ -49,8 +59,33 @@ export class RelayWebhookHandler implements IRelayWebhookHandler {
   ) {}
 
   async handle(event: RelayWebhookEvent): Promise<void> {
+    if (event.type === 'payment.updated') {
+      const payment = event.data?.object?.payment as RelayForwardedPayment | undefined;
+      if (!payment?.id) {
+        return;
+      }
+
+      const purchase = await this.purchaseReader.getByPaymentProviderId(payment.id);
+      if (!purchase) {
+        return;
+      }
+
+      if (payment.status === 'COMPLETED') {
+        await this.purchaseWriter.update(purchase.id, {
+          status: 'paid',
+          paidAt: new Date(),
+        });
+      } else if (payment.status === 'FAILED' || payment.status === 'CANCELED') {
+        await this.purchaseWriter.update(purchase.id, {
+          status: 'failed',
+          failedAt: new Date(),
+        });
+      }
+      return;
+    }
+
     if (event.type === 'refund.updated') {
-      const refund = event.data?.object?.refund as { payment_id?: string; status?: string } | undefined;
+      const refund = event.data?.object?.refund as RelayForwardedRefund | undefined;
       if (refund?.payment_id && refund.status === 'COMPLETED') {
         const purchase = await this.purchaseReader.getByPaymentProviderId(refund.payment_id);
         if (purchase) {
@@ -58,7 +93,6 @@ export class RelayWebhookHandler implements IRelayWebhookHandler {
         }
       }
     }
-    // 'dispute.created' / 'payment.updated' are acknowledged; handle when live.
   }
 }
 

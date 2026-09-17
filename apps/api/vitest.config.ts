@@ -15,6 +15,12 @@ export default defineConfig({
       '**/coverage/**',
       '**/.next/**',
       '__tests__/live/**',
+      // Require Postgres — run via vitest.live.config.ts / test:live, not unit CI
+      'src/repositories/__tests__/ClipRepository.test.ts',
+      'src/repositories/__tests__/BookmarkRepository.test.ts',
+      'src/jobs/__tests__/cleanup.test.ts',
+      'src/services/__tests__/DVRService.test.ts',
+      '__tests__/services/AbuseDetectionService.test.ts',
     ],
     coverage: {
       provider: 'v8',
