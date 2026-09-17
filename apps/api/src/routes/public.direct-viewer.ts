@@ -16,8 +16,10 @@ import { sendEmail, renderRegistrationEmail } from '../lib/email';
 import { createAutoRegistrationService } from '../services/auto-registration.implementations';
 import type { AutoRegisterRequest, AutoRegisterResponse } from '../services/auto-registration.interfaces';
 import { ensureGameForDirectStream } from '../lib/ensure-game';
+import { parseDirectKey, rewriteHierarchicalPublicDirectPath } from '../lib/direct-slug';
 
 const router = express.Router();
+router.use(rewriteHierarchicalPublicDirectPath);
 
 const UnlockViewerSchema = z.object({
   email: z.string().email(),
@@ -50,11 +52,12 @@ router.post(
           throw new BadRequestError('Slug is required');
         }
 
+        const { parentSlug, eventSlug } = parseDirectKey(slug);
         const body = req.body as z.infer<typeof UnlockViewerSchema>;
 
         // Get DirectStream first (needed for email notifications AND Game auto-creation)
         const directStream = await prisma.directStream.findUnique({
-          where: { slug },
+          where: { slug: parentSlug },
           select: {
             id: true,
             title: true,
@@ -68,12 +71,26 @@ router.post(
           throw new BadRequestError('Stream not found. Please check the URL.');
         }
 
+        if (eventSlug) {
+          const event = await prisma.directStreamEvent.findUnique({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: directStream.id,
+                eventSlug,
+              },
+            },
+          });
+          if (!event) {
+            throw new NotFoundError('Stream event not found');
+          }
+        }
+
         // Ensure Game exists (resilient - creates if missing)
-        const gameId = await ensureGameForDirectStream(slug, directStream);
+        const gameId = await ensureGameForDirectStream(parentSlug, directStream);
 
         // Get full DirectStream for email (with all fields)
         const directStreamFull = await prisma.directStream.findUnique({
-          where: { slug },
+          where: { slug: parentSlug },
         });
 
         // Upsert viewer identity

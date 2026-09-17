@@ -5,15 +5,15 @@
  * Import `sportRegistry` wherever you need to look up a sport or event type.
  */
 
-import type { ISportConfig, ISportEventType, ISportRegistryReader } from './types';
-import { soccerConfig } from './configs/soccer';
-import { footballConfig } from './configs/football';
-import { basketballConfig } from './configs/basketball';
-import { lacrosseConfig } from './configs/lacrosse';
 import { baseballConfig } from './configs/baseball';
-import { volleyballConfig } from './configs/volleyball';
-import { hockeyConfig } from './configs/hockey';
+import { basketballConfig } from './configs/basketball';
+import { footballConfig } from './configs/football';
 import { genericConfig } from './configs/generic';
+import { hockeyConfig } from './configs/hockey';
+import { lacrosseConfig } from './configs/lacrosse';
+import { soccerConfig } from './configs/soccer';
+import { volleyballConfig } from './configs/volleyball';
+import type { ISportConfig, ISportEventType, ISportRegistryReader } from './types';
 
 const ALL_CONFIGS: readonly ISportConfig[] = [
   soccerConfig,
@@ -27,7 +27,7 @@ const ALL_CONFIGS: readonly ISportConfig[] = [
 ];
 
 /** The exhaustive set of valid sport id strings. */
-export const SPORT_IDS = ALL_CONFIGS.map((s) => s.id) as string[];
+export const SPORT_IDS = ALL_CONFIGS.map((s) => s.id);
 
 class SportRegistry implements ISportRegistryReader {
   private readonly byId: ReadonlyMap<string, ISportConfig>;

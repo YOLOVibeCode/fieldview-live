@@ -148,7 +148,6 @@ export function ViewerUnlockForm({
                     <Input
                       data-testid="input-email"
                       id="email"
-                      name="email"
                       type="email"
                       placeholder="you@example.com"
                       autoComplete="email"
@@ -174,7 +173,6 @@ export function ViewerUnlockForm({
                       <Input
                         data-testid="input-first-name"
                         id="firstName"
-                        name="firstName"
                         placeholder="John"
                         autoComplete="given-name"
                         className="min-h-[44px] text-base"
@@ -198,7 +196,6 @@ export function ViewerUnlockForm({
                       <Input
                         data-testid="input-last-name"
                         id="lastName"
-                        name="lastName"
                         placeholder="Doe"
                         autoComplete="family-name"
                         className="min-h-[44px] text-base"

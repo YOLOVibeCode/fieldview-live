@@ -327,12 +327,14 @@ describe('SSEMessageTransport', () => {
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
         ok: false,
         status: 400,
-        json: async () => ({ error: 'Message too long' }),
+        json: async () => ({ error: { code: 'BAD_REQUEST', message: 'Message too long' } }),
       });
       
       await transport.connect('game-123', 'token-abc');
       
-      await expect(transport.sendMessage('Test')).rejects.toThrow('Message too long');
+      await expect(transport.sendMessage('Test')).rejects.toThrow(
+        'Something was wrong with the request. Please check your input.'
+      );
     });
   });
   

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { sportRegistry } from '../registry';
 
 const EXPECTED_SPORT_IDS = [

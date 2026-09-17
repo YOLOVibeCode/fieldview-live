@@ -28,6 +28,7 @@ import { DirectStreamTitleRepository } from '../repositories/implementations/Dir
 import { getEmailProvider } from '../lib/email';
 import { requireAdminAuth } from '../middleware/adminAuth';
 import { requireSuperAdmin } from '../middleware/adminAuth';
+import { assertPaymentsReadyForPaywall } from '../lib/payments-readiness';
 const router = express.Router();
 
 // Require admin login (Bearer token from POST /api/admin/login) and super_admin role
@@ -163,6 +164,13 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
         throw new AppError('INTERNAL_ERROR', 'No owner account found. Please create one first.', 500);
       }
 
+      assertPaymentsReadyForPaywall(
+        defaultOwner,
+        data.paywallEnabled ?? false,
+        data.priceInCents ?? 0,
+        { bypass: data.bypassPaymentsReadiness === true },
+      );
+
       // 🆕 Auto-create Game record for DirectStream (required for viewer registration/chat)
       const gameTitle = `Direct Stream: ${data.slug}`;
       let game = await prisma.game.findFirst({
@@ -261,8 +269,39 @@ router.patch('/:id', (req: Request, res: Response, next: NextFunction) => {
 
       const data = validation.data;
 
+      const existingStream = await prisma.directStream.findUnique({
+        where: { id },
+        select: {
+          paywallEnabled: true,
+          priceInCents: true,
+          ownerAccountId: true,
+        },
+      });
+      if (!existingStream) {
+        throw new NotFoundError('DirectStream not found');
+      }
+
+      const owner = await prisma.ownerAccount.findUnique({
+        where: { id: existingStream.ownerAccountId },
+        select: {
+          relayRecipientKey: true,
+          agreementAcceptedVersion: true,
+          squareLocationId: true,
+          squareAccessTokenEncrypted: true,
+          squareTokenExpiresAt: true,
+        },
+      });
+      if (owner) {
+        assertPaymentsReadyForPaywall(
+          owner,
+          data.paywallEnabled ?? existingStream.paywallEnabled,
+          data.priceInCents ?? existingStream.priceInCents,
+          { bypass: data.bypassPaymentsReadiness === true },
+        );
+      }
+
       // Build update object
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (data.title !== undefined) updateData.title = data.title;
       if (data.streamUrl !== undefined) updateData.streamUrl = data.streamUrl;
       if (data.scheduledStartAt !== undefined)
