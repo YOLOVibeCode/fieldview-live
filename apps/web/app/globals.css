@@ -185,6 +185,29 @@
   }
 }
 
+/* Official Safari Apple Pay button. Keep this outside @layer so it wins over
+   Tailwind preflight's `-webkit-appearance: button` on <button>. Do not put
+   text inside the element — Safari draws the Apple Pay mark. */
+button.fv-apple-pay-button {
+  display: block;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background-color: transparent;
+  -webkit-appearance: -apple-pay-button;
+  -apple-pay-button-type: buy;
+  -apple-pay-button-style: black;
+}
+
+button.fv-apple-pay-button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 @layer utilities {
   /* Hide scrollbar but allow scrolling */
   .scrollbar-hide {

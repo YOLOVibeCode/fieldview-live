@@ -96,9 +96,6 @@ export function SquareWalletPayment({
   const initRef = useRef(false);
   const processingRef = useRef(false);
 
-  // TEMP diagnostic: surface why a wallet button failed to initialize.
-  const [diag, setDiag] = useState<string[]>([]);
-
   // Per-coach Square config (relay Connect Hub) resolved from the purchase, with a
   // legacy NEXT_PUBLIC_* fallback. See lib/square-config.ts.
   const { applicationId: appId, locationId, sdkUrl } = resolveSquareConfig(cfg);
@@ -161,9 +158,8 @@ export function SquareWalletPayment({
           const applePay = await payments.applePay(buildPaymentRequest());
           applePayInstanceRef.current = applePay;
           setCanApplePay(true);
-          setDiag((d) => [...d, 'Apple Pay: available ✓']);
-        } catch (e) {
-          setDiag((d) => [...d, 'Apple Pay: ' + ((e as { message?: string; name?: string })?.message || (e as { name?: string })?.name || 'unavailable on this device')]);
+        } catch {
+          // Safari-only; card + Google Pay still load.
         }
 
         // Google Pay — renders its branded button into the container via .attach().
@@ -174,9 +170,8 @@ export function SquareWalletPayment({
             googlePayInstanceRef.current = googlePay;
             setCanGooglePay(true);
           }
-          setDiag((d) => [...d, 'Google Pay: available ✓']);
-        } catch (e) {
-          setDiag((d) => [...d, 'Google Pay: ' + ((e as { message?: string; name?: string })?.message || (e as { name?: string })?.name || 'unavailable on this device')]);
+        } catch {
+          // Not available on this device/browser.
         }
 
         setReady(true);
@@ -261,16 +256,6 @@ export function SquareWalletPayment({
         <Script src={sdkUrl} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} onReady={() => setSdkLoaded(true)} />
       )}
 
-      {/* TEMP diagnostic — shows exactly why each wallet did/didn't initialize. */}
-      {diag.length > 0 && (
-        <div data-testid="wallet-diag" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
-          {diag.map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </div>
-      )}
-
-      {/* One-tap wallets */}
       {(canApplePay || canGooglePay) && (
         <div className="space-y-2">
           {canApplePay && (
@@ -279,12 +264,10 @@ export function SquareWalletPayment({
               data-testid="btn-apple-pay"
               onClick={handleApplePay}
               disabled={processing}
-              aria-label="Pay with Apple Pay"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-black font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              <span aria-hidden></span>
-              <span>Pay</span>
-            </button>
+              aria-label="Buy with Apple Pay"
+              data-loading={processing}
+              className="fv-apple-pay-button"
+            />
           )}
           {canGooglePay && (
             <div
