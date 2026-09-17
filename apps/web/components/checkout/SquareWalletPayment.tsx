@@ -83,8 +83,6 @@ export function SquareWalletPayment({
   const initRef = useRef(false);
   const processingRef = useRef(false);
 
-  const [diag, setDiag] = useState<string[]>([]);
-
   const resolved = cfgLoaded ? resolveSquareConfig(cfg) : null;
   const configReady = resolved !== null && isSquareConfigReady(resolved);
   const appId = configReady ? resolved.applicationId : '';
@@ -145,15 +143,8 @@ export function SquareWalletPayment({
           const applePay = await payments.applePay(buildPaymentRequest());
           applePayInstanceRef.current = applePay;
           setCanApplePay(true);
-          setDiag((d) => [...d, 'Apple Pay: available ✓']);
-        } catch (e) {
-          setDiag((d) => [
-            ...d,
-            'Apple Pay: ' +
-              ((e as { message?: string; name?: string })?.message ||
-                (e as { name?: string })?.name ||
-                'unavailable on this device'),
-          ]);
+        } catch {
+          // Safari-only; card + Google Pay still load.
         }
 
         try {
@@ -163,15 +154,8 @@ export function SquareWalletPayment({
             googlePayInstanceRef.current = googlePay;
             setCanGooglePay(true);
           }
-          setDiag((d) => [...d, 'Google Pay: available ✓']);
-        } catch (e) {
-          setDiag((d) => [
-            ...d,
-            'Google Pay: ' +
-              ((e as { message?: string; name?: string })?.message ||
-                (e as { name?: string })?.name ||
-                'unavailable on this device'),
-          ]);
+        } catch {
+          // Not available on this device/browser.
         }
 
         setReady(true);
@@ -270,17 +254,6 @@ export function SquareWalletPayment({
         />
       )}
 
-      {diag.length > 0 && (
-        <div
-          data-testid="wallet-diag"
-          className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800"
-        >
-          {diag.map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </div>
-      )}
-
       {(canApplePay || canGooglePay) && (
         <div className="space-y-2">
           {canApplePay && (
@@ -289,13 +262,10 @@ export function SquareWalletPayment({
               data-testid="btn-apple-pay"
               onClick={handleApplePay}
               disabled={processing}
-              aria-label="Pay with Apple Pay"
+              aria-label="Buy with Apple Pay"
               data-loading={processing}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-black font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              <span aria-hidden></span>
-              <span>Pay</span>
-            </button>
+              className="fv-apple-pay-button"
+            />
           )}
           {canGooglePay && (
             <div
