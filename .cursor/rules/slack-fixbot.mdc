@@ -1,0 +1,30 @@
+---
+description: This repo is Slack fix-bot enabled (#fieldview-fixbot). Fixes MUST go through the fix-bot flow - branch, PR against develop, verified - never a direct push.
+alwaysApply: true
+---
+
+# Slack fix bot: fieldview
+
+This repository is wired to the **@CloudAgents** Slack bot (source: `rvegajr/cloud-agents`).
+
+| Fact | Value |
+| --- | --- |
+| Channel | `#fieldview-fixbot` (`-fixbot` is the channel suffix, not the bot) |
+| Project key | `fieldview` (implied inside the channel; elsewhere say `@CloudAgents fieldview ...`) |
+| Repo @ base | `YOLOVibeCode/fieldview-live` @ `develop` |
+| Engine | a Cursor Cloud Agent (`bc-...`). `@Cursor` is Cursor's official Slack app, a different product |
+| Retired names | Demo App, FileDrop, Cursor FixBot, `@Demo`, FixBot. Never tell a human to mention them |
+
+## Unattended runs
+
+The ROLE banner and "ask before acting" rules in `.cursorrules` apply to interactive sessions with a human present. When this repo is cloned by a Cloud Agent or driven from Slack, do not print banners, do not stop for approval: verify with commands, keep the diff small, state assumptions, continue.
+
+## Applying fixes: the imperative
+
+When asked to fix, patch, or change behavior in this repo, you MUST:
+
+1. **Work on a branch, never on `develop`.** Direct pushes to `develop` are forbidden. Cloud agents already start on `cursor/<slug>`; local sessions branch first.
+2. **End every fix in a pull request against `develop`.** Slack-launched runs create the PR automatically (`autopr` defaults to true). If no PR exists when you finish, say so in one line: `No PR yet: base develop, head <branch>`. Never claim a PR was opened unless you have its URL.
+3. **Verify with commands before you report.** Run the gate (`pnpm lint && pnpm type-check && pnpm test`) and paste the result. `pnpm test:live` targets deployed environments and is out of reach from a fresh clone; do not run it. The Slack bot flips the draft PR to ready only when the verifier reports done; a fix without evidence stays a draft.
+4. **Write the final message for the Slack thread.** Outcome first, then files changed, then what was verified, then what you deliberately did not touch. The bot forwards it verbatim to `#fieldview-fixbot`.
+5. **Route humans through Slack for new fixes.** If someone (especially on a phone) asks how to get a fix started, the answer is: post `@CloudAgents <what is wrong, where, how to reproduce>` in `#fieldview-fixbot`. Options: `branch=<name>`, `autopr=false`, `model=<id>`. The Cursor iOS app can review, mark ready, and merge a PR but cannot create one; launches belong in Slack.
