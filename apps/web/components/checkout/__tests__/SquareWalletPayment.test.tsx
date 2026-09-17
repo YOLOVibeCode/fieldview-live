@@ -69,6 +69,7 @@ describe('SquareWalletPayment', () => {
     });
 
     expect(screen.queryByTestId('error-payment-config')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('wallet-diag')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('square-script')).toHaveAttribute(
         'data-src',
