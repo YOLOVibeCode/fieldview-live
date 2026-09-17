@@ -14,11 +14,13 @@ import { BadRequestError, NotFoundError } from '../lib/errors';
 import { getEmailProvider } from '../lib/email';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
+import { buildReceiptStreamUrl } from '../lib/receipt-stream-url';
 import { validateRequest } from '../middleware/validation';
 import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
+import { resolveRelayChargeSettlement } from '../lib/relay-charge-settlement';
 import { getRelayConfig, isPaymentsViaRelay } from '../lib/relay';
 import { LedgerService } from '../services/LedgerService';
 import { ReceiptService } from '../services/ReceiptService';
@@ -30,7 +32,12 @@ const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 
 interface PublicPurchaseHandlers {
   get(purchaseId: string): Promise<{ id: string; amountCents: number; currency: string; status: string }>;
-  getStatus(purchaseId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;
+  getStatus(purchaseId: string): Promise<{
+    purchaseId: string;
+    status: string;
+    entitlementToken?: string;
+    watchUrl?: string;
+  }>;
   processPayment(purchaseId: string, sourceId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;
 }
 
@@ -74,10 +81,15 @@ function getHandlers(): PublicPurchaseHandlers {
           throw new NotFoundError('Purchase not found');
         }
         const entitlement = await entitlementRepo.getByPurchaseId(purchaseId);
+        const entitlementToken = entitlement?.tokenId;
+        const watchUrl = entitlementToken
+          ? await buildReceiptStreamUrl(purchase, entitlementToken)
+          : undefined;
         return {
           purchaseId,
           status: purchase.status,
-          entitlementToken: entitlement?.tokenId,
+          entitlementToken,
+          watchUrl,
         };
       },
 
@@ -106,8 +118,6 @@ function getHandlers(): PublicPurchaseHandlers {
         // relay's Connect Hub instead of the legacy Model A path below. Falls through
         // to Model A otherwise, so flag-off behaviour is unchanged.
         if (isPaymentsViaRelay() && ownerAccount.relayRecipientKey) {
-          const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
-          const split = calculateMarketplaceSplit(purchase.amountCents, PLATFORM_FEE_PERCENT);
           const relayViewer = await prisma.viewerIdentity.findUnique({
             where: { id: purchase.viewerId },
             select: { email: true },
@@ -124,15 +134,17 @@ function getHandlers(): PublicPurchaseHandlers {
             buyerEmailAddress: relayViewer?.email ?? undefined,
           });
 
-          // Relay charge response omits Square's processing fee; keep the estimate.
-          const processorFeeCents = purchase.processorFeeCents;
-          const platformFeeCents = split.platformFeeCents;
-          const ownerNetCents = purchase.amountCents - platformFeeCents - processorFeeCents;
+          const split = resolveRelayChargeSettlement({
+            amountCents: purchase.amountCents,
+            processorFeeCents: purchase.processorFeeCents,
+            appFeeCents: chargeResult.appFeeCents,
+          });
 
           await purchaseRepo.update(purchaseId, {
             paymentProviderPaymentId: chargeResult.paymentId,
-            processorFeeCents,
-            ownerNetCents,
+            platformFeeCents: split.platformFeeCents,
+            processorFeeCents: split.processorFeeCents,
+            ownerNetCents: split.ownerNetCents,
           });
 
           if (chargeResult.status && chargeResult.status !== 'COMPLETED') {
@@ -148,7 +160,7 @@ function getHandlers(): PublicPurchaseHandlers {
             if (existing.length === 0) {
               await ledgerService.createPurchaseLedgerEntries(
                 paidPurchase,
-                { grossAmountCents: split.grossAmountCents, platformFeeCents, processorFeeCents, ownerNetCents },
+                split,
                 undefined,
               );
             }
@@ -177,12 +189,13 @@ function getHandlers(): PublicPurchaseHandlers {
           });
 
           if (relayViewer?.email) {
+            const streamUrl = await buildReceiptStreamUrl(purchase, entitlement.tokenId);
             await receiptService.sendPurchaseReceipt({
               to: relayViewer.email,
               purchaseId,
               amountCents: purchase.amountCents,
               currency: purchase.currency || 'USD',
-              streamUrl: `${APP_URL}/stream/${entitlement.tokenId}`,
+              streamUrl,
             });
           }
 
@@ -389,12 +402,13 @@ function getHandlers(): PublicPurchaseHandlers {
         // Send receipt email (best-effort)
         const viewerEmail = viewer?.email || null;
         if (viewerEmail) {
+          const streamUrl = await buildReceiptStreamUrl(purchase, entitlement.tokenId);
           await receiptService.sendPurchaseReceipt({
             to: viewerEmail,
             purchaseId,
             amountCents: purchase.amountCents,
             currency: purchase.currency || 'USD',
-            streamUrl: `${APP_URL}/stream/${entitlement.tokenId}`,
+            streamUrl,
           });
         }
 

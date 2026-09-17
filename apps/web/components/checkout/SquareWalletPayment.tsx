@@ -7,23 +7,16 @@
  * card field fallback. Tokenizes in the browser and charges via the existing
  * `/purchases/:id/process` endpoint (marketplace Model A — charges the owner's
  * connected Square account and creates the entitlement synchronously).
- *
- * Implemented per the Square Web Payments SDK reference: digital wallets require a
- * `paymentRequest` with the total in DOLLARS (string); Apple Pay uses a custom
- * button + immediate tokenize() inside the click handler (no .attach()); Google
- * Pay renders via .attach().
- *   https://developer.squareup.com/docs/web-payments/apple-pay
- *   https://developer.squareup.com/docs/web-payments/google-pay
  */
 
 import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { Button } from '@/components/ui/button';
 import { apiClient, ApiError, type PaymentConfigResponse } from '@/lib/api-client';
-import { resolveSquareConfig } from '@/lib/square-config';
+import { isSquareConfigReady, resolveSquareConfig } from '@/lib/square-config';
 
 interface SquareTokenizeResult {
-  status: string; // 'OK' on success
+  status: string;
   token?: string;
   errors?: Array<{ message?: string }>;
 }
@@ -53,22 +46,16 @@ interface SquareSdk {
   payments: (applicationId: string, locationId: string) => SquarePayments;
 }
 
-// Access window.Square via a local cast rather than a global `declare`, so this
-// file's richer SquarePayments type (incl. paymentRequest) does not collide with
-// the leaner global Window.Square declared by the standalone /checkout page.
 function getSquareSdk(): SquareSdk | undefined {
   if (typeof window === 'undefined') return undefined;
   return (window as unknown as { Square?: SquareSdk }).Square;
 }
 
 export interface SquareWalletPaymentProps {
-  /** A purchase already created server-side in `created` status (carries amount, owner, directStreamId). */
   purchaseId: string;
   amountCents: number;
   currency?: string;
-  /** Called after the server confirms the charge and the entitlement exists. */
   onSuccess: () => void;
-  /** Surface a human-readable error to the parent (e.g. the paywall modal). */
   onError?: (message: string) => void;
 }
 
@@ -96,17 +83,18 @@ export function SquareWalletPayment({
   const initRef = useRef(false);
   const processingRef = useRef(false);
 
-  // Per-coach Square config (relay Connect Hub) resolved from the purchase, with a
-  // legacy NEXT_PUBLIC_* fallback. See lib/square-config.ts.
-  const { applicationId: appId, locationId, sdkUrl } = resolveSquareConfig(cfg);
+  const resolved = cfgLoaded ? resolveSquareConfig(cfg) : null;
+  const configReady = resolved !== null && isSquareConfigReady(resolved);
+  const appId = configReady ? resolved.applicationId : '';
+  const locationId = configReady ? resolved.locationId : '';
+  const sdkUrl = configReady ? resolved.sdkUrl : '';
+  const configBlocked = resolved !== null && !resolved.ok;
   const amountDisplay = (amountCents / 100).toFixed(2);
 
-  // If the SDK script was already loaded by a prior mount, don't wait for onLoad.
   useEffect(() => {
     if (getSquareSdk()) setSdkLoaded(true);
   }, []);
 
-  // Fetch the per-coach Square config for this purchase before loading the SDK.
   useEffect(() => {
     let active = true;
     apiClient
@@ -126,7 +114,7 @@ export function SquareWalletPayment({
   }, [purchaseId]);
 
   useEffect(() => {
-    if (!cfgLoaded || !sdkLoaded || initRef.current) return;
+    if (!cfgLoaded || !sdkLoaded || initRef.current || !configReady) return;
     if (!appId || !locationId) {
       onError?.('Payment is not configured for this stream yet. Please try again later.');
       return;
@@ -140,12 +128,10 @@ export function SquareWalletPayment({
         const payments = sdk.payments(appId, locationId);
         paymentsRef.current = payments;
 
-        // Card (always available as a fallback)
         const card = await payments.card();
         await card.attach(cardRef.current!);
         cardInstanceRef.current = card;
 
-        // Digital wallets each need their own paymentRequest with the total in dollars.
         const buildPaymentRequest = () =>
           payments.paymentRequest({
             countryCode: 'US',
@@ -153,7 +139,6 @@ export function SquareWalletPayment({
             total: { amount: amountDisplay, label: 'Stream access' },
           });
 
-        // Apple Pay — Safari/iOS only; no .attach(), we render our own button.
         try {
           const applePay = await payments.applePay(buildPaymentRequest());
           applePayInstanceRef.current = applePay;
@@ -162,7 +147,6 @@ export function SquareWalletPayment({
           // Safari-only; card + Google Pay still load.
         }
 
-        // Google Pay — renders its branded button into the container via .attach().
         try {
           const googlePay = await payments.googlePay(buildPaymentRequest());
           if (googlePayRef.current) {
@@ -179,11 +163,9 @@ export function SquareWalletPayment({
         onError?.('Failed to load the payment form. Please refresh and try again.');
       }
     })();
-    // amountDisplay/currency are derived from props; re-init not expected mid-flow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfgLoaded, sdkLoaded, appId, locationId]);
+  }, [cfgLoaded, sdkLoaded, configReady, appId, locationId]);
 
-  // Cleanup Square iframes/instances on unmount.
   useEffect(() => {
     return () => {
       initRef.current = false;
@@ -219,7 +201,6 @@ export function SquareWalletPayment({
     }
   }
 
-  // tokenize() must be the first call inside the user-gesture handler (esp. Apple Pay).
   async function handleApplePay() {
     if (processingRef.current || !applePayInstanceRef.current) return;
     try {
@@ -250,10 +231,27 @@ export function SquareWalletPayment({
     }
   }
 
+  if (cfgLoaded && configBlocked) {
+    return (
+      <div
+        data-testid="error-payment-config"
+        className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+        role="alert"
+      >
+        This coach&apos;s payment setup is incomplete
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3" data-testid="square-wallet-payment">
-      {cfgLoaded && (
-        <Script src={sdkUrl} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} onReady={() => setSdkLoaded(true)} />
+      {cfgLoaded && configReady && (
+        <Script
+          src={sdkUrl}
+          strategy="afterInteractive"
+          onLoad={() => setSdkLoaded(true)}
+          onReady={() => setSdkLoaded(true)}
+        />
       )}
 
       {(canApplePay || canGooglePay) && (
@@ -285,7 +283,6 @@ export function SquareWalletPayment({
         </div>
       )}
 
-      {/* Card field (Square-hosted iframe) */}
       <div ref={cardRef} data-testid="square-card-container" className="min-h-[44px]" />
 
       <Button

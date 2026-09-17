@@ -199,7 +199,7 @@ describe('useViewerIdentity', () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: false,
         status: 400,
-        json: async () => ({ error: 'Stream not found' }),
+        json: async () => ({ error: { code: 'NOT_FOUND', message: 'Stream not found' } }),
       }) as any;
 
       const { result } = renderHook(() =>
@@ -218,7 +218,7 @@ describe('useViewerIdentity', () => {
         }
       });
 
-      expect(result.current.error).toBe('Stream not found');
+      expect(result.current.error).toBe('The requested resource was not found.');
       expect(result.current.isUnlocked).toBe(false);
     });
   });

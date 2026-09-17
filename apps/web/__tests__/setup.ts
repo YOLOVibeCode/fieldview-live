@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom';
 
+// Align with tests that assert production API URLs (see lib/api-client.ts).
+process.env.NEXT_PUBLIC_API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://api.fieldview.live';
+
 // Mock EventSource globally for all tests
 class MockEventSource {
   url: string;

@@ -27,9 +27,15 @@ import { ViewerIdentityRepository } from '../repositories/implementations/Viewer
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
+import {
+  assertPaymentsReadyForPaywall,
+  getOwnerPaymentsReadiness,
+} from '../lib/payments-readiness';
 import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
+import { parseDirectKey, rewriteHierarchicalDirectPath } from '../lib/direct-slug';
 
 const router = Router();
+router.use(rewriteHierarchicalDirectPath);
 
 // 🆕 Lazy initialization for PaymentService
 let paymentServiceInstance: PaymentService | null = null;
@@ -67,42 +73,35 @@ router.get(
           throw new BadRequestError('Slug is required');
         }
 
-        const key = slug.toLowerCase();
+        const { key, parentSlug, eventSlug } = parseDirectKey(slug);
         
-        // 🆕 Check if this is a hierarchical event slug (parent/event)
-        const parts = key.split('/');
         let directStream: any;
         let directStreamEvent: any = null;
         let isEvent = false;
-        
-        if (parts.length === 2) {
-          // Try to find as DirectStreamEvent first
-          const [parentSlug, eventSlug] = parts;
+
+        if (eventSlug) {
           const parent = await prisma.directStream.findUnique({
             where: { slug: parentSlug },
             include: { game: { include: { streamSource: true } } },
           });
-          
-          if (parent) {
-            directStreamEvent = await prisma.directStreamEvent.findUnique({
-              where: {
-                directStreamId_eventSlug: {
-                  directStreamId: parent.id,
-                  eventSlug,
-                },
-              },
-            });
-            
-            if (directStreamEvent) {
-              directStream = parent;
-              isEvent = true;
-              logger.info({ parentSlug, eventSlug }, 'Found DirectStreamEvent');
-            }
+          if (!parent) {
+            throw new NotFoundError('Stream not found');
           }
-        }
-        
-        // If not found as event, try as regular DirectStream
-        if (!directStream) {
+          directStreamEvent = await prisma.directStreamEvent.findUnique({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: parent.id,
+                eventSlug,
+              },
+            },
+          });
+          if (!directStreamEvent) {
+            throw new NotFoundError('Stream event not found');
+          }
+          directStream = parent;
+          isEvent = true;
+          logger.info({ parentSlug, eventSlug }, 'Found DirectStreamEvent');
+        } else {
           directStream = await prisma.directStream.findUnique({
             where: { slug: key },
             include: { game: { include: { streamSource: true } } },
@@ -138,8 +137,11 @@ router.get(
           }
         }
 
-        // If not found, create a placeholder
+        // If not found, create a placeholder (simple slugs only — never parent/event)
         if (!directStream) {
+          if (eventSlug || key.includes('/')) {
+            throw new NotFoundError('Stream not found');
+          }
           // Get default owner account for new streams
           const defaultOwner = await prisma.ownerAccount.findFirst({
             select: { id: true },
@@ -238,6 +240,19 @@ router.get(
           }
         }
 
+        const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
+          where: { id: directStream.ownerAccountId },
+          select: {
+            relayRecipientKey: true,
+            agreementAcceptedVersion: true,
+            squareLocationId: true,
+            squareAccessTokenEncrypted: true,
+            squareTokenExpiresAt: true,
+          },
+        });
+        const paymentsReady = !directStream.paywallEnabled
+          || (ownerPaymentsFields ? getOwnerPaymentsReadiness(ownerPaymentsFields).ready : false);
+
         const responseData: any = {
           slug: isEvent ? key : directStream.slug,
           parentSlug: isEvent ? directStream.slug : undefined,
@@ -249,6 +264,7 @@ router.get(
           title: isEvent && directStreamEvent?.title ? directStreamEvent.title : directStream.title,
           paywallEnabled: directStream.paywallEnabled,
           priceInCents: directStream.priceInCents,
+          paymentsReady,
           paywallMessage: directStream.paywallMessage,
           allowSavePayment: directStream.allowSavePayment,
           scoreboardEnabled: isEvent ? (directStreamEvent?.scoreboardEnabled ?? directStream.scoreboardEnabled) : directStream.scoreboardEnabled,
@@ -284,6 +300,11 @@ router.get(
           streamProvider,
           muxPlaybackId: deliverMuxPlaybackId,
           protectionLevel,
+          // Mux stream type: live:dvr when the game is actively live, on-demand otherwise.
+          // This activates Mux DVR mode (Go Live button + seekable live buffer).
+          muxStreamType: streamProvider === 'mux_managed'
+            ? (directStream.game?.state === 'live' ? 'live:dvr' : 'on-demand')
+            : undefined,
         };
 
         return res.json(responseData);
@@ -307,11 +328,8 @@ router.post(
           throw new BadRequestError('Slug is required');
         }
 
-        const key = slug.toLowerCase();
-
-        // 🆕 Handle hierarchical event slugs (parent/event) - use parent for auth
-        const parts = key.split('/');
-        const authSlug = parts.length === 2 ? parts[0] : key; // Use parent slug for auth
+        const { parentSlug, eventSlug } = parseDirectKey(slug);
+        const authSlug = parentSlug;
 
         // Find the DirectStream record (include fields needed for ensureGame)
         const directStream = await prisma.directStream.findUnique({
@@ -329,6 +347,20 @@ router.post(
 
         if (!directStream) {
           throw new NotFoundError('Stream not found');
+        }
+
+        if (eventSlug) {
+          const event = await prisma.directStreamEvent.findUnique({
+            where: {
+              directStreamId_eventSlug: {
+                directStreamId: directStream.id,
+                eventSlug,
+              },
+            },
+          });
+          if (!event) {
+            throw new NotFoundError('Stream event not found');
+          }
         }
 
         // Optional: accept OwnerUser JWT as alternative to password
@@ -626,6 +658,22 @@ router.post(
         }
         if (body.reminderMinutes !== undefined) {
           parentUpdateData.reminderMinutes = body.reminderMinutes;
+        }
+
+        const effectivePaywall = body.paywallEnabled ?? existingStream.paywallEnabled;
+        const effectivePrice = body.priceInCents ?? existingStream.priceInCents;
+        const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
+          where: { id: existingStream.ownerAccountId },
+          select: {
+            relayRecipientKey: true,
+            agreementAcceptedVersion: true,
+            squareLocationId: true,
+            squareAccessTokenEncrypted: true,
+            squareTokenExpiresAt: true,
+          },
+        });
+        if (ownerPaymentsFields) {
+          assertPaymentsReadyForPaywall(ownerPaymentsFields, effectivePaywall, effectivePrice);
         }
 
         // Update in database

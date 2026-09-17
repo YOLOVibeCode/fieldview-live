@@ -28,6 +28,20 @@ function resolveParentSlug(slug: string): string {
   return parts.length >= 2 ? parts[0] : key;
 }
 
+function defaultScoreboardTeamNames(stream: {
+  scoreboardHomeTeam: string | null;
+  scoreboardAwayTeam: string | null;
+  scoreboardHomeColor: string | null;
+  scoreboardAwayColor: string | null;
+}) {
+  return {
+    homeTeamName: stream.scoreboardHomeTeam ?? 'Home',
+    awayTeamName: stream.scoreboardAwayTeam ?? 'Away',
+    homeJerseyColor: stream.scoreboardHomeColor ?? '#003366',
+    awayJerseyColor: stream.scoreboardAwayColor ?? '#CC0000',
+  };
+}
+
 /**
  * GET /api/direct/:slug/scoreboard
  * Public - Get current scoreboard state
@@ -57,10 +71,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFu
       await prisma.gameScoreboard.create({
         data: {
           directStreamId: stream.id,
-          homeTeamName: 'Home',
-          awayTeamName: 'Away',
-          homeJerseyColor: '#003366', // Default navy blue
-          awayJerseyColor: '#CC0000', // Default red
+          ...defaultScoreboardTeamNames(stream),
           homeScore: 0,
           awayScore: 0,
           clockMode: 'stopped',

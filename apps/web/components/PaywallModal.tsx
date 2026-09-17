@@ -34,6 +34,8 @@ interface PaywallModalProps {
   priceInCents: number;
   paywallMessage?: string | null;
   allowSavePayment?: boolean;
+  /** When false, payments are blocked (coach not ready). Undefined means ready. */
+  paymentsReady?: boolean;
 }
 
 interface SavedPaymentMethod {
@@ -50,7 +52,9 @@ export function PaywallModal({
   onSuccess,
   priceInCents,
   paywallMessage,
+  paymentsReady,
 }: PaywallModalProps) {
+  const canAcceptPayments = paymentsReady !== false;
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -222,16 +226,26 @@ export function PaywallModal({
                 </div>
               )}
 
-              <Button
-                data-testid="btn-continue-to-payment"
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={creatingPurchase}
-                data-loading={creatingPurchase}
-              >
-                {creatingPurchase ? 'Preparing checkout…' : 'Continue to Payment'}
-              </Button>
+              {!canAcceptPayments ? (
+                <p
+                  data-testid="error-payments-unavailable"
+                  className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+                  role="alert"
+                >
+                  Payments not yet available for this stream
+                </p>
+              ) : (
+                <Button
+                  data-testid="btn-continue-to-payment"
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={creatingPurchase}
+                  data-loading={creatingPurchase}
+                >
+                  {creatingPurchase ? 'Preparing checkout…' : 'Continue to Payment'}
+                </Button>
+              )}
             </form>
           )}
 
@@ -257,7 +271,15 @@ export function PaywallModal({
                 </Button>
               </div>
 
-              {purchaseId ? (
+              {!canAcceptPayments ? (
+                <p
+                  data-testid="error-payments-unavailable"
+                  className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+                  role="alert"
+                >
+                  Payments not yet available for this stream
+                </p>
+              ) : purchaseId ? (
                 <SquareWalletPayment
                   purchaseId={purchaseId}
                   amountCents={priceInCents}
@@ -265,7 +287,9 @@ export function PaywallModal({
                   onError={setError}
                 />
               ) : (
-                <p className="text-sm text-muted">Preparing secure checkout…</p>
+                <p className="text-sm text-muted" data-testid="loading-paywall-payment">
+                  Preparing secure checkout…
+                </p>
               )}
             </div>
           )}
