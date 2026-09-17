@@ -7,7 +7,9 @@
  * Enhanced with retry logic and exponential backoff for transient failures.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
+function getApiUrl(): string {
+  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4301';
+}
 
 export class ApiError extends Error {
   constructor(
@@ -67,7 +69,7 @@ export async function apiRequest<T>(
   options?: ApiRequestOptions
 ): Promise<T> {
   const { retries = 0, ...fetchOptions } = options || {};
-  const url = `${API_URL}${endpoint}`;
+  const url = `${getApiUrl()}${endpoint}`;
   
   let lastError: Error | null = null;
   
@@ -83,11 +85,24 @@ export async function apiRequest<T>(
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
+        const errField = error.error;
+        const code =
+          typeof errField === 'object' && errField !== null && 'code' in errField
+            ? String(errField.code)
+            : 'UNKNOWN_ERROR';
+        const message =
+          typeof errField === 'object' && errField !== null && 'message' in errField
+            ? String(errField.message)
+            : typeof errField === 'string'
+              ? errField
+              : 'An error occurred';
         const apiError = new ApiError(
           response.status,
-          error.error?.code || 'UNKNOWN_ERROR',
-          error.error?.message || 'An error occurred',
-          error.error?.details
+          code,
+          message,
+          typeof errField === 'object' && errField !== null && 'details' in errField
+            ? errField.details
+            : undefined
         );
         
         // Check if we should retry
@@ -150,6 +165,37 @@ export interface OwnerPaymentsStatus {
   agreementVersion: string | null;
   connected: boolean;
   connectedAt: string | null;
+  locationId: string | null;
+}
+
+export interface OwnerPurchaseEarnings {
+  purchaseId: string;
+  grossCents: number;
+  platformFeeCents: number;
+  processorFeeCents: number;
+  ownerNetCents: number;
+}
+
+export interface OwnerEarningsTotals {
+  grossCents: number;
+  platformFeeCents: number;
+  processorFeeCents: number;
+  ownerNetCents: number;
+}
+
+export interface OwnerLedgerResponse {
+  entries: Array<{
+    id: string;
+    type: string;
+    amountCents: number;
+    currency: string;
+    referenceType: string;
+    referenceId: string;
+    description: string;
+    createdAt: string;
+  }>;
+  purchases: OwnerPurchaseEarnings[];
+  totals: OwnerEarningsTotals;
 }
 
 // Game types
@@ -196,6 +242,7 @@ export interface PurchaseStatusResponse {
   purchaseId: string;
   status: 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   entitlementToken?: string;
+  watchUrl?: string;
 }
 
 export interface Purchase {
@@ -817,6 +864,12 @@ export const apiClient = {
    */
   async ownerPaymentsStatus(ownerToken: string): Promise<OwnerPaymentsStatus> {
     return apiRequest<OwnerPaymentsStatus>(`/api/owners/me/payments/status`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  async ownerLedger(ownerToken: string): Promise<OwnerLedgerResponse> {
+    return apiRequest<OwnerLedgerResponse>(`/api/owners/me/ledger`, {
       headers: { ...withBearerToken(ownerToken) },
     });
   },

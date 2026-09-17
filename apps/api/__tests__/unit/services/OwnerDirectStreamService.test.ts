@@ -5,7 +5,7 @@
  * Uses mock implementations of ISP interfaces.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
 import type { DirectStream } from '@prisma/client';
 import type {
   IOwnerDirectStreamReader,
@@ -16,6 +16,20 @@ import type {
   IOwnerDirectStreamSummary,
 } from '../../../src/repositories/IOwnerDirectStreamRepository';
 import { OwnerDirectStreamService } from '../../../src/services/OwnerDirectStreamService';
+
+vi.mock('../../../src/lib/prisma', () => ({
+  prisma: {
+    ownerAccount: {
+      findUnique: vi.fn().mockResolvedValue({
+        relayRecipientKey: 'owner-123',
+        agreementAcceptedVersion: 'v1',
+        squareLocationId: 'LOC1',
+        squareAccessTokenEncrypted: null,
+        squareTokenExpiresAt: null,
+      }),
+    },
+  },
+}));
 
 // ==================== MOCK IMPLEMENTATIONS ====================
 
@@ -172,9 +186,14 @@ describe('OwnerDirectStreamService', () => {
   const ownerAccountId = 'owner-123';
 
   beforeEach(() => {
+    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
     reader = new MockReader();
     writer = new MockWriter();
     service = new OwnerDirectStreamService(reader, writer);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   // ==================== CREATE ====================

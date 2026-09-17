@@ -142,6 +142,7 @@ router.get('/me/payments/status', requireOwnerAuth, (req: AuthRequest, res, next
         agreementVersion: owner.agreementAcceptedVersion || null,
         connected,
         connectedAt: owner.paymentsConnectedAt ? owner.paymentsConnectedAt.toISOString() : null,
+        locationId: owner.squareLocationId || null,
       });
     } catch (error) {
       next(error);

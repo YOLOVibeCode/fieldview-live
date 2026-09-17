@@ -13,6 +13,7 @@ import type { Purchase } from '@prisma/client';
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
 import { getEmailProvider } from '../lib/email';
+import { getOwnerPaymentsReadiness } from '../lib/payments-readiness';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import type { IEntitlementReader, IEntitlementWriter } from '../repositories/IEntitlementRepository';
@@ -287,13 +288,12 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
       throw new NotFoundError('Owner account not found');
     }
 
-    if (!ownerAccount.squareAccessTokenEncrypted || !ownerAccount.squareLocationId) {
-      throw new BadRequestError('Owner has not connected Square account. Please connect Square to receive payments.');
-    }
-
-    // Check token expiry
-    if (ownerAccount.squareTokenExpiresAt && new Date(ownerAccount.squareTokenExpiresAt) < new Date()) {
-      throw new BadRequestError('Owner Square token expired. Please reconnect Square.');
+    const readiness = getOwnerPaymentsReadiness(ownerAccount);
+    if (!readiness.ready) {
+      const detail = readiness.reason ? ` ${readiness.reason}` : '';
+      throw new BadRequestError(
+        `Connect payments at /owners/payments before accepting payments.${detail}`.trim(),
+      );
     }
 
     // Find or create viewer identity

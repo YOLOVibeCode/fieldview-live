@@ -80,6 +80,10 @@ async function ensureOwner(): Promise<string> {
 }
 
 async function ensureStreams(ownerAccountId: string) {
+  await prisma.directStream.deleteMany({
+    where: { slug: { contains: '/' } },
+  });
+
   const adminPassword = await bcrypt.hash('admin123', 10);
   const streams = [
     { slug: 'dev-free-stream', title: 'Dev Free Stream', paywallEnabled: false, priceInCents: 0 },
@@ -110,6 +114,55 @@ async function ensureStreams(ownerAccountId: string) {
     }
     console.log(`  stream ready: /direct/${s.slug} (${s.paywallEnabled ? `$${(s.priceInCents / 100).toFixed(2)}` : 'free'})`);
   }
+
+  const dentonPassword = await bcrypt.hash('devil2026', 10);
+  const dentonData = {
+    title: 'Denton Diablos',
+    ownerAccountId,
+    streamUrl: DEMO_HLS_URL,
+    paywallEnabled: false,
+    priceInCents: 0,
+    adminPassword: dentonPassword,
+    chatEnabled: true,
+    scoreboardEnabled: true,
+    scoreboardHomeTeam: 'Denton Diablos',
+    scoreboardAwayTeam: 'Away',
+    scoreboardHomeColor: '#CC0000',
+    scoreboardAwayColor: '#333333',
+    allowViewerScoreEdit: false,
+    allowViewerNameEdit: false,
+    allowAnonymousView: true,
+    requireEmailVerification: true,
+    listed: true,
+    status: 'active',
+  };
+  const denton = await prisma.directStream.findUnique({ where: { slug: 'dentondiablos' } });
+  const dentonRow = denton
+    ? await prisma.directStream.update({ where: { slug: 'dentondiablos' }, data: dentonData })
+    : await prisma.directStream.create({ data: { slug: 'dentondiablos', ...dentonData } });
+  await prisma.directStreamEvent.upsert({
+    where: {
+      directStreamId_eventSlug: {
+        directStreamId: dentonRow.id,
+        eventSlug: 'soccer-2008-20260325',
+      },
+    },
+    update: {
+      title: 'Denton Diablos 2008 (Mar 25, 2026)',
+      scheduledStartAt: new Date('2026-03-25T18:00:00-05:00'),
+      chatEnabled: true,
+      scoreboardEnabled: true,
+    },
+    create: {
+      directStreamId: dentonRow.id,
+      eventSlug: 'soccer-2008-20260325',
+      title: 'Denton Diablos 2008 (Mar 25, 2026)',
+      scheduledStartAt: new Date('2026-03-25T18:00:00-05:00'),
+      chatEnabled: true,
+      scoreboardEnabled: true,
+    },
+  });
+  console.log('  stream ready: /direct/dentondiablos/soccer-2008-20260325 (settings password devil2026)');
 }
 
 async function main() {
@@ -124,6 +177,8 @@ async function main() {
   console.log('\n✅ DEV seed complete.');
   console.log(`   admin login: ${ADMIN_EMAIL} / ${DEV_ADMIN_PASSWORD}`);
   console.log(`   owner login: ${OWNER_EMAIL} / ${DEV_OWNER_PASSWORD}`);
+  console.log('   demo stream settings password: admin123 (dev-free-stream / dev-paid-stream)');
+  console.log('   Denton event settings password: devil2026 (/direct/dentondiablos/soccer-2008-20260325)');
   console.log('   → connect Square SANDBOX at /owners/payments to arm the payment canary.');
 }
 

@@ -12,8 +12,10 @@ import type { IEntitlementReader, IEntitlementWriter } from '@/repositories/IEnt
 import type { IGameReader } from '@/repositories/IGameRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '@/repositories/IPurchaseRepository';
 import type { IViewerIdentityReader, IViewerIdentityWriter } from '@/repositories/IViewerIdentityRepository';
+import type { IWatchLinkReaderRepo } from '@/repositories/IWatchLinkRepository';
 import { PaymentService } from '@/services/PaymentService';
 import type { CheckoutResponse } from '@/services/IPaymentService';
+import { BadRequestError } from '@/lib/errors';
 
 // Mock Prisma client for ownerAccount and organization lookups
 vi.mock('@/lib/prisma', () => ({
@@ -23,6 +25,9 @@ vi.mock('@/lib/prisma', () => ({
     },
     organization: {
       findFirst: vi.fn(),
+    },
+    directStream: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -37,6 +42,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
   let mockPurchaseWriter: IPurchaseWriter;
   let mockEntitlementReader: IEntitlementReader;
   let mockEntitlementWriter: IEntitlementWriter;
+  let mockWatchLinkReader: IWatchLinkReaderRepo;
   let paymentService: PaymentService;
 
   beforeEach(() => {
@@ -81,6 +87,11 @@ describe('PaymentService - Recipient Field Assignment', () => {
       update: vi.fn(),
     } as unknown as IEntitlementWriter;
 
+    mockWatchLinkReader = {
+      getChannelById: vi.fn(),
+      getOrganizationById: vi.fn(),
+    } as unknown as IWatchLinkReaderRepo;
+
     paymentService = new PaymentService(
       mockGameReader,
       mockViewerIdentityReader,
@@ -88,7 +99,8 @@ describe('PaymentService - Recipient Field Assignment', () => {
       mockPurchaseReader,
       mockPurchaseWriter,
       mockEntitlementReader,
-      mockEntitlementWriter
+      mockEntitlementWriter,
+      mockWatchLinkReader,
     );
   });
 
@@ -284,6 +296,154 @@ describe('PaymentService - Recipient Field Assignment', () => {
         purchaseId: purchase.id,
         checkoutUrl: expect.stringContaining(purchase.id),
       });
+    });
+  });
+
+  describe('createDirectStreamCheckout — payments readiness', () => {
+    const relayReadyOwner: OwnerAccount = {
+      id: 'owner-relay',
+      type: 'owner',
+      name: 'Relay Coach',
+      status: 'active',
+      contactEmail: 'coach@example.com',
+      payoutProviderRef: null,
+      relayRecipientKey: 'owner-relay',
+      agreementAcceptedVersion: 'v1',
+      squareLocationId: 'LOC1',
+      squareAccessTokenEncrypted: null,
+      squareRefreshTokenEncrypted: null,
+      squareTokenExpiresAt: null,
+      paymentsConnectedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      freeGamesUsed: 0,
+      subscriptionTier: null,
+      subscriptionEndsAt: null,
+      abuseWarnings: 0,
+      isSuspended: false,
+      suspendedReason: null,
+    };
+
+    const legacyOwner: OwnerAccount = {
+      ...relayReadyOwner,
+      relayRecipientKey: null,
+      agreementAcceptedVersion: null,
+      paymentsConnectedAt: null,
+      squareAccessTokenEncrypted: 'enc:token',
+      squareTokenExpiresAt: new Date(Date.now() + 60_000),
+    };
+
+    const unconnectedOwner: OwnerAccount = {
+      ...relayReadyOwner,
+      relayRecipientKey: null,
+      agreementAcceptedVersion: null,
+      squareLocationId: null,
+      paymentsConnectedAt: null,
+    };
+
+    const directStream = {
+      id: 'ds-1',
+      slug: 'paid-stream',
+      paywallEnabled: true,
+      priceInCents: 999,
+      ownerAccount: relayReadyOwner,
+    };
+
+    const viewer: ViewerIdentity = {
+      id: 'viewer-ds',
+      email: 'buyer@example.com',
+      firstName: 'Buy',
+      lastName: 'Er',
+      phoneE164: null,
+      smsOptOut: false,
+      optOutAt: null,
+      createdAt: new Date(),
+      lastSeenAt: null,
+      emailVerifiedAt: null,
+    };
+
+    const purchase: Purchase = {
+      id: 'purchase-ds',
+      gameId: null,
+      channelId: null,
+      eventId: null,
+      directStreamId: directStream.id,
+      viewerId: viewer.id,
+      amountCents: 999,
+      currency: 'USD',
+      platformFeeCents: 100,
+      processorFeeCents: 30,
+      ownerNetCents: 869,
+      status: 'created',
+      paymentProviderPaymentId: null,
+      paymentProviderCustomerId: null,
+      recipientOwnerAccountId: relayReadyOwner.id,
+      recipientType: 'personal',
+      recipientOrganizationId: null,
+      couponCodeId: null,
+      discountCents: 0,
+      createdAt: new Date(),
+      paidAt: null,
+      failedAt: null,
+      refundedAt: null,
+    };
+
+    beforeEach(() => {
+      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(directStream);
+      vi.mocked(mockViewerIdentityReader.getByEmail).mockResolvedValue(null);
+      vi.mocked(mockViewerIdentityWriter.create).mockResolvedValue(viewer);
+      vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);
+    });
+
+    it('creates checkout for relay-ready owner when PAYMENTS_VIA_RELAY is true', async () => {
+      vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ...directStream,
+        ownerAccount: relayReadyOwner,
+      });
+
+      const result = await paymentService.createDirectStreamCheckout(
+        'paid-stream',
+        viewer.email!,
+        'Buy',
+        'Er',
+      );
+
+      expect(result.purchaseId).toBe(purchase.id);
+      expect(mockPurchaseWriter.create).toHaveBeenCalled();
+    });
+
+    it('throws with /owners/payments message for unconnected owner', async () => {
+      vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ...directStream,
+        ownerAccount: unconnectedOwner,
+      });
+
+      await expect(
+        paymentService.createDirectStreamCheckout('paid-stream', viewer.email!, 'Buy', 'Er'),
+      ).rejects.toThrow(BadRequestError);
+
+      await expect(
+        paymentService.createDirectStreamCheckout('paid-stream', viewer.email!, 'Buy', 'Er'),
+      ).rejects.toThrow(/\/owners\/payments/);
+    });
+
+    it('creates checkout for legacy owner when relay flag is off', async () => {
+      vi.stubEnv('PAYMENTS_VIA_RELAY', 'false');
+      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ...directStream,
+        ownerAccount: legacyOwner,
+      });
+
+      const result = await paymentService.createDirectStreamCheckout(
+        'paid-stream',
+        viewer.email!,
+        'Buy',
+        'Er',
+      );
+
+      expect(result.purchaseId).toBe(purchase.id);
     });
   });
 });

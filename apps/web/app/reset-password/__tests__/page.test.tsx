@@ -39,7 +39,10 @@ describe('ResetPasswordPage', () => {
     render(<ResetPasswordPage />);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/password-reset/verify/test-token-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/auth/password-reset/verify/test-token-123'),
+        expect.any(Object)
+      );
     });
 
     await waitFor(() => {
@@ -51,14 +54,14 @@ describe('ResetPasswordPage', () => {
     const mockFetch = vi.mocked(fetch);
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ message: 'Invalid token' }),
+      json: async () => ({ error: { code: 'BAD_REQUEST', message: 'Invalid token' } }),
     } as Response);
 
     render(<ResetPasswordPage />);
 
     await waitFor(() => {
       expect(screen.getByText('Invalid Reset Link')).toBeInTheDocument();
-      expect(screen.getByText('Invalid token')).toBeInTheDocument();
+      expect(screen.getByText('Something was wrong with the request. Please check your input.')).toBeInTheDocument();
     });
   });
 
@@ -158,7 +161,7 @@ describe('ResetPasswordPage', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/password-reset/confirm',
+        expect.stringContaining('/api/auth/password-reset/confirm'),
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -222,7 +225,7 @@ describe('ResetPasswordPage', () => {
       } as Response)
       .mockResolvedValueOnce({
         ok: false,
-        json: async () => ({ error: 'Server error' }),
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } }),
       } as Response);
 
     render(<ResetPasswordPage />);
@@ -240,7 +243,9 @@ describe('ResetPasswordPage', () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toHaveTextContent('Server error');
+      expect(screen.getByTestId('error-message')).toHaveTextContent(
+        'Something went wrong on our end. Please try again.'
+      );
     });
   });
 });

@@ -14,7 +14,9 @@ export function useNetworkLog() {
     const unsubscribe = addNetworkLogListener(() => {
       setLog([...getNetworkLog()]);
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return {

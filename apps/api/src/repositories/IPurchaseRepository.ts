@@ -31,6 +31,7 @@ export interface UpdatePurchaseData {
   status?: string;
   paymentProviderPaymentId?: string;
   paymentProviderCustomerId?: string;
+  platformFeeCents?: number;
   processorFeeCents?: number;
   ownerNetCents?: number;
   paidAt?: Date | null;

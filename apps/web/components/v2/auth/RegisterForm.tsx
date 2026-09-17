@@ -208,7 +208,7 @@ export function RegisterForm({
         type="submit"
         variant="primary"
         size="lg"
-        isLoading={isLoading}
+        loading={isLoading}
         disabled={isLoading}
         className="w-full"
       >
