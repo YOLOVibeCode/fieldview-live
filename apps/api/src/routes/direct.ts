@@ -33,6 +33,7 @@ import {
 } from '../lib/payments-readiness';
 import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
 import { parseDirectKey, rewriteHierarchicalDirectPath } from '../lib/direct-slug';
+import { resolveMuxStreamType } from '../lib/mux-stream-type';
 
 const router = Router();
 router.use(rewriteHierarchicalDirectPath);
@@ -302,9 +303,10 @@ router.get(
           protectionLevel,
           // Mux stream type: live:dvr when the game is actively live, on-demand otherwise.
           // This activates Mux DVR mode (Go Live button + seekable live buffer).
-          muxStreamType: streamProvider === 'mux_managed'
-            ? (directStream.game?.state === 'live' ? 'live:dvr' : 'on-demand')
-            : undefined,
+          muxStreamType: resolveMuxStreamType(
+            streamProvider,
+            directStream.game?.state
+          ),
         };
 
         return res.json(responseData);
