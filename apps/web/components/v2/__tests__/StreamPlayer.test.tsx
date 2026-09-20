@@ -113,6 +113,19 @@ describe('StreamPlayer', () => {
       expect(callProps?.playbackToken).toBe('token');
       expect(callProps?.streamType).toBe('live');
     });
+
+    it('should pass live:dvr streamType to MuxStreamPlayer', () => {
+      render(
+        <StreamPlayer
+          {...defaultProps}
+          streamProvider="mux_managed"
+          muxPlaybackId="id"
+          streamType="live:dvr"
+        />,
+      );
+      const callProps = MockMuxPlayer.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(callProps?.streamType).toBe('live:dvr');
+    });
   });
 
   describe('callbacks', () => {
