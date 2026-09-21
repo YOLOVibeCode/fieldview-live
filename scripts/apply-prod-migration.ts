@@ -1,11 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 
+// Credentials come from the environment, never from source. Get the value from 1Password:
+//   export DATABASE_URL=$(op read "op://Automation/<fieldview-live Postgres item>/password" ...)
+// or from Railway:  railway variables --service Postgres
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error('DATABASE_URL is not set. Refusing to run against an unknown database.');
+  process.exit(1);
+}
+
 const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: 'postgresql://postgres:yrCdfWDvdeHwLfEvqGuKgLWjxASIMoZV@gondola.proxy.rlwy.net:42430/railway',
-    },
-  },
+  datasources: { db: { url: databaseUrl } },
 });
 
 async function main() {

@@ -21,7 +21,11 @@ ENV=${1:-local}
 
 if [ "$ENV" = "prod" ]; then
     echo -e "${BLUE}🧪 Testing DVR against PRODUCTION${NC}"
-    export DATABASE_URL="postgresql://postgres:yrCdfWDvdeHwLfEvGGuKgLWjxASIMoZV@gondola.proxy.rlwy.net:42430/railway"
+    # Credentials come from the environment, never from source.
+    if [ -z "$DATABASE_URL" ]; then
+        echo "DATABASE_URL is not set. Export it first (see 1Password / railway variables)."
+        exit 1
+    fi
 else
     echo -e "${BLUE}🧪 Testing DVR against LOCAL${NC}"
     export DATABASE_URL="postgresql://fieldview:dev_password_change_in_production@localhost:4302/fieldview_dev"
