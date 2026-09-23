@@ -20,7 +20,7 @@ builds. Production runs on Railway (services `api` and `web`); deploys are
 
 This product does not sign up for OpenAI, Twilio, or SendGrid. It calls two Noctusoft platforms. The product id is the only difference.
 
-- **AI** — OpenAI-compatible API at `https://api.noctusoft.com/v1` (litellm-vm, Azure `20.46.250.159`) with a virtual key. No provider SDK.
+- **LLM Relay** — OpenAI-compatible API at `https://ai.noctusoft.com/v1` on litellm-vm (Azure `20.46.250.159`, Tailscale `100.112.233.46`). Virtual key. No provider SDK. Not noctusoft-relay on `ns`.
 - **Mail** — `POST /email/send` or SendGrid drop-in `POST /v3/mail/send` on `api.sendgrid.noctusoft.com`, with the product key and `X-App-Env` (`dev` captures in smtp4dev, `uat` tags and sends, anything else is real delivery).
 - **Text** — `POST /sms/send` or Twilio drop-in on `api.twilio.noctusoft.com`.
 - **One store** — the product's billing alias on noctusoft-relay. Square item codes are `NOCTU-{PRODUCT}-…`. The Square category is `Noctusoft — {brand}`.
