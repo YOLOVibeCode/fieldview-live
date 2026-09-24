@@ -233,12 +233,10 @@ components:
     # Purchase Payment Processing
     PurchaseProcessRequest:
       type: object
-      required:
-        - sourceId
       properties:
         sourceId:
           type: string
-          description: Square Web Payments SDK source ID (nonce/token)
+          description: Square Web Payments SDK source ID (legacy Model A only)
 
     PurchaseProcessResponse:
       type: object
@@ -260,6 +258,10 @@ components:
         entitlementToken:
           type: string
           description: Present when status is paid; used to access watch bootstrap.
+        checkoutUrl:
+          type: string
+          format: uri
+          description: Stripe Checkout URL when relay marketplace path creates a session.
 
     PurchaseStatusResponse:
       type: object

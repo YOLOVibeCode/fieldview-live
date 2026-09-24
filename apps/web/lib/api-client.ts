@@ -151,7 +151,7 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
 
 // Per-purchase Square Web SDK config (relay per-coach, or legacy env)
 export interface PaymentConfigResponse {
-  provider: 'relay' | 'legacy';
+  provider: 'relay' | 'legacy' | 'stripe_checkout';
   applicationId?: string;
   environment?: string; // 'production' | 'sandbox'
   locationId?: string | null;
@@ -160,12 +160,14 @@ export interface PaymentConfigResponse {
 // Owner relay-payments (Connect Hub) onboarding status
 export interface OwnerPaymentsStatus {
   recipientKey: string | null;
+  stripeAccountId?: string | null;
   merchantId: string | null;
   agreementAccepted: boolean;
   agreementVersion: string | null;
   connected: boolean;
   connectedAt: string | null;
   locationId: string | null;
+  requiresLocationId?: boolean;
 }
 
 export interface OwnerPurchaseEarnings {
@@ -229,13 +231,14 @@ export interface CheckoutResponse {
 
 // Purchase processing/status types
 export interface PurchaseProcessRequest {
-  sourceId: string;
+  sourceId?: string;
 }
 
 export interface PurchaseProcessResponse {
   purchaseId: string;
   status: 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   entitlementToken?: string;
+  checkoutUrl?: string;
 }
 
 export interface PurchaseStatusResponse {
@@ -874,8 +877,10 @@ export const apiClient = {
     });
   },
 
-  async ownerPaymentsConnect(ownerToken: string): Promise<{ authorizeUrl: string; recipientKey: string }> {
-    return apiRequest<{ authorizeUrl: string; recipientKey: string }>(`/api/owners/me/payments/connect`, {
+  async ownerPaymentsConnect(
+    ownerToken: string,
+  ): Promise<{ url: string; recipientKey: string; stripeAccountId?: string }> {
+    return apiRequest<{ url: string; recipientKey: string; stripeAccountId?: string }>(`/api/owners/me/payments/connect`, {
       method: 'POST',
       headers: { ...withBearerToken(ownerToken) },
     });

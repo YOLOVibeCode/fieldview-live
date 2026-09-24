@@ -12,6 +12,7 @@ vi.mock('../../lib/prisma', () => ({
     ownerAccount: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -35,13 +36,12 @@ function app(): Express {
 
 function relayStub(overrides: Partial<IRelayConnectOnboarding> = {}): IRelayConnectOnboarding {
   return {
-    buildAuthorizeUrl: () => 'https://relay/oauth',
+    onboard: vi.fn(),
     acceptAgreement: vi.fn(),
-    getFrontendConfig: vi.fn(),
     getRecipientStatus: vi.fn().mockResolvedValue({
       connected: true,
       recipientKey: 'owner-1',
-      merchantId: 'ML1',
+      stripeAccountId: 'acct_1',
       connectedAt: '2026-09-10T00:00:00.000Z',
       agreementVersionAccepted: 'v1',
     }),
@@ -52,38 +52,24 @@ function relayStub(overrides: Partial<IRelayConnectOnboarding> = {}): IRelayConn
 describe('GET /api/owners/me/payments/status', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
     setRelayService(relayStub());
   });
 
-  it('includes squareLocationId as locationId so Ready state survives refresh', async () => {
+  it('returns stripeAccountId and requiresLocationId false when relay payments are enabled', async () => {
     ownerFindUnique.mockResolvedValue({
       id: 'owner-1',
       relayRecipientKey: 'owner-1',
       agreementAcceptedVersion: 'v1',
-      squareLocationId: 'LOC1',
+      squareLocationId: null,
       paymentsConnectedAt: new Date('2026-09-10T00:00:00.000Z'),
     });
 
     const res = await request(app()).get('/api/owners/me/payments/status');
 
     expect(res.status).toBe(200);
-    expect(res.body.locationId).toBe('LOC1');
+    expect(res.body.stripeAccountId).toBe('acct_1');
     expect(res.body.connected).toBe(true);
-    expect(res.body.agreementAccepted).toBe(true);
-  });
-
-  it('returns locationId null when the coach has not saved a location', async () => {
-    ownerFindUnique.mockResolvedValue({
-      id: 'owner-1',
-      relayRecipientKey: 'owner-1',
-      agreementAcceptedVersion: 'v1',
-      squareLocationId: null,
-      paymentsConnectedAt: null,
-    });
-
-    const res = await request(app()).get('/api/owners/me/payments/status');
-
-    expect(res.status).toBe(200);
-    expect(res.body.locationId).toBeNull();
+    expect(res.body.requiresLocationId).toBe(false);
   });
 });

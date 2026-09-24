@@ -1,13 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../lib/prisma', () => ({ prisma: {} }));
+vi.mock('../../lib/prisma', () => ({ prisma: { ownerAccount: { findFirst: vi.fn() } } }));
+vi.mock('../../lib/idempotency', () => ({
+  checkIdempotencyKey: vi.fn().mockResolvedValue({ exists: false }),
+  storeIdempotencyKey: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { RelayWebhookHandler } from '../webhooks.relay';
 import type { IPurchaseReader, IPurchaseWriter } from '../../repositories/IPurchaseRepository';
+import type { PurchaseFulfillmentService } from '../../services/PurchaseFulfillmentService';
+import type { OwnerAccountRepository } from '../../repositories/implementations/OwnerAccountRepository';
 
 describe('RelayWebhookHandler', () => {
   let purchaseReader: IPurchaseReader;
   let purchaseWriter: IPurchaseWriter;
+  let fulfillment: PurchaseFulfillmentService;
+  let ownerRepo: OwnerAccountRepository;
   let handler: RelayWebhookHandler;
 
   beforeEach(() => {
@@ -21,60 +29,55 @@ describe('RelayWebhookHandler', () => {
       create: vi.fn(),
       update: vi.fn().mockResolvedValue({}),
     };
-    handler = new RelayWebhookHandler(purchaseReader, purchaseWriter);
+    fulfillment = {
+      fulfillPaidPurchase: vi.fn().mockResolvedValue({ entitlementToken: 'tok' }),
+    } as unknown as PurchaseFulfillmentService;
+    ownerRepo = { update: vi.fn() } as unknown as OwnerAccountRepository;
+    handler = new RelayWebhookHandler(purchaseReader, purchaseWriter, fulfillment, ownerRepo);
   });
 
-  it('marks purchase paid on payment.updated COMPLETED', async () => {
-    vi.mocked(purchaseReader.getByPaymentProviderId).mockResolvedValue({
+  const ctx = { productKey: 'fieldview', recipientKey: 'owner-1' };
+
+  it('fulfills purchase on checkout.session.completed', async () => {
+    vi.mocked(purchaseReader.getById).mockResolvedValue({
       id: 'purchase-1',
+      status: 'created',
     } as Awaited<ReturnType<IPurchaseReader['getById']>>);
 
-    await handler.handle({
-      type: 'payment.updated',
-      data: { object: { payment: { id: 'pay_1', status: 'COMPLETED' } } },
-    });
+    await handler.handle(
+      {
+        id: 'evt_1',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            client_reference_id: 'purchase-1',
+            payment_intent: 'pi_1',
+          },
+        },
+      },
+      ctx,
+    );
 
-    expect(purchaseWriter.update).toHaveBeenCalledWith('purchase-1', {
-      status: 'paid',
-      paidAt: expect.any(Date),
-    });
-  });
-
-  it('marks purchase failed on payment.updated FAILED', async () => {
-    vi.mocked(purchaseReader.getByPaymentProviderId).mockResolvedValue({
-      id: 'purchase-2',
-    } as Awaited<ReturnType<IPurchaseReader['getById']>>);
-
-    await handler.handle({
-      type: 'payment.updated',
-      data: { object: { payment: { id: 'pay_2', status: 'FAILED' } } },
-    });
-
-    expect(purchaseWriter.update).toHaveBeenCalledWith('purchase-2', {
-      status: 'failed',
-      failedAt: expect.any(Date),
+    expect(fulfillment.fulfillPaidPurchase).toHaveBeenCalledWith({
+      purchaseId: 'purchase-1',
+      paymentProviderPaymentId: 'pi_1',
+      appFeeCents: null,
     });
   });
 
-  it('no-ops payment.updated when payment id is missing', async () => {
-    await handler.handle({
-      type: 'payment.updated',
-      data: { object: { payment: { status: 'COMPLETED' } } },
-    });
-
-    expect(purchaseReader.getByPaymentProviderId).not.toHaveBeenCalled();
-    expect(purchaseWriter.update).not.toHaveBeenCalled();
-  });
-
-  it('marks purchase refunded on refund.updated COMPLETED', async () => {
+  it('marks purchase refunded on charge.refunded', async () => {
     vi.mocked(purchaseReader.getByPaymentProviderId).mockResolvedValue({
       id: 'purchase-3',
     } as Awaited<ReturnType<IPurchaseReader['getById']>>);
 
-    await handler.handle({
-      type: 'refund.updated',
-      data: { object: { refund: { payment_id: 'pay_3', status: 'COMPLETED' } } },
-    });
+    await handler.handle(
+      {
+        id: 'evt_2',
+        type: 'charge.refunded',
+        data: { object: { payment_intent: 'pi_3' } },
+      },
+      ctx,
+    );
 
     expect(purchaseWriter.update).toHaveBeenCalledWith('purchase-3', {
       status: 'refunded',

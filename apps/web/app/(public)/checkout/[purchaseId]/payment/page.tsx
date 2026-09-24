@@ -74,12 +74,14 @@ export default function PaymentPage() {
   const googlePayInstanceRef = useRef<SquarePaymentMethod | null>(null);
   const squareInitRef = useRef(false);
 
-  const resolved = cfgLoaded ? resolveSquareConfig(cfg) : null;
-  const configReady = resolved !== null && isSquareConfigReady(resolved);
-  const configBlocked = resolved !== null && !resolved.ok;
-  const squareApplicationId = configReady ? resolved.applicationId : '';
-  const squareLocationId = configReady ? resolved.locationId : '';
-  const squareSdkUrl = configReady ? resolved.sdkUrl : '';
+  const isStripeCheckout = cfg?.provider === 'stripe_checkout';
+  const resolved = cfgLoaded && !isStripeCheckout ? resolveSquareConfig(cfg) : null;
+  const configReady = isStripeCheckout || (resolved !== null && isSquareConfigReady(resolved));
+  const configBlocked = !isStripeCheckout && resolved !== null && !resolved.ok;
+  const squareApplicationId =
+    resolved && isSquareConfigReady(resolved) ? resolved.applicationId : '';
+  const squareLocationId = resolved && isSquareConfigReady(resolved) ? resolved.locationId : '';
+  const squareSdkUrl = resolved && isSquareConfigReady(resolved) ? resolved.sdkUrl : '';
 
   const handlePaymentSuccess = useCallback(
     (data: PurchaseProcessResponse) => {
@@ -180,7 +182,44 @@ export default function PaymentPage() {
   }, [purchaseId]);
 
   useEffect(() => {
+    if (cfg?.provider === 'stripe_checkout') {
+      setSdkLoaded(true);
+    }
+  }, [cfg]);
+
+  useEffect(() => {
+    if (!isStripeCheckout || !purchase || processingPayment) {
+      return;
+    }
+    let active = true;
+    setProcessingPayment(true);
+    void apiClient
+      .processPurchasePayment(purchaseId, {})
+      .then((data) => {
+        if (!active) return;
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+          return;
+        }
+        setError('Checkout session could not be started');
+        setProcessingPayment(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof ApiError ? err.message : 'Failed to start checkout');
+        setProcessingPayment(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isStripeCheckout, purchase, purchaseId, processingPayment]);
+
+  useEffect(() => {
     if (!cfgLoaded || !sdkLoaded) return;
+    if (isStripeCheckout) {
+      setLoading(false);
+      return;
+    }
     if (!purchase) return;
     if (configBlocked) {
       setLoading(false);
@@ -399,7 +438,7 @@ export default function PaymentPage() {
 
   return (
     <>
-      {cfgLoaded && configReady && (
+      {cfgLoaded && configReady && !isStripeCheckout && (
         <Script
           src={squareSdkUrl}
           onLoad={() => setSdkLoaded(true)}
@@ -415,13 +454,18 @@ export default function PaymentPage() {
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-xl sm:text-2xl">Complete Payment</CardTitle>
               <CardDescription className="text-sm sm:text-base">
-                Secure payment powered by Square
+                {isStripeCheckout ? 'Secure payment powered by Stripe' : 'Secure payment powered by Square'}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-              {cfgLoaded && configBlocked ? (
+              {isStripeCheckout ? (
+                <div className="text-center py-8 space-y-4" data-testid="loading-stripe-checkout">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-sm text-muted-foreground">Redirecting to secure checkout…</p>
+                </div>
+              ) : cfgLoaded && configBlocked ? (
                 <div
                   data-testid="error-payment-config"
                   className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive text-center"

@@ -33,15 +33,11 @@ function getRelayReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadines
   }
 
   if (!owner.relayRecipientKey) {
-    return { ready: false, provider: null, reason: 'Square is not connected via the relay.' };
+    return { ready: false, provider: null, reason: 'Stripe is not connected via the relay.' };
   }
   if (!owner.agreementAcceptedVersion) {
     return { ready: false, provider: null, reason: 'Recipient agreement has not been accepted.' };
   }
-  if (!owner.squareLocationId) {
-    return { ready: false, provider: null, reason: 'Square location ID is not configured.' };
-  }
-
   return { ready: true, provider: 'relay' };
 }
 

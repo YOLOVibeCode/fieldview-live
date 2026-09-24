@@ -139,7 +139,7 @@ function DashboardInner() {
             className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm flex items-start justify-between gap-4"
             role="status"
           >
-            <span>Square account connected successfully!</span>
+            <span>Stripe account connected successfully!</span>
             <button
               type="button"
               onClick={() => setShowConnectedToast(false)}
@@ -247,7 +247,7 @@ function DashboardInner() {
                 </div>
                 <div>
                   <CardTitle className="text-base sm:text-lg">Payments</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Connect Square &amp; receive payouts</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">Connect Stripe &amp; receive payouts</CardDescription>
                 </div>
               </div>
             </CardHeader>

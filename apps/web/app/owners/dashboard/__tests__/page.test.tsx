@@ -78,7 +78,7 @@ describe('OwnerDashboardPage', () => {
   it.each([
     ['Not started', status()],
     ['Agreement needed', status({ connected: true })],
-    ['Connect Square', status({ agreementAccepted: true })],
+    ['Connect Stripe', status({ agreementAccepted: true })],
     ['Add location', status({ agreementAccepted: true, connected: true })],
     ['Ready', status({ agreementAccepted: true, connected: true, locationId: 'LOC1' })],
   ])('shows badge "%s" for the matching status', async (label, mockStatus) => {
@@ -94,7 +94,7 @@ describe('OwnerDashboardPage', () => {
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(status({ connected: true, merchantId: 'ML1' }));
 
     render(<OwnerDashboardPage />);
-    expect(await screen.findByTestId('toast-payments-connected')).toHaveTextContent('Square account connected');
+    expect(await screen.findByTestId('toast-payments-connected')).toHaveTextContent('Stripe account connected');
   });
 
   it('links to the payments page', async () => {

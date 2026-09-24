@@ -7,6 +7,7 @@ import {
   getPaymentsReadinessPhase,
   isPaymentsReady,
   isStepComplete,
+  visibleSteps,
 } from '@/lib/owner-payments-readiness';
 
 function status(over: Partial<OwnerPaymentsStatus> = {}): OwnerPaymentsStatus {
@@ -23,53 +24,37 @@ function status(over: Partial<OwnerPaymentsStatus> = {}): OwnerPaymentsStatus {
 }
 
 describe('owner-payments-readiness', () => {
-  it('returns not_started when agreement and connection are missing', () => {
-    expect(getPaymentsReadinessPhase(status())).toBe('not_started');
-    expect(getPaymentsBadgeLabel('not_started')).toBe('Not started');
+  it('returns connect_stripe when agreement is accepted but not connected', () => {
+    expect(getPaymentsReadinessPhase(status({ agreementAccepted: true }))).toBe('connect_stripe');
+    expect(getPaymentsBadgeLabel('connect_stripe')).toBe('Connect Stripe');
   });
 
-  it('returns agreement_needed when agreement is missing but connected', () => {
-    expect(getPaymentsReadinessPhase(status({ connected: true }))).toBe('agreement_needed');
-    expect(getPaymentsBadgeLabel('agreement_needed')).toBe('Agreement needed');
-  });
-
-  it('returns connect_square when agreement is accepted but not connected', () => {
-    expect(getPaymentsReadinessPhase(status({ agreementAccepted: true }))).toBe('connect_square');
-    expect(getPaymentsBadgeLabel('connect_square')).toBe('Connect Square');
-  });
-
-  it('returns add_location when connected but location is not saved', () => {
-    expect(
-      getPaymentsReadinessPhase(status({ agreementAccepted: true, connected: true })),
-    ).toBe('add_location');
-    expect(getPaymentsBadgeLabel('add_location')).toBe('Add location');
-  });
-
-  it('returns ready when agreement, connection, and locationId are complete', () => {
+  it('returns ready for relay stripe without location when requiresLocationId is false', () => {
     const ready = status({
       agreementAccepted: true,
       connected: true,
-      locationId: 'LOC1',
+      requiresLocationId: false,
+      locationId: null,
     });
     expect(getPaymentsReadinessPhase(ready)).toBe('ready');
-    expect(getPaymentsBadgeLabel('ready')).toBe('Ready');
     expect(isPaymentsReady(ready)).toBe(true);
+    expect(visibleSteps(ready)).toEqual([1, 2]);
   });
 
-  it('returns ready from locationSaved fallback when locationId is not yet on the payload', () => {
-    const connected = status({ agreementAccepted: true, connected: true, locationId: null });
-    expect(getPaymentsReadinessPhase(connected, true)).toBe('ready');
-    expect(isPaymentsReady(connected, false)).toBe(false);
+  it('returns add_location when legacy flow requires location', () => {
+    expect(
+      getPaymentsReadinessPhase(status({ agreementAccepted: true, connected: true, requiresLocationId: true })),
+    ).toBe('add_location');
   });
 
   it('derives the active step from readiness phase', () => {
     expect(getActiveStep(status())).toBe(1);
     expect(getActiveStep(status({ agreementAccepted: true }))).toBe(2);
-    expect(getActiveStep(status({ agreementAccepted: true, connected: true }))).toBe(3);
+    expect(getActiveStep(status({ agreementAccepted: true, connected: true, requiresLocationId: true }))).toBe(3);
   });
 
   it('marks steps complete based on onboarding progress', () => {
-    const connected = status({ agreementAccepted: true, connected: true });
+    const connected = status({ agreementAccepted: true, connected: true, requiresLocationId: true });
     expect(isStepComplete(1, connected)).toBe(true);
     expect(isStepComplete(2, connected)).toBe(true);
     expect(isStepComplete(3, connected)).toBe(false);

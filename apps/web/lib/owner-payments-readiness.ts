@@ -3,7 +3,7 @@ import type { OwnerPaymentsStatus } from '@/lib/api-client';
 export type PaymentsReadinessPhase =
   | 'not_started'
   | 'agreement_needed'
-  | 'connect_square'
+  | 'connect_stripe'
   | 'add_location'
   | 'ready';
 
@@ -12,15 +12,22 @@ export type PaymentsStep = 1 | 2 | 3;
 const BADGE_LABELS: Record<PaymentsReadinessPhase, string> = {
   not_started: 'Not started',
   agreement_needed: 'Agreement needed',
-  connect_square: 'Connect Square',
+  connect_stripe: 'Connect Stripe',
   add_location: 'Add location',
   ready: 'Ready',
 };
+
+function requiresLocation(status: OwnerPaymentsStatus): boolean {
+  return status.requiresLocationId !== false;
+}
 
 export function hasSavedLocation(
   status: OwnerPaymentsStatus,
   locationSavedFallback = false,
 ): boolean {
+  if (!requiresLocation(status)) {
+    return true;
+  }
   return Boolean(status.locationId?.trim()) || locationSavedFallback;
 }
 
@@ -36,7 +43,7 @@ export function getPaymentsReadinessPhase(
     return status.connected ? 'agreement_needed' : 'not_started';
   }
   if (!status.connected) {
-    return 'connect_square';
+    return 'connect_stripe';
   }
   return 'add_location';
 }
@@ -60,7 +67,7 @@ export function getActiveStep(
   if (phase === 'not_started' || phase === 'agreement_needed') {
     return 1;
   }
-  if (phase === 'connect_square') {
+  if (phase === 'connect_stripe') {
     return 2;
   }
   return 3;
@@ -78,4 +85,11 @@ export function isStepComplete(
     return status.connected;
   }
   return hasSavedLocation(status, locationSavedFallback);
+}
+
+export function visibleSteps(status: OwnerPaymentsStatus): PaymentsStep[] {
+  if (!requiresLocation(status)) {
+    return [1, 2];
+  }
+  return [1, 2, 3];
 }

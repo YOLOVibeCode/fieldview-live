@@ -151,8 +151,10 @@ paths:
         - Public
       summary: Process a purchase payment
       description: |
-        Processes a purchase payment using a Square Web Payments SDK `sourceId`.
-        On success, returns an `entitlementToken` for watch access.
+        Legacy path: processes payment with a Square Web Payments SDK `sourceId` and may return
+        `entitlementToken` immediately. Relay Stripe path (`PAYMENTS_VIA_RELAY`): omit `sourceId` to
+        create a Stripe Checkout session; returns `checkoutUrl` while purchase stays `created` until
+        the relay webhook confirms payment.
       operationId: processPurchasePayment
       parameters:
         - $ref: '../../components/parameters.yaml#/components/parameters/PurchaseId'

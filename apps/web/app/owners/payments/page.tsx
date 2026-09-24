@@ -15,6 +15,7 @@ import {
   getPaymentsReadinessPhase,
   isPaymentsReady,
   isStepComplete,
+  visibleSteps,
   type PaymentsStep,
 } from '@/lib/owner-payments-readiness';
 
@@ -24,7 +25,7 @@ function getOwnerToken(): string | null {
 
 const STEP_LABELS: Record<PaymentsStep, string> = {
   1: 'Accept agreement',
-  2: 'Connect Square',
+  2: 'Connect Stripe',
   3: 'Add location',
 };
 
@@ -101,9 +102,9 @@ function PaymentsInner() {
     setError(null);
     try {
       const resp = await apiClient.ownerPaymentsConnect(token);
-      window.location.href = resp.authorizeUrl;
+      window.location.href = resp.url;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start Square connection');
+      setError(e instanceof Error ? e.message : 'Failed to start Stripe connection');
       setBusy(false);
     }
   }
@@ -142,6 +143,8 @@ function PaymentsInner() {
   const phase = status ? getPaymentsReadinessPhase(status, locationSavedOptimistic) : null;
   const activeStep = status ? getActiveStep(status, locationSavedOptimistic) : 1;
   const ready = status ? isPaymentsReady(status, locationSavedOptimistic) : false;
+  const steps = status ? visibleSteps(status) : ([1, 2, 3] as PaymentsStep[]);
+  const showLocationStep = steps.includes(3);
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,7 +154,7 @@ function PaymentsInner() {
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-semibold truncate">Payments</h1>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Connect your Square account to receive payouts for your streams
+                Connect Stripe to receive payouts for your streams
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -172,7 +175,7 @@ function PaymentsInner() {
 
         {justConnected && (
           <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm">
-            Square account connected! Add your Location ID below to finish.
+            Stripe account connected!{showLocationStep ? ' Add your Location ID below to finish.' : ' You can accept payments.'}
           </div>
         )}
 
@@ -200,8 +203,11 @@ function PaymentsInner() {
               </div>
             )}
 
-            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3" aria-label="Payment setup steps">
-              {([1, 2, 3] as PaymentsStep[]).map((step) => {
+            <ol
+              className={`grid grid-cols-1 gap-3 ${steps.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}
+              aria-label="Payment setup steps"
+            >
+              {steps.map((step) => {
                 const complete = isStepComplete(step, status, locationSavedOptimistic);
                 const active = activeStep === step;
                 const stepId =
@@ -231,7 +237,7 @@ function PaymentsInner() {
               <CardHeader>
                 <CardTitle>Step 1: Accept the Recipient Agreement</CardTitle>
                 <CardDescription>
-                  Before connecting Square, please review and accept the{' '}
+                  Before connecting Stripe, please review and accept the{' '}
                   <a href="/legal/recipient-agreement" className="underline" target="_blank" rel="noreferrer">
                     Recipient Agreement
                   </a>
@@ -253,32 +259,33 @@ function PaymentsInner() {
 
             <Card className={!status.agreementAccepted ? 'opacity-60 pointer-events-none' : ''}>
               <CardHeader>
-                <CardTitle>Step 2: Connect Square</CardTitle>
+                <CardTitle>Step 2: Connect Stripe</CardTitle>
                 <CardDescription>
-                  Connect your own Square account to receive payouts. Viewers&apos; payments go directly to your Square
-                  balance; FieldView keeps a small platform fee. You&apos;ll be redirected to Square to authorize.
+                  Connect your Stripe account to receive payouts. Viewers pay through Stripe Checkout; FieldView keeps a
+                  small platform fee. You&apos;ll be redirected to Stripe to finish onboarding.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {status.connected && status.merchantId && (
+                {status.connected && status.stripeAccountId && (
                   <div className="rounded-lg bg-muted/50 p-3">
-                    <div className="text-xs text-muted-foreground">Merchant ID</div>
-                    <div className="font-mono text-sm">{status.merchantId}</div>
+                    <div className="text-xs text-muted-foreground">Stripe account</div>
+                    <div className="font-mono text-sm">{status.stripeAccountId}</div>
                   </div>
                 )}
                 <Button
                   onClick={handleConnect}
                   disabled={busy || !status.agreementAccepted || status.connected}
                   className="w-full sm:w-auto"
-                  data-testid="btn-connect-square"
+                  data-testid="btn-connect-stripe"
                   data-loading={busy}
-                  aria-label="Connect Square account"
+                  aria-label="Connect Stripe account"
                 >
-                  {status.connected ? 'Square connected' : busy ? 'Redirecting to Square…' : 'Connect Square'}
+                  {status.connected ? 'Stripe connected' : busy ? 'Redirecting to Stripe…' : 'Connect Stripe'}
                 </Button>
               </CardContent>
             </Card>
 
+            {showLocationStep && (
             <Card className={!status.connected ? 'opacity-60 pointer-events-none' : ''}>
               <CardHeader>
                 <CardTitle>Step 3: Square Location ID</CardTitle>
@@ -315,6 +322,7 @@ function PaymentsInner() {
                 </p>
               </CardContent>
             </Card>
+            )}
           </>
         ) : null}
       </main>

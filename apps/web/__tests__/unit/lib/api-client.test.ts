@@ -99,10 +99,10 @@ describe('api-client', () => {
     expect(result.locationId).toBe('LOC1');
   });
 
-  it('ownerPaymentsConnect POSTs and returns the authorize URL', async () => {
+  it('ownerPaymentsConnect POSTs and returns the Stripe onboard URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ authorizeUrl: 'https://relay/authorize', recipientKey: 'owner-1' }),
+      json: async () => ({ url: 'https://relay/onboard', recipientKey: 'owner-1' }),
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     global.fetch = fetchMock as any;
@@ -116,7 +116,7 @@ describe('api-client', () => {
     expect(init?.method).toBe('POST');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(init?.headers?.Authorization).toBe('Bearer owner_token_abc');
-    expect(result.authorizeUrl).toBe('https://relay/authorize');
+    expect(result.url).toBe('https://relay/onboard');
   });
 
   it('ownerAcceptAgreement POSTs the version', async () => {

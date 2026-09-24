@@ -49,8 +49,16 @@ describe('Public Purchases Routes', () => {
   });
 
   describe('POST /api/public/purchases/:purchaseId/process', () => {
-    it('requires sourceId', async () => {
-      await request.post('/api/public/purchases/purchase-1/process').send({}).expect(400);
+    it('accepts an empty body for relay Stripe checkout session creation', async () => {
+      mockHandlers.processPayment.mockResolvedValue({
+        purchaseId: 'purchase-1',
+        status: 'created',
+        checkoutUrl: 'https://checkout.stripe.com/test',
+      });
+
+      const response = await request.post('/api/public/purchases/purchase-1/process').send({}).expect(200);
+      expect(response.body.checkoutUrl).toContain('stripe.com');
+      expect(mockHandlers.processPayment).toHaveBeenCalledWith('purchase-1', undefined);
     });
 
     it('processes payment and returns entitlement token', async () => {

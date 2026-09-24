@@ -57,14 +57,14 @@ describe('getOwnerPaymentsReadiness', () => {
     expect(result.reason).toContain('agreement');
   });
 
-  it('returns not ready when relay flag on but location missing', () => {
+  it('returns ready for relay when location is not required (Stripe Connect)', () => {
     vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
-    const result = getOwnerPaymentsReadiness({
-      ...relayReadyOwner,
-      squareLocationId: null,
-    });
-    expect(result.ready).toBe(false);
-    expect(result.reason).toContain('location');
+    expect(
+      getOwnerPaymentsReadiness({
+        ...relayReadyOwner,
+        squareLocationId: null,
+      }),
+    ).toEqual({ ready: true, provider: 'relay' });
   });
 
   it('returns legacy provider when relay flag off and legacy token valid', () => {

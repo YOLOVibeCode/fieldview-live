@@ -20,7 +20,6 @@ import { LedgerRepository } from '../repositories/implementations/LedgerReposito
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
-import { resolveRelayChargeSettlement } from '../lib/relay-charge-settlement';
 import { getRelayConfig, isPaymentsViaRelay } from '../lib/relay';
 import { LedgerService } from '../services/LedgerService';
 import { ReceiptService } from '../services/ReceiptService';
@@ -38,7 +37,10 @@ interface PublicPurchaseHandlers {
     entitlementToken?: string;
     watchUrl?: string;
   }>;
-  processPayment(purchaseId: string, sourceId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;
+  processPayment(
+    purchaseId: string,
+    sourceId?: string,
+  ): Promise<{ purchaseId: string; status: string; entitlementToken?: string; checkoutUrl?: string }>;
 }
 
 // Lazy initialization (allows test injection)
@@ -93,7 +95,7 @@ function getHandlers(): PublicPurchaseHandlers {
         };
       },
 
-      async processPayment(purchaseId: string, sourceId: string) {
+      async processPayment(purchaseId: string, sourceId?: string) {
         const purchase = await purchaseRepo.getById(purchaseId);
         if (!purchase) {
           throw new NotFoundError('Purchase not found');
@@ -118,93 +120,46 @@ function getHandlers(): PublicPurchaseHandlers {
         // relay's Connect Hub instead of the legacy Model A path below. Falls through
         // to Model A otherwise, so flag-off behaviour is unchanged.
         if (isPaymentsViaRelay() && ownerAccount.relayRecipientKey) {
+          if (sourceId) {
+            throw new BadRequestError('Relay Stripe checkout does not accept sourceId; use checkout redirect.');
+          }
+
           const relayViewer = await prisma.viewerIdentity.findUnique({
             where: { id: purchase.viewerId },
             select: { email: true },
           });
 
-          // The relay applies app_fee_money from the product's configured app_fee_bps
-          // (set to match PLATFORM_FEE_PERCENT). Idempotency keyed on purchaseId.
+          const successUrl = `${APP_URL.replace(/\/$/, '')}/checkout/${purchaseId}/success`;
+          const cancelUrl = `${APP_URL.replace(/\/$/, '')}/checkout/${purchaseId}/payment`;
+
           const chargeResult = await relayService.charge(ownerAccount.relayRecipientKey, {
-            sourceId,
             amountCents: purchase.amountCents,
+            successUrl,
+            cancelUrl,
             idempotencyKey: purchaseId.substring(0, 45),
-            referenceId: purchaseId,
             note: `FieldView purchase ${purchaseId}`,
             buyerEmailAddress: relayViewer?.email ?? undefined,
           });
 
-          const split = resolveRelayChargeSettlement({
-            amountCents: purchase.amountCents,
-            processorFeeCents: purchase.processorFeeCents,
-            appFeeCents: chargeResult.appFeeCents,
-          });
-
+          const providerId = chargeResult.paymentIntentId ?? chargeResult.sessionId;
           await purchaseRepo.update(purchaseId, {
-            paymentProviderPaymentId: chargeResult.paymentId,
-            platformFeeCents: split.platformFeeCents,
-            processorFeeCents: split.processorFeeCents,
-            ownerNetCents: split.ownerNetCents,
+            paymentProviderPaymentId: providerId,
           });
 
-          if (chargeResult.status && chargeResult.status !== 'COMPLETED') {
-            logger.warn({ status: chargeResult.status }, 'Relay charge not completed; marking failed');
-            await purchaseRepo.update(purchaseId, { status: 'failed', failedAt: new Date() });
-            return { purchaseId, status: 'failed' };
-          }
-
-          const paidPurchase = await purchaseRepo.update(purchaseId, { status: 'paid', paidAt: new Date() });
-
-          try {
-            const existing = await ledgerRepo.findByReference('purchase', purchaseId);
-            if (existing.length === 0) {
-              await ledgerService.createPurchaseLedgerEntries(
-                paidPurchase,
-                split,
-                undefined,
-              );
-            }
-          } catch (ledgerError) {
-            logger.error({ ledgerError }, 'Failed to create ledger entries (relay path)');
-          }
-
-          const existingEntitlement = await entitlementRepo.getByPurchaseId(purchaseId);
-          if (existingEntitlement) {
-            return { purchaseId, status: 'paid', entitlementToken: existingEntitlement.tokenId };
-          }
-
-          const now = new Date();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const relayGame = (purchase as any).game as { endsAt?: Date | null } | undefined;
-          const validTo = relayGame?.endsAt
-            ? new Date(relayGame.endsAt)
-            : new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          const tokenId = crypto.randomBytes(32).toString('hex');
-          const entitlement = await entitlementRepo.create({
+          return {
             purchaseId,
-            tokenId,
-            validFrom: now,
-            validTo,
-            status: 'active',
-          });
-
-          if (relayViewer?.email) {
-            const streamUrl = await buildReceiptStreamUrl(purchase, entitlement.tokenId);
-            await receiptService.sendPurchaseReceipt({
-              to: relayViewer.email,
-              purchaseId,
-              amountCents: purchase.amountCents,
-              currency: purchase.currency || 'USD',
-              streamUrl,
-            });
-          }
-
-          return { purchaseId, status: 'paid', entitlementToken: entitlement.tokenId };
+            status: 'created',
+            checkoutUrl: chargeResult.checkoutUrl,
+          };
         }
         // --- End relay path; legacy Model A below --------------------------------
 
         // Get owner's Square client (marketplace Model A) with refresh support
         const ownerSquareClient = await ownerSquareClientService.getClient(ownerAccount);
+        if (!sourceId) {
+          throw new BadRequestError('sourceId is required for legacy checkout.');
+        }
+
         if (!ownerSquareClient) {
           throw new BadRequestError('Owner has not connected Square account. Please connect Square to receive payments.');
         }
@@ -432,7 +387,7 @@ export function setPublicPurchaseHandlers(handlers: PublicPurchaseHandlers): voi
 const router = express.Router();
 
 const ProcessPaymentSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: z.string().min(1).optional(),
 });
 
 /**
@@ -493,7 +448,7 @@ router.post(
 
         const body = req.body as z.infer<typeof ProcessPaymentSchema>;
         const handlers = getHandlers();
-        const result = await handlers.processPayment(purchaseId, body.sourceId);
+        const result = await handlers.processPayment(purchaseId, body.sourceId ?? undefined);
         res.json(result);
       } catch (error) {
         next(error);

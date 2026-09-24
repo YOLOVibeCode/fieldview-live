@@ -1,22 +1,21 @@
 /**
- * Relay Connect Hub inbound webhook.
- *
- * The relay verifies Square's platform webhook, then re-signs each event with this
- * product's secret and forwards it here (POST /api/webhooks/relay) with headers
- * x-connect-signature / x-connect-product / x-connect-recipient-key. We verify the
- * HMAC (see lib/relay.verifyRelaySignature) before acting on any event.
- *
- * Raw body for HMAC comes from the app-wide express.json({ verify }) in server.ts.
- * See docs/RELAY-CONNECT-HUB-MIGRATION.md.
+ * Relay Connect Hub inbound webhook (Stripe events forwarded by Noctusoft relay).
  */
 
 import express, { type Router } from 'express';
 
+import { checkIdempotencyKey, storeIdempotencyKey } from '../lib/idempotency';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { verifyRelaySignature } from '../lib/relay';
+import { extractPurchaseIdFromStripeObject } from '../lib/relay-stripe-webhook';
+import { GameRepository } from '../repositories/implementations/GameRepository';
+import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
+import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
+import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
+import { PurchaseFulfillmentService } from '../services/PurchaseFulfillmentService';
 
 const router = express.Router();
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:4301';
@@ -29,6 +28,7 @@ function callbackUrl(): string {
 }
 
 export interface RelayWebhookEvent {
+  id?: string;
   type?: string;
   data?: { object?: Record<string, unknown> };
 }
@@ -37,61 +37,100 @@ export interface IRelayWebhookHandler {
   handle(event: RelayWebhookEvent, ctx: { productKey?: string; recipientKey?: string }): Promise<void>;
 }
 
-/**
- * Minimal handler: on a completed refund, mark the purchase refunded. Dispute and
- * payment updates are acknowledged/logged — extend once the webhook is live and the
- * exact forwarded event shapes are confirmed against the relay canary.
- */
-interface RelayForwardedPayment {
-  id?: string;
-  status?: string;
-}
-
-interface RelayForwardedRefund {
-  payment_id?: string;
-  status?: string;
-}
-
 export class RelayWebhookHandler implements IRelayWebhookHandler {
   constructor(
     private purchaseReader: IPurchaseReader,
     private purchaseWriter: IPurchaseWriter,
+    private fulfillment: PurchaseFulfillmentService,
+    private ownerRepo: OwnerAccountRepository,
   ) {}
 
-  async handle(event: RelayWebhookEvent): Promise<void> {
-    if (event.type === 'payment.updated') {
-      const payment = event.data?.object?.payment as RelayForwardedPayment | undefined;
-      if (!payment?.id) {
+  private async isDuplicateEvent(eventId: string): Promise<boolean> {
+    const key = `relay-stripe-event:${eventId}`;
+    try {
+      const cached = await checkIdempotencyKey(key);
+      if (cached.exists) {
+        return true;
+      }
+      await storeIdempotencyKey(key, '1');
+    } catch (err) {
+      logger.warn({ err, eventId }, 'Relay webhook idempotency store unavailable');
+    }
+    return false;
+  }
+
+  async handle(event: RelayWebhookEvent, ctx: { productKey?: string; recipientKey?: string }): Promise<void> {
+    if (event.id) {
+      const duplicate = await this.isDuplicateEvent(event.id);
+      if (duplicate) {
         return;
       }
+    }
 
-      const purchase = await this.purchaseReader.getByPaymentProviderId(payment.id);
-      if (!purchase) {
-        return;
-      }
+    const object = event.data?.object;
+    if (!object) {
+      return;
+    }
 
-      if (payment.status === 'COMPLETED') {
-        await this.purchaseWriter.update(purchase.id, {
-          status: 'paid',
-          paidAt: new Date(),
+    if (event.type === 'account.updated') {
+      const chargesEnabled = object.charges_enabled === true;
+      if (chargesEnabled && ctx.recipientKey) {
+        const owner = await prisma.ownerAccount.findFirst({
+          where: { relayRecipientKey: ctx.recipientKey },
         });
-      } else if (payment.status === 'FAILED' || payment.status === 'CANCELED') {
-        await this.purchaseWriter.update(purchase.id, {
-          status: 'failed',
-          failedAt: new Date(),
-        });
+        if (owner && !owner.paymentsConnectedAt) {
+          await this.ownerRepo.update(owner.id, { paymentsConnectedAt: new Date() });
+        }
       }
       return;
     }
 
-    if (event.type === 'refund.updated') {
-      const refund = event.data?.object?.refund as RelayForwardedRefund | undefined;
-      if (refund?.payment_id && refund.status === 'COMPLETED') {
-        const purchase = await this.purchaseReader.getByPaymentProviderId(refund.payment_id);
-        if (purchase) {
-          await this.purchaseWriter.update(purchase.id, { status: 'refunded', refundedAt: new Date() });
-        }
+    if (event.type === 'charge.refunded') {
+      const paymentIntent =
+        typeof object.payment_intent === 'string'
+          ? object.payment_intent
+          : typeof object.id === 'string'
+            ? object.id
+            : null;
+      if (!paymentIntent) {
+        return;
       }
+      const purchase = await this.purchaseReader.getByPaymentProviderId(paymentIntent);
+      if (purchase) {
+        await this.purchaseWriter.update(purchase.id, { status: 'refunded', refundedAt: new Date() });
+      }
+      return;
+    }
+
+    if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
+      const purchaseId = extractPurchaseIdFromStripeObject(object);
+      let purchase = purchaseId ? await this.purchaseReader.getById(purchaseId) : null;
+
+      const paymentIntentId =
+        typeof object.payment_intent === 'string'
+          ? object.payment_intent
+          : typeof object.id === 'string' && event.type === 'payment_intent.succeeded'
+            ? object.id
+            : null;
+
+      if (!purchase && paymentIntentId) {
+        purchase = await this.purchaseReader.getByPaymentProviderId(paymentIntentId);
+      }
+
+      if (!purchase) {
+        logger.warn({ type: event.type, purchaseId, paymentIntentId }, 'Relay webhook: purchase not found');
+        return;
+      }
+
+      const providerPaymentId = paymentIntentId ?? purchase.paymentProviderPaymentId ?? purchase.id;
+      const appFee =
+        typeof object.application_fee_amount === 'number' ? object.application_fee_amount : null;
+
+      await this.fulfillment.fulfillPaidPurchase({
+        purchaseId: purchase.id,
+        paymentProviderPaymentId: providerPaymentId,
+        appFeeCents: appFee,
+      });
     }
   }
 }
@@ -101,7 +140,20 @@ let handlerInstance: IRelayWebhookHandler | null = null;
 function getHandler(): IRelayWebhookHandler {
   if (!handlerInstance) {
     const purchaseRepo = new PurchaseRepository(prisma);
-    handlerInstance = new RelayWebhookHandler(purchaseRepo, purchaseRepo);
+    const entitlementRepo = new EntitlementRepository(prisma);
+    const ledgerRepo = new LedgerRepository(prisma);
+    const ownerRepo = new OwnerAccountRepository(prisma);
+    const gameRepo = new GameRepository(prisma);
+    const fulfillment = new PurchaseFulfillmentService(
+      purchaseRepo,
+      purchaseRepo,
+      entitlementRepo,
+      entitlementRepo,
+      gameRepo,
+      ledgerRepo,
+      ownerRepo,
+    );
+    handlerInstance = new RelayWebhookHandler(purchaseRepo, purchaseRepo, fulfillment, ownerRepo);
   }
   return handlerInstance;
 }
@@ -110,9 +162,6 @@ export function setRelayWebhookHandler(h: IRelayWebhookHandler): void {
   handlerInstance = h;
 }
 
-/**
- * POST /api/webhooks/relay
- */
 router.post('/relay', (req, res, next) => {
   void (async () => {
     try {

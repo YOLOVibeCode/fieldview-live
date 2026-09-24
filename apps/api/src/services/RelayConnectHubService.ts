@@ -1,12 +1,5 @@
 /**
- * Relay Connect Hub Service Implementation.
- *
- * Thin client over the Noctusoft Relay's Square Connect Hub
- * (`<baseUrl>/connect/<product>/*`). The relay owns each coach's Square OAuth
- * tokens; FieldView references them by `recipientKey`.
- *
- * Request/response shapes verified against the relay's INTEGRATION.md and the
- * captured 2026-07-19 production canary. See docs/RELAY-CONNECT-HUB-MIGRATION.md.
+ * Relay Connect Hub client — Stripe Connect marketplace via Noctusoft relay.
  */
 
 import { BadRequestError } from '../lib/errors';
@@ -18,17 +11,14 @@ import type {
   RelayAgreementResult,
   RelayChargeInput,
   RelayChargeResult,
-  RelayFrontendConfig,
+  RelayOnboardInput,
+  RelayOnboardResult,
   RelayRecipientStatus,
   RelayRefundInput,
   RelayRefundResult,
 } from './IRelayConnectHubService';
 
 type FetchFn = typeof globalThis.fetch;
-
-interface MoneyLike {
-  amount?: number;
-}
 
 export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayConnectPayments {
   constructor(
@@ -51,26 +41,34 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
     };
   }
 
-  /** Parse the relay error envelope ({ error, code, squareErrors[] }) and throw a useful message. */
   private async throwRelayError(res: Response, prefix: string): Promise<never> {
     const data = (await res.json().catch(() => ({}))) as {
       error?: string;
       code?: string;
-      squareErrors?: Array<{ code?: string; detail?: string }>;
     };
-    const sq = data.squareErrors?.[0];
-    const detail = sq?.detail || data.error || `HTTP ${res.status}`;
-    const code = sq?.code || data.code;
+    const detail = data.error || `HTTP ${res.status}`;
+    const code = data.code;
     throw new BadRequestError(code ? `${prefix}: ${detail} [${code}]` : `${prefix}: ${detail}`);
   }
 
-  buildAuthorizeUrl(recipientKey: string, postConnectRedirect?: string): string {
-    const url = new URL(`${this.base()}/oauth/authorize`);
-    url.searchParams.set('recipient_key', recipientKey);
-    if (postConnectRedirect) {
-      url.searchParams.set('redirect', postConnectRedirect);
+  async onboard(recipientKey: string, input: RelayOnboardInput): Promise<RelayOnboardResult> {
+    const res = await this.fetchFn(`${this.recipientBase(recipientKey)}/onboard`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        refresh_url: input.refreshUrl,
+        return_url: input.returnUrl,
+        ...(input.email ? { email: input.email } : {}),
+      }),
+    });
+    if (!res.ok) {
+      return this.throwRelayError(res, 'Relay onboard failed');
     }
-    return url.toString();
+    const body = (await res.json()) as { url?: string; stripe_account_id?: string };
+    if (!body.url || !body.stripe_account_id) {
+      throw new BadRequestError('Relay onboard response missing url or stripe_account_id');
+    }
+    return { url: body.url, stripeAccountId: body.stripe_account_id };
   }
 
   async acceptAgreement(recipientKey: string, version: string, ip?: string): Promise<RelayAgreementResult> {
@@ -93,25 +91,6 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
     };
   }
 
-  async getFrontendConfig(recipientKey: string): Promise<RelayFrontendConfig> {
-    const res = await this.fetchFn(`${this.recipientBase(recipientKey)}/frontend-config`, {
-      method: 'GET',
-      headers: this.headers(),
-    });
-    if (!res.ok) {
-      return this.throwRelayError(res, 'Relay frontend-config failed');
-    }
-    const body = (await res.json()) as { application_id?: string; environment?: string };
-    if (!body.application_id) {
-      throw new BadRequestError('Relay: frontend-config missing application_id');
-    }
-    return {
-      applicationId: body.application_id,
-      environment: body.environment === 'production' ? 'production' : 'sandbox',
-    };
-  }
-
-  /** Connection status from GET /recipients/:key — connected once merchant_id is present. */
   async getRecipientStatus(recipientKey: string): Promise<RelayRecipientStatus> {
     const res = await this.fetchFn(this.recipientBase(recipientKey), {
       method: 'GET',
@@ -121,20 +100,21 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       return {
         connected: false,
         recipientKey,
-        merchantId: null,
+        stripeAccountId: null,
         connectedAt: null,
         agreementVersionAccepted: null,
       };
     }
     const body = (await res.json().catch(() => ({}))) as {
-      merchant_id?: string | null;
+      charges_enabled?: boolean;
+      stripe_account_id?: string | null;
       connected_at?: string | null;
       agreement_version_accepted?: string | null;
     };
     return {
-      connected: Boolean(body.merchant_id),
+      connected: Boolean(body.charges_enabled),
       recipientKey,
-      merchantId: body.merchant_id ?? null,
+      stripeAccountId: body.stripe_account_id ?? null,
       connectedAt: body.connected_at ?? null,
       agreementVersionAccepted: body.agreement_version_accepted ?? null,
     };
@@ -142,15 +122,12 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
 
   async charge(recipientKey: string, input: RelayChargeInput): Promise<RelayChargeResult> {
     const body: Record<string, unknown> = {
-      source_id: input.sourceId,
       amount_cents: input.amountCents,
+      success_url: input.successUrl,
       idempotency_key: input.idempotencyKey,
+      ...(input.cancelUrl && { cancel_url: input.cancelUrl }),
       ...(input.appFeeBps !== undefined && { app_fee_bps: input.appFeeBps }),
       ...(input.note && { note: input.note }),
-      ...(input.referenceId && { reference_id: input.referenceId }),
-      ...(input.statementDescriptionIdentifier && {
-        statement_description_identifier: input.statementDescriptionIdentifier,
-      }),
       ...(input.buyerEmailAddress && { buyer_email_address: input.buyerEmailAddress }),
     };
 
@@ -163,19 +140,23 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       return this.throwRelayError(res, 'Relay charge failed');
     }
 
-    const data = (await res.json()) as { payment?: Record<string, unknown> };
-    const p = (data.payment ?? {}) as Record<string, unknown>;
-    const amountMoney = p.amount_money as MoneyLike | undefined;
-    const appFeeMoney = p.app_fee_money as MoneyLike | undefined;
-    const card = (p.card_details as { card?: { card_brand?: string; last_4?: string } } | undefined)?.card;
+    const data = (await res.json()) as {
+      url?: string;
+      sessionId?: string;
+      payment?: { id?: string; application_fee_amount?: number };
+    };
+    if (!data.url || !data.sessionId) {
+      throw new BadRequestError('Relay charge response missing url or sessionId');
+    }
+    const paymentIntentId = typeof data.payment?.id === 'string' ? data.payment.id : null;
+    const appFeeCents =
+      typeof data.payment?.application_fee_amount === 'number' ? data.payment.application_fee_amount : null;
+
     return {
-      paymentId: typeof p.id === 'string' ? p.id : '',
-      status: typeof p.status === 'string' ? p.status : 'unknown',
-      amountCents: typeof amountMoney?.amount === 'number' ? amountMoney.amount : input.amountCents,
-      appFeeCents: typeof appFeeMoney?.amount === 'number' ? appFeeMoney.amount : null,
-      cardBrand: card?.card_brand ?? null,
-      cardLast4: card?.last_4 ?? null,
-      receiptUrl: typeof p.receipt_url === 'string' ? p.receipt_url : null,
+      checkoutUrl: data.url,
+      sessionId: data.sessionId,
+      paymentIntentId,
+      appFeeCents,
       raw: data,
     };
   }
@@ -197,13 +178,12 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       return this.throwRelayError(res, 'Relay refund failed');
     }
 
-    const data = (await res.json()) as { refund?: Record<string, unknown> };
-    const r = (data.refund ?? {}) as Record<string, unknown>;
-    const amountMoney = r.amount_money as MoneyLike | undefined;
+    const data = (await res.json()) as { refund?: { id?: string; status?: string; amount?: number } };
+    const r = data.refund ?? {};
     return {
       refundId: typeof r.id === 'string' ? r.id : '',
       status: typeof r.status === 'string' ? r.status : 'unknown',
-      amountCents: typeof amountMoney?.amount === 'number' ? amountMoney.amount : input.amountCents,
+      amountCents: typeof r.amount === 'number' ? r.amount : input.amountCents,
       raw: data,
     };
   }

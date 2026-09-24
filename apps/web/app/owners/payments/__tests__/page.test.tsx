@@ -92,19 +92,24 @@ describe('OwnerPaymentsPage', () => {
     await waitFor(() => expect(apiClient.ownerAcceptAgreement).toHaveBeenCalledWith('t', undefined));
   });
 
-  it('the connect step calls ownerPaymentsConnect via btn-connect-square', async () => {
+  it('the connect step calls ownerPaymentsConnect via btn-connect-stripe', async () => {
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(status({ agreementAccepted: true, connected: false }));
-    vi.mocked(apiClient.ownerPaymentsConnect).mockResolvedValue({ authorizeUrl: 'https://relay/authz', recipientKey: 'owner-1' });
+    vi.mocked(apiClient.ownerPaymentsConnect).mockResolvedValue({ url: 'https://relay/authz', recipientKey: 'owner-1' });
 
     render(<OwnerPaymentsPage />);
     expect(await screen.findByTestId('step-connect')).toHaveAttribute('data-active', 'true');
-    await userEvent.click(await screen.findByTestId('btn-connect-square'));
+    await userEvent.click(await screen.findByTestId('btn-connect-stripe'));
     await waitFor(() => expect(apiClient.ownerPaymentsConnect).toHaveBeenCalledWith('t'));
   });
 
   it('the connected state saves the Square location id', async () => {
     vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(
-      status({ merchantId: 'ML1', connected: true, connectedAt: '2026-07-20T00:00:00Z' }),
+      status({
+        merchantId: 'ML1',
+        connected: true,
+        connectedAt: '2026-07-20T00:00:00Z',
+        requiresLocationId: true,
+      } as Status & { requiresLocationId?: boolean }),
     );
     vi.mocked(apiClient.ownerSetPaymentLocation).mockResolvedValue({ locationId: 'LOC1' });
 

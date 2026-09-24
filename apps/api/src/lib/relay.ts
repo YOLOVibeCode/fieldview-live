@@ -1,10 +1,9 @@
 /**
- * Noctusoft Relay — Square Connect Hub config.
+ * Noctusoft Relay — Stripe Connect marketplace config.
  *
- * FieldView routes all Square marketplace traffic through the relay's Connect Hub
- * (`<baseUrl>/connect/<product>/*`). The relay holds every coach's Square OAuth
- * tokens and performs the 90/10 split via `app_fee_money`, so this repo holds NO
- * Square secrets — only the relay deploy key. See docs/RELAY-CONNECT-HUB-MIGRATION.md.
+ * FieldView routes marketplace traffic through the relay Connect Hub
+ * (`<baseUrl>/connect/<product>/*`). The relay holds seller Stripe accounts; this
+ * repo stores only `recipientKey` and the relay deploy key.
  */
 
 import crypto from 'crypto';
@@ -29,7 +28,7 @@ export function verifyRelaySignature(
 }
 
 export interface RelayConfig {
-  /** e.g. https://api.square.noctusoft.com */
+  /** Relay Connect base URL (Stripe marketplace; deploy-specific host). */
   baseUrl: string;
   /** Connect Hub product key, e.g. "fieldview" */
   productKey: string;
