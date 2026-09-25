@@ -43,7 +43,6 @@ const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
   dsFindUnique.mockResolvedValue({
     id: 'ds-1',
     slug: 'paid-stream',

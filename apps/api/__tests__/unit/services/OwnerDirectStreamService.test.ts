@@ -183,7 +183,6 @@ describe('OwnerDirectStreamService', () => {
   const ownerAccountId = 'owner-123';
 
   beforeEach(() => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
     reader = new MockReader();
     writer = new MockWriter();
     service = new OwnerDirectStreamService(reader, writer);

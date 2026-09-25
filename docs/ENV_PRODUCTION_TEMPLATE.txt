@@ -13,17 +13,13 @@ MUX_TOKEN_SECRET="your_mux_token_secret"
 # Optional (defaults to mux.com)
 MUX_DOMAIN="mux.com"
 
-# ===== SQUARE (Payments) =====
-# Server-side (payments + webhooks)
-SQUARE_ACCESS_TOKEN="your_square_access_token"
-SQUARE_LOCATION_ID="your_square_location_id"
-SQUARE_WEBHOOK_SIGNATURE_KEY="your_webhook_signature_key"
-SQUARE_ENVIRONMENT="production"
-
-# Square Connect (OAuth onboarding for owners)
-SQUARE_APPLICATION_ID="your_square_application_id"
-SQUARE_APPLICATION_SECRET="your_square_application_secret"
-SQUARE_REDIRECT_URI="https://api.fieldview.live/api/owners/square/callback"
+# ===== NOCTUSOFT STORE (Marketplace payments) =====
+NOCTUSOFT_API_KEY="your_noctusoft_deploy_key"
+NOCTUSOFT_STORE_BASE_URL="https://api.store.noctusoft.com"
+NOCTUSOFT_PRODUCT_KEY="fieldview"
+NOCTUSOFT_WEBHOOK_SECRET="your_store_webhook_secret"
+FIELDVIEW_WEBHOOK_SECRET="your_connect_callback_secret"
+FIELDVIEW_WEBHOOK_CALLBACK_URL="https://api.fieldview.live/api/webhooks/marketplace"
 
 # ===== TWILIO (SMS) =====
 TWILIO_ACCOUNT_SID="your_twilio_account_sid"
@@ -54,12 +50,6 @@ CORS_ORIGIN="https://fieldview.live,https://www.fieldview.live"
 NEXT_PUBLIC_API_URL="https://api.fieldview.live"
 NEXTAUTH_URL="https://fieldview.live"
 NEXTAUTH_SECRET="your_secure_random_nextauth_secret"
-
-# Square Web Payments SDK (frontend)
-NEXT_PUBLIC_SQUARE_APPLICATION_ID="your_square_application_id"
-NEXT_PUBLIC_SQUARE_LOCATION_ID="your_square_location_id"
-# 'sandbox' or 'production' (should match SQUARE_ENVIRONMENT)
-NEXT_PUBLIC_SQUARE_ENVIRONMENT="production"
 
 # ===== LOGGING =====
 LOG_LEVEL="info"
