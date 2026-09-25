@@ -149,23 +149,12 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
   return { Authorization: `Bearer ${token}` };
 }
 
-// Per-purchase Square Web SDK config (relay per-coach, or legacy env)
-export interface PaymentConfigResponse {
-  provider: 'relay';
-  applicationId: string;
-  environment?: string; // 'production' | 'sandbox'
-  locationId?: string | null;
-}
-
-// Owner relay-payments (Connect Hub) onboarding status
+// Owner store marketplace onboarding status
 export interface OwnerPaymentsStatus {
-  recipientKey: string | null;
+  sellerKey: string | null;
   merchantId: string | null;
-  agreementAccepted: boolean;
-  agreementVersion: string | null;
   connected: boolean;
   connectedAt: string | null;
-  locationId: string | null;
 }
 
 export interface OwnerPurchaseEarnings {
@@ -228,14 +217,9 @@ export interface CheckoutResponse {
 }
 
 // Purchase processing/status types
-export interface PurchaseProcessRequest {
-  sourceId: string;
-}
-
-export interface PurchaseProcessResponse {
-  purchaseId: string;
-  status: 'created' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
-  entitlementToken?: string;
+export interface PurchaseCheckoutSessionResponse {
+  checkoutUrl: string;
+  status: string;
 }
 
 export interface PurchaseStatusResponse {
@@ -581,16 +565,13 @@ export const apiClient = {
     });
   },
 
-  /**
-   * Process a purchase payment (Square sourceId -> entitlement token)
-   */
-  async processPurchasePayment(
+  async createPurchaseCheckoutSession(
     purchaseId: string,
-    data: PurchaseProcessRequest
-  ): Promise<PurchaseProcessResponse> {
-    return apiRequest<PurchaseProcessResponse>(`/api/public/purchases/${purchaseId}/process`, {
+    data?: { returnUrl?: string },
+  ): Promise<PurchaseCheckoutSessionResponse> {
+    return apiRequest<PurchaseCheckoutSessionResponse>(`/api/public/purchases/${purchaseId}/checkout-session`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(data ?? {}),
     });
   },
 
@@ -599,15 +580,6 @@ export const apiClient = {
    */
   async getPurchase(purchaseId: string): Promise<Purchase> {
     return apiRequest<Purchase>(`/api/public/purchases/${purchaseId}`);
-  },
-
-  /**
-   * Get saved payment methods for a purchase (scoped to the purchase recipient owner).
-   */
-  async getSavedPaymentMethods(purchaseId: string): Promise<SavedPaymentMethodsResponse> {
-    return apiRequest<SavedPaymentMethodsResponse>(
-      `/api/public/saved-payments?purchaseId=${encodeURIComponent(purchaseId)}`
-    );
   },
 
   /**
@@ -874,34 +846,10 @@ export const apiClient = {
     });
   },
 
-  async ownerPaymentsConnect(ownerToken: string): Promise<{ authorizeUrl: string; recipientKey: string }> {
-    return apiRequest<{ authorizeUrl: string; recipientKey: string }>(`/api/owners/me/payments/connect`, {
+  async ownerPaymentsConnect(ownerToken: string): Promise<{ onboardingUrl: string; sellerKey: string }> {
+    return apiRequest<{ onboardingUrl: string; sellerKey: string }>(`/api/owners/me/payments/connect`, {
       method: 'POST',
       headers: { ...withBearerToken(ownerToken) },
     });
-  },
-
-  async ownerAcceptAgreement(ownerToken: string, version?: string): Promise<{ accepted: boolean; version: string }> {
-    return apiRequest<{ accepted: boolean; version: string }>(`/api/owners/me/payments/agreement`, {
-      method: 'POST',
-      headers: { ...withBearerToken(ownerToken) },
-      body: JSON.stringify({ version }),
-    });
-  },
-
-  async ownerSetPaymentLocation(ownerToken: string, locationId: string): Promise<{ locationId: string }> {
-    return apiRequest<{ locationId: string }>(`/api/owners/me/payments/location`, {
-      method: 'POST',
-      headers: { ...withBearerToken(ownerToken) },
-      body: JSON.stringify({ locationId }),
-    });
-  },
-
-  /**
-   * Per-purchase Square Web SDK config (public). Returns the recipient coach's
-   * application id / environment / location from the relay, or { provider:'legacy' }.
-   */
-  async getPaymentConfig(purchaseId: string): Promise<PaymentConfigResponse> {
-    return apiRequest<PaymentConfigResponse>(`/api/public/purchases/${purchaseId}/payment-config`);
   },
 };

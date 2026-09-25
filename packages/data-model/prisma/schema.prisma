@@ -13,13 +13,9 @@ model OwnerAccount {
   name                        String
   status                      String // 'active' | 'suspended' | 'pending_verification'
   contactEmail                String
-  payoutProviderRef           String? // Square merchant_id (display; relay holds OAuth tokens)
-  squareLocationId            String? // Coach Square location ID for Web Payments SDK tokenization
-  // Noctusoft Relay Connect Hub (marketplace payments).
-  // The relay holds the coach's Square tokens; FieldView references them by recipientKey only.
-  relayRecipientKey        String?   // Recipient key on the relay's Connect Hub (per product)
-  paymentsConnectedAt      DateTime? // When the coach completed Square OAuth via the relay
-  agreementAcceptedVersion String?   // Recipient Agreement version the coach accepted
+  payoutProviderRef      String? // Store seller merchant id (display only)
+  marketplaceSellerKey String? // Seller key on the Noctusoft store (fieldview@{key})
+  paymentsConnectedAt  DateTime? // When the coach completed store seller onboarding
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 
@@ -38,15 +34,13 @@ model OwnerAccount {
   ledgerEntries         LedgerEntry[]
   payouts               Payout[]
   organizations         Organization[]
-  viewerSquareCustomers ViewerSquareCustomer[]
   directStreams         DirectStream[] // 🆕 Relation for DirectStream paywall revenue
   deviceFingerprints    OwnerAccountFingerprint[] // 🆕 For abuse detection
   veoIntegration        VeoIntegration? // Optional Veo scraper credentials (encrypted)
 
   @@index([status])
   @@index([payoutProviderRef])
-  @@index([squareLocationId])
-  @@index([relayRecipientKey])
+  @@index([marketplaceSellerKey])
 }
 
 // Veo stream scraper: credentials and diagnostics URL per owner (encrypted at rest)
@@ -169,7 +163,6 @@ model ViewerIdentity {
 
   purchases                 Purchase[]
   subscriptions             Subscription[]
-  viewerSquareCustomers     ViewerSquareCustomer[]
   chatMessages              GameChatMessage[]
   reportedGameEvents        GameEvent[]                @relation("GameEventReporter")
   gameEventConfirmations    GameEventConfirmation[]
@@ -182,25 +175,6 @@ model ViewerIdentity {
   @@index([phoneE164])
   @@index([lastSeenAt]) // For active viewer queries
   @@index([emailVerifiedAt]) // For verified viewer queries
-}
-
-// Per-owner Square customer mapping (required for marketplace Model A + saved cards correctness).
-// IMPORTANT: reference IDs only. No card data is stored in FieldView.
-model ViewerSquareCustomer {
-  id               String   @id @default(uuid()) @db.Uuid
-  ownerAccountId   String   @db.Uuid
-  viewerId         String   @db.Uuid
-  squareCustomerId String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  ownerAccount OwnerAccount   @relation(fields: [ownerAccountId], references: [id])
-  viewer       ViewerIdentity @relation(fields: [viewerId], references: [id])
-
-  @@unique([ownerAccountId, viewerId])
-  @@index([ownerAccountId])
-  @@index([viewerId])
-  @@index([squareCustomerId])
 }
 
 model Purchase {
@@ -224,8 +198,7 @@ model Purchase {
   discountCents Int     @default(0)
 
   // Saved payment info (for display only, no sensitive data)
-  savePaymentMethod Boolean @default(false) // User opted to save
-  squareCardId      String? // Square card_id reference
+  savePaymentMethod Boolean @default(false) // User opted to save (store-hosted checkout)
   cardLastFour      String? // Last 4 digits for display
   cardBrand         String? // Visa, Mastercard, etc.
 

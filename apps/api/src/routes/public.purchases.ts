@@ -1,59 +1,55 @@
 /**
- * Public Purchases Routes
- *
- * Handles public purchase payment processing and status polling (no auth required).
- * Following CDD: Contract matches OpenAPI spec.
+ * Public Purchases Routes — store marketplace checkout sessions.
  */
-
-import crypto from 'crypto';
 
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
-import { getEmailProvider } from '../lib/email';
-import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { buildReceiptStreamUrl } from '../lib/receipt-stream-url';
+import { getMarketplaceConfig, resolveSellerKey } from '../lib/marketplace';
 import { validateRequest } from '../middleware/validation';
-import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
-import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
+import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
-import { getOwnerPaymentsReadiness } from '../lib/payments-readiness';
-import { resolveRelayChargeSettlement } from '../lib/relay-charge-settlement';
-import { getRelayConfig } from '../lib/relay';
-import { LedgerService } from '../services/LedgerService';
-import { ReceiptService } from '../services/ReceiptService';
-import { RelayConnectHubService } from '../services/RelayConnectHubService';
-import { RelaySavedPaymentService } from '../services/RelaySavedPaymentService';
+import { MarketplaceStoreService } from '../services/MarketplaceStoreService';
 
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 
 interface PublicPurchaseHandlers {
-  get(purchaseId: string): Promise<{ id: string; amountCents: number; currency: string; status: string }>;
+  get(purchaseId: string): Promise<{ id: string; amountCents: number; currency: string; status: string; viewerEmail?: string }>;
   getStatus(purchaseId: string): Promise<{
     purchaseId: string;
     status: string;
     entitlementToken?: string;
     watchUrl?: string;
   }>;
-  processPayment(purchaseId: string, sourceId: string): Promise<{ purchaseId: string; status: string; entitlementToken?: string }>;
+  createCheckoutSession(
+    purchaseId: string,
+    opts?: { returnUrl?: string },
+  ): Promise<{ checkoutUrl: string; status: string }>;
 }
 
-// Lazy initialization (allows test injection)
 let handlersInstance: PublicPurchaseHandlers | null = null;
+let storeServiceInstance: MarketplaceStoreService | null = null;
+
+function getStoreService(): MarketplaceStoreService {
+  if (!storeServiceInstance) {
+    storeServiceInstance = new MarketplaceStoreService(getMarketplaceConfig());
+  }
+  return storeServiceInstance;
+}
+
+export function setMarketplaceStorePaymentsService(service: MarketplaceStoreService): void {
+  storeServiceInstance = service;
+}
 
 function getHandlers(): PublicPurchaseHandlers {
   if (!handlersInstance) {
     const purchaseRepo = new PurchaseRepository(prisma);
     const entitlementRepo = new EntitlementRepository(prisma);
-    const ledgerRepo = new LedgerRepository(prisma);
     const ownerAccountRepo = new OwnerAccountRepository(prisma);
-    const ledgerService = new LedgerService(ledgerRepo, ownerAccountRepo);
-    const receiptService = new ReceiptService(getEmailProvider(), APP_URL);
-    const relayService = new RelayConnectHubService(getRelayConfig());
-    const savedPaymentService = new RelaySavedPaymentService(prisma, relayService);
 
     handlersInstance = {
       async get(purchaseId: string) {
@@ -61,7 +57,6 @@ function getHandlers(): PublicPurchaseHandlers {
         if (!purchase) {
           throw new NotFoundError('Purchase not found');
         }
-        // Get viewer email for saved payment methods lookup
         const viewer = await prisma.viewerIdentity.findUnique({
           where: { id: purchase.viewerId },
           select: { email: true },
@@ -93,16 +88,17 @@ function getHandlers(): PublicPurchaseHandlers {
         };
       },
 
-      async processPayment(purchaseId: string, sourceId: string) {
+      async createCheckoutSession(purchaseId, opts) {
         const purchase = await purchaseRepo.getById(purchaseId);
         if (!purchase) {
           throw new NotFoundError('Purchase not found');
         }
-
+        if (purchase.status === 'paid') {
+          return { checkoutUrl: `${APP_URL}/checkout/${purchaseId}/success`, status: 'paid' };
+        }
         if (purchase.status !== 'created') {
           throw new BadRequestError(`Purchase is not payable (status=${purchase.status})`);
         }
-
         if (!purchase.recipientOwnerAccountId) {
           throw new BadRequestError('Purchase missing recipient owner account');
         }
@@ -112,105 +108,30 @@ function getHandlers(): PublicPurchaseHandlers {
           throw new NotFoundError('Owner account not found');
         }
 
-        const readiness = getOwnerPaymentsReadiness(ownerAccount);
-        if (!readiness.ready || !ownerAccount.relayRecipientKey) {
-          const detail = readiness.reason ? ` ${readiness.reason}` : '';
-          throw new BadRequestError(
-            `Owner payments are not ready for checkout.${detail}`.trim(),
-          );
-        }
-
-        const relayViewer = await prisma.viewerIdentity.findUnique({
+        const sellerKey = resolveSellerKey(ownerAccount);
+        const viewer = await prisma.viewerIdentity.findUnique({
           where: { id: purchase.viewerId },
-          select: { email: true, phoneE164: true },
+          select: { email: true },
         });
 
-        const chargeResult = await relayService.charge(ownerAccount.relayRecipientKey, {
-          sourceId,
+        const successUrl = opts?.returnUrl || `${APP_URL}/checkout/${purchaseId}/success`;
+        const cancelUrl = `${APP_URL}/checkout/${purchaseId}/payment?cancelled=1`;
+
+        const session = await getStoreService().createCheckout({
+          sellerKey,
           amountCents: purchase.amountCents,
-          idempotencyKey: purchaseId.substring(0, 45),
-          referenceId: purchaseId,
-          note: `FieldView purchase ${purchaseId}`,
-          buyerEmailAddress: relayViewer?.email ?? undefined,
-        });
-
-        const split = resolveRelayChargeSettlement({
-          amountCents: purchase.amountCents,
-          processorFeeCents: purchase.processorFeeCents,
-          appFeeCents: chargeResult.appFeeCents,
-        });
-
-        await purchaseRepo.update(purchaseId, {
-          paymentProviderPaymentId: chargeResult.paymentId,
-          platformFeeCents: split.platformFeeCents,
-          processorFeeCents: split.processorFeeCents,
-          ownerNetCents: split.ownerNetCents,
-        });
-
-        if (chargeResult.status && chargeResult.status !== 'COMPLETED') {
-          logger.warn({ status: chargeResult.status }, 'Relay charge not completed; marking failed');
-          await purchaseRepo.update(purchaseId, { status: 'failed', failedAt: new Date() });
-          return { purchaseId, status: 'failed' };
-        }
-
-        if (relayViewer?.email && sourceId) {
-          try {
-            await savedPaymentService.savePaymentMethodForOwner({
-              recipientKey: ownerAccount.relayRecipientKey,
-              ownerAccountId: ownerAccount.id,
-              viewerId: purchase.viewerId,
-              email: relayViewer.email,
-              phone: relayViewer.phoneE164 ?? undefined,
-              sourceId,
-            });
-          } catch (err) {
-            logger.warn({ err }, 'Failed to save payment method');
-          }
-        }
-
-        const paidPurchase = await purchaseRepo.update(purchaseId, { status: 'paid', paidAt: new Date() });
-
-        try {
-          const existing = await ledgerRepo.findByReference('purchase', purchaseId);
-          if (existing.length === 0) {
-            await ledgerService.createPurchaseLedgerEntries(paidPurchase, split, undefined);
-          }
-        } catch (ledgerError) {
-          logger.error({ ledgerError }, 'Failed to create ledger entries (relay path)');
-        }
-
-        const existingEntitlement = await entitlementRepo.getByPurchaseId(purchaseId);
-        if (existingEntitlement) {
-          return { purchaseId, status: 'paid', entitlementToken: existingEntitlement.tokenId };
-        }
-
-        const now = new Date();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const relayGame = (purchase as any).game as { endsAt?: Date | null } | undefined;
-        const validTo = relayGame?.endsAt
-          ? new Date(relayGame.endsAt)
-          : new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        const tokenId = crypto.randomBytes(32).toString('hex');
-        const entitlement = await entitlementRepo.create({
+          currency: purchase.currency || 'USD',
           purchaseId,
-          tokenId,
-          validFrom: now,
-          validTo,
-          status: 'active',
+          successUrl,
+          cancelUrl,
+          buyerEmail: viewer?.email ?? undefined,
         });
 
-        if (relayViewer?.email) {
-          const streamUrl = await buildReceiptStreamUrl(purchase, entitlement.tokenId);
-          await receiptService.sendPurchaseReceipt({
-            to: relayViewer.email,
-            purchaseId,
-            amountCents: purchase.amountCents,
-            currency: purchase.currency || 'USD',
-            streamUrl,
-          });
+        if (session.paymentId) {
+          await purchaseRepo.update(purchaseId, { paymentProviderPaymentId: session.paymentId });
         }
 
-        return { purchaseId, status: 'paid', entitlementToken: entitlement.tokenId };
+        return { checkoutUrl: session.checkoutUrl, status: 'created' };
       },
     };
   }
@@ -218,22 +139,16 @@ function getHandlers(): PublicPurchaseHandlers {
   return handlersInstance;
 }
 
-// Export for testing
 export function setPublicPurchaseHandlers(handlers: PublicPurchaseHandlers): void {
   handlersInstance = handlers;
 }
 
 const router = express.Router();
 
-const ProcessPaymentSchema = z.object({
-  sourceId: z.string().min(1),
+const CheckoutSessionSchema = z.object({
+  returnUrl: z.string().url().optional(),
 });
 
-/**
- * GET /api/public/purchases/:purchaseId
- * 
- * Get purchase details.
- */
 router.get('/purchases/:purchaseId', (req, res, next) => {
   void (async () => {
     try {
@@ -241,9 +156,7 @@ router.get('/purchases/:purchaseId', (req, res, next) => {
       if (!purchaseId) {
         return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing purchaseId' } });
       }
-
-      const handlers = getHandlers();
-      const result = await handlers.get(purchaseId);
+      const result = await getHandlers().get(purchaseId);
       res.json(result);
     } catch (error) {
       next(error);
@@ -251,9 +164,6 @@ router.get('/purchases/:purchaseId', (req, res, next) => {
   })();
 });
 
-/**
- * GET /api/public/purchases/:purchaseId/status
- */
 router.get('/purchases/:purchaseId/status', (req, res, next) => {
   void (async () => {
     try {
@@ -261,9 +171,7 @@ router.get('/purchases/:purchaseId/status', (req, res, next) => {
       if (!purchaseId) {
         throw new NotFoundError('Purchase not found');
       }
-
-      const handlers = getHandlers();
-      const status = await handlers.getStatus(purchaseId);
+      const status = await getHandlers().getStatus(purchaseId);
       res.json(status);
     } catch (error) {
       next(error);
@@ -271,12 +179,9 @@ router.get('/purchases/:purchaseId/status', (req, res, next) => {
   })();
 });
 
-/**
- * POST /api/public/purchases/:purchaseId/process
- */
 router.post(
-  '/purchases/:purchaseId/process',
-  validateRequest({ body: ProcessPaymentSchema }),
+  '/purchases/:purchaseId/checkout-session',
+  validateRequest({ body: CheckoutSessionSchema }),
   (req, res, next) => {
     void (async () => {
       try {
@@ -284,20 +189,16 @@ router.post(
         if (!purchaseId) {
           throw new NotFoundError('Purchase not found');
         }
-
-        const body = req.body as z.infer<typeof ProcessPaymentSchema>;
-        const handlers = getHandlers();
-        const result = await handlers.processPayment(purchaseId, body.sourceId);
+        const body = req.body as z.infer<typeof CheckoutSessionSchema>;
+        const result = await getHandlers().createCheckoutSession(purchaseId, { returnUrl: body.returnUrl });
         res.json(result);
       } catch (error) {
         next(error);
       }
     })();
-  }
+  },
 );
 
 export function createPublicPurchasesRouter(): Router {
   return router;
 }
-
-

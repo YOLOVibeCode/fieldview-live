@@ -19,10 +19,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreditCard, Lock } from 'lucide-react';
-import { apiRequest } from '@/lib/api-client';
+import { apiClient, apiRequest } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
-import { SquareWalletPayment } from '@/components/checkout/SquareWalletPayment';
 
 interface PaywallModalProps {
   slug: string;
@@ -280,12 +279,24 @@ export function PaywallModal({
                   Payments not yet available for this stream
                 </p>
               ) : purchaseId ? (
-                <SquareWalletPayment
-                  purchaseId={purchaseId}
-                  amountCents={priceInCents}
-                  onSuccess={() => onSuccess(email)}
-                  onError={setError}
-                />
+                <Button
+                  type="button"
+                  className="w-full"
+                  size="lg"
+                  data-testid="btn-open-store-checkout"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const session = await apiClient.createPurchaseCheckoutSession(purchaseId);
+                        window.location.href = session.checkoutUrl;
+                      } catch (err) {
+                        setError(getUserFriendlyMessage(err));
+                      }
+                    })();
+                  }}
+                >
+                  Pay ${priceDisplay} securely
+                </Button>
               ) : (
                 <p className="text-sm text-muted" data-testid="loading-paywall-payment">
                   Preparing secure checkout…

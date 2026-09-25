@@ -71,8 +71,8 @@ paths:
     $ref: './paths/admin.yaml#/paths/~1admin~1owners~1{ownerId}~1games~1{gameId}~1audience'
   /webhooks/twilio:
     $ref: './paths/webhooks.yaml#/paths/~1webhooks~1twilio'
-  /webhooks/relay:
-    $ref: './paths/webhooks.yaml#/paths/~1webhooks~1relay'
+  /webhooks/marketplace:
+    $ref: './paths/webhooks.yaml#/paths/~1webhooks~1marketplace'
 
 components:
   schemas:

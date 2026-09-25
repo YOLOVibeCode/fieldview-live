@@ -24,12 +24,9 @@ export interface CreateOwnerUserData {
 
 export interface UpdateOwnerAccountData {
   name?: string;
-  payoutProviderRef?: string;
-  squareLocationId?: string | null;
-  // Noctusoft Relay Connect Hub
-  relayRecipientKey?: string;
+  payoutProviderRef?: string | null;
+  marketplaceSellerKey?: string;
   paymentsConnectedAt?: Date;
-  agreementAcceptedVersion?: string;
 }
 
 /**

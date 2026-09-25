@@ -71,6 +71,9 @@ importers:
       '@fieldview/dvr-service':
         specifier: workspace:*
         version: link:../../packages/dvr-service
+      '@fieldview/store-client':
+        specifier: workspace:*
+        version: link:../../packages/store-client
       '@mux/mux-node':
         specifier: ^12.8.1
         version: 12.8.1
@@ -362,6 +365,18 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^1.0.4
         version: 1.6.1(vitest@1.6.1)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.4
+        version: 1.6.1(@types/node@20.19.26)(@vitest/ui@1.6.1)(jsdom@27.3.0)
+
+  packages/store-client:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.26
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

@@ -33,28 +33,34 @@ paths:
               schema:
                 $ref: '../../components/schemas.yaml#/components/schemas/ErrorResponse'
 
-  /webhooks/relay:
+  /webhooks/marketplace:
     post:
       tags:
         - Webhooks
-      summary: Relay Connect Hub webhook fanout
-      description: Receives relay-forwarded Square events (HMAC via x-connect-signature).
-      operationId: handleRelayWebhook
-      parameters:
-        - in: header
-          name: x-connect-signature
-          required: true
-          schema:
-            type: string
+      summary: Noctusoft store marketplace webhook (event v1)
+      description: Receives marketplace.* and seller.* events with x-noctusoft-signature and x-connect-signature headers.
+      operationId: handleMarketplaceWebhook
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              properties:
+                type:
+                  type: string
+                data:
+                  type: object
       responses:
         '200':
           description: Webhook processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
         '401':
           description: Invalid signature
           content:

@@ -6,6 +6,7 @@
  */
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
+import { resolveSellerKey } from '../lib/marketplace';
 import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
 import type { IPlaybackSessionReader } from '../repositories/IPlaybackSessionRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
@@ -13,7 +14,7 @@ import type { IRefundReader as IRefundRepoReader, IRefundWriter as IRefundRepoWr
 import { calculateRefund, type RefundCalculationInput } from '../utils/refundCalculator';
 
 import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
-import type { IRelayConnectPayments } from './IRelayConnectHubService';
+import type { IMarketplaceStorePayments } from './MarketplaceStoreService';
 import type { IRefundReader, IRefundWriter, AggregatedTelemetry, RefundEvaluation } from './IRefundService';
 import type { ISmsWriter } from './ISmsService';
 
@@ -29,7 +30,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
     private entitlementReader: IEntitlementRepoReader,
     private smsWriter: ISmsWriter,
     private ownerReader: IOwnerAccountReader,
-    private relay: IRelayConnectPayments
+    private marketplace: IMarketplaceStorePayments
   ) {}
 
   async evaluateRefundEligibility(purchaseId: string): Promise<RefundEvaluation> {
@@ -156,7 +157,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
     });
 
     // Process Square refund
-    await this.processSquareRefund(refund.id);
+    await this.processMarketplaceRefund(refund.id);
 
     // Send SMS notification
     // Note: Purchase includes game and viewer relations from repository
@@ -220,12 +221,16 @@ export class RefundService implements IRefundReader, IRefundWriter {
       refundedAt: new Date(),
     });
 
-    await this.processSquareRefund(refund.id);
+    await this.processMarketplaceRefund(refund.id);
 
     return refund;
   }
 
   async processSquareRefund(refundId: string): Promise<void> {
+    await this.processMarketplaceRefund(refundId);
+  }
+
+  async processMarketplaceRefund(refundId: string): Promise<void> {
     // Get refund
     const refund = await this.refundReader.getById(refundId);
     if (!refund) {
@@ -242,25 +247,26 @@ export class RefundService implements IRefundReader, IRefundWriter {
       throw new BadRequestError('Purchase has no payment provider ID');
     }
 
+    // Marketplace store refund on the coach's seller account.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const relayOwnerId = purchase.recipientOwnerAccountId as string | undefined;
-    if (!relayOwnerId) {
-      throw new BadRequestError('Purchase missing recipient owner for relay refund');
+    if (relayOwnerId) {
+      const owner = await this.ownerReader.findById(relayOwnerId);
+      if (owner) {
+        await this.marketplace.refund({
+          sellerKey: resolveSellerKey(owner),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          paymentId: purchase.paymentProviderPaymentId as string,
+          amountCents: refund.amountCents,
+          refundId,
+          reason: refund.reasonCode,
+        });
+        await this.refundWriter.update(refundId, { processedAt: new Date() });
+        return;
+      }
     }
 
-    const owner = await this.ownerReader.findById(relayOwnerId);
-    if (!owner?.relayRecipientKey) {
-      throw new BadRequestError('Owner is not connected for payments via the relay');
-    }
-
-    await this.relay.refund(owner.relayRecipientKey, {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      paymentId: purchase.paymentProviderPaymentId as string,
-      amountCents: refund.amountCents,
-      idempotencyKey: `refund-${refundId}`,
-      reason: refund.reasonCode,
-    });
-    await this.refundWriter.update(refundId, { processedAt: new Date() });
+    throw new BadRequestError('Owner marketplace seller is not configured for this purchase');
   }
 
   /**

@@ -24,11 +24,11 @@ import { ViewerIdentityRepository } from '../repositories/implementations/Viewer
 import { AdminAuthService } from '../services/AdminAuthService';
 import { AdminService } from '../services/AdminService';
 import { AudienceService } from '../services/AudienceService';
-import { getRelayConfig } from '../lib/relay';
+import { getMarketplaceConfig } from '../lib/marketplace';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import type { IRefundWriter } from '../services/IRefundService';
 import { RefundService } from '../services/RefundService';
-import { RelayConnectHubService } from '../services/RelayConnectHubService';
+import { MarketplaceStoreService } from '../services/MarketplaceStoreService';
 import { SmsService } from '../services/SmsService';
 
 const router = express.Router();
@@ -94,7 +94,7 @@ function getRefundService(): IRefundWriter {
     const viewerIdentityRepo = new ViewerIdentityRepository(prisma);
     const ownerRepo = new OwnerAccountRepository(prisma);
     const smsService = new SmsService(gameRepo, viewerIdentityRepo, viewerIdentityRepo);
-    const relay = new RelayConnectHubService(getRelayConfig());
+    const marketplace = new MarketplaceStoreService(getMarketplaceConfig());
     refundServiceInstance = new RefundService(
       purchaseRepo,
       purchaseRepo,
@@ -104,7 +104,7 @@ function getRefundService(): IRefundWriter {
       entitlementRepo,
       smsService,
       ownerRepo,
-      relay
+      marketplace
     );
   }
   return refundServiceInstance;
