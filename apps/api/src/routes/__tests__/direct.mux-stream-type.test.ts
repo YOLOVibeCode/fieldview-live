@@ -63,9 +63,8 @@ const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<
 beforeEach(() => {
   vi.clearAllMocks();
   ownerFindUnique.mockResolvedValue({
-    relayRecipientKey: null,
-    agreementAcceptedVersion: null,
-    squareLocationId: null,
+    marketplaceSellerKey: null,
+    paymentsConnectedAt: null,
   });
 });
 

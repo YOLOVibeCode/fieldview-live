@@ -20,9 +20,8 @@ vi.mock('../../lib/prisma', () => ({
 }));
 
 const unreadyOwner = {
-  relayRecipientKey: null,
-  agreementAcceptedVersion: null,
-  squareLocationId: null,
+  marketplaceSellerKey: null,
+  paymentsConnectedAt: null,
 };
 
 function app(): Express {
@@ -44,7 +43,7 @@ const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
+  vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
   dsFindUnique.mockResolvedValue({
     id: 'ds-1',
     slug: 'paid-stream',

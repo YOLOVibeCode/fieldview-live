@@ -128,7 +128,7 @@ async function roundTripTest() {
     console.log('📨 STEP 4: Simulate Square Webhook');
     console.log('-----------------------------------');
     
-    const webhookResponse = await fetch(`${API_URL}/api/webhooks/square`, {
+    const webhookResponse = await fetch(`${API_URL}/api/webhooks/marketplace`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

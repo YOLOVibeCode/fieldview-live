@@ -1,51 +1,37 @@
 /**
- * Owner payment readiness for DirectStream paywalls (relay Connect Hub only).
+ * Owner payment readiness for DirectStream paywalls (Noctusoft store marketplace).
  */
 
 import type { OwnerAccount } from '@prisma/client';
 
 import { AppError } from './errors';
-import { isRelayConfigured } from './relay';
 
 export type OwnerPaymentsReadinessInput = Pick<
   OwnerAccount,
-  'relayRecipientKey' | 'agreementAcceptedVersion' | 'squareLocationId'
+  'marketplaceSellerKey' | 'paymentsConnectedAt'
 >;
 
 export type PaymentsReadiness = {
   ready: boolean;
-  provider: 'relay' | null;
+  provider: 'store' | null;
   reason?: string;
 };
 
 /** Returns whether the owner can accept paid DirectStream checkouts. */
 export function getOwnerPaymentsReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadiness {
-  if (!isRelayConfigured()) {
-    return {
-      ready: false,
-      provider: null,
-      reason: 'Payments relay is not configured on this server.',
-    };
+  if (!owner.marketplaceSellerKey) {
+    return { ready: false, provider: null, reason: 'Store seller onboarding is not started.' };
   }
-  if (!owner.relayRecipientKey) {
-    return { ready: false, provider: null, reason: 'Square is not connected via the relay.' };
+  if (!owner.paymentsConnectedAt) {
+    return { ready: false, provider: null, reason: 'Store seller onboarding is not complete.' };
   }
-  if (!owner.agreementAcceptedVersion) {
-    return { ready: false, provider: null, reason: 'Recipient agreement has not been accepted.' };
-  }
-  if (!owner.squareLocationId) {
-    return { ready: false, provider: null, reason: 'Square location ID is not configured.' };
-  }
-
-  return { ready: true, provider: 'relay' };
+  return { ready: true, provider: 'store' };
 }
 
-/** True when viewers would be charged (paywall on with a positive price). */
 export function wouldChargeViewers(paywallEnabled: boolean, priceInCents: number): boolean {
   return paywallEnabled && priceInCents > 0;
 }
 
-/** Throws PAYMENTS_NOT_CONNECTED when enabling a paid paywall without readiness. */
 export function assertPaymentsReadyForPaywall(
   owner: OwnerPaymentsReadinessInput,
   paywallEnabled: boolean,

@@ -284,9 +284,8 @@ router.patch('/:id', (req: Request, res: Response, next: NextFunction) => {
       const owner = await prisma.ownerAccount.findUnique({
         where: { id: existingStream.ownerAccountId },
         select: {
-          relayRecipientKey: true,
-          agreementAcceptedVersion: true,
-          squareLocationId: true,
+          marketplaceSellerKey: true,
+          paymentsConnectedAt: true,
         },
       });
       if (owner) {

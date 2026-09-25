@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
 import {
@@ -23,9 +21,8 @@ function getOwnerToken(): string | null {
 }
 
 const STEP_LABELS: Record<PaymentsStep, string> = {
-  1: 'Accept agreement',
-  2: 'Connect Square',
-  3: 'Add location',
+  1: 'Start setup',
+  2: 'Connect store seller',
 };
 
 function PaymentsInner() {
@@ -36,8 +33,6 @@ function PaymentsInner() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<OwnerPaymentsStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const [locationId, setLocationId] = useState('');
-  const [locationSavedOptimistic, setLocationSavedOptimistic] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
 
   const fetchStatus = useCallback(async () => {
@@ -48,7 +43,6 @@ function PaymentsInner() {
     try {
       const next = await apiClient.ownerPaymentsStatus(token);
       setStatus(next);
-      if (next.locationId) setLocationId(next.locationId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load payments status');
     } finally {
@@ -79,21 +73,6 @@ function PaymentsInner() {
     }
   }, [authenticated, searchParams, fetchStatus]);
 
-  async function handleAcceptAgreement() {
-    const token = getOwnerToken();
-    if (!token) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await apiClient.ownerAcceptAgreement(token, undefined);
-      await fetchStatus();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to record agreement');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleConnect() {
     const token = getOwnerToken();
     if (!token) return;
@@ -101,25 +80,9 @@ function PaymentsInner() {
     setError(null);
     try {
       const resp = await apiClient.ownerPaymentsConnect(token);
-      window.location.href = resp.authorizeUrl;
+      window.location.href = resp.onboardingUrl;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start Square connection');
-      setBusy(false);
-    }
-  }
-
-  async function handleSaveLocation() {
-    const token = getOwnerToken();
-    if (!token || !locationId.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await apiClient.ownerSetPaymentLocation(token, locationId.trim());
-      setLocationSavedOptimistic(true);
-      await fetchStatus();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save location');
-    } finally {
+      setError(e instanceof Error ? e.message : 'Failed to start store onboarding');
       setBusy(false);
     }
   }
@@ -138,10 +101,9 @@ function PaymentsInner() {
     );
   }
 
-  const locationSaved = Boolean(status?.locationId?.trim()) || locationSavedOptimistic;
-  const phase = status ? getPaymentsReadinessPhase(status, locationSavedOptimistic) : null;
-  const activeStep = status ? getActiveStep(status, locationSavedOptimistic) : 1;
-  const ready = status ? isPaymentsReady(status, locationSavedOptimistic) : false;
+  const phase = status ? getPaymentsReadinessPhase(status) : null;
+  const activeStep = status ? getActiveStep(status) : 1;
+  const ready = status ? isPaymentsReady(status) : false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,7 +113,7 @@ function PaymentsInner() {
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-semibold truncate">Payments</h1>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Connect your Square account to receive payouts for your streams
+                Connect your store seller account to receive payouts for your streams
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -172,7 +134,7 @@ function PaymentsInner() {
 
         {justConnected && (
           <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm">
-            Square account connected! Add your Location ID below to finish.
+            Store seller connected. You can accept payments when status shows Ready.
           </div>
         )}
 
@@ -183,10 +145,7 @@ function PaymentsInner() {
           </div>
         ) : status ? (
           <>
-            <div
-              data-testid="status-payments"
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-            >
+            <div data-testid="status-payments" className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>Status:</span>
               <span className="font-medium text-foreground">{phase ? getPaymentsBadgeLabel(phase) : '—'}</span>
             </div>
@@ -200,16 +159,14 @@ function PaymentsInner() {
               </div>
             )}
 
-            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3" aria-label="Payment setup steps">
-              {([1, 2, 3] as PaymentsStep[]).map((step) => {
-                const complete = isStepComplete(step, status, locationSavedOptimistic);
+            <ol className="grid grid-cols-1 sm:grid-cols-2 gap-3" aria-label="Payment setup steps">
+              {([1, 2] as PaymentsStep[]).map((step) => {
+                const complete = isStepComplete(step, status);
                 const active = activeStep === step;
-                const stepId =
-                  step === 1 ? 'step-agreement' : step === 2 ? 'step-connect' : 'step-location';
                 return (
                   <li
                     key={step}
-                    data-testid={stepId}
+                    data-testid={step === 1 ? 'step-start' : 'step-connect'}
                     data-complete={complete}
                     data-active={active}
                     className={`rounded-lg border p-3 text-sm ${
@@ -227,39 +184,21 @@ function PaymentsInner() {
               })}
             </ol>
 
-            <Card data-testid="card-agreement" className={activeStep !== 1 && !status.agreementAccepted ? 'opacity-60' : ''}>
+            <Card data-testid="card-payments-connect">
               <CardHeader>
-                <CardTitle>Step 1: Accept the Recipient Agreement</CardTitle>
+                <CardTitle>Connect store seller</CardTitle>
                 <CardDescription>
-                  Before connecting Square, please review and accept the{' '}
-                  <a href="/legal/recipient-agreement" className="underline" target="_blank" rel="noreferrer">
-                    Recipient Agreement
-                  </a>
-                  . This covers how payouts and the platform fee work.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={handleAcceptAgreement}
-                  disabled={busy || status.agreementAccepted}
-                  data-testid="btn-accept-agreement"
-                  data-loading={busy}
-                  aria-label="Accept recipient agreement"
-                >
-                  {status.agreementAccepted ? 'Agreement accepted' : busy ? 'Saving…' : 'Accept & Continue'}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className={!status.agreementAccepted ? 'opacity-60 pointer-events-none' : ''}>
-              <CardHeader>
-                <CardTitle>Step 2: Connect Square</CardTitle>
-                <CardDescription>
-                  Connect your own Square account to receive payouts. Viewers&apos; payments go directly to your Square
-                  balance; FieldView keeps a small platform fee. You&apos;ll be redirected to Square to authorize.
+                  Complete Noctusoft store seller onboarding so viewers can pay through your team store (
+                  fieldview@your-team). The platform fee is collected automatically at checkout.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {status.sellerKey && (
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground">Seller key</div>
+                    <div className="font-mono text-sm">{status.sellerKey}</div>
+                  </div>
+                )}
                 {status.connected && status.merchantId && (
                   <div className="rounded-lg bg-muted/50 p-3">
                     <div className="text-xs text-muted-foreground">Merchant ID</div>
@@ -267,52 +206,16 @@ function PaymentsInner() {
                   </div>
                 )}
                 <Button
+                  type="button"
                   onClick={handleConnect}
-                  disabled={busy || !status.agreementAccepted || status.connected}
+                  disabled={busy || status.connected}
                   className="w-full sm:w-auto"
-                  data-testid="btn-connect-square"
+                  data-testid="btn-connect-payments"
                   data-loading={busy}
-                  aria-label="Connect Square account"
+                  aria-label="Connect store seller account"
                 >
-                  {status.connected ? 'Square connected' : busy ? 'Redirecting to Square…' : 'Connect Square'}
+                  {status.connected ? 'Seller connected' : busy ? 'Redirecting…' : 'Connect payments'}
                 </Button>
-              </CardContent>
-            </Card>
-
-            <Card className={!status.connected ? 'opacity-60 pointer-events-none' : ''}>
-              <CardHeader>
-                <CardTitle>Step 3: Square Location ID</CardTitle>
-                <CardDescription>
-                  Find this in your Square Dashboard → Account &amp; Settings → Business → Locations. Required for
-                  checkout.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Label htmlFor="location-id">Square Location ID</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    id="location-id"
-                    data-testid="input-location-id"
-                    placeholder="e.g. LSWR97SDRBXWK"
-                    value={locationId}
-                    onChange={(e) => setLocationId(e.target.value)}
-                    className="sm:max-w-xs"
-                    disabled={!status.connected}
-                    aria-describedby="location-id-help"
-                  />
-                  <Button
-                    onClick={handleSaveLocation}
-                    disabled={busy || !status.connected || !locationId.trim()}
-                    data-testid="btn-save-location"
-                    data-loading={busy}
-                    aria-label="Save Square location ID"
-                  >
-                    {busy ? 'Saving…' : locationSaved ? 'Location saved' : 'Save Location'}
-                  </Button>
-                </div>
-                <p id="location-id-help" className="text-xs text-muted-foreground">
-                  Square Dashboard → Account &amp; Settings → Business → Locations
-                </p>
               </CardContent>
             </Card>
           </>

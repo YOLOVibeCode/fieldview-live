@@ -21,9 +21,8 @@ vi.mock('../../../src/lib/prisma', () => ({
   prisma: {
     ownerAccount: {
       findUnique: vi.fn().mockResolvedValue({
-        relayRecipientKey: 'owner-123',
-        agreementAcceptedVersion: 'v1',
-        squareLocationId: 'LOC1',
+        marketplaceSellerKey: 'owner-123',
+        paymentsConnectedAt: new Date(),
       }),
     },
   },
@@ -184,7 +183,7 @@ describe('OwnerDirectStreamService', () => {
   const ownerAccountId = 'owner-123';
 
   beforeEach(() => {
-    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
+    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
     reader = new MockReader();
     writer = new MockWriter();
     service = new OwnerDirectStreamService(reader, writer);

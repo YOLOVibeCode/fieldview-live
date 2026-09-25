@@ -13,16 +13,16 @@ describe('Public Purchases Routes', () => {
   let request: SuperTest<typeof app>;
   let mockHandlers: {
     getStatus: ReturnType<typeof vi.fn>;
-    processPayment: ReturnType<typeof vi.fn>;
+    createCheckoutSession: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
     request = agent(app);
     mockHandlers = {
       getStatus: vi.fn(),
-      processPayment: vi.fn(),
+      createCheckoutSession: vi.fn(),
     };
-    publicPurchasesRoute.setPublicPurchaseHandlers(mockHandlers as any);
+    publicPurchasesRoute.setPublicPurchaseHandlers(mockHandlers as never);
   });
 
   describe('GET /api/public/purchases/:purchaseId/status', () => {
@@ -48,36 +48,30 @@ describe('Public Purchases Routes', () => {
     });
   });
 
-  describe('POST /api/public/purchases/:purchaseId/process', () => {
-    it('requires sourceId', async () => {
-      await request.post('/api/public/purchases/purchase-1/process').send({}).expect(400);
-    });
-
-    it('processes payment and returns entitlement token', async () => {
-      mockHandlers.processPayment.mockResolvedValue({
-        purchaseId: 'purchase-1',
-        status: 'paid',
-        entitlementToken: 'token-123',
+  describe('POST /api/public/purchases/:purchaseId/checkout-session', () => {
+    it('creates checkout session and returns checkout URL', async () => {
+      mockHandlers.createCheckoutSession.mockResolvedValue({
+        checkoutUrl: 'https://store.noctusoft.com/checkout/sess-1',
+        sessionId: 'sess-1',
       });
 
       const response = await request
-        .post('/api/public/purchases/purchase-1/process')
-        .send({ sourceId: 'cnon:card-nonce-ok' })
+        .post('/api/public/purchases/purchase-1/checkout-session')
+        .send({ returnUrl: 'https://fieldview.live/checkout/purchase-1/payment' })
         .expect(200);
 
-      expect(response.body.status).toBe('paid');
-      expect(response.body.entitlementToken).toBe('token-123');
-      expect(mockHandlers.processPayment).toHaveBeenCalledWith('purchase-1', 'cnon:card-nonce-ok');
+      expect(response.body.checkoutUrl).toContain('checkout');
+      expect(mockHandlers.createCheckoutSession).toHaveBeenCalledWith('purchase-1', {
+        returnUrl: 'https://fieldview.live/checkout/purchase-1/payment',
+      });
     });
 
     it('returns 404 when purchase not found', async () => {
-      mockHandlers.processPayment.mockRejectedValue(new NotFoundError('Purchase not found'));
+      mockHandlers.createCheckoutSession.mockRejectedValue(new NotFoundError('Purchase not found'));
       await request
-        .post('/api/public/purchases/missing/process')
-        .send({ sourceId: 'cnon:card-nonce-ok' })
+        .post('/api/public/purchases/missing/checkout-session')
+        .send({})
         .expect(404);
     });
   });
 });
-
-

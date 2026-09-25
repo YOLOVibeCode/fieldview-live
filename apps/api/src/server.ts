@@ -36,8 +36,6 @@ import { createPublicRouter } from './routes/public.checkout';
 import { createPublicSubscriptionsRouter } from './routes/public.subscriptions';
 import { createPublicGamesRouter } from './routes/public.games';
 import { createPublicPurchasesRouter } from './routes/public.purchases';
-import { createPublicPaymentConfigRouter } from './routes/public.payment-config';
-import { createPublicSavedPaymentsRouter } from './routes/public.saved-payments';
 import { createWatchRouter } from './routes/public.watch';
 import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createStreamLinksRouter } from './routes/stream-links';
@@ -60,7 +58,7 @@ import scoreboardRouter from './routes/scoreboard';
 import gameEventsRouter from './routes/game-events';
 import { createTestCleanupRouter } from './routes/test.cleanup';
 import { createTestStreamsRouter } from './routes/test.streams';
-import { createRelayWebhookRouter } from './routes/webhooks.relay';
+import { createMarketplaceWebhookRouter } from './routes/webhooks.marketplace';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 import clipsRouter from './routes/clips.routes';
 import bookmarksRouter from './routes/bookmarks.routes';
@@ -81,11 +79,15 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.squarecdn.com'],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'", 'https://api.squareup.com', 'https://mux.com', 'https://*.mux.com'],
-        frameSrc: ["'self'", 'https://js.squarecdn.com'],
+        connectSrc: [
+          "'self'",
+          'https://mux.com',
+          'https://*.mux.com',
+        ],
+        frameSrc: ["'self'"],
       },
     },
   })
@@ -134,8 +136,6 @@ app.use('/api/public', createPublicRouter());
 app.use('/api/public', createPublicSubscriptionsRouter());
 app.use('/api/public', createPublicGamesRouter());
 app.use('/api/public', createPublicPurchasesRouter());
-app.use('/api/public', createPublicPaymentConfigRouter());
-app.use('/api/public', createPublicSavedPaymentsRouter());
 app.use('/api/public', createPublicWatchLinksRouter());
 app.use('/api/public', createWatchRouter());
 app.use('/api/public', createDirectViewerRouter());
@@ -158,7 +158,7 @@ app.use('/api/clips', clipsRouter);
 app.use('/api/bookmarks', bookmarksRouter);
 app.use('/api/recordings', recordingsRouter);
 app.use('/api/webhooks', createTwilioWebhookRouter());
-app.use('/api/webhooks', createRelayWebhookRouter());
+app.use('/api/webhooks', createMarketplaceWebhookRouter());
 
 // Test routes (POC/development only)
 const enableTestRoutes = process.env.ENABLE_TEST_ROUTES === '1' || process.env.NODE_ENV !== 'production';

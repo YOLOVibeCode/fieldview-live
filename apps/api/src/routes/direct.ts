@@ -244,9 +244,8 @@ router.get(
         const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
           where: { id: directStream.ownerAccountId },
           select: {
-            relayRecipientKey: true,
-            agreementAcceptedVersion: true,
-            squareLocationId: true,
+            marketplaceSellerKey: true,
+            paymentsConnectedAt: true,
           },
         });
         const paymentsReady = !directStream.paywallEnabled
@@ -665,9 +664,8 @@ router.post(
         const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
           where: { id: existingStream.ownerAccountId },
           select: {
-            relayRecipientKey: true,
-            agreementAcceptedVersion: true,
-            squareLocationId: true,
+            marketplaceSellerKey: true,
+            paymentsConnectedAt: true,
           },
         });
         if (ownerPaymentsFields) {
@@ -1010,16 +1008,6 @@ router.get(
           return res.json({ hasSavedCard: false });
         }
 
-        // Find square customer for this viewer
-        const squareCustomer = await prisma.viewerSquareCustomer.findFirst({
-          where: { viewerId: viewer.id },
-        });
-
-        if (!squareCustomer) {
-          return res.json({ hasSavedCard: false });
-        }
-
-        // Find most recent purchase with saved card info
         const recentPurchase = await prisma.purchase.findFirst({
           where: {
             viewerId: viewer.id,
@@ -1037,7 +1025,6 @@ router.get(
           hasSavedCard: true,
           cardLastFour: recentPurchase.cardLastFour,
           cardBrand: recentPurchase.cardBrand,
-          squareCustomerId: squareCustomer.squareCustomerId,
         });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to get payment methods');
@@ -1060,9 +1047,8 @@ router.post(
           throw new BadRequestError('Invalid request', validation.error.errors);
         }
 
-        const { email, firstName, lastName, squareCustomerId } = validation.data;
+        const { email, firstName, lastName } = validation.data;
 
-        // Check if stream exists
         const stream = await prisma.directStream.findUnique({
           where: { slug },
         });
@@ -1071,16 +1057,6 @@ router.post(
           throw new NotFoundError('Stream not found');
         }
 
-        // Find or create owner account (for ViewerSquareCustomer relation)
-        const owner = await prisma.ownerAccount.findFirst({
-          select: { id: true },
-        });
-
-        if (!owner) {
-          throw new AppError('INTERNAL_ERROR', 'No owner account found', 500);
-        }
-
-        // Find or create viewer
         let viewer = await prisma.viewerIdentity.findUnique({
           where: { email },
         });
@@ -1095,32 +1071,7 @@ router.post(
           });
         }
 
-        // Upsert ViewerSquareCustomer
-        const existingSquareCustomer = await prisma.viewerSquareCustomer.findFirst({
-          where: {
-            viewerId: viewer.id,
-            ownerAccountId: owner.id,
-          },
-        });
-
-        if (existingSquareCustomer) {
-          await prisma.viewerSquareCustomer.update({
-            where: { id: existingSquareCustomer.id },
-            data: { squareCustomerId },
-          });
-
-          return res.json({ success: true, updated: true });
-        } else {
-          await prisma.viewerSquareCustomer.create({
-            data: {
-              viewerId: viewer.id,
-              ownerAccountId: owner.id,
-              squareCustomerId,
-            },
-          });
-
-          return res.status(201).json({ success: true, created: true });
-        }
+        return res.json({ success: true, viewerId: viewer.id });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to save payment method');
         next(error);
