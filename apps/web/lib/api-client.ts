@@ -151,8 +151,8 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
 
 // Per-purchase Square Web SDK config (relay per-coach, or legacy env)
 export interface PaymentConfigResponse {
-  provider: 'relay' | 'legacy';
-  applicationId?: string;
+  provider: 'relay';
+  applicationId: string;
   environment?: string; // 'production' | 'sandbox'
   locationId?: string | null;
 }

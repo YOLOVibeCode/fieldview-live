@@ -73,8 +73,6 @@ export class OwnerDirectStreamService {
         relayRecipientKey: true,
         agreementAcceptedVersion: true,
         squareLocationId: true,
-        squareAccessTokenEncrypted: true,
-        squareTokenExpiresAt: true,
       },
     });
     if (owner) {
@@ -159,8 +157,6 @@ export class OwnerDirectStreamService {
         relayRecipientKey: true,
         agreementAcceptedVersion: true,
         squareLocationId: true,
-        squareAccessTokenEncrypted: true,
-        squareTokenExpiresAt: true,
       },
     });
     if (owner) {

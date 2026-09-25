@@ -26,5 +26,5 @@
 /webhooks/twilio:
   $ref: './webhooks.yaml#/paths/~1webhooks~1twilio'
 
-/webhooks/square:
-  $ref: './webhooks.yaml#/paths/~1webhooks~1square'
+/webhooks/relay:
+  $ref: './webhooks.yaml#/paths/~1webhooks~1relay'

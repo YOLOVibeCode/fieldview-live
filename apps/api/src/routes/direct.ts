@@ -247,8 +247,6 @@ router.get(
             relayRecipientKey: true,
             agreementAcceptedVersion: true,
             squareLocationId: true,
-            squareAccessTokenEncrypted: true,
-            squareTokenExpiresAt: true,
           },
         });
         const paymentsReady = !directStream.paywallEnabled
@@ -670,8 +668,6 @@ router.post(
             relayRecipientKey: true,
             agreementAcceptedVersion: true,
             squareLocationId: true,
-            squareAccessTokenEncrypted: true,
-            squareTokenExpiresAt: true,
           },
         });
         if (ownerPaymentsFields) {

@@ -66,8 +66,6 @@ beforeEach(() => {
     relayRecipientKey: null,
     agreementAcceptedVersion: null,
     squareLocationId: null,
-    squareAccessTokenEncrypted: null,
-    squareTokenExpiresAt: null,
   });
 });
 

@@ -9,8 +9,8 @@ export interface RelayFrontendConfig {
   /** Square Web Payments SDK application id (relay-provided). */
   applicationId: string;
   environment: 'production' | 'sandbox';
-  // NOTE: locationId does NOT come from the relay — it belongs to the coach's own
-  // Square account and is supplied by FieldView (OwnerAccount.squareLocationId).
+  /** When the relay returns it, preferred over FieldView-stored location. */
+  locationId?: string | null;
 }
 
 export interface RelayRecipientStatus {
@@ -88,4 +88,32 @@ export interface RelayRefundResult {
 export interface IRelayConnectPayments {
   charge(recipientKey: string, input: RelayChargeInput): Promise<RelayChargeResult>;
   refund(recipientKey: string, input: RelayRefundInput): Promise<RelayRefundResult>;
+}
+
+export interface RelayCreateCustomerInput {
+  email: string;
+  givenName?: string;
+  phone?: string;
+}
+
+export interface RelaySavedCard {
+  id: string;
+  cardBrand: string;
+  last4: string;
+  expMonth?: number;
+  expYear?: number;
+}
+
+/**
+ * Card-on-file via the relay (coach seller context).
+ */
+export interface IRelayConnectCustomers {
+  createCustomer(recipientKey: string, input: RelayCreateCustomerInput): Promise<string>;
+  listCards(recipientKey: string, customerId: string): Promise<RelaySavedCard[]>;
+  createCard(
+    recipientKey: string,
+    customerId: string,
+    sourceId: string,
+  ): Promise<RelaySavedCard | null>;
+  deleteCard(recipientKey: string, cardId: string): Promise<void>;
 }

@@ -6,8 +6,6 @@
  */
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
-import { isPaymentsViaRelay } from '../lib/relay';
-import { squareClient } from '../lib/square';
 import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
 import type { IPlaybackSessionReader } from '../repositories/IPlaybackSessionRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
@@ -244,54 +242,25 @@ export class RefundService implements IRefundReader, IRefundWriter {
       throw new BadRequestError('Purchase has no payment provider ID');
     }
 
-    // Relay Connect Hub path (flag-gated): refund on the coach's own Square via the
-    // relay, which reverses the app fee proportionally. Falls through to the legacy
-    // central-client path when off or the owner is not migrated.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const relayOwnerId = purchase.recipientOwnerAccountId as string | undefined;
-    if (isPaymentsViaRelay() && relayOwnerId) {
-      const owner = await this.ownerReader.findById(relayOwnerId);
-      if (owner?.relayRecipientKey) {
-        await this.relay.refund(owner.relayRecipientKey, {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          paymentId: purchase.paymentProviderPaymentId as string,
-          amountCents: refund.amountCents,
-          idempotencyKey: `refund-${refundId}`,
-          reason: refund.reasonCode,
-        });
-        await this.refundWriter.update(refundId, { processedAt: new Date() });
-        return;
-      }
+    if (!relayOwnerId) {
+      throw new BadRequestError('Purchase missing recipient owner for relay refund');
     }
 
-    // Create Square refund (legacy Model A: central platform client)
-    try {
-      // Square SDK v43+ - refunds API
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      const refundsApi = (squareClient as any).refundsApi || (squareClient as any).refunds;
-      if (!refundsApi) {
-        throw new Error('Square refunds API not available');
-      }
-
-      await refundsApi.refundPayment({
-        idempotencyKey: `refund-${refundId}-${Date.now()}`,
-        amountMoney: {
-          amount: BigInt(refund.amountCents),
-          currency: purchase.currency || 'USD',
-        },
-        paymentId: purchase.paymentProviderPaymentId,
-        reason: refund.reasonCode,
-      });
-
-      // Update refund with processed timestamp
-      await this.refundWriter.update(refundId, {
-        processedAt: new Date(),
-      });
-    } catch (error) {
-      // Log error but don't throw - refund record is created, processing can be retried
-      console.error('Square refund processing failed:', error);
-      throw error;
+    const owner = await this.ownerReader.findById(relayOwnerId);
+    if (!owner?.relayRecipientKey) {
+      throw new BadRequestError('Owner is not connected for payments via the relay');
     }
+
+    await this.relay.refund(owner.relayRecipientKey, {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      paymentId: purchase.paymentProviderPaymentId as string,
+      amountCents: refund.amountCents,
+      idempotencyKey: `refund-${refundId}`,
+      reason: refund.reasonCode,
+    });
+    await this.refundWriter.update(refundId, { processedAt: new Date() });
   }
 
   /**

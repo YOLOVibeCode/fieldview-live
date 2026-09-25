@@ -13,12 +13,9 @@ model OwnerAccount {
   name                        String
   status                      String // 'active' | 'suspended' | 'pending_verification'
   contactEmail                String
-  payoutProviderRef           String? // Square merchant_id
-  squareAccessTokenEncrypted  String? // Encrypted Square OAuth access_token
-  squareRefreshTokenEncrypted String? // Encrypted Square OAuth refresh_token
-  squareTokenExpiresAt        DateTime? // When access_token expires
-  squareLocationId            String? // Owner (seller) Square location ID for marketplace payments
-  // Noctusoft Relay Connect Hub (marketplace payments — supersedes the square* fields above).
+  payoutProviderRef           String? // Square merchant_id (display; relay holds OAuth tokens)
+  squareLocationId            String? // Coach Square location ID for Web Payments SDK tokenization
+  // Noctusoft Relay Connect Hub (marketplace payments).
   // The relay holds the coach's Square tokens; FieldView references them by recipientKey only.
   relayRecipientKey        String?   // Recipient key on the relay's Connect Hub (per product)
   paymentsConnectedAt      DateTime? // When the coach completed Square OAuth via the relay

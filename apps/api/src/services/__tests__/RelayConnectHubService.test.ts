@@ -65,12 +65,24 @@ describe('RelayConnectHubService', () => {
     it('maps application_id + environment', async () => {
       fetchFn.mockResolvedValue(jsonResponse({ application_id: 'sq0idp-abc', environment: 'production' }));
       const cfg = await svc.getFrontendConfig('owner-123');
-      expect(cfg).toEqual({ applicationId: 'sq0idp-abc', environment: 'production' });
+      expect(cfg).toEqual({
+        applicationId: 'sq0idp-abc',
+        environment: 'production',
+        locationId: null,
+      });
     });
 
     it('defaults environment to sandbox', async () => {
       fetchFn.mockResolvedValue(jsonResponse({ application_id: 'sandbox-sq0idb-x' }));
       expect((await svc.getFrontendConfig('owner-123')).environment).toBe('sandbox');
+    });
+
+    it('maps location_id when provided', async () => {
+      fetchFn.mockResolvedValue(
+        jsonResponse({ application_id: 'app', environment: 'sandbox', location_id: 'LOC99' }),
+      );
+      const cfg = await svc.getFrontendConfig('owner-123');
+      expect(cfg.locationId).toBe('LOC99');
     });
 
     it('throws when application_id is missing', async () => {
@@ -174,6 +186,17 @@ describe('RelayConnectHubService', () => {
       await expect(
         svc.charge('owner-123', { sourceId: 's', amountCents: 500, idempotencyKey: 'p3' }),
       ).rejects.toThrow(/The card was declined \[CARD_DECLINED\]/);
+    });
+  });
+
+  describe('createCustomer', () => {
+    it('POSTs email and parses customer id', async () => {
+      fetchFn.mockResolvedValue(jsonResponse({ customer: { id: 'cust_1' } }));
+      const id = await svc.createCustomer('owner-123', { email: 'fan@example.com' });
+      expect(id).toBe('cust_1');
+      const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://relay.test/connect/fieldview/recipients/owner-123/customers');
+      expect(JSON.parse(init.body as string)).toEqual({ email: 'fan@example.com' });
     });
   });
 
