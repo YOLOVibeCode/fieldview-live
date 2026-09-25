@@ -60,21 +60,17 @@ const unreadyOwner = {
   relayRecipientKey: null,
   agreementAcceptedVersion: null,
   squareLocationId: null,
-  squareAccessTokenEncrypted: null,
-  squareTokenExpiresAt: null,
 };
 
 const relayReadyOwner = {
   relayRecipientKey: 'owner-1',
   agreementAcceptedVersion: 'v1',
   squareLocationId: 'LOC1',
-  squareAccessTokenEncrypted: null,
-  squareTokenExpiresAt: null,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
   ownerFindUnique.mockResolvedValue(unreadyOwner);
 });
 

@@ -11,16 +11,6 @@ const relayReadyOwner: OwnerPaymentsReadinessInput = {
   relayRecipientKey: 'owner-1',
   agreementAcceptedVersion: 'v1',
   squareLocationId: 'LOC1',
-  squareAccessTokenEncrypted: null,
-  squareTokenExpiresAt: null,
-};
-
-const legacyReadyOwner: OwnerPaymentsReadinessInput = {
-  relayRecipientKey: null,
-  agreementAcceptedVersion: null,
-  squareLocationId: 'LOC1',
-  squareAccessTokenEncrypted: 'enc:token',
-  squareTokenExpiresAt: new Date(Date.now() + 60_000),
 };
 
 afterEach(() => {
@@ -28,27 +18,33 @@ afterEach(() => {
 });
 
 describe('getOwnerPaymentsReadiness', () => {
-  it('returns relay provider when PAYMENTS_VIA_RELAY and all relay fields are set', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  it('returns relay provider when relay configured and all fields set', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     expect(getOwnerPaymentsReadiness(relayReadyOwner)).toEqual({
       ready: true,
       provider: 'relay',
     });
   });
 
-  it('returns not ready when relay flag on but recipient key missing', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  it('returns not ready when relay API key missing', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', '');
+    const result = getOwnerPaymentsReadiness(relayReadyOwner);
+    expect(result.ready).toBe(false);
+    expect(result.reason).toContain('not configured');
+  });
+
+  it('returns not ready when recipient key missing', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     const result = getOwnerPaymentsReadiness({
       ...relayReadyOwner,
       relayRecipientKey: null,
     });
     expect(result.ready).toBe(false);
-    expect(result.provider).toBeNull();
     expect(result.reason).toContain('not connected');
   });
 
-  it('returns not ready when relay flag on but agreement missing', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  it('returns not ready when agreement missing', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     const result = getOwnerPaymentsReadiness({
       ...relayReadyOwner,
       agreementAcceptedVersion: null,
@@ -57,50 +53,14 @@ describe('getOwnerPaymentsReadiness', () => {
     expect(result.reason).toContain('agreement');
   });
 
-  it('returns not ready when relay flag on but location missing', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  it('returns not ready when location missing', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     const result = getOwnerPaymentsReadiness({
       ...relayReadyOwner,
       squareLocationId: null,
     });
     expect(result.ready).toBe(false);
     expect(result.reason).toContain('location');
-  });
-
-  it('returns legacy provider when relay flag off and legacy token valid', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'false');
-    expect(getOwnerPaymentsReadiness(legacyReadyOwner)).toEqual({
-      ready: true,
-      provider: 'legacy',
-    });
-  });
-
-  it('returns not ready when legacy token expired', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'false');
-    const result = getOwnerPaymentsReadiness({
-      ...legacyReadyOwner,
-      squareTokenExpiresAt: new Date(Date.now() - 60_000),
-    });
-    expect(result.ready).toBe(false);
-    expect(result.reason).toContain('expired');
-  });
-
-  it('returns not ready when legacy token missing', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'false');
-    const result = getOwnerPaymentsReadiness({
-      ...legacyReadyOwner,
-      squareAccessTokenEncrypted: null,
-    });
-    expect(result.ready).toBe(false);
-    expect(result.reason).toContain('not connected');
-  });
-
-  it('falls back to legacy when relay flag on but relay incomplete and legacy valid', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
-    expect(getOwnerPaymentsReadiness(legacyReadyOwner)).toEqual({
-      ready: true,
-      provider: 'legacy',
-    });
   });
 });
 
@@ -120,6 +80,7 @@ describe('wouldChargeViewers', () => {
 
 describe('assertPaymentsReadyForPaywall', () => {
   it('does nothing when paywall would not charge viewers', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     expect(() =>
       assertPaymentsReadyForPaywall(
         { ...relayReadyOwner, relayRecipientKey: null },
@@ -130,11 +91,12 @@ describe('assertPaymentsReadyForPaywall', () => {
   });
 
   it('does nothing when owner is ready', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     expect(() => assertPaymentsReadyForPaywall(relayReadyOwner, true, 500)).not.toThrow();
   });
 
   it('does nothing when bypass is true', () => {
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     expect(() =>
       assertPaymentsReadyForPaywall(
         { ...relayReadyOwner, relayRecipientKey: null },
@@ -146,7 +108,7 @@ describe('assertPaymentsReadyForPaywall', () => {
   });
 
   it('throws PAYMENTS_NOT_CONNECTED when paid paywall and owner not ready', () => {
-    vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+    vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
     try {
       assertPaymentsReadyForPaywall(
         { ...relayReadyOwner, relayRecipientKey: null },

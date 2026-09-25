@@ -13,15 +13,18 @@ import { BadRequestError } from '../lib/errors';
 import type { RelayConfig } from '../lib/relay';
 
 import type {
+  IRelayConnectCustomers,
   IRelayConnectOnboarding,
   IRelayConnectPayments,
   RelayAgreementResult,
   RelayChargeInput,
   RelayChargeResult,
+  RelayCreateCustomerInput,
   RelayFrontendConfig,
   RelayRecipientStatus,
   RelayRefundInput,
   RelayRefundResult,
+  RelaySavedCard,
 } from './IRelayConnectHubService';
 
 type FetchFn = typeof globalThis.fetch;
@@ -30,7 +33,9 @@ interface MoneyLike {
   amount?: number;
 }
 
-export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayConnectPayments {
+export class RelayConnectHubService
+  implements IRelayConnectOnboarding, IRelayConnectPayments, IRelayConnectCustomers
+{
   constructor(
     private config: RelayConfig,
     private fetchFn: FetchFn = globalThis.fetch,
@@ -101,13 +106,18 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
     if (!res.ok) {
       return this.throwRelayError(res, 'Relay frontend-config failed');
     }
-    const body = (await res.json()) as { application_id?: string; environment?: string };
+    const body = (await res.json()) as {
+      application_id?: string;
+      environment?: string;
+      location_id?: string | null;
+    };
     if (!body.application_id) {
       throw new BadRequestError('Relay: frontend-config missing application_id');
     }
     return {
       applicationId: body.application_id,
       environment: body.environment === 'production' ? 'production' : 'sandbox',
+      locationId: body.location_id ?? null,
     };
   }
 
@@ -206,5 +216,135 @@ export class RelayConnectHubService implements IRelayConnectOnboarding, IRelayCo
       amountCents: typeof amountMoney?.amount === 'number' ? amountMoney.amount : input.amountCents,
       raw: data,
     };
+  }
+
+  private parseCard(raw: Record<string, unknown>): RelaySavedCard | null {
+    const id = typeof raw.id === 'string' ? raw.id : '';
+    if (!id) return null;
+    const cardBrand =
+      typeof raw.card_brand === 'string'
+        ? raw.card_brand
+        : typeof raw.cardBrand === 'string'
+          ? raw.cardBrand
+          : 'UNKNOWN';
+    const last4 =
+      typeof raw.last_4 === 'string'
+        ? raw.last_4
+        : typeof raw.last4 === 'string'
+          ? raw.last4
+          : '';
+    const expMonth =
+      typeof raw.exp_month === 'number'
+        ? raw.exp_month
+        : typeof raw.expMonth === 'number'
+          ? raw.expMonth
+          : undefined;
+    const expYear =
+      typeof raw.exp_year === 'number'
+        ? raw.exp_year
+        : typeof raw.expYear === 'number'
+          ? raw.expYear
+          : undefined;
+    return { id, cardBrand, last4, expMonth, expYear };
+  }
+
+  async createCustomer(recipientKey: string, input: RelayCreateCustomerInput): Promise<string> {
+    const res = await this.fetchFn(`${this.recipientBase(recipientKey)}/customers`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        email: input.email,
+        ...(input.givenName && { given_name: input.givenName }),
+        ...(input.phone && { phone: input.phone }),
+      }),
+    });
+    if (!res.ok) {
+      return this.throwRelayError(res, 'Relay create customer failed');
+    }
+    const data = (await res.json()) as { customer?: Record<string, unknown> };
+    const customerId =
+      typeof data.customer?.id === 'string'
+        ? data.customer.id
+        : typeof (data as { customer_id?: string }).customer_id === 'string'
+          ? (data as { customer_id: string }).customer_id
+          : '';
+    if (!customerId) {
+      throw new BadRequestError('Relay: create customer missing id');
+    }
+    return customerId;
+  }
+
+  async listCards(recipientKey: string, customerId: string): Promise<RelaySavedCard[]> {
+    const res = await this.fetchFn(
+      `${this.recipientBase(recipientKey)}/customers/${encodeURIComponent(customerId)}/cards`,
+      { method: 'GET', headers: this.headers() },
+    );
+    if (!res.ok) {
+      return this.throwRelayError(res, 'Relay list cards failed');
+    }
+    const data = (await res.json()) as { cards?: Array<Record<string, unknown>> };
+    const cards = data.cards ?? [];
+    const cardMap = new Map<string, RelaySavedCard>();
+    for (const raw of cards) {
+      const parsed = this.parseCard(raw);
+      if (!parsed) continue;
+      const key = `${parsed.cardBrand}-${parsed.last4}`;
+      if (!cardMap.has(key)) {
+        cardMap.set(key, parsed);
+      }
+    }
+    return Array.from(cardMap.values());
+  }
+
+  async createCard(
+    recipientKey: string,
+    customerId: string,
+    sourceId: string,
+  ): Promise<RelaySavedCard | null> {
+    const existing = await this.listCards(recipientKey, customerId);
+    const res = await this.fetchFn(
+      `${this.recipientBase(recipientKey)}/customers/${encodeURIComponent(customerId)}/cards`,
+      {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({ source_id: sourceId }),
+      },
+    );
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as {
+        code?: string;
+        squareErrors?: Array<{ code?: string }>;
+      };
+      const code = data.squareErrors?.[0]?.code || data.code;
+      if (code === 'CARD_ALREADY_EXISTS' || code === 'DUPLICATE_CARD') {
+        return null;
+      }
+      return this.throwRelayError(res as Response, 'Relay create card failed');
+    }
+    const data = (await res.json()) as { card?: Record<string, unknown> };
+    const parsed = data.card ? this.parseCard(data.card) : null;
+    if (!parsed) {
+      throw new BadRequestError('Relay: create card missing card body');
+    }
+    const duplicate = existing.find((c) => c.last4 === parsed.last4 && c.cardBrand === parsed.cardBrand);
+    if (duplicate) {
+      try {
+        await this.deleteCard(recipientKey, parsed.id);
+      } catch {
+        // duplicate already on file
+      }
+      return null;
+    }
+    return parsed;
+  }
+
+  async deleteCard(recipientKey: string, cardId: string): Promise<void> {
+    const res = await this.fetchFn(
+      `${this.recipientBase(recipientKey)}/cards/${encodeURIComponent(cardId)}`,
+      { method: 'DELETE', headers: this.headers() },
+    );
+    if (!res.ok) {
+      return this.throwRelayError(res, 'Relay delete card failed');
+    }
   }
 }

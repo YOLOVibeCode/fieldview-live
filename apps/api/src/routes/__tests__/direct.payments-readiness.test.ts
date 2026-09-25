@@ -23,8 +23,6 @@ const unreadyOwner = {
   relayRecipientKey: null,
   agreementAcceptedVersion: null,
   squareLocationId: null,
-  squareAccessTokenEncrypted: null,
-  squareTokenExpiresAt: null,
 };
 
 function app(): Express {
@@ -46,7 +44,7 @@ const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+  vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
   dsFindUnique.mockResolvedValue({
     id: 'ds-1',
     slug: 'paid-stream',

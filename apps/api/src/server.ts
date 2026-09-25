@@ -25,7 +25,6 @@ import { createOwnersRouter } from './routes/owners';
 import { createOwnersAnalyticsRouter } from './routes/owners.analytics';
 import { createOwnersGamesRouter } from './routes/owners.games';
 import { createOwnersMeRouter } from './routes/owners.me';
-import { createOwnersSquareRouter } from './routes/owners.square';
 import { createOwnersStreamsRouter } from './routes/owners.streams';
 import { createOwnersWatchLinksRouter } from './routes/owners.watch-links';
 import { createOwnersEventsRouter } from './routes/owners.events';
@@ -61,7 +60,6 @@ import scoreboardRouter from './routes/scoreboard';
 import gameEventsRouter from './routes/game-events';
 import { createTestCleanupRouter } from './routes/test.cleanup';
 import { createTestStreamsRouter } from './routes/test.streams';
-import { createSquareWebhookRouter } from './routes/webhooks.square';
 import { createRelayWebhookRouter } from './routes/webhooks.relay';
 import { createTwilioWebhookRouter } from './routes/webhooks.twilio';
 import clipsRouter from './routes/clips.routes';
@@ -86,13 +84,7 @@ app.use(
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.squarecdn.com'],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: [
-          "'self'",
-          'https://api.squareup.com',
-          'https://connect.squareup.com',
-          'https://mux.com',
-          'https://*.mux.com',
-        ],
+        connectSrc: ["'self'", 'https://api.squareup.com', 'https://mux.com', 'https://*.mux.com'],
         frameSrc: ["'self'", 'https://js.squarecdn.com'],
       },
     },
@@ -131,7 +123,6 @@ app.use('/api/owners', createOwnersRouter());
 app.use('/api/owners', createOwnersAnalyticsRouter());
 app.use('/api/owners', createOwnersGamesRouter());
 app.use('/api/owners', createOwnersMeRouter());
-app.use('/api/owners', createOwnersSquareRouter());
 app.use('/api/owners', createOwnersStreamsRouter());
 app.use('/api/owners', createOwnersWatchLinksRouter());
 app.use('/api/owners', createOwnersEventsRouter());
@@ -167,7 +158,6 @@ app.use('/api/clips', clipsRouter);
 app.use('/api/bookmarks', bookmarksRouter);
 app.use('/api/recordings', recordingsRouter);
 app.use('/api/webhooks', createTwilioWebhookRouter());
-app.use('/api/webhooks', createSquareWebhookRouter());
 app.use('/api/webhooks', createRelayWebhookRouter());
 
 // Test routes (POC/development only)

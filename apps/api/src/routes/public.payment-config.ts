@@ -2,18 +2,12 @@
  * Public Payment Config Route.
  *
  * Returns the Square Web Payments SDK config for a purchase's recipient (coach),
- * sourced from the relay Connect Hub's per-recipient frontend-config. This lets the
- * checkout page tokenize against the COACH's seller context (fixing the legacy
- * global-location mismatch).
- *
- * Falls back to `{ provider: 'legacy' }` when the owner has not connected via the
- * relay, so the frontend can keep using NEXT_PUBLIC_SQUARE_* during the transition.
- *
- * See docs/RELAY-CONNECT-HUB-MIGRATION.md.
+ * sourced from the relay Connect Hub's per-recipient frontend-config.
  */
 
 import express, { type Router } from 'express';
 
+import { BadRequestError, NotFoundError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { getRelayConfig } from '../lib/relay';
 import type { IRelayConnectOnboarding } from '../services/IRelayConnectHubService';
@@ -43,28 +37,32 @@ router.get('/purchases/:purchaseId/payment-config', (req, res, next) => {
       const { purchaseId } = req.params;
       const purchase = await prisma.purchase.findUnique({ where: { id: purchaseId } });
       if (!purchase) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Purchase not found' } });
+        return next(new NotFoundError('Purchase not found'));
       }
 
       if (!purchase.recipientOwnerAccountId) {
-        return res.json({ provider: 'legacy' });
+        return next(new BadRequestError('Purchase has no recipient coach'));
       }
 
       const owner = await prisma.ownerAccount.findUnique({
         where: { id: purchase.recipientOwnerAccountId },
       });
       if (!owner?.relayRecipientKey) {
-        return res.json({ provider: 'legacy' });
+        return next(new BadRequestError('Coach has not connected payments via the relay'));
       }
 
       const cfg = await getRelayService().getFrontendConfig(owner.relayRecipientKey);
+      const locationId =
+        (cfg.locationId?.trim() || owner.squareLocationId?.trim() || '') || null;
+      if (!locationId) {
+        return next(new BadRequestError('Coach Square location is not configured'));
+      }
+
       return res.json({
         provider: 'relay',
         applicationId: cfg.applicationId,
         environment: cfg.environment,
-        // locationId is the coach's own Square location — the relay does NOT return it;
-        // it comes from FieldView's stored OwnerAccount.squareLocationId.
-        locationId: owner.squareLocationId ?? null,
+        locationId,
       });
     } catch (error) {
       next(error);

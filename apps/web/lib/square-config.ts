@@ -1,17 +1,11 @@
 /**
- * Resolve the Square Web Payments SDK configuration for a checkout.
- *
- * When the purchase's recipient coach is connected via the relay Connect Hub, use
- * the per-coach `application_id`/`environment`/`locationId` from the relay
- * (`/payment-config`). Legacy `NEXT_PUBLIC_SQUARE_*` env is used only when the
- * owner is not on relay or provider is explicitly legacy.
- *
- * Pure function — unit tested in `__tests__/square-config.test.ts`.
+ * Resolve the Square Web Payments SDK configuration for a checkout from relay
+ * `/payment-config` (Connect Hub frontend-config per coach).
  */
 
 import type { PaymentConfigResponse } from './api-client';
 
-export type SquareConfigBlockedReason = 'COACH_LOCATION_MISSING';
+export type SquareConfigBlockedReason = 'COACH_LOCATION_MISSING' | 'PAYMENT_CONFIG_MISSING';
 
 export interface SquareConfigSuccess {
   ok: true;
@@ -40,26 +34,9 @@ function sdkUrlFor(environment: 'production' | 'sandbox'): string {
     : 'https://sandbox.web.squarecdn.com/v1/square.js';
 }
 
-function legacyConfig(): SquareConfigSuccess {
-  const legacyAppId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || '';
-  const legacyLocation = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '';
-  const legacyEnv: 'production' | 'sandbox' =
-    (process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox').toLowerCase() === 'production'
-      ? 'production'
-      : 'sandbox';
-  return {
-    ok: true,
-    applicationId: legacyAppId,
-    locationId: legacyLocation,
-    environment: legacyEnv,
-    sdkUrl: sdkUrlFor(legacyEnv),
-  };
-}
-
 export function resolveSquareConfig(cfg: PaymentConfigResponse | null): ResolvedSquareConfig {
-  const useRelay = cfg?.provider === 'relay' && !!cfg.applicationId;
-  if (!useRelay) {
-    return legacyConfig();
+  if (!cfg?.applicationId || cfg.provider !== 'relay') {
+    return { ok: false, reason: 'PAYMENT_CONFIG_MISSING' };
   }
 
   const environment: 'production' | 'sandbox' =
@@ -71,7 +48,7 @@ export function resolveSquareConfig(cfg: PaymentConfigResponse | null): Resolved
 
   return {
     ok: true,
-    applicationId: cfg.applicationId as string,
+    applicationId: cfg.applicationId,
     locationId,
     environment,
     sdkUrl: sdkUrlFor(environment),

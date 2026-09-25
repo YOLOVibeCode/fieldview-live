@@ -1,37 +1,32 @@
 /**
- * Owner payment readiness for DirectStream paywalls.
- * Supports relay Connect Hub onboarding and legacy Model A tokens.
+ * Owner payment readiness for DirectStream paywalls (relay Connect Hub only).
  */
 
 import type { OwnerAccount } from '@prisma/client';
 
 import { AppError } from './errors';
-import { isPaymentsViaRelay } from './relay';
+import { isRelayConfigured } from './relay';
 
 export type OwnerPaymentsReadinessInput = Pick<
   OwnerAccount,
-  | 'relayRecipientKey'
-  | 'agreementAcceptedVersion'
-  | 'squareLocationId'
-  | 'squareAccessTokenEncrypted'
-  | 'squareTokenExpiresAt'
+  'relayRecipientKey' | 'agreementAcceptedVersion' | 'squareLocationId'
 >;
 
 export type PaymentsReadiness = {
   ready: boolean;
-  provider: 'relay' | 'legacy' | null;
+  provider: 'relay' | null;
   reason?: string;
 };
 
-function isLegacyTokenExpired(squareTokenExpiresAt: Date | null): boolean {
-  return squareTokenExpiresAt !== null && new Date(squareTokenExpiresAt) < new Date();
-}
-
-function getRelayReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadiness | null {
-  if (!isPaymentsViaRelay()) {
-    return null;
+/** Returns whether the owner can accept paid DirectStream checkouts. */
+export function getOwnerPaymentsReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadiness {
+  if (!isRelayConfigured()) {
+    return {
+      ready: false,
+      provider: null,
+      reason: 'Payments relay is not configured on this server.',
+    };
   }
-
   if (!owner.relayRecipientKey) {
     return { ready: false, provider: null, reason: 'Square is not connected via the relay.' };
   }
@@ -43,35 +38,6 @@ function getRelayReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadines
   }
 
   return { ready: true, provider: 'relay' };
-}
-
-function getLegacyReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadiness {
-  if (!owner.squareAccessTokenEncrypted) {
-    return { ready: false, provider: null, reason: 'Square account is not connected.' };
-  }
-  if (!owner.squareLocationId) {
-    return { ready: false, provider: null, reason: 'Square location ID is not configured.' };
-  }
-  if (isLegacyTokenExpired(owner.squareTokenExpiresAt)) {
-    return { ready: false, provider: null, reason: 'Square token has expired.' };
-  }
-
-  return { ready: true, provider: 'legacy' };
-}
-
-/** Returns whether the owner can accept paid DirectStream checkouts. */
-export function getOwnerPaymentsReadiness(owner: OwnerPaymentsReadinessInput): PaymentsReadiness {
-  const relay = getRelayReadiness(owner);
-  if (relay?.ready) {
-    return relay;
-  }
-
-  const legacy = getLegacyReadiness(owner);
-  if (legacy.ready) {
-    return legacy;
-  }
-
-  return relay ?? legacy;
 }
 
 /** True when viewers would be charged (paywall on with a positive price). */

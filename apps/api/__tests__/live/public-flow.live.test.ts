@@ -2,41 +2,25 @@ import { describe, it, expect } from 'vitest';
 import { agent, type SuperTest } from 'supertest';
 import app from '@/server';
 import { prisma } from '@/lib/prisma';
-import { encrypt } from '@/lib/encryption';
-
-/**
- * Check if we have merchant OAuth credentials for payment tests.
- * Platform credentials cannot be used for owner payments in Marketplace Model A.
- */
 function hasMerchantCredentials(): boolean {
-  return Boolean(
-    process.env.SQUARE_MERCHANT_ACCESS_TOKEN &&
-    process.env.SQUARE_MERCHANT_LOCATION_ID
-  );
+  return Boolean(process.env.SQUARE_MERCHANT_LOCATION_ID);
 }
 
-/**
- * Sets up Square sandbox credentials for a test owner account.
- * Uses SQUARE_MERCHANT_* credentials (OAuth tokens from a sandbox merchant).
- */
 async function setupSquareCredentials(ownerAccountId: string): Promise<void> {
-  const accessToken = process.env.SQUARE_MERCHANT_ACCESS_TOKEN;
   const locationId = process.env.SQUARE_MERCHANT_LOCATION_ID;
 
-  if (!accessToken || !locationId) {
-    throw new Error(
-      'Payment tests require SQUARE_MERCHANT_ACCESS_TOKEN and SQUARE_MERCHANT_LOCATION_ID'
-    );
+  if (!locationId) {
+    throw new Error('Payment tests require SQUARE_MERCHANT_LOCATION_ID');
   }
 
   await prisma.ownerAccount.update({
     where: { id: ownerAccountId },
     data: {
-      squareAccessTokenEncrypted: encrypt(accessToken),
-      squareRefreshTokenEncrypted: encrypt('test-refresh-token'),
+      relayRecipientKey: ownerAccountId,
+      agreementAcceptedVersion: 'v1',
       squareLocationId: locationId,
       payoutProviderRef: 'SANDBOX_MERCHANT',
-      squareTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      paymentsConnectedAt: new Date(),
     },
   });
 }

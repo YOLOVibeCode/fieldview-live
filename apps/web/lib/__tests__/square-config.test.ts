@@ -1,34 +1,10 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { isSquareConfigReady, resolveSquareConfig } from '@/lib/square-config';
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-
 describe('resolveSquareConfig', () => {
-  it('uses legacy NEXT_PUBLIC_* when cfg is null', () => {
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_APPLICATION_ID', 'legacy-app');
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_LOCATION_ID', 'legacy-loc');
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_ENVIRONMENT', 'sandbox');
-    expect(resolveSquareConfig(null)).toEqual({
-      ok: true,
-      applicationId: 'legacy-app',
-      locationId: 'legacy-loc',
-      environment: 'sandbox',
-      sdkUrl: 'https://sandbox.web.squarecdn.com/v1/square.js',
-    });
-  });
-
-  it('uses legacy when provider is legacy', () => {
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_APPLICATION_ID', 'legacy-app');
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_LOCATION_ID', 'legacy-loc');
-    const r = resolveSquareConfig({ provider: 'legacy' });
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.applicationId).toBe('legacy-app');
-      expect(r.locationId).toBe('legacy-loc');
-    }
+  it('blocks when cfg is null', () => {
+    expect(resolveSquareConfig(null)).toEqual({ ok: false, reason: 'PAYMENT_CONFIG_MISSING' });
   });
 
   it('uses relay values + production SDK url when provider is relay', () => {
@@ -70,13 +46,14 @@ describe('resolveSquareConfig', () => {
     ).toEqual({ ok: false, reason: 'COACH_LOCATION_MISSING' });
   });
 
-  it('treats relay-without-applicationId as legacy', () => {
-    vi.stubEnv('NEXT_PUBLIC_SQUARE_APPLICATION_ID', 'legacy-app');
-    const r = resolveSquareConfig({ provider: 'relay' });
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.applicationId).toBe('legacy-app');
-    }
+  it('blocks when applicationId is missing', () => {
+    expect(
+      resolveSquareConfig({
+        provider: 'relay',
+        environment: 'sandbox',
+        locationId: 'loc',
+      }),
+    ).toEqual({ ok: false, reason: 'PAYMENT_CONFIG_MISSING' });
   });
 });
 

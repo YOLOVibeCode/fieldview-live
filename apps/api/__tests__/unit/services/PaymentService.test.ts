@@ -310,9 +310,6 @@ describe('PaymentService - Recipient Field Assignment', () => {
       relayRecipientKey: 'owner-relay',
       agreementAcceptedVersion: 'v1',
       squareLocationId: 'LOC1',
-      squareAccessTokenEncrypted: null,
-      squareRefreshTokenEncrypted: null,
-      squareTokenExpiresAt: null,
       paymentsConnectedAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -322,15 +319,6 @@ describe('PaymentService - Recipient Field Assignment', () => {
       abuseWarnings: 0,
       isSuspended: false,
       suspendedReason: null,
-    };
-
-    const legacyOwner: OwnerAccount = {
-      ...relayReadyOwner,
-      relayRecipientKey: null,
-      agreementAcceptedVersion: null,
-      paymentsConnectedAt: null,
-      squareAccessTokenEncrypted: 'enc:token',
-      squareTokenExpiresAt: new Date(Date.now() + 60_000),
     };
 
     const unconnectedOwner: OwnerAccount = {
@@ -395,8 +383,8 @@ describe('PaymentService - Recipient Field Assignment', () => {
       vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);
     });
 
-    it('creates checkout for relay-ready owner when PAYMENTS_VIA_RELAY is true', async () => {
-      vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+    it('creates checkout for relay-ready owner', async () => {
+      vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
       (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
         ...directStream,
         ownerAccount: relayReadyOwner,
@@ -414,7 +402,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
     });
 
     it('throws with /owners/payments message for unconnected owner', async () => {
-      vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
+      vi.stubEnv('NOCTUSOFT_API_KEY', 'nsins_dk_test');
       (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
         ...directStream,
         ownerAccount: unconnectedOwner,
@@ -429,21 +417,5 @@ describe('PaymentService - Recipient Field Assignment', () => {
       ).rejects.toThrow(/\/owners\/payments/);
     });
 
-    it('creates checkout for legacy owner when relay flag is off', async () => {
-      vi.stubEnv('PAYMENTS_VIA_RELAY', 'false');
-      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ...directStream,
-        ownerAccount: legacyOwner,
-      });
-
-      const result = await paymentService.createDirectStreamCheckout(
-        'paid-stream',
-        viewer.email!,
-        'Buy',
-        'Er',
-      );
-
-      expect(result.purchaseId).toBe(purchase.id);
-    });
   });
 });

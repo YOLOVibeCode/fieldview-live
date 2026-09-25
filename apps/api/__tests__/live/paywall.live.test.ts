@@ -3,11 +3,8 @@
  *
  * These tests verify paywall functionality with a real database.
  *
- * IMPORTANT: Payment processing tests require a REAL Square merchant OAuth token.
- * The platform's SQUARE_ACCESS_TOKEN cannot be used to process payments on behalf
- * of an owner account because Square Marketplace Model A requires each merchant
- * to authorize the app via OAuth. Tests that process payments are skipped unless
- * SQUARE_MERCHANT_ACCESS_TOKEN and SQUARE_MERCHANT_LOCATION_ID are set.
+ * Payment tests use relay Connect Hub readiness fields on OwnerAccount.
+ * Live charge tests are skipped unless SQUARE_MERCHANT_LOCATION_ID is set.
  *
  * Tests that work without merchant credentials:
  * - Fee calculation verification (10% platform / 90% owner split)
@@ -29,45 +26,27 @@ import { agent, type SuperTest } from 'supertest';
 
 import app from '@/server';
 import { prisma } from '@/lib/prisma';
-import { encrypt } from '@/lib/encryption';
 import { calculateMarketplaceSplit } from '@/utils/feeCalculator';
 
-/**
- * Check if we have merchant OAuth credentials for payment tests.
- * Platform credentials cannot be used for owner payments in Marketplace Model A.
- */
 function hasMerchantCredentials(): boolean {
-  return Boolean(
-    process.env.SQUARE_MERCHANT_ACCESS_TOKEN &&
-    process.env.SQUARE_MERCHANT_LOCATION_ID
-  );
+  return Boolean(process.env.SQUARE_MERCHANT_LOCATION_ID);
 }
 
-/**
- * Sets up Square sandbox credentials for a test owner account.
- * This simulates what happens after OAuth flow completes.
- *
- * NOTE: Uses SQUARE_MERCHANT_* credentials if available, otherwise skips.
- */
 async function setupSquareCredentials(ownerAccountId: string): Promise<void> {
-  const accessToken = process.env.SQUARE_MERCHANT_ACCESS_TOKEN;
   const locationId = process.env.SQUARE_MERCHANT_LOCATION_ID;
 
-  if (!accessToken || !locationId) {
-    throw new Error(
-      'Payment tests require SQUARE_MERCHANT_ACCESS_TOKEN and SQUARE_MERCHANT_LOCATION_ID ' +
-      '(OAuth credentials from a sandbox merchant, not platform credentials)'
-    );
+  if (!locationId) {
+    throw new Error('Payment tests require SQUARE_MERCHANT_LOCATION_ID');
   }
 
   await prisma.ownerAccount.update({
     where: { id: ownerAccountId },
     data: {
-      squareAccessTokenEncrypted: encrypt(accessToken),
-      squareRefreshTokenEncrypted: encrypt('test-refresh-token'),
+      relayRecipientKey: ownerAccountId,
+      agreementAcceptedVersion: 'v1',
       squareLocationId: locationId,
       payoutProviderRef: 'SANDBOX_MERCHANT',
-      squareTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      paymentsConnectedAt: new Date(),
     },
   });
 }
@@ -101,11 +80,7 @@ function assertLiveTestEnv(): void {
  * Check if Square sandbox is configured (for non-payment tests).
  */
 function hasSquareConfig(): boolean {
-  return (
-    Boolean(process.env.SQUARE_ACCESS_TOKEN) &&
-    Boolean(process.env.SQUARE_LOCATION_ID) &&
-    (process.env.SQUARE_ENVIRONMENT || 'sandbox') !== 'production'
-  );
+  return Boolean(process.env.SQUARE_MERCHANT_LOCATION_ID);
 }
 
 /**
@@ -460,18 +435,16 @@ describe('LIVE: Paywall Functionality (Square Sandbox)', () => {
         const ownerAccount = await prisma.ownerAccount.findUnique({
           where: { id: meResp.body.id },
           select: {
-            squareAccessTokenEncrypted: true,
-            squareRefreshTokenEncrypted: true,
-            squareTokenExpiresAt: true,
+            relayRecipientKey: true,
+            agreementAcceptedVersion: true,
             squareLocationId: true,
             payoutProviderRef: true,
           },
         });
 
-        // Fields should exist but be null (not connected)
         expect(ownerAccount).toBeTruthy();
-        expect(ownerAccount!.squareAccessTokenEncrypted).toBeNull();
-        expect(ownerAccount!.squareRefreshTokenEncrypted).toBeNull();
+        expect(ownerAccount!.relayRecipientKey).toBeNull();
+        expect(ownerAccount!.agreementAcceptedVersion).toBeNull();
       }
     );
 

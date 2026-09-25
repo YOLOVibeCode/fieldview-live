@@ -1,22 +1,18 @@
 /**
  * Saved Payment Methods Routes
  *
- * Public API for retrieving saved payment methods for a customer.
- * 
- * IMPORTANT: This endpoint does NOT store payment data. It fetches card
- * information from Square's API on-demand. Only safe display data (last4,
- * brand, expiry) is returned - no sensitive card numbers or CVV are ever
- * stored or returned.
+ * Public API for retrieving saved payment methods for a customer (relay Connect Hub).
  */
 
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
 import { prisma } from '../lib/prisma';
+import { getRelayConfig } from '../lib/relay';
 import { validateRequest } from '../middleware/validation';
-import { SquareCustomerService } from '../services/SquareCustomerService';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
-import { SquareOwnerClientService } from '../services/SquareOwnerClientService';
+import { RelayConnectHubService } from '../services/RelayConnectHubService';
+import { RelaySavedPaymentService } from '../services/RelaySavedPaymentService';
 
 const router = express.Router();
 
@@ -52,21 +48,16 @@ router.get(
 
         const ownerAccountRepo = new OwnerAccountRepository(prisma);
         const owner = await ownerAccountRepo.findById(purchase.recipientOwnerAccountId);
-        if (!owner) {
+        if (!owner?.relayRecipientKey) {
           return res.json({ paymentMethods: [] });
         }
 
-        const ownerSquareClientService = new SquareOwnerClientService(ownerAccountRepo);
-        const ownerSquareClient = await ownerSquareClientService.getClient(owner);
-        if (!ownerSquareClient) {
-          return res.json({ paymentMethods: [] });
-        }
-
-        const squareCustomerService = new SquareCustomerService(prisma);
-        const paymentMethods = await squareCustomerService.listSavedPaymentMethodsForOwner({
+        const relayService = new RelayConnectHubService(getRelayConfig());
+        const savedPaymentService = new RelaySavedPaymentService(prisma, relayService);
+        const paymentMethods = await savedPaymentService.listSavedPaymentMethodsForOwner({
+          recipientKey: owner.relayRecipientKey,
           ownerAccountId: owner.id,
           viewerId: purchase.viewerId,
-          squareClient: ownerSquareClient,
         });
 
         res.json({ paymentMethods });
@@ -74,11 +65,9 @@ router.get(
         next(error);
       }
     })();
-  }
+  },
 );
 
 export function createPublicSavedPaymentsRouter(): Router {
   return router;
 }
-
-

@@ -287,8 +287,6 @@ router.patch('/:id', (req: Request, res: Response, next: NextFunction) => {
           relayRecipientKey: true,
           agreementAcceptedVersion: true,
           squareLocationId: true,
-          squareAccessTokenEncrypted: true,
-          squareTokenExpiresAt: true,
         },
       });
       if (owner) {
