@@ -14,7 +14,7 @@ export interface MarketplaceConfig {
 
 export function getMarketplaceConfig(): MarketplaceConfig {
   return {
-    storeBaseUrl: process.env.NOCTUSOFT_STORE_BASE_URL || 'https://api.store.noctusoft.com',
+    storeBaseUrl: process.env.NOCTUSOFT_STORE_BASE_URL || 'https://store.noctusoft.com',
     productKey: process.env.NOCTUSOFT_PRODUCT_KEY || 'fieldview',
     apiKey: process.env.NOCTUSOFT_API_KEY || '',
   };
