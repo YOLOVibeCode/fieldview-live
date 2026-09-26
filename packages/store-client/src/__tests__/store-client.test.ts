@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { StoreClient, verifyStoreWebhookSignatures } from '../index';
+import { StoreClient, signConnectBuyLink, verifyStoreWebhookSignatures } from '../index';
 
 describe('StoreClient', () => {
   it('formats store id as product@seller', () => {
@@ -10,12 +10,15 @@ describe('StoreClient', () => {
     expect(client.storeId('team-1')).toBe('fieldview@team-1');
   });
 
-  it('POST /v1/checkout with store alias', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ checkout_url: 'https://pay.test/session/1' }), { status: 200 }),
-    );
+  it('mints a signed /buy/connect/:product/:seller URL', async () => {
+    const fetchFn = vi.fn();
     const client = new StoreClient(
-      { baseUrl: 'https://store.test', productKey: 'fieldview', apiKey: 'k' },
+      {
+        baseUrl: 'https://store.noctusoft.com',
+        productKey: 'fieldview',
+        apiKey: 'k',
+        signingSecret: 'whsec_connect',
+      },
       fetchFn as unknown as typeof fetch,
     );
     const result = await client.createCheckout({
@@ -26,10 +29,30 @@ describe('StoreClient', () => {
       idempotencyKey: 'purchase-1',
       successUrl: 'https://fieldview.live/ok',
       cancelUrl: 'https://fieldview.live/cancel',
+      buyerEmail: 'fan@example.com',
     });
-    expect(result.checkoutUrl).toBe('https://pay.test/session/1');
-    const [, init] = fetchFn.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toMatchObject({ store: 'fieldview@owner-1' });
+    expect(result.checkoutUrl).toMatch(
+      /^https:\/\/store\.noctusoft\.com\/buy\/connect\/fieldview\/owner-1\?/,
+    );
+    expect(result.checkoutUrl).toContain('amount=500');
+    expect(result.checkoutUrl).toContain('user=purchase-1');
+    expect(result.checkoutUrl).toContain('sig=');
+    expect(result.checkoutId).toMatch(/^buy:/);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('signConnectBuyLink', () => {
+  it('includes amount and seller in the path', () => {
+    const { url } = signConnectBuyLink({
+      secret: 's',
+      product: 'fieldview',
+      seller: 's1',
+      amountCents: 999,
+      baseUrl: 'https://store.noctusoft.com',
+    });
+    expect(url).toContain('/buy/connect/fieldview/s1?');
+    expect(url).toContain('amount=999');
   });
 });
 
