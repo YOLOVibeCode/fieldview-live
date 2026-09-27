@@ -33,13 +33,13 @@ paths:
               schema:
                 $ref: '../../components/schemas.yaml#/components/schemas/ErrorResponse'
 
-  /webhooks/square:
+  /webhooks/marketplace:
     post:
       tags:
         - Webhooks
-      summary: Square payment webhook
-      description: Receives payment events from Square. Handles payment.created, payment.updated, refund.created.
-      operationId: handleSquareWebhook
+      summary: Noctusoft store marketplace webhook (event v1)
+      description: Receives marketplace.* and seller.* events with x-noctusoft-signature and x-connect-signature headers.
+      operationId: handleMarketplaceWebhook
       requestBody:
         required: true
         content:
@@ -49,10 +49,6 @@ paths:
               properties:
                 type:
                   type: string
-                  enum:
-                    - payment.created
-                    - payment.updated
-                    - refund.created
                 data:
                   type: object
       responses:

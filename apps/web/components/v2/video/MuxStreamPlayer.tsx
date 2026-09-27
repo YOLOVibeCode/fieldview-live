@@ -13,7 +13,7 @@
  * The built-in seek bar and skip buttons are hidden via mux-overrides.css.
  */
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, type Ref } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 
 import type { PlayerStatus } from './VidstackPlayer';
@@ -23,11 +23,24 @@ import {
   LiveEdgeDetector,
   DEFAULT_SEEK_PROTECTION_CONFIG,
 } from '@/lib/v2/seek-protection';
+import {
+  clampSeek,
+  getSeekableRange,
+  seekToLive,
+  seekToStart,
+} from '@/lib/v2/live-seek';
 
 import './mux-overrides.css';
 
 const liveEdgeDetector = new LiveEdgeDetector();
 const liveThreshold = DEFAULT_SEEK_PROTECTION_CONFIG.liveEdgeThresholdSeconds;
+
+type MuxPlayerRef = {
+  currentTime: number;
+  play(): void;
+  pause(): void;
+  paused: boolean;
+};
 
 export interface MuxStreamPlayerProps {
   /** Mux playback ID (e.g., "abc123") */
@@ -67,11 +80,21 @@ export function MuxStreamPlayer({
   metadata,
   'data-testid': testId = 'mux-player',
 }: MuxStreamPlayerProps) {
-  const playerRef = useRef<{ currentTime: number; play(): void; pause(): void; paused: boolean } | null>(null);
+  const playerRef = useRef<MuxPlayerRef | null>(null);
+  const mediaRef = useRef<HTMLMediaElement | null>(null);
   const [duration, setDuration] = useState<number>(0);
+  const [seekableEnd, setSeekableEnd] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const readyRef = useRef(false);
+
+  const syncSeekableFromMedia = useCallback((el: HTMLMediaElement) => {
+    mediaRef.current = el;
+    const range = getSeekableRange(el);
+    if (range) {
+      setSeekableEnd(range.end);
+    }
+  }, []);
 
   const handleWaiting = useCallback(() => {
     if (!readyRef.current) onStatusChange?.('loading');
@@ -96,32 +119,43 @@ export function MuxStreamPlayer({
       const el = evt.target as HTMLMediaElement;
       const t = el.currentTime;
       setCurrentTime(t);
+      syncSeekableFromMedia(el);
       onTimeUpdate?.(t);
     },
-    [onTimeUpdate]
+    [onTimeUpdate, syncSeekableFromMedia]
   );
 
   const handleDurationChange = useCallback(
     (evt: Event) => {
       const el = evt.target as HTMLMediaElement;
+      syncSeekableFromMedia(el);
       if (el.duration && isFinite(el.duration)) {
         setDuration(el.duration);
         onDurationChange?.(el.duration);
       }
     },
-    [onDurationChange]
+    [onDurationChange, syncSeekableFromMedia]
   );
 
-  // SeekOverlay callbacks
+  const applySeek = useCallback((target: number) => {
+    const player = playerRef.current;
+    if (player && typeof player.currentTime === 'number') {
+      player.currentTime = target;
+    }
+  }, []);
+
   const handleSeek = useCallback(
     (deltaSeconds: number) => {
+      const media = mediaRef.current;
       const player = playerRef.current;
-      if (player && typeof player.currentTime === 'number') {
-        const newTime = Math.max(0, player.currentTime + deltaSeconds);
-        player.currentTime = Number.isFinite(duration) ? Math.min(newTime, duration) : newTime;
-      }
+      if (!media || !player || typeof player.currentTime !== 'number') return;
+      const range = getSeekableRange(media);
+      if (!range) return;
+      applySeek(
+        clampSeek(player.currentTime, deltaSeconds, range.start, range.end)
+      );
     },
-    [duration]
+    [applySeek]
   );
 
   const handleTogglePause = useCallback(() => {
@@ -135,31 +169,38 @@ export function MuxStreamPlayer({
   }, []);
 
   const handleGoToStart = useCallback(() => {
-    const player = playerRef.current;
-    if (player) {
-      player.currentTime = 0;
-    }
-  }, []);
+    const media = mediaRef.current;
+    if (!media) return;
+    const range = getSeekableRange(media);
+    if (!range) return;
+    applySeek(seekToStart(range.start));
+  }, [applySeek]);
 
-  // Go Live logic
+  const liveEdgeTime =
+    seekableEnd > 0
+      ? seekableEnd
+      : Number.isFinite(duration) && duration > 0
+        ? duration
+        : 0;
+
   const showGoLive =
     (streamType.includes('dvr') || streamType.includes('live')) &&
-    Number.isFinite(duration) &&
-    duration > 0 &&
-    liveEdgeDetector.isBehindLiveEdge(currentTime, duration, liveThreshold);
+    liveEdgeTime > 0 &&
+    liveEdgeDetector.isBehindLiveEdge(currentTime, liveEdgeTime, liveThreshold);
 
   const handleGoLive = useCallback(() => {
-    const player = playerRef.current;
-    if (player && Number.isFinite(duration)) {
-      player.currentTime = duration;
-    }
-  }, [duration]);
+    const media = mediaRef.current;
+    if (!media) return;
+    const range = getSeekableRange(media);
+    if (!range) return;
+    applySeek(seekToLive(range.end));
+  }, [applySeek]);
 
   return (
     <div className="relative" data-testid="mux-player-wrapper">
       <MuxPlayer
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={playerRef as any}
+        // Mux custom element ref exposes media playback API used by SeekOverlay.
+        ref={playerRef as React.Ref<never>}
         playbackId={playbackId}
         streamType={streamType}
         autoPlay={autoPlay ? 'muted' : false}

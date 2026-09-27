@@ -34,8 +34,11 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
-      - name: Build @fieldview/data-model
-        run: pnpm --filter @fieldview/data-model build
+      - name: Build workspace packages
+        run: |
+          pnpm --filter @fieldview/data-model build
+          pnpm --filter @fieldview/dvr-service build
+          pnpm --filter @fieldview/store-client build
 
       - name: Run type check
         run: pnpm type-check

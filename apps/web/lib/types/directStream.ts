@@ -94,11 +94,8 @@ export interface DirectStreamBootstrapResponse {
   streamProvider: 'mux_managed' | 'byo_hls' | 'byo_rtmp' | 'external_embed' | 'unknown' | null;
   muxPlaybackId: string | null;
   protectionLevel: 'strong' | 'moderate' | 'best_effort' | 'none' | null;
+  muxStreamType?: 'live' | 'on-demand' | 'live:dvr' | 'll-live' | 'll-live:dvr';
 }
-
-/**
- * Helper: Get user-friendly message for stream status
- */
 export function getStreamStatusMessage(stream: DirectStreamStreamConfig | null): string {
   if (!stream) {
     return 'No stream configured. Admin can set stream URL.';

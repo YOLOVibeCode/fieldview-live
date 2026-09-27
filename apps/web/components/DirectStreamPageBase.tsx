@@ -169,6 +169,7 @@ export interface Bootstrap {
   streamProvider?: string | null;
   muxPlaybackId?: string | null;
   protectionLevel?: string | null;
+  muxStreamType?: 'live' | 'on-demand' | 'live:dvr' | 'll-live' | 'll-live:dvr';
 }
 
 export type FontSize = 'small' | 'medium' | 'large';
@@ -1146,6 +1147,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
+                  streamType={bootstrap?.muxStreamType}
                   playerRef={playerRef}
                   onStatusChange={handlePlayerStatus}
                   onTimeUpdate={setCurrentTime}
@@ -1839,6 +1841,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   src={streamUrl}
                   streamProvider={bootstrap?.streamProvider}
                   muxPlaybackId={bootstrap?.muxPlaybackId}
+                  streamType={bootstrap?.muxStreamType}
                   playerRef={playerRef}
                   onStatusChange={handlePlayerStatus}
                   onTimeUpdate={setCurrentTime}

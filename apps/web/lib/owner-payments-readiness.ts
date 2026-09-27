@@ -1,81 +1,40 @@
 import type { OwnerPaymentsStatus } from '@/lib/api-client';
 
-export type PaymentsReadinessPhase =
-  | 'not_started'
-  | 'agreement_needed'
-  | 'connect_square'
-  | 'add_location'
-  | 'ready';
+export type PaymentsReadinessPhase = 'not_started' | 'onboarding' | 'ready';
 
-export type PaymentsStep = 1 | 2 | 3;
+export type PaymentsStep = 1 | 2;
 
 const BADGE_LABELS: Record<PaymentsReadinessPhase, string> = {
   not_started: 'Not started',
-  agreement_needed: 'Agreement needed',
-  connect_square: 'Connect Square',
-  add_location: 'Add location',
+  onboarding: 'Connect payments',
   ready: 'Ready',
 };
 
-export function hasSavedLocation(
-  status: OwnerPaymentsStatus,
-  locationSavedFallback = false,
-): boolean {
-  return Boolean(status.locationId?.trim()) || locationSavedFallback;
-}
-
-export function getPaymentsReadinessPhase(
-  status: OwnerPaymentsStatus,
-  locationSavedFallback = false,
-): PaymentsReadinessPhase {
-  const locationSaved = hasSavedLocation(status, locationSavedFallback);
-  if (status.agreementAccepted && status.connected && locationSaved) {
+export function getPaymentsReadinessPhase(status: OwnerPaymentsStatus): PaymentsReadinessPhase {
+  if (status.connected && status.connectedAt) {
     return 'ready';
   }
-  if (!status.agreementAccepted) {
-    return status.connected ? 'agreement_needed' : 'not_started';
+  if (status.sellerKey) {
+    return 'onboarding';
   }
-  if (!status.connected) {
-    return 'connect_square';
-  }
-  return 'add_location';
+  return 'not_started';
 }
 
 export function getPaymentsBadgeLabel(phase: PaymentsReadinessPhase): string {
   return BADGE_LABELS[phase];
 }
 
-export function isPaymentsReady(
-  status: OwnerPaymentsStatus,
-  locationSavedFallback = false,
-): boolean {
-  return getPaymentsReadinessPhase(status, locationSavedFallback) === 'ready';
+export function isPaymentsReady(status: OwnerPaymentsStatus): boolean {
+  return getPaymentsReadinessPhase(status) === 'ready';
 }
 
-export function getActiveStep(
-  status: OwnerPaymentsStatus,
-  locationSavedFallback = false,
-): PaymentsStep {
-  const phase = getPaymentsReadinessPhase(status, locationSavedFallback);
-  if (phase === 'not_started' || phase === 'agreement_needed') {
-    return 1;
-  }
-  if (phase === 'connect_square') {
-    return 2;
-  }
-  return 3;
+export function getActiveStep(status: OwnerPaymentsStatus): PaymentsStep {
+  return status.sellerKey ? 2 : 1;
 }
 
-export function isStepComplete(
-  step: PaymentsStep,
-  status: OwnerPaymentsStatus,
-  locationSavedFallback = false,
-): boolean {
+export function isStepComplete(step: PaymentsStep, status: OwnerPaymentsStatus): boolean {
   if (step === 1) {
-    return status.agreementAccepted;
+    return Boolean(status.sellerKey);
   }
-  if (step === 2) {
-    return status.connected;
-  }
-  return hasSavedLocation(status, locationSavedFallback);
+  return status.connected;
 }

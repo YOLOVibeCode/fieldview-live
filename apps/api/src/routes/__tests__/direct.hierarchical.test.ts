@@ -86,11 +86,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = 'test-jwt-secret-hier';
   ownerFindUnique.mockResolvedValue({
-    relayRecipientKey: null,
-    agreementAcceptedVersion: null,
-    squareLocationId: null,
-    squareAccessTokenEncrypted: null,
-    squareTokenExpiresAt: null,
+    marketplaceSellerKey: null,
+    paymentsConnectedAt: null,
   });
 });
 

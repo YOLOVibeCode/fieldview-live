@@ -30,6 +30,12 @@ import './vidstack-theme.css';
 
 import { VidstackGoLiveButton } from './VidstackGoLiveButton';
 import { SeekOverlay } from './SeekOverlay';
+import {
+  clampSeek,
+  getVidstackSeekableRange,
+  seekToLive,
+  seekToStart,
+} from '@/lib/v2/live-seek';
 
 export type PlayerStatus = 'loading' | 'playing' | 'offline' | 'error';
 
@@ -100,15 +106,30 @@ export function VidstackPlayer({
   }, []);
 
   // SeekOverlay callbacks
+  const readSeekable = useCallback((player: MediaPlayerInstance) => {
+    const withSeekable = player as MediaPlayerInstance & {
+      seekableStart?: number;
+      seekableEnd?: number;
+      seekable?: TimeRanges;
+    };
+    return getVidstackSeekableRange({
+      seekable: withSeekable.seekable,
+      seekableStart: withSeekable.seekableStart,
+      seekableEnd: withSeekable.seekableEnd,
+      duration: player.duration,
+    });
+  }, []);
+
   const handleSeek = useCallback(
     (deltaSeconds: number) => {
       const player = playerRef.current;
       if (!player) return;
-      const cur = player.currentTime ?? 0;
-      const dur = player.duration ?? Infinity;
-      player.currentTime = Math.max(0, Math.min(cur + deltaSeconds, dur));
+      const range = readSeekable(player);
+      if (!range) return;
+      const cur = player.currentTime ?? range.start;
+      player.currentTime = clampSeek(cur, deltaSeconds, range.start, range.end);
     },
-    [playerRef]
+    [playerRef, readSeekable]
   );
 
   const handleTogglePause = useCallback(() => {
@@ -123,17 +144,19 @@ export function VidstackPlayer({
 
   const handleGoToStart = useCallback(() => {
     const player = playerRef.current;
-    if (player) {
-      player.currentTime = 0;
-    }
-  }, [playerRef]);
+    if (!player) return;
+    const range = readSeekable(player);
+    if (!range) return;
+    player.currentTime = seekToStart(range.start);
+  }, [playerRef, readSeekable]);
 
   const handleGoLive = useCallback(() => {
     const player = playerRef.current;
-    if (player && Number.isFinite(player.duration)) {
-      player.currentTime = player.duration;
-    }
-  }, [playerRef]);
+    if (!player) return;
+    const range = readSeekable(player);
+    if (!range) return;
+    player.currentTime = seekToLive(range.end);
+  }, [playerRef, readSeekable]);
 
   return (
     <MediaPlayer
