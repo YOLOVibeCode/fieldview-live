@@ -4,7 +4,7 @@
 
 import crypto from 'crypto';
 
-import { verifyStoreWebhookSignatures } from '@fieldview/store-client';
+import { verifyStoreEventV1Signatures, verifyStoreWebhookSignatures } from '@fieldview/store-client';
 
 export interface MarketplaceConfig {
   storeBaseUrl: string;
@@ -32,13 +32,24 @@ export function marketplaceWebhookCallbackUrl(): string {
   );
 }
 
-/** Verify inbound store event v1 signatures (product + connect callback HMAC). */
+/**
+ * Verify an inbound marketplace delivery. Event v1 (no `x-connect-signature`)
+ * is signed with the Connect key, FIELDVIEW_WEBHOOK_SECRET; older deliveries
+ * carry `x-connect-signature` plus a base64 `x-noctusoft-signature`.
+ */
 export function verifyMarketplaceWebhookSignatures(
   rawBody: string,
-  connectSignature: string | undefined,
-  noctusoftSignature: string | undefined,
+  headers: { connect?: string; noctusoft?: string; relay?: string },
 ): boolean {
-  return verifyStoreWebhookSignatures(rawBody, marketplaceWebhookCallbackUrl(), connectSignature, noctusoftSignature, {
+  if (!headers.connect) {
+    return verifyStoreEventV1Signatures(
+      rawBody,
+      marketplaceWebhookCallbackUrl(),
+      { noctusoft: headers.noctusoft, relay: headers.relay },
+      process.env.FIELDVIEW_WEBHOOK_SECRET || '',
+    );
+  }
+  return verifyStoreWebhookSignatures(rawBody, marketplaceWebhookCallbackUrl(), headers.connect, headers.noctusoft, {
     connectSecret: process.env.FIELDVIEW_WEBHOOK_SECRET || '',
     noctusoftSecret: process.env.NOCTUSOFT_WEBHOOK_SECRET || process.env.NOCTUSOFT_API_KEY || '',
   });

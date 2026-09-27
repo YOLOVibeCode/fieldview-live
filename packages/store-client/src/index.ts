@@ -240,6 +240,31 @@ export function verifyStoreWebhookSignatures(
   return timingSafeEqual(connectSignature, connectExpected) && timingSafeEqual(noctusoftSignature, noctusoftExpected);
 }
 
+/**
+ * Verify an event v1 delivery: `x-noctusoft-signature` is hex HMAC of the body,
+ * `x-relay-signature` base64 HMAC of callback URL + body, both with the
+ * product's Connect signing key. Every signature present must verify, and at
+ * least one must be present.
+ */
+export function verifyStoreEventV1Signatures(
+  rawBody: string,
+  callbackUrl: string,
+  signatures: { noctusoft?: string; relay?: string },
+  secret: string,
+): boolean {
+  if (!secret || (!signatures.noctusoft && !signatures.relay)) {
+    return false;
+  }
+  if (signatures.noctusoft !== undefined) {
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    if (!timingSafeEqual(signatures.noctusoft, expected)) return false;
+  }
+  if (signatures.relay !== undefined && !timingSafeEqual(signatures.relay, hmacBase64(secret, callbackUrl + rawBody))) {
+    return false;
+  }
+  return true;
+}
+
 function hmacBase64(secret: string, payload: string): string {
   return crypto.createHmac('sha256', secret).update(payload).digest('base64');
 }
