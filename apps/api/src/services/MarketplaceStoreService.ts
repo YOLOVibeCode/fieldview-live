@@ -47,7 +47,15 @@ export class MarketplaceStoreService implements IMarketplaceStoreOnboarding, IMa
 
   constructor(config: MarketplaceConfig, fetchFn: FetchFn = globalThis.fetch) {
     this.client = new StoreClient(
-      { baseUrl: config.storeBaseUrl, productKey: config.productKey, apiKey: config.apiKey },
+      {
+        baseUrl: config.storeBaseUrl,
+        productKey: config.productKey,
+        apiKey: config.apiKey,
+        signingSecret:
+          process.env.FIELDVIEW_WEBHOOK_SECRET ||
+          process.env.NOCTUSOFT_WEBHOOK_SECRET ||
+          '',
+      },
       fetchFn,
     );
   }

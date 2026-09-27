@@ -9,6 +9,8 @@ export interface StoreClientConfig {
   baseUrl: string;
   productKey: string;
   apiKey: string;
+  /** Connect Hub signing secret (FIELDVIEW_WEBHOOK_SECRET). Required for buy links. */
+  signingSecret?: string;
 }
 
 export interface StoreSellerStatus {
@@ -49,6 +51,55 @@ export interface StoreRefundResult {
   status: string;
 }
 
+/**
+ * Marketplace buy link: one amount paid to one seller. Signed with the
+ * product's Connect signing key. The amount is inside the signature.
+ */
+export function signConnectBuyLink(args: {
+  secret: string;
+  product: string;
+  seller: string;
+  amountCents: number;
+  currency?: string;
+  user?: string;
+  email?: string;
+  returnUrl?: string;
+  baseUrl: string;
+  ttlSeconds?: number;
+}): { url: string; checkoutId: string } {
+  const { secret, product, seller, amountCents, baseUrl } = args;
+  if (!secret || !product || !seller) {
+    throw new TypeError('secret, product, and seller are required');
+  }
+  if (!Number.isInteger(amountCents)) {
+    throw new TypeError('amountCents must be a whole number of cents');
+  }
+  const currency = args.currency ?? 'USD';
+  const user = args.user ?? '';
+  const email = args.email ?? '';
+  const returnUrl = args.returnUrl ?? '';
+  const exp = Math.floor(Date.now() / 1000) + (args.ttlSeconds ?? 86400);
+  const nonce = crypto.randomBytes(12).toString('hex');
+  const mac = ['buy-link-v1', 'connect', product, seller, amountCents, currency, user, email, returnUrl, exp, nonce]
+    .map((p) => (p == null ? '' : String(p)))
+    .join('|');
+  const sig = crypto.createHmac('sha256', secret).update(mac).digest('hex');
+  const q = new URLSearchParams({
+    amount: String(amountCents),
+    currency,
+    user,
+    email,
+    return: returnUrl,
+    exp: String(exp),
+    nonce,
+    sig,
+  });
+  const base = baseUrl.replace(/\/$/, '');
+  return {
+    url: `${base}/buy/connect/${encodeURIComponent(product)}/${encodeURIComponent(seller)}?${q}`,
+    checkoutId: `buy:${nonce}`,
+  };
+}
 
 type FetchFn = typeof globalThis.fetch;
 
@@ -125,40 +176,25 @@ export class StoreClient {
   }
 
   async createCheckout(input: StoreCheckoutInput): Promise<StoreCheckoutResult> {
-    const body = {
-      store: this.storeId(input.sellerKey),
-      amount_cents: input.amountCents,
+    const secret = this.config.signingSecret;
+    if (!secret) {
+      throw new Error('Store checkout failed: signingSecret is required to mint buy links');
+    }
+    const link = signConnectBuyLink({
+      secret,
+      product: this.config.productKey,
+      seller: input.sellerKey,
+      amountCents: input.amountCents,
       currency: input.currency,
-      reference_id: input.referenceId,
-      idempotency_key: input.idempotencyKey,
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-      ...(input.buyerEmail && { buyer_email: input.buyerEmail }),
-      ...(input.note && { note: input.note }),
-    };
-    const res = await this.fetchFn(`${this.base()}/v1/checkout`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify(body),
+      user: input.referenceId,
+      email: input.buyerEmail ?? '',
+      returnUrl: input.successUrl,
+      baseUrl: this.config.baseUrl,
     });
-    if (!res.ok) {
-      await this.parseError(res, 'Store checkout failed');
-    }
-    const data = (await res.json()) as {
-      checkout_url?: string;
-      url?: string;
-      buy_link?: string;
-      checkout_id?: string;
-      payment_id?: string;
-    };
-    const checkoutUrl = data.checkout_url || data.buy_link || data.url;
-    if (!checkoutUrl) {
-      throw new Error('Store checkout failed: missing checkout_url');
-    }
     return {
-      checkoutUrl,
-      checkoutId: data.checkout_id ?? null,
-      paymentId: data.payment_id ?? null,
+      checkoutUrl: link.url,
+      checkoutId: link.checkoutId,
+      paymentId: null,
     };
   }
 
@@ -202,6 +238,31 @@ export function verifyStoreWebhookSignatures(
   const connectExpected = hmacBase64(secrets.connectSecret, callbackUrl + rawBody);
   const noctusoftExpected = hmacBase64(secrets.noctusoftSecret, rawBody);
   return timingSafeEqual(connectSignature, connectExpected) && timingSafeEqual(noctusoftSignature, noctusoftExpected);
+}
+
+/**
+ * Verify an event v1 delivery: `x-noctusoft-signature` is hex HMAC of the body,
+ * `x-relay-signature` base64 HMAC of callback URL + body, both with the
+ * product's Connect signing key. Every signature present must verify, and at
+ * least one must be present.
+ */
+export function verifyStoreEventV1Signatures(
+  rawBody: string,
+  callbackUrl: string,
+  signatures: { noctusoft?: string; relay?: string },
+  secret: string,
+): boolean {
+  if (!secret || (!signatures.noctusoft && !signatures.relay)) {
+    return false;
+  }
+  if (signatures.noctusoft !== undefined) {
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    if (!timingSafeEqual(signatures.noctusoft, expected)) return false;
+  }
+  if (signatures.relay !== undefined && !timingSafeEqual(signatures.relay, hmacBase64(secret, callbackUrl + rawBody))) {
+    return false;
+  }
+  return true;
 }
 
 function hmacBase64(secret: string, payload: string): string {
