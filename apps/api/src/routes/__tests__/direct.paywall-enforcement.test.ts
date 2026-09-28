@@ -57,24 +57,17 @@ const entFindFirst = prisma.entitlement.findFirst as unknown as ReturnType<typeo
 const ownerFindUnique = prisma.ownerAccount.findUnique as unknown as ReturnType<typeof vi.fn>;
 
 const unreadyOwner = {
-  relayRecipientKey: null,
-  agreementAcceptedVersion: null,
-  squareLocationId: null,
-  squareAccessTokenEncrypted: null,
-  squareTokenExpiresAt: null,
+  marketplaceSellerKey: null,
+  paymentsConnectedAt: null,
 };
 
-const relayReadyOwner = {
-  relayRecipientKey: 'owner-1',
-  agreementAcceptedVersion: 'v1',
-  squareLocationId: 'LOC1',
-  squareAccessTokenEncrypted: null,
-  squareTokenExpiresAt: null,
+const storeReadyOwner = {
+  marketplaceSellerKey: 'owner-1',
+  paymentsConnectedAt: new Date(),
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
   ownerFindUnique.mockResolvedValue(unreadyOwner);
 });
 
@@ -153,7 +146,7 @@ describe('GET /api/direct/:slug/bootstrap — paywall URL gating', () => {
 
   it('returns paymentsReady true when paywall on and owner is relay-ready', async () => {
     dsFindUnique.mockResolvedValue(paywalledStream());
-    ownerFindUnique.mockResolvedValue(relayReadyOwner);
+    ownerFindUnique.mockResolvedValue(storeReadyOwner);
 
     const res = await request(app()).get('/api/direct/paid-stream/bootstrap');
 

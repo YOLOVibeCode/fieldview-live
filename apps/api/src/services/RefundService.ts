@@ -6,8 +6,7 @@
  */
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
-import { isPaymentsViaRelay } from '../lib/relay';
-import { squareClient } from '../lib/square';
+import { resolveSellerKey } from '../lib/marketplace';
 import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
 import type { IPlaybackSessionReader } from '../repositories/IPlaybackSessionRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
@@ -15,7 +14,7 @@ import type { IRefundReader as IRefundRepoReader, IRefundWriter as IRefundRepoWr
 import { calculateRefund, type RefundCalculationInput } from '../utils/refundCalculator';
 
 import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
-import type { IRelayConnectPayments } from './IRelayConnectHubService';
+import type { IMarketplaceStorePayments } from './MarketplaceStoreService';
 import type { IRefundReader, IRefundWriter, AggregatedTelemetry, RefundEvaluation } from './IRefundService';
 import type { ISmsWriter } from './ISmsService';
 
@@ -31,7 +30,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
     private entitlementReader: IEntitlementRepoReader,
     private smsWriter: ISmsWriter,
     private ownerReader: IOwnerAccountReader,
-    private relay: IRelayConnectPayments
+    private marketplace: IMarketplaceStorePayments
   ) {}
 
   async evaluateRefundEligibility(purchaseId: string): Promise<RefundEvaluation> {
@@ -158,7 +157,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
     });
 
     // Process Square refund
-    await this.processSquareRefund(refund.id);
+    await this.processMarketplaceRefund(refund.id);
 
     // Send SMS notification
     // Note: Purchase includes game and viewer relations from repository
@@ -222,12 +221,16 @@ export class RefundService implements IRefundReader, IRefundWriter {
       refundedAt: new Date(),
     });
 
-    await this.processSquareRefund(refund.id);
+    await this.processMarketplaceRefund(refund.id);
 
     return refund;
   }
 
   async processSquareRefund(refundId: string): Promise<void> {
+    await this.processMarketplaceRefund(refundId);
+  }
+
+  async processMarketplaceRefund(refundId: string): Promise<void> {
     // Get refund
     const refund = await this.refundReader.getById(refundId);
     if (!refund) {
@@ -244,19 +247,18 @@ export class RefundService implements IRefundReader, IRefundWriter {
       throw new BadRequestError('Purchase has no payment provider ID');
     }
 
-    // Relay Connect Hub path (flag-gated): refund on the coach's own Square via the
-    // relay, which reverses the app fee proportionally. Falls through to the legacy
-    // central-client path when off or the owner is not migrated.
+    // Marketplace store refund on the coach's seller account.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const relayOwnerId = purchase.recipientOwnerAccountId as string | undefined;
-    if (isPaymentsViaRelay() && relayOwnerId) {
+    if (relayOwnerId) {
       const owner = await this.ownerReader.findById(relayOwnerId);
-      if (owner?.relayRecipientKey) {
-        await this.relay.refund(owner.relayRecipientKey, {
+      if (owner) {
+        await this.marketplace.refund({
+          sellerKey: resolveSellerKey(owner),
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           paymentId: purchase.paymentProviderPaymentId as string,
           amountCents: refund.amountCents,
-          idempotencyKey: `refund-${refundId}`,
+          refundId,
           reason: refund.reasonCode,
         });
         await this.refundWriter.update(refundId, { processedAt: new Date() });
@@ -264,34 +266,7 @@ export class RefundService implements IRefundReader, IRefundWriter {
       }
     }
 
-    // Create Square refund (legacy Model A: central platform client)
-    try {
-      // Square SDK v43+ - refunds API
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      const refundsApi = (squareClient as any).refundsApi || (squareClient as any).refunds;
-      if (!refundsApi) {
-        throw new Error('Square refunds API not available');
-      }
-
-      await refundsApi.refundPayment({
-        idempotencyKey: `refund-${refundId}-${Date.now()}`,
-        amountMoney: {
-          amount: BigInt(refund.amountCents),
-          currency: purchase.currency || 'USD',
-        },
-        paymentId: purchase.paymentProviderPaymentId,
-        reason: refund.reasonCode,
-      });
-
-      // Update refund with processed timestamp
-      await this.refundWriter.update(refundId, {
-        processedAt: new Date(),
-      });
-    } catch (error) {
-      // Log error but don't throw - refund record is created, processing can be retried
-      console.error('Square refund processing failed:', error);
-      throw error;
-    }
+    throw new BadRequestError('Owner marketplace seller is not configured for this purchase');
   }
 
   /**

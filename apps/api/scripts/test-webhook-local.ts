@@ -119,7 +119,7 @@ async function testWebhookFlow(): Promise<WebhookTestResult> {
     };
 
     // Send webhook to API (skip signature validation in local test)
-    const webhookResponse = await fetch(`${API_URL}/api/webhooks/square`, {
+    const webhookResponse = await fetch(`${API_URL}/api/webhooks/marketplace`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

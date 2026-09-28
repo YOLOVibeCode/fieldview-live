@@ -11,29 +11,6 @@ export interface CheckoutResponse {
   checkoutUrl: string;
 }
 
-export interface SquareWebhookEvent {
-  type: string;
-  data: {
-    object?: {
-      payment?: {
-        id?: string;
-        status?: string;
-        amount_money?: {
-          amount?: number;
-          currency?: string;
-        };
-        customer_id?: string;
-      };
-      refund?: {
-        paymentId?: string;
-        amountMoney?: {
-          amount?: number;
-        };
-      };
-    };
-  };
-}
-
 /**
  * Reader Interface (ISP)
  * 
@@ -69,5 +46,4 @@ export interface IPaymentWriter {
     viewerPhone?: string,
     returnUrl?: string
   ): Promise<CheckoutResponse>;
-  processSquareWebhook(event: SquareWebhookEvent): Promise<void>;
 }

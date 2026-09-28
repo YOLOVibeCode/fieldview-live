@@ -247,7 +247,7 @@ function DashboardInner() {
                 </div>
                 <div>
                   <CardTitle className="text-base sm:text-lg">Payments</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Connect Square &amp; receive payouts</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">Connect store seller &amp; receive payouts</CardDescription>
                 </div>
               </div>
             </CardHeader>

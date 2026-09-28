@@ -41,6 +41,7 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm --filter @fieldview/data-model build
       - run: pnpm --filter @fieldview/dvr-service build
+      - run: pnpm --filter @fieldview/store-client build
       - run: pnpm type-check
 
   test:
@@ -74,6 +75,7 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm --filter @fieldview/data-model build
       - run: pnpm --filter @fieldview/dvr-service build
+      - run: pnpm --filter @fieldview/store-client build
       - run: pnpm --filter @fieldview/data-model db:deploy
       - run: pnpm test:unit
       - run: pnpm test:coverage

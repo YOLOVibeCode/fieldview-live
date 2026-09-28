@@ -7,8 +7,6 @@
  * Note: Frontend will use Square Web Payments SDK for one-click Apple Pay/Google Pay.
  */
 
-import crypto from 'crypto';
-
 import type { Purchase } from '@prisma/client';
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
@@ -23,7 +21,7 @@ import type { IViewerIdentityReader, IViewerIdentityWriter } from '../repositori
 import type { IWatchLinkReaderRepo } from '../repositories/IWatchLinkRepository';
 import { calculateMarketplaceSplit } from '../utils/feeCalculator';
 
-import type { IPaymentReader, IPaymentWriter, CheckoutResponse, SquareWebhookEvent } from './IPaymentService';
+import type { IPaymentReader, IPaymentWriter, CheckoutResponse } from './IPaymentService';
 import { LedgerService } from './LedgerService';
 import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
@@ -170,7 +168,7 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     // Square Web Payments SDK supports Apple Pay and Google Pay natively
     // This enables one-click checkout on mobile devices!
     const finalReturnUrl = returnUrl || `${APP_URL}/checkout/${purchase.id}/success`;
-    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}?square_checkout=true&email=${encodeURIComponent(viewerEmail)}&returnUrl=${encodeURIComponent(finalReturnUrl)}`;
+    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}/payment?returnUrl=${encodeURIComponent(finalReturnUrl)}`;
 
     return {
       purchaseId: purchase.id,
@@ -251,7 +249,7 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     });
 
     const finalReturnUrl = returnUrl || `${APP_URL}/checkout/${purchase.id}/success`;
-    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}?square_checkout=true&email=${encodeURIComponent(viewerEmail)}&returnUrl=${encodeURIComponent(finalReturnUrl)}`;
+    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}/payment?returnUrl=${encodeURIComponent(finalReturnUrl)}`;
 
     return {
       purchaseId: purchase.id,
@@ -364,162 +362,11 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     }, 'DirectStream paywall checkout created');
 
     const finalReturnUrl = returnUrl || `${APP_URL}/direct/${directStreamSlug}?payment=success`;
-    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}?square_checkout=true&email=${encodeURIComponent(viewerEmail)}&returnUrl=${encodeURIComponent(finalReturnUrl)}`;
+    const checkoutUrl = `${APP_URL}/checkout/${purchase.id}/payment?returnUrl=${encodeURIComponent(finalReturnUrl)}`;
 
     return {
       purchaseId: purchase.id,
       checkoutUrl,
     };
-  }
-
-  async processSquareWebhook(event: SquareWebhookEvent): Promise<void> {
-    // Handle payment.created and payment.updated events
-    if (event.type === 'payment.created' || event.type === 'payment.updated') {
-      const payment = event.data.object?.payment;
-      if (!payment?.id) {
-        return;
-      }
-
-      // Find purchase by Square payment ID
-      const purchase = await this.purchaseReader.getByPaymentProviderId(payment.id);
-      if (!purchase) {
-        // Purchase not found - might be from different system, ignore
-        return;
-      }
-
-      // Extract actual processing fees from Square payment
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const processingFeeMoney = (payment as any).processingFeeMoney;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const actualProcessorFeeCents = processingFeeMoney?.amount 
-        ? Number(processingFeeMoney.amount) 
-        : undefined;
-
-      // Update purchase status based on Square payment status
-      if (payment.status === 'COMPLETED') {
-        const wasPaid = purchase.status === 'paid';
-        // Recalculate owner net with actual processor fee if available
-        const processorFeeCents = actualProcessorFeeCents ?? purchase.processorFeeCents;
-        const ownerNetCents = purchase.amountCents - purchase.platformFeeCents - processorFeeCents;
-
-        const updatedPurchase = await this.purchaseWriter.update(purchase.id, {
-          status: 'paid',
-          paidAt: new Date(),
-          paymentProviderCustomerId: payment.customer_id,
-          processorFeeCents: processorFeeCents,
-          ownerNetCents: ownerNetCents,
-        });
-
-        // Create ledger entries (idempotent: check if entries already exist)
-        try {
-          const ledgerRepo = new LedgerRepository(prisma);
-          const existingEntries = await ledgerRepo.findByReference('purchase', purchase.id);
-          if (existingEntries.length === 0) {
-            const split = {
-              grossAmountCents: purchase.amountCents,
-              platformFeeCents: purchase.platformFeeCents,
-              processorFeeCents: processorFeeCents,
-              ownerNetCents: ownerNetCents,
-            };
-            await this.ledgerService.createPurchaseLedgerEntries(
-              updatedPurchase,
-              split,
-              actualProcessorFeeCents
-            );
-          }
-        } catch (ledgerError) {
-          // Don't fail webhook if ledger creation fails (log and continue)
-          logger.error({ ledgerError, purchaseId: purchase.id }, 'Failed to create ledger entries from webhook');
-        }
-
-        // Create entitlement if not already exists
-        const existingEntitlement = await this.entitlementReader.getByPurchaseId(purchase.id);
-        let entitlementToken: string | null = existingEntitlement?.tokenId ?? null;
-        if (!existingEntitlement) {
-          // Generate token ID (hash of purchase ID + timestamp)
-          const tokenId = crypto.createHash('sha256')
-            .update(`${purchase.id}-${Date.now()}`)
-            .digest('hex');
-
-          // Get game to determine entitlement validity period
-          const game = purchase.gameId ? await this.gameReader.getById(purchase.gameId) : null;
-          const validFrom = new Date();
-          const validTo = game?.endsAt || new Date(validFrom.getTime() + 24 * 60 * 60 * 1000); // Default 24 hours or game end time
-
-          await this.entitlementWriter.create({
-            purchaseId: purchase.id,
-            tokenId,
-            validFrom,
-            validTo,
-            status: 'active',
-          });
-          entitlementToken = tokenId;
-        }
-
-        // Send receipt email once (best-effort)
-        if (!wasPaid) {
-          const viewer = await prisma.viewerIdentity.findUnique({
-            where: { id: purchase.viewerId },
-            select: { email: true },
-          });
-          if (viewer?.email) {
-            await this.receiptService.sendPurchaseReceipt({
-              to: viewer.email,
-              purchaseId: purchase.id,
-              amountCents: purchase.amountCents,
-              currency: purchase.currency || 'USD',
-              streamUrl: entitlementToken ? `${APP_URL}/stream/${entitlementToken}` : null,
-            });
-          }
-        }
-      } else if (payment.status === 'FAILED' || payment.status === 'CANCELED') {
-        await this.purchaseWriter.update(purchase.id, {
-          status: 'failed',
-          failedAt: new Date(),
-        });
-      }
-    }
-
-    // Handle refund.created event
-    if (event.type === 'refund.created') {
-      const refund = event.data.object?.refund;
-      if (!refund?.paymentId) {
-        return;
-      }
-
-      const purchase = await this.purchaseReader.getByPaymentProviderId(refund.paymentId);
-      if (!purchase) {
-        return;
-      }
-
-      // Update purchase status to refunded or partially_refunded
-      const refundAmount = refund.amountMoney?.amount ? Number(refund.amountMoney.amount) : 0;
-      const purchaseAmount = purchase.amountCents;
-
-      const isFullRefund = refundAmount >= purchaseAmount;
-      const updatedPurchase = await this.purchaseWriter.update(purchase.id, {
-        status: isFullRefund ? 'refunded' : 'partially_refunded',
-        refundedAt: new Date(),
-      });
-
-      // Create ledger entries for refund (idempotent)
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const refundId = (refund as any).id || `refund-${purchase.id}-${Date.now()}`;
-        const ledgerRepo = new LedgerRepository(prisma);
-        const existingRefundEntries = await ledgerRepo.findByReference('refund', refundId);
-        
-        if (existingRefundEntries.length === 0) {
-          await this.ledgerService.createRefundLedgerEntries(
-            updatedPurchase,
-            refundAmount,
-            refundId
-          );
-        }
-      } catch (ledgerError) {
-        // Don't fail webhook if ledger creation fails (log and continue)
-        logger.error({ ledgerError, purchaseId: purchase.id }, 'Failed to create refund ledger entries from webhook');
-      }
-    }
   }
 }

@@ -70,11 +70,8 @@ export class OwnerDirectStreamService {
     const owner = await prisma.ownerAccount.findUnique({
       where: { id: ownerAccountId },
       select: {
-        relayRecipientKey: true,
-        agreementAcceptedVersion: true,
-        squareLocationId: true,
-        squareAccessTokenEncrypted: true,
-        squareTokenExpiresAt: true,
+        marketplaceSellerKey: true,
+        paymentsConnectedAt: true,
       },
     });
     if (owner) {
@@ -156,11 +153,8 @@ export class OwnerDirectStreamService {
     const owner = await prisma.ownerAccount.findUnique({
       where: { id: ownerAccountId },
       select: {
-        relayRecipientKey: true,
-        agreementAcceptedVersion: true,
-        squareLocationId: true,
-        squareAccessTokenEncrypted: true,
-        squareTokenExpiresAt: true,
+        marketplaceSellerKey: true,
+        paymentsConnectedAt: true,
       },
     });
     if (owner) {

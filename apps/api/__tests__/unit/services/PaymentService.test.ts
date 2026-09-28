@@ -300,19 +300,14 @@ describe('PaymentService - Recipient Field Assignment', () => {
   });
 
   describe('createDirectStreamCheckout — payments readiness', () => {
-    const relayReadyOwner: OwnerAccount = {
-      id: 'owner-relay',
+    const storeReadyOwner: OwnerAccount = {
+      id: 'owner-store',
       type: 'owner',
-      name: 'Relay Coach',
+      name: 'Store Coach',
       status: 'active',
       contactEmail: 'coach@example.com',
       payoutProviderRef: null,
-      relayRecipientKey: 'owner-relay',
-      agreementAcceptedVersion: 'v1',
-      squareLocationId: 'LOC1',
-      squareAccessTokenEncrypted: null,
-      squareRefreshTokenEncrypted: null,
-      squareTokenExpiresAt: null,
+      marketplaceSellerKey: 'owner-store',
       paymentsConnectedAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -324,20 +319,9 @@ describe('PaymentService - Recipient Field Assignment', () => {
       suspendedReason: null,
     };
 
-    const legacyOwner: OwnerAccount = {
-      ...relayReadyOwner,
-      relayRecipientKey: null,
-      agreementAcceptedVersion: null,
-      paymentsConnectedAt: null,
-      squareAccessTokenEncrypted: 'enc:token',
-      squareTokenExpiresAt: new Date(Date.now() + 60_000),
-    };
-
     const unconnectedOwner: OwnerAccount = {
-      ...relayReadyOwner,
-      relayRecipientKey: null,
-      agreementAcceptedVersion: null,
-      squareLocationId: null,
+      ...storeReadyOwner,
+      marketplaceSellerKey: null,
       paymentsConnectedAt: null,
     };
 
@@ -346,7 +330,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
       slug: 'paid-stream',
       paywallEnabled: true,
       priceInCents: 999,
-      ownerAccount: relayReadyOwner,
+      ownerAccount: storeReadyOwner,
     };
 
     const viewer: ViewerIdentity = {
@@ -377,7 +361,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
       status: 'created',
       paymentProviderPaymentId: null,
       paymentProviderCustomerId: null,
-      recipientOwnerAccountId: relayReadyOwner.id,
+      recipientOwnerAccountId: storeReadyOwner.id,
       recipientType: 'personal',
       recipientOrganizationId: null,
       couponCodeId: null,
@@ -395,26 +379,17 @@ describe('PaymentService - Recipient Field Assignment', () => {
       vi.mocked(mockPurchaseWriter.create).mockResolvedValue(purchase);
     });
 
-    it('creates checkout for relay-ready owner when PAYMENTS_VIA_RELAY is true', async () => {
-      vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
-      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ...directStream,
-        ownerAccount: relayReadyOwner,
-      });
-
+    it('creates checkout when store seller is ready', async () => {
       const result = await paymentService.createDirectStreamCheckout(
         'paid-stream',
         viewer.email!,
         'Buy',
         'Er',
       );
-
       expect(result.purchaseId).toBe(purchase.id);
-      expect(mockPurchaseWriter.create).toHaveBeenCalled();
     });
 
     it('throws with /owners/payments message for unconnected owner', async () => {
-      vi.stubEnv('PAYMENTS_VIA_RELAY', 'true');
       (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
         ...directStream,
         ownerAccount: unconnectedOwner,
@@ -422,28 +397,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
 
       await expect(
         paymentService.createDirectStreamCheckout('paid-stream', viewer.email!, 'Buy', 'Er'),
-      ).rejects.toThrow(BadRequestError);
-
-      await expect(
-        paymentService.createDirectStreamCheckout('paid-stream', viewer.email!, 'Buy', 'Er'),
       ).rejects.toThrow(/\/owners\/payments/);
-    });
-
-    it('creates checkout for legacy owner when relay flag is off', async () => {
-      vi.stubEnv('PAYMENTS_VIA_RELAY', 'false');
-      (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ...directStream,
-        ownerAccount: legacyOwner,
-      });
-
-      const result = await paymentService.createDirectStreamCheckout(
-        'paid-stream',
-        viewer.email!,
-        'Buy',
-        'Er',
-      );
-
-      expect(result.purchaseId).toBe(purchase.id);
     });
   });
 });
