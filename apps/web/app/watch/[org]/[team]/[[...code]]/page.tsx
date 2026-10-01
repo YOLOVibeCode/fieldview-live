@@ -23,6 +23,8 @@ import { SubscribeForm } from '@/components/SubscribeForm';
 import { apiClient, ApiError, apiRequest } from '@/lib/api-client';
 import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
+import { parsePhoneToE164 } from '@/lib/phone';
 
 /**
  * Public watch link viewer
@@ -34,11 +36,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
 const checkoutSchema = z.object({
   viewerEmail: z.string().email('Please enter a valid email address'),
-  viewerPhone: z
-    .string()
-    .regex(/^\+[1-9]\d{1,14}$/, 'Phone must be in E.164 format (e.g., +1234567890)')
-    .optional()
-    .or(z.literal('')),
+  viewerPhone: z.string().optional().or(z.literal('')),
   sendReminder: z.boolean().optional().default(false),
 });
 
@@ -72,6 +70,7 @@ export default function WatchLinkPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [smsOptIn, setSmsOptIn] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -168,9 +167,13 @@ export default function WatchLinkPage() {
         : Promise.resolve();
 
       // Create checkout (don't wait for reminder subscription)
+      const viewerPhone = data.viewerPhone?.trim()
+        ? parsePhoneToE164(data.viewerPhone)
+        : undefined;
       const checkoutPromise = apiClient.createChannelCheckout(org, team, {
         viewerEmail: data.viewerEmail,
-        viewerPhone: data.viewerPhone || undefined,
+        viewerPhone,
+        smsOptIn: viewerPhone && smsOptIn ? true : undefined,
         returnUrl: window.location.href,
       });
 
@@ -385,6 +388,14 @@ export default function WatchLinkPage() {
                         </FormItem>
                       )}
                     />
+
+                    {form.watch('viewerPhone')?.trim() ? (
+                      <SmsOptInCheckbox
+                        checked={smsOptIn}
+                        onChange={setSmsOptIn}
+                        disabled={checkoutSubmitting}
+                      />
+                    ) : null}
 
                     {/* Reminder checkbox - only show if event exists */}
                     {bootstrap.eventId && bootstrap.eventStartsAt && (

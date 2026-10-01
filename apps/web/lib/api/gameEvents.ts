@@ -56,10 +56,11 @@ export async function resolveGameEvent(
 
 export async function subscribeScoreAlerts(
   slug: string,
-  phoneE164: string
+  phoneE164: string,
+  smsOptIn: boolean
 ): Promise<void> {
   await apiRequest(`/api/direct/${encodeURIComponent(slug)}/score-alerts`, {
     method: 'POST',
-    body: JSON.stringify({ phoneE164, consent: true }),
+    body: JSON.stringify({ phoneE164, smsOptIn }),
   });
 }

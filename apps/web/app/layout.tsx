@@ -7,6 +7,7 @@ import { TrakletWidget } from '@/components/TrakletWidget';
 import { EnvChrome } from '@/lib/env-chrome/EnvChrome';
 import { badgeFor } from '@/lib/env-chrome/chrome';
 import { resolveServerEnv } from '@/lib/env-chrome/resolve';
+import { PublicLegalFooter } from '@/components/PublicLegalFooter';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -57,7 +58,10 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} min-h-screen`}>
         <EnvChrome env={env} />
-        {children}
+        <div className="flex min-h-screen flex-col">
+          {children}
+          <PublicLegalFooter />
+        </div>
         <TrakletWidget />
         <VersionDisplay />
       </body>

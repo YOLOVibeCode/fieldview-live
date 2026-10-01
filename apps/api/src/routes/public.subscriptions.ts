@@ -10,14 +10,18 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { validateRequest } from '../middleware/validation';
 import { generateConfirmationToken, validateConfirmationToken } from '../lib/subscription-token';
+import { parsePhoneToE164 } from '../lib/phone';
+import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
 import { NotificationService } from '../services/NotificationService';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { BadRequestError } from '../lib/errors';
 
 const router = express.Router();
 
 const SubscribeSchema = z.object({
   email: z.string().email(),
-  phoneE164: z.string().regex(/^\+[1-9]\d{1,14}$/).optional(),
+  phoneE164: z.string().min(1).optional(),
+  smsOptIn: z.boolean().optional(),
   organizationId: z.string().uuid().optional(),
   channelId: z.string().uuid().optional(),
   eventId: z.string().uuid().optional(),
@@ -36,6 +40,20 @@ router.post(
       try {
         const body = req.body as z.infer<typeof SubscribeSchema>;
 
+        const wantsSms = body.preference === 'sms' || body.preference === 'both';
+        let phoneE164: string | undefined;
+        if (body.phoneE164?.trim()) {
+          phoneE164 = parsePhoneToE164(body.phoneE164);
+        }
+        if (wantsSms && !phoneE164) {
+          return res.status(400).json({
+            error: { code: 'BAD_REQUEST', message: 'Phone number is required for SMS notifications' },
+          });
+        }
+        if (wantsSms && !body.smsOptIn) {
+          throw new BadRequestError('SMS opt-in is required for text notifications');
+        }
+
         // Validate that at least one target is provided
         if (!body.organizationId && !body.channelId && !body.eventId) {
           return res.status(400).json({
@@ -49,15 +67,23 @@ router.post(
           viewer = await prisma.viewerIdentity.create({
             data: {
               email: body.email,
-              phoneE164: body.phoneE164 ?? null,
-              smsOptOut: body.preference === 'email',
+              phoneE164: phoneE164 ?? null,
             },
           });
-        } else if (body.phoneE164 && !viewer.phoneE164) {
-          // Update phone if provided and not set
+        } else if (phoneE164 && !viewer.phoneE164) {
           viewer = await prisma.viewerIdentity.update({
             where: { id: viewer.id },
-            data: { phoneE164: body.phoneE164 },
+            data: { phoneE164 },
+          });
+        }
+
+        if (phoneE164 && body.smsOptIn) {
+          const compliance = getSmsComplianceFromRequest();
+          const meta = requestClientMeta(req);
+          await compliance.recordViewerConsent({
+            phoneE164,
+            source: 'subscribe-form',
+            ...meta,
           });
         }
 

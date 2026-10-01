@@ -1,12 +1,13 @@
 /**
- * Notification Service
- *
- * Sends notifications (email/SMS) to subscribers when events go live.
+ * Notification Service — email/SMS when events go live.
  */
 
-import { prisma } from '../lib/prisma';
+import { SMS_PURPOSE_VIEWER_NOTIFICATIONS } from '@fieldview/data-model';
+
 import { getEmailProvider } from '../lib/email';
-import { twilioClient, twilioPhoneNumber } from '../lib/twilio';
+import { prisma } from '../lib/prisma';
+import { SmsConsentRepository } from '../repositories/implementations/SmsConsentRepository';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import type { IViewerIdentityReader } from '../repositories/IViewerIdentityRepository';
 
 import type {
@@ -14,11 +15,22 @@ import type {
   INotificationService,
   NotificationTarget,
 } from './INotificationService';
+import { SmsComplianceService } from './SmsComplianceService';
 
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 
 export class NotificationService implements INotificationService {
-  constructor(private viewerIdentityReader: IViewerIdentityReader) {}
+  private smsCompliance: SmsComplianceService;
+
+  constructor(private viewerIdentityReader: IViewerIdentityReader, smsCompliance?: SmsComplianceService) {
+    const consentRepo = new SmsConsentRepository(prisma);
+    const viewerRepo =
+      viewerIdentityReader instanceof ViewerIdentityRepository
+        ? viewerIdentityReader
+        : new ViewerIdentityRepository(prisma);
+    this.smsCompliance =
+      smsCompliance ?? new SmsComplianceService(consentRepo, consentRepo, viewerRepo, viewerRepo);
+  }
 
   async notifyEventLive(subscribers: NotificationTarget[], eventData: EventLiveNotificationData): Promise<void> {
     const watchUrl = `${APP_URL}${eventData.canonicalPath}`;
@@ -29,7 +41,6 @@ export class NotificationService implements INotificationService {
     const emailSubject = `Stream is live: ${eventData.orgShortName} ${eventData.teamSlug}`;
     const emailBody = `The stream for ${eventData.orgShortName} ${eventData.teamSlug} is now live.\n\nWatch here: ${watchUrl}${eventData.checkoutUrl ? `\n\nPay to watch: ${eventData.checkoutUrl}` : ''}`;
 
-    // Send notifications based on preference
     const promises = subscribers.map(async (subscriber) => {
       if (subscriber.preference === 'email' && subscriber.email) {
         await this.sendEmail(subscriber.email, emailSubject, emailBody);
@@ -52,38 +63,24 @@ export class NotificationService implements INotificationService {
 
   async sendEmail(to: string, subject: string, body: string): Promise<void> {
     const emailProvider = getEmailProvider();
-    
+
     await emailProvider.sendEmail({
       to,
       subject,
       text: body,
-      html: body.replace(/\n/g, '<br>'), // Simple text-to-HTML conversion
+      html: body.replace(/\n/g, '<br>'),
     });
   }
 
   async sendSms(phoneE164: string, message: string): Promise<void> {
-    // Check if viewer has opted out
-    const viewer = await this.viewerIdentityReader.getByPhone(phoneE164);
-    if (viewer?.smsOptOut) {
-      return; // Silently skip if opted out
-    }
-
-    // Send SMS via Twilio
-    await twilioClient.messages.create({
-      body: message,
-      from: twilioPhoneNumber,
-      to: phoneE164,
-    });
-
-    // Log SMS message
-    await prisma.sMSMessage.create({
-      data: {
-        direction: 'outbound',
+    try {
+      await this.smsCompliance.send({
         phoneE164,
-        messageBody: message,
-        status: 'sent',
-      },
-    });
+        body: message,
+        purpose: SMS_PURPOSE_VIEWER_NOTIFICATIONS,
+      });
+    } catch {
+      // Silently skip if opted out or no consent
+    }
   }
 }
-

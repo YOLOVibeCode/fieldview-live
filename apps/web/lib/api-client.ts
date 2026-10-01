@@ -207,6 +207,7 @@ export interface Game {
 export interface CheckoutRequest {
   viewerEmail: string;
   viewerPhone?: string;
+  smsOptIn?: boolean;
   returnUrl?: string;
   couponCode?: string;
 }
@@ -554,6 +555,7 @@ export const apiClient = {
   async subscribe(data: {
     email: string;
     phoneE164?: string;
+    smsOptIn?: boolean;
     organizationId?: string;
     channelId?: string;
     eventId?: string;

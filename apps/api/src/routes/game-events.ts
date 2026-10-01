@@ -23,6 +23,8 @@ import {
   type ViewerAuthRequest,
 } from '../middleware/viewer-auth';
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from '../lib/errors';
+import { parsePhoneToE164 } from '../lib/phone';
+import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
 import { GameEventService } from '../services/GameEventService';
 import { GameEventRepository } from '../repositories/implementations/GameEventRepository';
 import { ChatRepository } from '../repositories/implementations/ChatRepository';
@@ -212,13 +214,14 @@ router.post(
 router.post('/:slug/score-alerts', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const slug = parentSlug(req.params.slug);
-    const phoneE164 = String((req.body as { phoneE164?: string }).phoneE164 ?? '').trim();
-    const consent = (req.body as { consent?: boolean }).consent === true;
-    if (!/^\+[1-9]\d{1,14}$/.test(phoneE164)) {
-      throw new BadRequestError('Valid E.164 phone number required');
+    const body = req.body as { phoneE164?: string; smsOptIn?: boolean };
+    const phoneRaw = String(body.phoneE164 ?? '').trim();
+    if (!phoneRaw) {
+      throw new BadRequestError('Phone number is required');
     }
-    if (!consent) {
-      throw new BadRequestError('Consent is required to receive SMS alerts');
+    const phoneE164 = parsePhoneToE164(phoneRaw);
+    if (body.smsOptIn !== true) {
+      throw new BadRequestError('SMS opt-in is required to receive score alerts');
     }
 
     const stream = await prisma.directStream.findUnique({ where: { slug } });
@@ -249,6 +252,14 @@ router.post('/:slug/score-alerts', async (req: Request, res: Response, next: Nex
         },
       });
     }
+
+    const compliance = getSmsComplianceFromRequest();
+    const meta = requestClientMeta(req);
+    await compliance.recordViewerConsent({
+      phoneE164,
+      source: `score-alerts:${slug}`,
+      ...meta,
+    });
 
     res.status(201).json({ ok: true });
   } catch (error) {

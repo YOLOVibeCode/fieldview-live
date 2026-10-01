@@ -15,6 +15,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     viewerIdentity: {
       findUnique: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -24,6 +25,12 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
       findUnique: vi.fn(),
+    },
+    smsConsent: {
+      upsert: vi.fn().mockResolvedValue({ id: 'consent-1' }),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
     },
   },
 }));
@@ -37,9 +44,17 @@ vi.mock('@/services/NotificationService', () => ({
   })),
 }));
 
-// Mock ViewerIdentityRepository
+// Mock ViewerIdentityRepository (used by SMS consent recording)
 vi.mock('@/repositories/implementations/ViewerIdentityRepository', () => ({
-  ViewerIdentityRepository: vi.fn(),
+  ViewerIdentityRepository: vi.fn().mockImplementation(() => ({
+    getByPhone: vi.fn().mockResolvedValue(null),
+    getById: vi.fn(),
+    getByEmail: vi.fn(),
+    getByEmailVerified: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    markEmailVerified: vi.fn(),
+  })),
 }));
 
 describe('Public Subscriptions Routes', () => {
@@ -83,7 +98,8 @@ describe('Public Subscriptions Routes', () => {
         .post('/api/public/subscriptions')
         .send({
           email: 'viewer@example.com',
-          phoneE164: '+1234567890',
+          phoneE164: '+12025550100',
+          smsOptIn: true,
           organizationId: '00000000-0000-0000-0000-000000000001', // Valid UUID format
           preference: 'both',
         })
@@ -119,7 +135,8 @@ describe('Public Subscriptions Routes', () => {
         .post('/api/public/subscriptions')
         .send({
           email: 'viewer@example.com',
-          phoneE164: '1234567890', // Missing +
+          phoneE164: 'not-a-phone',
+          smsOptIn: true,
           organizationId: 'org-1',
           preference: 'sms',
         })

@@ -27,15 +27,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
+import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
+import { parsePhoneToE164 } from '@/lib/phone';
 
 // Form schema: email required, phone optional (E.164), coupon optional
 const checkoutSchema = z.object({
   viewerEmail: z.string().email('Please enter a valid email address'),
-  viewerPhone: z
-    .string()
-    .regex(/^\+[1-9]\d{1,14}$/, 'Phone must be in E.164 format (e.g., +1234567890)')
-    .optional()
-    .or(z.literal('')),
+  viewerPhone: z.string().optional().or(z.literal('')),
   couponCode: z.string().max(20).optional().or(z.literal('')),
 });
 
@@ -50,6 +48,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [smsOptIn, setSmsOptIn] = useState(false);
 
   // Coupon state
   const [showCouponField, setShowCouponField] = useState(false);
@@ -151,9 +150,13 @@ export default function CheckoutPage() {
 
     try {
       // Create checkout
+      const viewerPhone = data.viewerPhone?.trim()
+        ? parsePhoneToE164(data.viewerPhone)
+        : undefined;
       const checkout = await apiClient.createCheckout(gameId, {
         viewerEmail: data.viewerEmail,
-        viewerPhone: data.viewerPhone || undefined,
+        viewerPhone,
+        smsOptIn: viewerPhone && smsOptIn ? true : undefined,
         couponCode: appliedCoupon?.valid ? data.couponCode : undefined,
       });
 
@@ -326,6 +329,10 @@ export default function CheckoutPage() {
                     </FormItem>
                   )}
                 />
+
+                {form.watch('viewerPhone')?.trim() ? (
+                  <SmsOptInCheckbox checked={smsOptIn} onChange={setSmsOptIn} disabled={submitting} />
+                ) : null}
 
                 {/* Coupon Code Section */}
                 <div className="space-y-2">

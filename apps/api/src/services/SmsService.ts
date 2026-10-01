@@ -1,126 +1,98 @@
 /**
- * SMS Service Implementation
- * 
- * Implements ISmsReader and ISmsWriter.
- * Handles Twilio SMS integration, keyword routing, STOP/HELP compliance.
+ * SMS Service — keyword routing and inbound handlers; sends via SmsComplianceService.
  */
 
+import {
+  SMS_PURPOSE_VIEWER_NOTIFICATIONS,
+  buildInboundHelpTwimlBody,
+} from '@fieldview/data-model';
 import type { Game } from '@prisma/client';
 
-import { twilioClient, twilioPhoneNumber } from '../lib/twilio';
 import type { IGameReader } from '../repositories/IGameRepository';
 import type { IViewerIdentityReader, IViewerIdentityWriter } from '../repositories/IViewerIdentityRepository';
+import { SmsConsentRepository } from '../repositories/implementations/SmsConsentRepository';
+import { prisma } from '../lib/prisma';
 
 import type { ISmsReader, ISmsWriter } from './ISmsService';
-
-const HELP_MESSAGE = 'Text a game keyword to receive a payment link. Reply STOP to unsubscribe.';
+import { SmsComplianceService } from './SmsComplianceService';
 
 export class SmsService implements ISmsReader, ISmsWriter {
+  private compliance: SmsComplianceService;
+
   constructor(
     private gameReader: IGameReader,
-    private viewerIdentityReader: IViewerIdentityReader,
-    private viewerIdentityWriter: IViewerIdentityWriter
-  ) {}
+    viewerIdentityReader: IViewerIdentityReader,
+    viewerIdentityWriter: IViewerIdentityWriter,
+    compliance?: SmsComplianceService,
+  ) {
+    const consentRepo = new SmsConsentRepository(prisma);
+    this.compliance =
+      compliance ??
+      new SmsComplianceService(consentRepo, consentRepo, viewerIdentityReader, viewerIdentityWriter);
+  }
+
+  getComplianceService(): SmsComplianceService {
+    return this.compliance;
+  }
 
   async findByKeyword(keyword: string): Promise<Game | null> {
-    // Normalize keyword (uppercase, trim)
     const normalizedKeyword = keyword.trim().toUpperCase();
     return this.gameReader.getByKeywordCode(normalizedKeyword);
   }
 
   async sendPaymentLink(gameId: string, phoneE164: string, paymentLink: string): Promise<void> {
-    // Check if viewer has opted out
-    const viewer = await this.viewerIdentityReader.getByPhone(phoneE164);
-    if (viewer?.smsOptOut) {
-      throw new Error('Viewer has opted out of SMS');
-    }
-
-    // Send SMS via Twilio
     const message = `Click here to purchase access: ${paymentLink}`;
-    await twilioClient.messages.create({
-      body: message,
-      from: twilioPhoneNumber,
-      to: phoneE164,
-    });
-
-    // Log outbound SMS
-    await this.logSmsMessage({
-      direction: 'outbound',
+    await this.compliance.send({
       phoneE164,
+      body: message,
+      purpose: SMS_PURPOSE_VIEWER_NOTIFICATIONS,
       gameId,
-      messageBody: message,
-      status: 'sent',
     });
   }
 
   async sendNotification(phoneE164: string, message: string): Promise<void> {
-    // Check if viewer has opted out
-    const viewer = await this.viewerIdentityReader.getByPhone(phoneE164);
-    if (viewer?.smsOptOut) {
-      return; // Silently skip if opted out
+    try {
+      await this.compliance.send({
+        phoneE164,
+        body: message,
+        purpose: SMS_PURPOSE_VIEWER_NOTIFICATIONS,
+      });
+    } catch {
+      // Skip silently when no consent (legacy NotificationService behavior)
     }
-
-    // Send SMS via Twilio
-    await twilioClient.messages.create({
-      body: message,
-      from: twilioPhoneNumber,
-      to: phoneE164,
-    });
-
-    // Log outbound SMS
-    await this.logSmsMessage({
-      direction: 'outbound',
-      phoneE164,
-      messageBody: message,
-      status: 'sent',
-    });
   }
 
   async handleStop(phoneE164: string): Promise<void> {
-    // Find or create viewer identity
-    let viewer = await this.viewerIdentityReader.getByPhone(phoneE164);
+    await this.compliance.recordOptOut(phoneE164);
+    await this.compliance.logInbound({ phoneE164, messageBody: 'STOP' });
+  }
 
-    if (!viewer) {
-      // Create viewer identity with phone only (email not required for STOP)
-      viewer = await this.viewerIdentityWriter.create({
-        email: `${phoneE164}@sms.optout`, // Placeholder email
-        phoneE164,
-      });
-    }
+  async handleStart(phoneE164: string): Promise<void> {
+    await this.compliance.recordOptInFromStart(phoneE164);
+    await this.compliance.logInbound({ phoneE164, messageBody: 'START' });
+  }
 
-    // Update opt-out status
-    await this.viewerIdentityWriter.update(viewer.id, {
-      smsOptOut: true,
-      optOutAt: new Date(),
-    });
+  async handleYes(phoneE164: string): Promise<void> {
+    await this.compliance.confirmYesReply(phoneE164);
+    await this.compliance.logInbound({ phoneE164, messageBody: 'YES' });
+  }
 
-    // Log inbound SMS (STOP)
-    await this.logSmsMessage({
-      direction: 'inbound',
-      phoneE164,
-      messageBody: 'STOP',
-      status: 'received',
-    });
+  getHelpTwimlBody(): string {
+    return buildInboundHelpTwimlBody();
   }
 
   async handleHelp(phoneE164: string): Promise<void> {
-    // Send HELP response via Twilio
-    await twilioClient.messages.create({
-      body: HELP_MESSAGE,
-      from: twilioPhoneNumber,
-      to: phoneE164,
-    });
+    await this.compliance.logInbound({ phoneE164, messageBody: 'HELP' });
+  }
 
-    // Log outbound SMS (HELP response)
-    await this.logSmsMessage({
-      direction: 'outbound',
+  async recordKeywordConsent(phoneE164: string): Promise<void> {
+    await this.compliance.recordViewerConsent({
       phoneE164,
-      messageBody: HELP_MESSAGE,
-      status: 'sent',
+      source: 'inbound-keyword',
     });
   }
 
-  async logSmsMessage(_data: {
+  async logSmsMessage(data: {
     direction: 'inbound' | 'outbound';
     phoneE164: string;
     keywordCode?: string;
@@ -128,8 +100,13 @@ export class SmsService implements ISmsReader, ISmsWriter {
     messageBody: string;
     status: string;
   }): Promise<void> {
-    // TODO: Implement SMS message logging to database
-    // For now, this is a no-op (logging can be added later)
-    // In production, this would write to a SmsMessage table
+    if (data.direction === 'inbound') {
+      await this.compliance.logInbound({
+        phoneE164: data.phoneE164,
+        messageBody: data.messageBody,
+        keywordCode: data.keywordCode,
+        gameId: data.gameId,
+      });
+    }
   }
 }
