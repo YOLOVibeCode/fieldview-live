@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useParams, useRouter } from 'next/navigation';
+import { type ChangeEvent, useEffect, useState } from 'react';
+import { type Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { apiClient, ApiError, type Game, type CouponValidationResponse } from '@/lib/api-client';
+
+import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -26,9 +25,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
-import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
-import { parsePhoneToE164 } from '@/lib/phone';
+
+import {
+  apiClient,
+  ApiError,
+  type CouponValidationResponse,
+  type Game,
+} from '../../../../lib/api-client';
+import { parsePhoneToE164 } from '../../../../lib/phone';
 
 // Form schema: email required, phone optional (E.164), coupon optional
 const checkoutSchema = z.object({
@@ -58,7 +65,7 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
 
   const form = useForm<CheckoutFormValues>({
-    resolver: zodResolver(checkoutSchema),
+    resolver: zodResolver(checkoutSchema) as Resolver<CheckoutFormValues>,
     defaultValues: {
       viewerEmail: '',
       viewerPhone: '',
@@ -84,7 +91,7 @@ export default function CheckoutPage() {
     }
 
     if (gameId) {
-      fetchGame();
+      void fetchGame();
     }
   }, [gameId]);
 
@@ -283,7 +290,12 @@ export default function CheckoutPage() {
 
             {/* Checkout Form */}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  void form.handleSubmit(onSubmit)(e);
+                }}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="viewerEmail"
@@ -352,7 +364,7 @@ export default function CheckoutPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                           <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                            Code "{form.getValues('couponCode')}" applied
+                            Code &quot;{form.getValues('couponCode')}&quot; applied
                           </span>
                         </div>
                         <button
@@ -373,7 +385,9 @@ export default function CheckoutPage() {
                           placeholder="Enter code"
                           className="h-11 sm:h-12 text-base uppercase"
                           value={couponInput}
-                          onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                            setCouponInput(e.target.value.toUpperCase())
+                          }
                           maxLength={20}
                         />
                         <Button

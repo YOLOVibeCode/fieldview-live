@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
 import { SMS_BRAND, SMS_PURPOSE_PHRASE, SMS_SUPPORT_EMAIL } from '@fieldview/data-model';
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',

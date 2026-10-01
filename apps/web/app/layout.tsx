@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+
 import './globals.css';
 import '@/styles/v2/tokens.css'; // v2 Design Tokens
-import { VersionDisplay } from '@/components/VersionDisplay';
-import { TrakletWidget } from '@/components/TrakletWidget';
-import { EnvChrome } from '@/lib/env-chrome/EnvChrome';
-import { badgeFor } from '@/lib/env-chrome/chrome';
-import { resolveServerEnv } from '@/lib/env-chrome/resolve';
 import { PublicLegalFooter } from '@/components/PublicLegalFooter';
+import { TrakletWidget } from '@/components/TrakletWidget';
+import { VersionDisplay } from '@/components/VersionDisplay';
+
+import { EnvChrome } from '../lib/env-chrome/EnvChrome';
+import { badgeFor, type AppEnv } from '../lib/env-chrome/chrome';
+import { resolveServerEnv } from '../lib/env-chrome/resolve';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,7 +21,7 @@ const BASE_TITLE = 'FieldView.Live';
 const BASE_DESCRIPTION = 'Monetization platform for youth sports live streaming';
 
 export function generateMetadata(): Metadata {
-  const env = resolveServerEnv();
+  const env: AppEnv = resolveServerEnv();
   const badge = badgeFor(env);
   const prefix = badge ? `[${badge.short}] ` : '';
   return {
@@ -53,7 +55,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const env = resolveServerEnv();
+  const env: AppEnv = resolveServerEnv();
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} min-h-screen`}>

@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { SMS_BRAND, SMS_PURPOSE_PHRASE } from '@fieldview/data-model';
+import Link from 'next/link';
 
 interface SmsOptInCheckboxProps {
   checked: boolean;

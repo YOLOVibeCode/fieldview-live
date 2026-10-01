@@ -45,6 +45,31 @@ paths:
         '404':
           $ref: '../../components/responses.yaml#/components/responses/NotFound'
 
+  /public/subscriptions:
+    post:
+      tags:
+        - Public
+      summary: Subscribe to stream notifications
+      description: >-
+        Subscribe to organization, channel, or event notifications. SMS requires phoneE164
+        and smsOptIn when preference is sms or both.
+      operationId: createPublicSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas.yaml#/components/schemas/PublicSubscriptionCreateRequest'
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas.yaml#/components/schemas/PublicSubscriptionCreateResponse'
+        '400':
+          $ref: '../../components/responses.yaml#/components/responses/BadRequest'
+
   /public/watch/{token}:
     get:
       tags:

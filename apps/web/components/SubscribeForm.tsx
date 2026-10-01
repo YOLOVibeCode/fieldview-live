@@ -6,20 +6,21 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { type Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { apiRequest } from '@/lib/api-client';
-import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
-import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
-import { parsePhoneToE164 } from '@/lib/phone';
+
+import { apiRequest } from '../lib/api-client';
+import { getUserFriendlyMessage } from '../lib/error-messages';
+import { parsePhoneToE164 } from '../lib/phone';
 
 const SubscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -43,7 +44,7 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
   const [smsOptIn, setSmsOptIn] = useState(false);
 
   const form = useForm<SubscribeValues>({
-    resolver: zodResolver(SubscribeSchema),
+    resolver: zodResolver(SubscribeSchema) as Resolver<SubscribeValues>,
     defaultValues: {
       email: '',
       phoneE164: '',
@@ -56,7 +57,9 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
     setLoading(true);
 
     try {
-      const phoneE164 = values.phoneE164?.trim() ? parsePhoneToE164(values.phoneE164) : undefined;
+      const phoneE164: string | undefined = values.phoneE164?.trim()
+        ? parsePhoneToE164(values.phoneE164.trim())
+        : undefined;
       const wantsSms = values.preference === 'sms' || values.preference === 'both';
       if (wantsSms && !smsOptIn) {
         throw new Error('Check the SMS opt-in box to receive text notifications');
@@ -81,7 +84,7 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
       setSuccess(true);
       form.reset();
       onSuccess?.();
-    } catch (err) {
+    } catch (err: unknown) {
       setError(getUserFriendlyMessage(err));
     } finally {
       setLoading(false);
@@ -106,7 +109,13 @@ export function SubscribeForm({ organizationId, channelId, eventId, onSuccess }:
         <CardDescription className="text-sm sm:text-base">Subscribe to be notified when this stream goes live</CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} data-testid="form-subscribe">
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            void form.handleSubmit(onSubmit)(e);
+          }}
+          data-testid="form-subscribe"
+        >
           {error && (
             <ErrorBanner
               message={error}

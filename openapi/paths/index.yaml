@@ -5,6 +5,9 @@
 /public/games/{gameId}/checkout:
   $ref: './public.yaml#/paths/~1public~1games~1{gameId}~1checkout'
 
+/public/subscriptions:
+  $ref: './public.yaml#/paths/~1public~1subscriptions'
+
 /public/watch/{token}:
   $ref: './public.yaml#/paths/~1public~1watch~1{token}'
 

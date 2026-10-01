@@ -1,9 +1,9 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { SMS_PRIVACY_VERBATIM_THIRD_PARTY } from '@fieldview/data-model';
 import { describe, expect, it } from 'vitest';
 
-import { SMS_PRIVACY_VERBATIM_THIRD_PARTY } from '@fieldview/data-model';
 
 describe('legal pages content', () => {
   it('privacy page contains verbatim third-party SMS sentence', () => {

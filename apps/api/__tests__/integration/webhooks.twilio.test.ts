@@ -117,6 +117,19 @@ describe('Twilio relay webhooks', () => {
     expect(mockSmsService.handleHelp).toHaveBeenCalled();
   });
 
+  it('rejects re-encoded body when signature was computed on different raw bytes', async () => {
+    const signedBody = 'From=%2B15551234567&Body=STOP';
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, signedBody);
+    const reencodedBody = 'From=+15551234567&Body=STOP';
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(reencodedBody);
+    expect(res.status).toBe(401);
+    expect(mockSmsService.handleStop).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid signature', async () => {
     const body = encodeForm({ From: '+1234567890', Body: 'STOP' });
     const res = await request(app)

@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
 import { SMS_BRAND, SMS_SUPPORT_EMAIL } from '@fieldview/data-model';
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',

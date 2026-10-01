@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { subscribeScoreAlerts } from '@/lib/api/gameEvents';
-import { parsePhoneToE164 } from '@/lib/phone';
+
 import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
+
+import { subscribeScoreAlerts } from '../../../lib/api/gameEvents';
+import { parsePhoneToE164 } from '../../../lib/phone';
 
 export function ScoreAlertsOptIn({ slug }: { slug: string }) {
   const [phone, setPhone] = useState('');
