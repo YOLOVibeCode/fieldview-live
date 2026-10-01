@@ -23,10 +23,10 @@ import {
 } from '../lib/sms/verifyRelayInboundSignature';
 import { smsRateLimit } from '../middleware/rateLimit';
 import { GameRepository } from '../repositories/implementations/GameRepository';
-import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
-import { SmsService } from '../services/SmsService';
-import { SmsComplianceService } from '../services/SmsComplianceService';
 import { SmsConsentRepository } from '../repositories/implementations/SmsConsentRepository';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { SmsComplianceService } from '../services/SmsComplianceService';
+import { SmsService } from '../services/SmsService';
 const router = express.Router();
 
 let smsServiceInstance: SmsService | null = null;

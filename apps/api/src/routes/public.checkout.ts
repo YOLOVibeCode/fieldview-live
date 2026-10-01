@@ -8,7 +8,9 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
+import { parsePhoneToE164 } from '../lib/phone';
 import { prisma } from '../lib/prisma';
+import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
 import { checkoutRateLimit } from '../middleware/rateLimit';
 import { validateRequest } from '../middleware/validation';
 import { CouponRepository } from '../repositories/implementations/CouponRepository';
@@ -18,8 +20,6 @@ import { PurchaseRepository } from '../repositories/implementations/PurchaseRepo
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 import { CouponService } from '../services/CouponService';
-import { parsePhoneToE164 } from '../lib/phone';
-import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
 import { PaymentService } from '../services/PaymentService';
 
 const router = express.Router();

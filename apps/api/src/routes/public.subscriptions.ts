@@ -7,14 +7,14 @@
 import express, { type Router, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 
-import { prisma } from '../lib/prisma';
-import { validateRequest } from '../middleware/validation';
-import { generateConfirmationToken, validateConfirmationToken } from '../lib/subscription-token';
-import { parsePhoneToE164 } from '../lib/phone';
-import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
-import { NotificationService } from '../services/NotificationService';
-import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
 import { BadRequestError } from '../lib/errors';
+import { parsePhoneToE164 } from '../lib/phone';
+import { prisma } from '../lib/prisma';
+import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
+import { generateConfirmationToken, validateConfirmationToken } from '../lib/subscription-token';
+import { validateRequest } from '../middleware/validation';
+import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
+import { NotificationService } from '../services/NotificationService';
 
 const router = express.Router();
 

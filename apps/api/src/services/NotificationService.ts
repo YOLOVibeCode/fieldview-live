@@ -6,9 +6,9 @@ import { SMS_PURPOSE_VIEWER_NOTIFICATIONS } from '@fieldview/data-model';
 
 import { getEmailProvider } from '../lib/email';
 import { prisma } from '../lib/prisma';
+import type { IViewerIdentityReader } from '../repositories/IViewerIdentityRepository';
 import { SmsConsentRepository } from '../repositories/implementations/SmsConsentRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
-import type { IViewerIdentityReader } from '../repositories/IViewerIdentityRepository';
 
 import type {
   EventLiveNotificationData,

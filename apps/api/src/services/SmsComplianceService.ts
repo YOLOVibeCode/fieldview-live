@@ -5,12 +5,11 @@ import {
   SMS_PURPOSE_VIEWER_NOTIFICATIONS,
 } from '@fieldview/data-model';
 
-import { ensureBrandPrefix, relaySmsSend } from '../lib/sms/RelaySmsClient';
+import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
+import { ensureBrandPrefix, relaySmsSend } from '../lib/sms/RelaySmsClient';
 import type { ISmsConsentReader, ISmsConsentWriter } from '../repositories/ISmsConsentRepository';
 import type { IViewerIdentityReader, IViewerIdentityWriter } from '../repositories/IViewerIdentityRepository';
-
-import { logger } from '../lib/logger';
 
 export interface SmsSendOptions {
   phoneE164: string;

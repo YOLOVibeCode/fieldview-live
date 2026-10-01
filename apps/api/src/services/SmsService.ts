@@ -8,10 +8,10 @@ import {
 } from '@fieldview/data-model';
 import type { Game } from '@prisma/client';
 
+import { prisma } from '../lib/prisma';
 import type { IGameReader } from '../repositories/IGameRepository';
 import type { IViewerIdentityReader, IViewerIdentityWriter } from '../repositories/IViewerIdentityRepository';
 import { SmsConsentRepository } from '../repositories/implementations/SmsConsentRepository';
-import { prisma } from '../lib/prisma';
 
 import type { ISmsReader, ISmsWriter } from './ISmsService';
 import { SmsComplianceService } from './SmsComplianceService';

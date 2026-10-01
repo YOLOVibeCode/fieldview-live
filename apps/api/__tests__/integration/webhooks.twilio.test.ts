@@ -21,7 +21,11 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     sMSMessage: { create: vi.fn(), updateMany: vi.fn() },
     smsConsent: { findUnique: vi.fn(), upsert: vi.fn(), create: vi.fn(), update: vi.fn() },
-    viewerIdentity: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    viewerIdentity: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: 'viewer-1' }),
+      update: vi.fn().mockResolvedValue({ id: 'viewer-1' }),
+    },
     directStream: { findUnique: vi.fn() },
     subscription: { findFirst: vi.fn(), create: vi.fn() },
     game: { findFirst: vi.fn() },
@@ -124,6 +128,7 @@ describe('Twilio relay webhooks', () => {
   });
 
   it('updates status callback on valid signature', async () => {
+    const { prisma } = await import('@/lib/prisma');
     const body = encodeForm({
       MessageSid: 'SM123',
       MessageStatus: 'delivered',
@@ -136,5 +141,48 @@ describe('Twilio relay webhooks', () => {
       .set('x-relay-signature', sig)
       .send(body);
     expect(res.status).toBe(200);
+    expect(prisma.sMSMessage.updateMany).toHaveBeenCalled();
+  });
+
+  it('records opt-out on status callback ErrorCode 21610', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    vi.mocked(prisma.smsConsent.findUnique).mockResolvedValue(null);
+    const body = encodeForm({
+      MessageSid: 'SM999',
+      MessageStatus: 'failed',
+      ErrorCode: '21610',
+      From: '+12025550100',
+    });
+    const sig = signBody(secret, SMS_STATUS_WEBHOOK_URL, body);
+    await request(app)
+      .post('/api/webhooks/twilio/status')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body)
+      .expect(200);
+    expect(prisma.smsConsent.create).toHaveBeenCalled();
+  });
+
+  it('handles OptOutType HELP', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'x', OptOutType: 'HELP' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(res.text).toContain('<Message>');
+    expect(mockSmsService.handleHelp).toHaveBeenCalled();
+  });
+
+  it('handles OptOutType START', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'x', OptOutType: 'START' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(mockSmsService.handleStart).toHaveBeenCalledWith('+1234567890');
   });
 });
