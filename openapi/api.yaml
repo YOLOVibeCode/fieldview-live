@@ -39,6 +39,8 @@ paths:
     $ref: './paths/public.yaml#/paths/~1public~1games~1{gameId}'
   /public/games/{gameId}/checkout:
     $ref: './paths/public.yaml#/paths/~1public~1games~1{gameId}~1checkout'
+  /public/subscriptions:
+    $ref: './paths/public.yaml#/paths/~1public~1subscriptions'
   /public/purchases/{purchaseId}/process:
     $ref: './paths/public.yaml#/paths/~1public~1purchases~1{purchaseId}~1process'
   /public/purchases/{purchaseId}/status:

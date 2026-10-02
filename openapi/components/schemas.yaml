@@ -209,11 +209,57 @@ components:
           description: Required for viewer identity and monitoring
         viewerPhone:
           type: string
-          pattern: '^\+[1-9]\d{1,14}$'
-          description: Optional, E.164 format
+          description: Optional; normalized to E.164 on the server (default region US)
+        smsOptIn:
+          type: boolean
+          description: >-
+            Required to record SMS consent when viewerPhone is provided. Must be true to
+            receive game alerts, score updates, and payment links via SMS.
         returnUrl:
           type: string
           format: uri
+
+    PublicSubscriptionCreateRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        phoneE164:
+          type: string
+          description: Optional; normalized to E.164 on the server when provided
+        smsOptIn:
+          type: boolean
+          description: >-
+            Required when preference is sms or both. Records server-side SMS consent when true.
+        organizationId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        preference:
+          type: string
+          enum: [email, sms, both]
+          default: email
+
+    PublicSubscriptionCreateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        viewerId:
+          type: string
+          format: uuid
+        confirmed:
+          type: boolean
 
     # Checkout Response
     CheckoutCreateResponse:

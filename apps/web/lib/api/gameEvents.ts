@@ -1,5 +1,6 @@
 import type { GameEventPayload } from '@fieldview/data-model';
-import { apiRequest } from '@/lib/api-client';
+
+import { apiRequest } from '../api-client';
 
 export interface ReportGameEventBody {
   eventTypeId: string;
@@ -17,11 +18,14 @@ export async function reportGameEvent(
   viewerToken: string,
   body: ReportGameEventBody
 ): Promise<GameEventPayload> {
-  return apiRequest<GameEventPayload>(`/api/direct/${encodeURIComponent(slug)}/events`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${viewerToken}` },
-    body: JSON.stringify(body),
-  });
+  return apiRequest<GameEventPayload>(
+    `/api/direct/${encodeURIComponent(slug)}/events`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${viewerToken}` },
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export async function confirmGameEvent(
@@ -34,7 +38,7 @@ export async function confirmGameEvent(
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${viewerToken}` },
-    }
+    },
   );
 }
 
@@ -50,16 +54,17 @@ export async function resolveGameEvent(
       method: 'POST',
       headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : undefined,
       body: JSON.stringify({ action }),
-    }
+    },
   );
 }
 
 export async function subscribeScoreAlerts(
   slug: string,
-  phoneE164: string
+  phoneE164: string,
+  smsOptIn: boolean
 ): Promise<void> {
-  await apiRequest(`/api/direct/${encodeURIComponent(slug)}/score-alerts`, {
+  await apiRequest<void>(`/api/direct/${encodeURIComponent(slug)}/score-alerts`, {
     method: 'POST',
-    body: JSON.stringify({ phoneE164, consent: true }),
+    body: JSON.stringify({ phoneE164, smsOptIn }),
   });
 }

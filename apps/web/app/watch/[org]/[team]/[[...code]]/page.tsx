@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import Hls from 'hls.js';
+import { useParams, useRouter } from 'next/navigation';
+import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type ControllerRenderProps, type Resolver, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
+import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
+import { SubscribeForm } from '@/components/SubscribeForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
@@ -19,10 +20,12 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { SubscribeForm } from '@/components/SubscribeForm';
-import { apiClient, ApiError, apiRequest } from '@/lib/api-client';
-import { getUserFriendlyMessage } from '@/lib/error-messages';
+import { Input } from '@/components/ui/input';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
+
+import { apiClient, ApiError, apiRequest } from '../../../../../lib/api-client';
+import { getUserFriendlyMessage } from '../../../../../lib/error-messages';
+import { parsePhoneToE164 } from '../../../../../lib/phone';
 
 /**
  * Public watch link viewer
@@ -30,15 +33,9 @@ import { ErrorBanner } from '@/components/v2/ErrorBanner';
  * Stable URL: /watch/{ORG}/{TEAM}/{EVENTCODE?}
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
-
 const checkoutSchema = z.object({
   viewerEmail: z.string().email('Please enter a valid email address'),
-  viewerPhone: z
-    .string()
-    .regex(/^\+[1-9]\d{1,14}$/, 'Phone must be in E.164 format (e.g., +1234567890)')
-    .optional()
-    .or(z.literal('')),
+  viewerPhone: z.string().optional().or(z.literal('')),
   sendReminder: z.boolean().optional().default(false),
 });
 
@@ -72,6 +69,7 @@ export default function WatchLinkPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [smsOptIn, setSmsOptIn] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -102,7 +100,7 @@ export default function WatchLinkPage() {
   };
 
   const form = useForm<CheckoutFormValues>({
-    resolver: zodResolver(checkoutSchema),
+    resolver: zodResolver(checkoutSchema) as Resolver<CheckoutFormValues>,
     defaultValues: getSavedFormData(),
   });
 
@@ -168,9 +166,13 @@ export default function WatchLinkPage() {
         : Promise.resolve();
 
       // Create checkout (don't wait for reminder subscription)
+      const viewerPhone = data.viewerPhone?.trim()
+        ? parsePhoneToE164(data.viewerPhone)
+        : undefined;
       const checkoutPromise = apiClient.createChannelCheckout(org, team, {
         viewerEmail: data.viewerEmail,
-        viewerPhone: data.viewerPhone || undefined,
+        viewerPhone,
+        smsOptIn: viewerPhone && smsOptIn ? true : undefined,
         returnUrl: window.location.href,
       });
 
@@ -280,7 +282,7 @@ export default function WatchLinkPage() {
             {!loading && !error && requiresPayment && !hasAccess && (
               <div className="space-y-4" data-testid="paywall-watch-link">
                 <div className="rounded-md border p-4 sm:p-6 text-center">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-2">There's a fee to receive the stream</h3>
+                  <h3 className="text-lg sm:text-xl font-semibold mb-2">There&apos;s a fee to receive the stream</h3>
                   <p className="text-2xl sm:text-3xl font-bold mb-4">
                     {bootstrap.priceCents ? formatPrice(bootstrap.priceCents, bootstrap.currency || 'USD') : ''}
                   </p>
@@ -318,7 +320,13 @@ export default function WatchLinkPage() {
                 </div>
 
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmitCheckout)} className="space-y-4" data-testid="form-checkout">
+                  <form
+                    onSubmit={(e) => {
+                      void form.handleSubmit(onSubmitCheckout)(e);
+                    }}
+                    className="space-y-4"
+                    data-testid="form-checkout"
+                  >
                     <FormField
                       control={form.control}
                       name="viewerEmail"
@@ -336,17 +344,17 @@ export default function WatchLinkPage() {
                               className="min-h-[44px] text-base"
                               aria-label="Email address for receipt"
                               {...field}
-                              onKeyDown={(e) => {
+                              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                                 // Auto-submit on Enter if email is valid
                                 if (e.key === 'Enter' && form.formState.isValid && !checkoutSubmitting) {
                                   e.preventDefault();
-                                  form.handleSubmit(onSubmitCheckout)();
+                                  void form.handleSubmit(onSubmitCheckout)();
                                 }
                               }}
                             />
                           </FormControl>
                           <FormDescription className="text-xs sm:text-sm leading-relaxed">
-                            Required for stream access and payment receipts. We'll send your receipt to this email address.
+                            Required for stream access and payment receipts. We&apos;ll send your receipt to this email address.
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -369,11 +377,11 @@ export default function WatchLinkPage() {
                               className="min-h-[44px] text-base"
                               aria-label="Phone number for SMS notifications"
                               {...field}
-                              onKeyDown={(e) => {
+                              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                                 // Auto-submit on Enter if form is valid
                                 if (e.key === 'Enter' && form.formState.isValid && !checkoutSubmitting) {
                                   e.preventDefault();
-                                  form.handleSubmit(onSubmitCheckout)();
+                                  void form.handleSubmit(onSubmitCheckout)();
                                 }
                               }}
                             />
@@ -386,19 +394,33 @@ export default function WatchLinkPage() {
                       )}
                     />
 
+                    {form.watch('viewerPhone')?.trim() ? (
+                      <SmsOptInCheckbox
+                        checked={smsOptIn}
+                        onChange={setSmsOptIn}
+                        disabled={checkoutSubmitting}
+                      />
+                    ) : null}
+
                     {/* Reminder checkbox - only show if event exists */}
                     {bootstrap.eventId && bootstrap.eventStartsAt && (
                       <FormField
                         control={form.control}
                         name="sendReminder"
-                        render={({ field }) => (
+                        render={({
+                          field,
+                        }: {
+                          field: ControllerRenderProps<CheckoutFormValues, 'sendReminder'>;
+                        }) => (
                           <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 sm:p-4">
                             <FormControl>
                               <input
                                 type="checkbox"
                                 id="checkbox-reminder"
                                 checked={Boolean(field.value)}
-                                onChange={(e) => field.onChange(e.target.checked)}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                                  field.onChange(e.target.checked)
+                                }
                                 data-testid="checkbox-reminder"
                                 className="h-5 w-5 sm:h-6 sm:w-6 mt-0.5 flex-shrink-0 rounded border-gray-300 active:scale-95 transition-transform"
                                 aria-label="Send event reminder"
@@ -409,7 +431,7 @@ export default function WatchLinkPage() {
                                 Send me a reminder email before the event
                               </FormLabel>
                               <FormDescription className="text-xs sm:text-sm leading-relaxed">
-                                We'll send you an email reminder before the stream starts
+                                We&apos;ll send you an email reminder before the stream starts
                               </FormDescription>
                             </div>
                           </FormItem>

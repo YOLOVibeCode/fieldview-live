@@ -91,14 +91,14 @@ describe('Public Checkout Routes', () => {
         .post('/api/public/games/game-1/checkout')
         .send({
           viewerEmail: 'test@example.com',
-          viewerPhone: '+1234567890',
+          viewerPhone: '+12025550100',
         })
         .expect(200);
 
       expect(mockPaymentService.createCheckout).toHaveBeenCalledWith(
         'game-1',
         'test@example.com',
-        '+1234567890',
+        '+12025550100',
         undefined,
         undefined,
         expect.any(CouponService)

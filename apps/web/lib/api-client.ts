@@ -84,7 +84,9 @@ export async function apiRequest<T>(
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+        const error = (await response.json().catch(() => ({}))) as {
+          error?: string | { code?: string; message?: string; details?: unknown };
+        };
         const errField = error.error;
         const code =
           typeof errField === 'object' && errField !== null && 'code' in errField
@@ -115,7 +117,7 @@ export async function apiRequest<T>(
         throw apiError;
       }
 
-      return response.json();
+      return (await response.json()) as T;
     } catch (err) {
       // Network error or fetch failure
       if (err instanceof ApiError) {
@@ -207,6 +209,7 @@ export interface Game {
 export interface CheckoutRequest {
   viewerEmail: string;
   viewerPhone?: string;
+  smsOptIn?: boolean;
   returnUrl?: string;
   couponCode?: string;
 }
@@ -554,6 +557,7 @@ export const apiClient = {
   async subscribe(data: {
     email: string;
     phoneE164?: string;
+    smsOptIn?: boolean;
     organizationId?: string;
     channelId?: string;
     eventId?: string;
