@@ -21,3 +21,4 @@ export * from './authSchemas';
 export * from './dvrSchemas';
 export * from './ownerDirectStream';
 export * from './gameEvent';
+export * from './sms';

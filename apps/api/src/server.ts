@@ -103,6 +103,9 @@ app.use(
   })
 );
 
+// Twilio SMS webhooks: mount before express.json() so inbound urlencoded raw bytes are captured first.
+app.use('/api/webhooks', createTwilioWebhookRouter());
+
 // Middleware
 app.use(express.json({
   verify: (req, _res, buf) => {
@@ -157,7 +160,6 @@ app.use('/api/direct', gameEventsRouter);
 app.use('/api/clips', clipsRouter);
 app.use('/api/bookmarks', bookmarksRouter);
 app.use('/api/recordings', recordingsRouter);
-app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createMarketplaceWebhookRouter());
 
 // Test routes (POC/development only)

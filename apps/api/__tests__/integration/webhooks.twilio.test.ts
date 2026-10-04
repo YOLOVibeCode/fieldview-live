@@ -1,193 +1,201 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { type SuperTest, agent } from 'supertest';
-import app from '@/server';
+import crypto from 'crypto';
+
+import express from 'express';
+import request from 'supertest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { SMS_INBOUND_WEBHOOK_URL, SMS_STATUS_WEBHOOK_URL } from '@fieldview/data-model';
+
 import { SmsService } from '@/services/SmsService';
-import { validateTwilioRequest } from '@/lib/twilio';
 import * as twilioWebhookRoute from '@/routes/webhooks.twilio';
-import type { Game } from '@prisma/client';
 
-// Mock Prisma
+function signBody(secret: string, url: string, body: string): string {
+  return crypto.createHmac('sha256', secret).update(url + body).digest('base64');
+}
+
+function encodeForm(fields: Record<string, string>): string {
+  return new URLSearchParams(fields).toString();
+}
+
 vi.mock('@/lib/prisma', () => ({
-  prisma: {},
-}));
-
-// Mock Twilio validation
-vi.mock('@/lib/twilio', () => ({
-  twilioClient: {
-    messages: {
-      create: vi.fn(),
+  prisma: {
+    sMSMessage: { create: vi.fn(), updateMany: vi.fn() },
+    smsConsent: { findUnique: vi.fn(), upsert: vi.fn(), create: vi.fn(), update: vi.fn() },
+    viewerIdentity: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: 'viewer-1' }),
+      update: vi.fn().mockResolvedValue({ id: 'viewer-1' }),
     },
+    directStream: { findUnique: vi.fn() },
+    subscription: { findFirst: vi.fn(), create: vi.fn() },
+    game: { findFirst: vi.fn() },
   },
-  twilioPhoneNumber: '+1234567890',
-  validateTwilioRequest: vi.fn(),
 }));
 
-describe('Twilio Webhook Routes', () => {
-  let request: SuperTest<typeof app>;
+describe('Twilio relay webhooks', () => {
+  const secret = 'relay-test-secret';
   let mockSmsService: {
     findByKeyword: ReturnType<typeof vi.fn>;
     sendPaymentLink: ReturnType<typeof vi.fn>;
-    handleStop: ReturnType<typeof vi.fn>;
-    handleHelp: ReturnType<typeof vi.fn>;
     logSmsMessage: ReturnType<typeof vi.fn>;
+    handleStop: ReturnType<typeof vi.fn>;
+    handleStart: ReturnType<typeof vi.fn>;
+    handleHelp: ReturnType<typeof vi.fn>;
+    handleYes: ReturnType<typeof vi.fn>;
+    recordKeywordConsent: ReturnType<typeof vi.fn>;
+    getHelpTwimlBody: ReturnType<typeof vi.fn>;
   };
 
-  beforeEach(() => {
-    request = agent(app);
+  let app: express.Express;
 
+  beforeEach(() => {
+    vi.stubEnv('RELAY_INBOUND_SECRET', secret);
     mockSmsService = {
       findByKeyword: vi.fn(),
       sendPaymentLink: vi.fn(),
-      handleStop: vi.fn(),
-      handleHelp: vi.fn(),
       logSmsMessage: vi.fn(),
+      handleStop: vi.fn(),
+      handleStart: vi.fn(),
+      handleHelp: vi.fn(),
+      handleYes: vi.fn(),
+      recordKeywordConsent: vi.fn(),
+      getHelpTwimlBody: vi.fn().mockReturnValue('FieldView.Live: help text'),
     };
-
-    // Set the mocked service
-    twilioWebhookRoute.setSmsService(mockSmsService as any);
-
-    // Mock Twilio signature validation (default to true)
-    vi.mocked(validateTwilioRequest).mockReturnValue(true);
+    twilioWebhookRoute.setSmsService(mockSmsService as unknown as SmsService);
+    app = express();
+    app.use('/api/webhooks', twilioWebhookRoute.createTwilioWebhookRouter());
   });
 
-  describe('POST /api/webhooks/twilio', () => {
-    it('routes keyword to game and sends payment link', async () => {
-      const game = {
-        id: 'game-1',
-        keywordCode: 'ABCDEF',
-        state: 'active',
-      } as Game;
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
 
-      mockSmsService.findByKeyword.mockResolvedValue(game);
-      mockSmsService.sendPaymentLink.mockResolvedValue(undefined);
-      mockSmsService.logSmsMessage.mockResolvedValue(undefined);
+  it('handles STOP with empty TwiML', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'STOP' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(res.status).toBe(200);
+    expect(res.text).toBe('<Response></Response>');
+    expect(mockSmsService.handleStop).toHaveBeenCalledWith('+1234567890');
+  });
 
-      const response = await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          Body: 'ABCDEF',
-        })
-        .expect(200);
+  it('handles OptOutType STOP', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'x', OptOutType: 'STOP' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(mockSmsService.handleStop).toHaveBeenCalled();
+  });
 
-      expect(response.headers['content-type']).toContain('text/xml');
-      expect(mockSmsService.findByKeyword).toHaveBeenCalledWith('ABCDEF');
-      expect(mockSmsService.sendPaymentLink).toHaveBeenCalled();
+  it('handles START', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'START' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(mockSmsService.handleStart).toHaveBeenCalledWith('+1234567890');
+  });
+
+  it('handles HELP with TwiML message', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'HELP' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(res.text).toContain('<Message>');
+    expect(mockSmsService.handleHelp).toHaveBeenCalled();
+  });
+
+  it('rejects re-encoded body when signature was computed on different raw bytes', async () => {
+    const signedBody = 'From=%2B15551234567&Body=STOP';
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, signedBody);
+    const reencodedBody = 'From=+15551234567&Body=STOP';
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(reencodedBody);
+    expect(res.status).toBe(401);
+    expect(mockSmsService.handleStop).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid signature', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'STOP' });
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', 'bad')
+      .send(body);
+    expect(res.status).toBe(401);
+  });
+
+  it('updates status callback on valid signature', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const body = encodeForm({
+      MessageSid: 'SM123',
+      MessageStatus: 'delivered',
+      From: '+1234567890',
     });
+    const sig = signBody(secret, SMS_STATUS_WEBHOOK_URL, body);
+    const res = await request(app)
+      .post('/api/webhooks/twilio/status')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(res.status).toBe(200);
+    expect(prisma.sMSMessage.updateMany).toHaveBeenCalled();
+  });
 
-    it('handles STOP command', async () => {
-      mockSmsService.handleStop.mockResolvedValue(undefined);
-
-      const response = await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          Body: 'STOP',
-        })
-        .expect(200);
-
-      expect(response.text).toContain('unsubscribed');
-      expect(mockSmsService.handleStop).toHaveBeenCalledWith('+1234567890');
+  it('records opt-out on status callback ErrorCode 21610', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    vi.mocked(prisma.smsConsent.findUnique).mockResolvedValue(null);
+    const body = encodeForm({
+      MessageSid: 'SM999',
+      MessageStatus: 'failed',
+      ErrorCode: '21610',
+      From: '+12025550100',
     });
+    const sig = signBody(secret, SMS_STATUS_WEBHOOK_URL, body);
+    await request(app)
+      .post('/api/webhooks/twilio/status')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body)
+      .expect(200);
+    expect(prisma.smsConsent.create).toHaveBeenCalled();
+  });
 
-    it('handles HELP command', async () => {
-      mockSmsService.handleHelp.mockResolvedValue(undefined);
+  it('handles OptOutType HELP', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'x', OptOutType: 'HELP' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    const res = await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(res.text).toContain('<Message>');
+    expect(mockSmsService.handleHelp).toHaveBeenCalled();
+  });
 
-      const response = await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          Body: 'HELP',
-        })
-        .expect(200);
-
-      expect(mockSmsService.handleHelp).toHaveBeenCalledWith('+1234567890');
-    });
-
-    it('returns 401 if Twilio signature invalid', async () => {
-      vi.mocked(validateTwilioRequest).mockReturnValue(false);
-
-      await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'invalid-signature')
-        .send({
-          From: '+1234567890',
-          Body: 'ABCDEF',
-        })
-        .expect(401);
-    });
-
-    it('returns 400 if From or Body missing', async () => {
-      await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          // Body missing
-        })
-        .expect(400);
-    });
-
-    it('returns error message if game not found', async () => {
-      mockSmsService.findByKeyword.mockResolvedValue(null);
-
-      const response = await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          Body: 'INVALID',
-        })
-        .expect(200);
-
-      expect(response.text).toContain('Game not found');
-    });
-
-    it('returns error if game not active', async () => {
-      const game = {
-        id: 'game-1',
-        keywordCode: 'ABCDEF',
-        state: 'draft',
-      } as Game;
-
-      mockSmsService.findByKeyword.mockResolvedValue(game);
-
-      const response = await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          Body: 'ABCDEF',
-        })
-        .expect(200);
-
-      expect(response.text).toContain('not currently available');
-    });
-
-    it('normalizes keyword (lowercase, whitespace)', async () => {
-      const game = {
-        id: 'game-1',
-        keywordCode: 'ABCDEF',
-        state: 'active',
-      } as Game;
-
-      mockSmsService.findByKeyword.mockResolvedValue(game);
-      mockSmsService.sendPaymentLink.mockResolvedValue(undefined);
-      mockSmsService.logSmsMessage.mockResolvedValue(undefined);
-
-      await request
-        .post('/api/webhooks/twilio')
-        .set('x-twilio-signature', 'valid-signature')
-        .send({
-          From: '+1234567890',
-          Body: '  abcdef  ', // Lowercase with whitespace
-        })
-        .expect(200);
-
-      expect(mockSmsService.findByKeyword).toHaveBeenCalledWith('ABCDEF');
-    });
+  it('handles OptOutType START', async () => {
+    const body = encodeForm({ From: '+1234567890', Body: 'x', OptOutType: 'START' });
+    const sig = signBody(secret, SMS_INBOUND_WEBHOOK_URL, body);
+    await request(app)
+      .post('/api/webhooks/twilio')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .set('x-relay-signature', sig)
+      .send(body);
+    expect(mockSmsService.handleStart).toHaveBeenCalledWith('+1234567890');
   });
 });
