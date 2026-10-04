@@ -15,6 +15,9 @@ export function PublicLegalFooter() {
           <Link href="/terms" data-testid="link-terms" className="hover:text-foreground underline-offset-4 hover:underline">
             Terms of Service
           </Link>
+          <Link href="/sms" data-testid="link-sms" className="hover:text-foreground underline-offset-4 hover:underline">
+            Text messages
+          </Link>
         </nav>
       </div>
     </footer>
