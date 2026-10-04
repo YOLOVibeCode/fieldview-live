@@ -33,6 +33,7 @@ import { createOwnersDirectStreamsRouter } from './routes/owners.direct-streams'
 import { createOwnersLedgerRouter } from './routes/owners.ledger';
 import { createOwnersPaymentsRouter } from './routes/owners.payments';
 import { createPublicRouter } from './routes/public.checkout';
+import { createPublicSmsOptInRouter } from './routes/public.sms-opt-in';
 import { createPublicSubscriptionsRouter } from './routes/public.subscriptions';
 import { createPublicGamesRouter } from './routes/public.games';
 import { createPublicPurchasesRouter } from './routes/public.purchases';
@@ -137,6 +138,7 @@ app.use('/api/owners', createOwnersLedgerRouter());
 app.use('/api/owners', createOwnersPaymentsRouter());
 app.use('/api/public', createPublicRouter());
 app.use('/api/public', createPublicSubscriptionsRouter());
+app.use('/api/public', createPublicSmsOptInRouter());
 app.use('/api/public', createPublicGamesRouter());
 app.use('/api/public', createPublicPurchasesRouter());
 app.use('/api/public', createPublicWatchLinksRouter());
