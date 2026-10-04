@@ -33,6 +33,7 @@ import { createOwnersDirectStreamsRouter } from './routes/owners.direct-streams'
 import { createOwnersLedgerRouter } from './routes/owners.ledger';
 import { createOwnersPaymentsRouter } from './routes/owners.payments';
 import { createPublicRouter } from './routes/public.checkout';
+import { createPublicSmsOptInRouter } from './routes/public.sms-opt-in';
 import { createPublicSubscriptionsRouter } from './routes/public.subscriptions';
 import { createPublicGamesRouter } from './routes/public.games';
 import { createPublicPurchasesRouter } from './routes/public.purchases';
@@ -103,6 +104,9 @@ app.use(
   })
 );
 
+// Twilio SMS webhooks: mount before express.json() so inbound urlencoded raw bytes are captured first.
+app.use('/api/webhooks', createTwilioWebhookRouter());
+
 // Middleware
 app.use(express.json({
   verify: (req, _res, buf) => {
@@ -134,6 +138,7 @@ app.use('/api/owners', createOwnersLedgerRouter());
 app.use('/api/owners', createOwnersPaymentsRouter());
 app.use('/api/public', createPublicRouter());
 app.use('/api/public', createPublicSubscriptionsRouter());
+app.use('/api/public', createPublicSmsOptInRouter());
 app.use('/api/public', createPublicGamesRouter());
 app.use('/api/public', createPublicPurchasesRouter());
 app.use('/api/public', createPublicWatchLinksRouter());
@@ -157,7 +162,6 @@ app.use('/api/direct', gameEventsRouter);
 app.use('/api/clips', clipsRouter);
 app.use('/api/bookmarks', bookmarksRouter);
 app.use('/api/recordings', recordingsRouter);
-app.use('/api/webhooks', createTwilioWebhookRouter());
 app.use('/api/webhooks', createMarketplaceWebhookRouter());
 
 // Test routes (POC/development only)

@@ -366,6 +366,26 @@ model SMSMessage {
 
   @@index([phoneE164])
   @@index([keywordCode])
+  @@index([providerMessageId])
+}
+
+model SmsConsent {
+  id                 String    @id @default(uuid()) @db.Uuid
+  phoneE164          String
+  purpose            String
+  consentTextVersion String
+  source             String
+  ipAddress          String?
+  userAgent          String?
+  consentedAt        DateTime?
+  revokedAt          DateTime?
+  pendingConfirmation Boolean  @default(false)
+  addedByLabel       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([phoneE164, purpose])
+  @@index([phoneE164])
 }
 
 model AdminAccount {

@@ -8,7 +8,9 @@
 import express, { type Router } from 'express';
 import { z } from 'zod';
 
+import { parsePhoneToE164 } from '../lib/phone';
 import { prisma } from '../lib/prisma';
+import { getSmsComplianceFromRequest, requestClientMeta } from '../lib/sms/consentFromRequest';
 import { checkoutRateLimit } from '../middleware/rateLimit';
 import { validateRequest } from '../middleware/validation';
 import { CouponRepository } from '../repositories/implementations/CouponRepository';
@@ -65,10 +67,18 @@ function getCouponService(): CouponService {
 // Checkout request schema (viewerEmail required)
 const CheckoutCreateSchema = z.object({
   viewerEmail: z.string().email(),
-  viewerPhone: z.string().regex(/^\+[1-9]\d{1,14}$/).optional(),
+  viewerPhone: z.string().min(1).optional(),
+  smsOptIn: z.boolean().optional(),
   returnUrl: z.string().url().optional(),
   couponCode: z.string().max(20).optional(),
 });
+
+function resolveCheckoutPhone(viewerPhone: string | undefined): string | undefined {
+  if (!viewerPhone?.trim()) {
+    return undefined;
+  }
+  return parsePhoneToE164(viewerPhone);
+}
 
 /**
  * POST /api/public/games/:gameId/checkout
@@ -88,17 +98,28 @@ router.post(
         }
 
         const body = req.body as z.infer<typeof CheckoutCreateSchema>;
+        const viewerPhone = resolveCheckoutPhone(body.viewerPhone);
         const paymentService = getPaymentService();
         const couponService = getCouponService();
 
         const result = await paymentService.createCheckout(
           gameId,
           body.viewerEmail,
-          body.viewerPhone,
+          viewerPhone,
           body.returnUrl,
           body.couponCode,
           couponService
         );
+
+        if (viewerPhone && body.smsOptIn) {
+          const compliance = getSmsComplianceFromRequest();
+          const meta = requestClientMeta(req);
+          await compliance.recordViewerConsent({
+            phoneE164: viewerPhone,
+            source: 'checkout-game',
+            ...meta,
+          });
+        }
 
         res.json(result);
       } catch (error) {
@@ -141,12 +162,23 @@ router.post(
           return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Channel not found' } });
         }
 
+        const viewerPhone = resolveCheckoutPhone(body.viewerPhone);
         const result = await paymentService.createChannelCheckout(
           channel.id,
           body.viewerEmail,
-          body.viewerPhone,
+          viewerPhone,
           body.returnUrl
         );
+
+        if (viewerPhone && body.smsOptIn) {
+          const compliance = getSmsComplianceFromRequest();
+          const meta = requestClientMeta(req);
+          await compliance.recordViewerConsent({
+            phoneE164: viewerPhone,
+            source: 'checkout-watch-link',
+            ...meta,
+          });
+        }
 
         res.json(result);
       } catch (error) {

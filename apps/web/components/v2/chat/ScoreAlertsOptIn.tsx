@@ -1,10 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { subscribeScoreAlerts } from '@/lib/api/gameEvents';
+
+import { SmsOptInCheckbox } from '@/components/SmsOptInCheckbox';
+
+import { subscribeScoreAlerts } from '../../../lib/api/gameEvents';
+import { parsePhoneToE164 } from '../../../lib/phone';
 
 export function ScoreAlertsOptIn({ slug }: { slug: string }) {
   const [phone, setPhone] = useState('');
+  const [smsOptIn, setSmsOptIn] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -12,9 +17,11 @@ export function ScoreAlertsOptIn({ slug }: { slug: string }) {
     setStatus('saving');
     setError(null);
     try {
-      const digits = phone.replace(/\D/g, '');
-      const e164 = phone.startsWith('+') ? phone : `+1${digits}`;
-      await subscribeScoreAlerts(slug, e164);
+      if (!smsOptIn) {
+        throw new Error('Check the SMS opt-in box to receive score alerts');
+      }
+      const e164 = parsePhoneToE164(phone);
+      await subscribeScoreAlerts(slug, e164, true);
       setStatus('ok');
     } catch (err) {
       setStatus('error');
@@ -44,6 +51,9 @@ export function ScoreAlertsOptIn({ slug }: { slug: string }) {
         className="w-full rounded-md bg-black/40 px-2 py-1 text-sm text-white"
         aria-label="Phone number for score alerts"
       />
+      {phone.trim() ? (
+        <SmsOptInCheckbox checked={smsOptIn} onChange={setSmsOptIn} disabled={status === 'saving'} />
+      ) : null}
       <button
         type="submit"
         data-testid="btn-subscribe-score-alerts"
