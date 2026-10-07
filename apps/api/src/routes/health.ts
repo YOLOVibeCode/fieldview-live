@@ -6,6 +6,7 @@
 
 import express, { type Request, Response, Router } from 'express';
 
+import { buildFleetHealthFields } from '../lib/health-fleet';
 import { prisma } from '../lib/prisma';
 import { redisClient } from '../lib/redis';
 
@@ -90,6 +91,7 @@ export function createHealthRouter(): Router {
       timestamp: new Date().toISOString(),
       checks,
       email: checkEmailProvider(),
+      ...buildFleetHealthFields(isHealthy, 'fieldview-api'),
     });
   });
 
