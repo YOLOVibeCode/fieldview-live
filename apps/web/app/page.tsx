@@ -1,25 +1,8 @@
-'use client';
-
 import Link from 'next/link';
-import { Suspense } from 'react';
 
-import { ComingSoonModal } from '@/components/v2/ComingSoonModal';
-import { useWelcomeModal } from '@/hooks/useWelcomeModal';
-
-function HomePageContent() {
-  const { isOpen, closeModal, dontShowAgain, isVeoReferral } = useWelcomeModal();
-
+export default function HomePage() {
   return (
-    <>
-      {/* Coming Soon Modal */}
-      <ComingSoonModal
-        isOpen={isOpen}
-        onClose={closeModal}
-        onDontShowAgain={dontShowAgain}
-        isVeoReferral={isVeoReferral}
-      />
-
-      <div className="min-h-screen flex flex-col" data-testid="container-home">
+    <div className="min-h-screen flex flex-col" data-testid="container-home">
       {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24 gradient-primary">
         <div className="text-center max-w-3xl mx-auto space-y-6 sm:space-y-8">
@@ -96,6 +79,46 @@ function HomePageContent() {
             </div>
           </div>
 
+          {/* About the business: public for carrier reviewers, no login needed */}
+          <section
+            className="max-w-2xl mx-auto pt-6 sm:pt-8 space-y-2 text-sm sm:text-base text-muted-foreground"
+            aria-labelledby="heading-about-business"
+            data-testid="section-about-business"
+          >
+            <h2 id="heading-about-business" className="font-semibold text-base sm:text-lg text-foreground">
+              About FieldView.Live
+            </h2>
+            <p>
+              FieldView.Live streams youth sports games. Teams and event owners share one link; parents and fans watch
+              free or buy a game. FieldView.Live is operated by Noctusoft, Inc.
+            </p>
+            <p>
+              Support:{' '}
+              <a
+                href="mailto:support@fieldview.live"
+                className="underline underline-offset-4 hover:text-foreground"
+                data-testid="link-about-support-email"
+              >
+                support@fieldview.live
+              </a>
+            </p>
+            <nav className="flex flex-wrap gap-4 justify-center" aria-label="Policies">
+              <Link href="/sms" className="underline underline-offset-4 hover:text-foreground" data-testid="link-about-sms">
+                Text messages
+              </Link>
+              <Link
+                href="/privacy"
+                className="underline underline-offset-4 hover:text-foreground"
+                data-testid="link-about-privacy"
+              >
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="underline underline-offset-4 hover:text-foreground" data-testid="link-about-terms">
+                Terms of Service
+              </Link>
+            </nav>
+          </section>
+
           {/* Quick Links */}
           <div className="pt-6 sm:pt-8 text-sm text-muted-foreground">
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -133,14 +156,5 @@ function HomePageContent() {
         </div>
       </footer>
     </div>
-    </>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <Suspense fallback={null}>
-      <HomePageContent />
-    </Suspense>
   );
 }
