@@ -1,6 +1,8 @@
 import { SMS_BRAND, SMS_SUPPORT_EMAIL } from '@fieldview/data-model';
 import type { Metadata } from 'next';
 
+import { OperatedBy } from '@/components/OperatedBy';
+
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: `Privacy policy for ${SMS_BRAND}`,
@@ -10,6 +12,7 @@ export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 prose prose-neutral dark:prose-invert" data-testid="page-privacy">
       <h1>Privacy Policy</h1>
+      <OperatedBy />
       <p>Last updated: October 1, 2026</p>
       <p>
         {SMS_BRAND} (&quot;we&quot;, &quot;us&quot;) operates the FieldView.Live streaming platform. This policy describes how we

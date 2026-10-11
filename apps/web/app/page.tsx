@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { OperatedBy } from '@/components/OperatedBy';
+
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col" data-testid="container-home">
@@ -90,8 +92,9 @@ export default function HomePage() {
             </h2>
             <p>
               FieldView.Live streams youth sports games. Teams and event owners share one link; parents and fans watch
-              free or buy a game. FieldView.Live is operated by Noctusoft, Inc.
+              free or buy a game.
             </p>
+            <OperatedBy />
             <p>
               Support:{' '}
               <a
