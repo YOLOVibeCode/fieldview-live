@@ -1,6 +1,8 @@
 import { SMS_BRAND, SMS_PURPOSE_PHRASE, SMS_SUPPORT_EMAIL } from '@fieldview/data-model';
 import type { Metadata } from 'next';
 
+import { OperatedBy } from '@/components/OperatedBy';
+
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: `Terms of service for ${SMS_BRAND}`,
@@ -10,6 +12,7 @@ export default function TermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 prose prose-neutral dark:prose-invert" data-testid="page-terms">
       <h1>Terms of Service</h1>
+      <OperatedBy />
       <p>Last updated: October 1, 2026</p>
 
       <section id="sms" data-testid="section-terms-sms">
