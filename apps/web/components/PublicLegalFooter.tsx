@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { OperatedBy } from '@/components/OperatedBy';
+
 export function PublicLegalFooter() {
   return (
     <footer
@@ -20,6 +22,7 @@ export function PublicLegalFooter() {
           </Link>
         </nav>
       </div>
+      <OperatedBy className="mx-auto mt-2 max-w-6xl" />
     </footer>
   );
 }
