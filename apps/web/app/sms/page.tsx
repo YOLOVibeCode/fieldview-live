@@ -2,6 +2,7 @@ import { SMS_BRAND, SMS_SUPPORT_EMAIL } from '@fieldview/data-model';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { OperatedBy } from '@/components/OperatedBy';
 import { SmsOptInPageForm } from '@/components/SmsOptInPageForm';
 
 export const metadata: Metadata = {
@@ -13,6 +14,7 @@ export default function SmsOptInPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-10" data-testid="page-sms">
       <h1 className="text-3xl font-bold">Text messages from {SMS_BRAND}</h1>
+      <OperatedBy className="mt-2 text-sm text-muted-foreground" />
       <p className="mt-4 text-muted-foreground">
         {SMS_BRAND} streams youth sports games. Parents and fans can choose to get game alerts, score updates, and
         payment links by text for the teams and games they follow or buy. These are messages about games you chose,

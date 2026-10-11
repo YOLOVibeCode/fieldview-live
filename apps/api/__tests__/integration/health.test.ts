@@ -14,5 +14,12 @@ describe('Health Endpoint', () => {
     expect(response.body.checks).toBeDefined();
     expect(response.body.checks.database).toBeDefined();
     expect(response.body.checks.redis).toBeDefined();
+
+    expect(typeof response.body.ok).toBe('boolean');
+    expect(response.body.service).toBe('fieldview-api');
+    expect(typeof response.body.commit).toBe('string');
+    expect(typeof response.body.env).toBe('string');
+    expect(typeof response.body.utc).toBe('string');
+    expect(response.body.ok).toBe(response.body.status === 'healthy');
   });
 });
