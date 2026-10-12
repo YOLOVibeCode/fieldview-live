@@ -26,12 +26,12 @@ Edit `apps/api/.env` and `apps/web/.env.local` with your Square sandbox values:
 # In apps/api/.env AND apps/web/.env.local:
 
 # Square Sandbox (you already have these!)
-SQUARE_ACCESS_TOKEN="EAAAl9Mn5O6Tx4lwa6GmnZZ231tv_uIw8DFz7AqvUjMr5LIUclId9TUzL83eIMt8"
+SQUARE_ACCESS_TOKEN="your_square_sandbox_access_token"
 SQUARE_LOCATION_ID="LJWT6C2KX3YZV"
 SQUARE_ENVIRONMENT="sandbox"
 
 # Square Application ID (for frontend SDK)
-NEXT_PUBLIC_SQUARE_APPLICATION_ID="sandbox-sq0idb-0H2RD-9_GtVX2NUU2Do6lw"
+NEXT_PUBLIC_SQUARE_APPLICATION_ID="your_square_sandbox_application_id"
 NEXT_PUBLIC_SQUARE_LOCATION_ID="LJWT6C2KX3YZV"
 NEXT_PUBLIC_SQUARE_ENVIRONMENT="sandbox"
 
@@ -40,7 +40,7 @@ NEXT_PUBLIC_SQUARE_ENVIRONMENT="sandbox"
 SQUARE_WEBHOOK_SIGNATURE_KEY="your_webhook_signature_key_here"
 
 # Square OAuth (for owner onboarding - optional for now)
-SQUARE_APPLICATION_ID="sandbox-sq0idb-0H2RD-9_GtVX2NUU2Do6lw"
+SQUARE_APPLICATION_ID="your_square_sandbox_application_id"
 SQUARE_APPLICATION_SECRET="your_square_application_secret"
 SQUARE_REDIRECT_URI="http://localhost:4301/api/owners/square/callback"
 ```
