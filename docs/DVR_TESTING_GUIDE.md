@@ -121,7 +121,7 @@ docker-compose up -d
 **Production:**
 ```bash
 # Check Railway database is accessible
-psql "postgresql://postgres:yrCdfWDvdeHwLfEvGGuKgLWjxASIMoZV@gondola.proxy.rlwy.net:42430/railway" -c "SELECT 1;"
+psql "$DATABASE_URL" -c "SELECT 1;"
 ```
 
 ### **Build Failed**
