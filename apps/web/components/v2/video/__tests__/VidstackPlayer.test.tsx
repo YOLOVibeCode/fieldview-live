@@ -1,7 +1,6 @@
 import { forwardRef, useImperativeHandle, type ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VidstackPlayer } from '../VidstackPlayer';
 
 const playerState = {
@@ -61,30 +60,41 @@ vi.mock('@vidstack/react/player/layouts/default', () => ({
 
 describe('VidstackPlayer seek overlay', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     playerState.currentTime = 5000;
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function revealOverlay() {
+    fireEvent.pointerDown(screen.getByTestId('seek-overlay-longpress-zone'), {
+      button: 0,
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+  }
+
   it('seeks -30s within seekable range', async () => {
-    const user = userEvent.setup();
     render(<VidstackPlayer src="https://example.com/live.m3u8" />);
-    await user.click(screen.getByTestId('seek-overlay-trigger'));
-    await user.click(screen.getByTestId('seek-overlay-btn--30'));
+    await revealOverlay();
+    fireEvent.click(screen.getByTestId('seek-overlay-btn--30'));
     expect(playerState.currentTime).toBe(4970);
   });
 
   it('go-to-start uses seekable start', async () => {
-    const user = userEvent.setup();
     render(<VidstackPlayer src="https://example.com/live.m3u8" />);
-    await user.click(screen.getByTestId('seek-overlay-trigger'));
-    await user.click(screen.getByTestId('seek-overlay-btn-start'));
+    await revealOverlay();
+    fireEvent.click(screen.getByTestId('seek-overlay-btn-start'));
     expect(playerState.currentTime).toBe(120);
   });
 
   it('go-live seeks to finite seekable end', async () => {
-    const user = userEvent.setup();
     render(<VidstackPlayer src="https://example.com/live.m3u8" />);
-    await user.click(screen.getByTestId('seek-overlay-trigger'));
-    await user.click(screen.getByTestId('seek-overlay-btn-live'));
+    await revealOverlay();
+    fireEvent.click(screen.getByTestId('seek-overlay-btn-live'));
     expect(playerState.currentTime).toBe(5100);
     expect(Number.isFinite(playerState.currentTime)).toBe(true);
   });

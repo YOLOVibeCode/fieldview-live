@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * SeekOverlay - Tap-to-reveal frosted-glass seek strip overlaid on the video player.
+ * SeekOverlay - Long-press frosted-glass seek strip overlaid on the video player.
  *
- * Trigger: tap the center 20% of the video, or long-press (2s) anywhere above controls.
+ * Trigger: hold 2s anywhere on the video above the native controls (not a tap).
  * Shows a 9-segment icon strip:  |◀  ◀◀◀  ◀◀  ◀  ⏸/▶  ▶  ▶▶  ▶▶▶  ▶|
- * Dismiss: tap outside the strip, or auto-dismiss after 3s idle.
+ * Dismiss: tap anywhere else (tabs, chrome, video, backdrop), or auto-dismiss after 3s idle.
  *
  * IMPORTANT: The overlay uses pointer-events-none by default and excludes the
  * bottom 60px so native player controls (volume, fullscreen, etc.) remain accessible.
  */
 
-import { useCallback, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, type MouseEvent } from 'react';
 import { useSeekOverlay } from '@/hooks/v2/useSeekOverlay';
 
 /* ─── SVG Icon Helpers ─── */
@@ -114,8 +114,24 @@ export interface SeekOverlayProps {
 }
 
 export function SeekOverlay({ onSeek, onTogglePause, onGoToStart, onGoLive, isPaused }: SeekOverlayProps) {
-  const { isVisible, show, dismiss, resetAutoDismiss, longPressHandlers } =
+  const { isVisible, dismiss, resetAutoDismiss, longPressHandlers } =
     useSeekOverlay();
+  const buttonsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const onPointerDownCapture = (event: PointerEvent) => {
+      const buttons = buttonsRef.current;
+      if (buttons && event.target instanceof Node && buttons.contains(event.target)) {
+        return;
+      }
+      dismiss();
+    };
+
+    document.addEventListener('pointerdown', onPointerDownCapture, true);
+    return () => document.removeEventListener('pointerdown', onPointerDownCapture, true);
+  }, [isVisible, dismiss]);
 
   const handleSegmentClick = useCallback(
     (action: SegmentAction) => (e: MouseEvent) => {
@@ -139,18 +155,6 @@ export function SeekOverlay({ onSeek, onTogglePause, onGoToStart, onGoLive, isPa
     [onSeek, onTogglePause, onGoToStart, onGoLive, resetAutoDismiss]
   );
 
-  const handleCenterTap = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      if (isVisible) {
-        dismiss();
-      } else {
-        show();
-      }
-    },
-    [isVisible, show, dismiss]
-  );
-
   const handleBackdropClick = useCallback(
     (e: MouseEvent) => {
       if (e.target === e.currentTarget) {
@@ -164,19 +168,13 @@ export function SeekOverlay({ onSeek, onTogglePause, onGoToStart, onGoLive, isPa
     <div className="absolute inset-0 pointer-events-none" data-testid="seek-overlay-root">
       {/* Long-press detection zone — excludes bottom 60px for native controls */}
       <div
-        className="absolute inset-x-0 top-0 bottom-[60px] z-10 pointer-events-auto"
-        style={{ display: isVisible ? 'none' : 'block' }}
+        className="absolute inset-x-0 top-0 bottom-[60px] z-10 pointer-events-auto select-none touch-manipulation"
+        style={{ display: isVisible ? 'none' : 'block', WebkitTouchCallout: 'none' }}
         {...longPressHandlers}
+        onContextMenu={(e) => e.preventDefault()}
+        aria-label="Hold two seconds to show skip controls"
         data-testid="seek-overlay-longpress-zone"
-      >
-        {/* Center 20% trigger zone */}
-        <div
-          className="absolute inset-y-0"
-          style={{ left: '40%', right: '40%' }}
-          onClick={handleCenterTap}
-          data-testid="seek-overlay-trigger"
-        />
-      </div>
+      />
 
       {/* Visible strip — also excludes bottom 60px */}
       <div
@@ -190,6 +188,7 @@ export function SeekOverlay({ onSeek, onTogglePause, onGoToStart, onGoLive, isPa
         data-testid="seek-overlay-backdrop"
       >
         <div
+          ref={buttonsRef}
           className="flex items-center rounded-full bg-black/40 backdrop-blur-md shadow-lg shadow-black/20 overflow-hidden"
           data-testid="seek-overlay-buttons"
         >
