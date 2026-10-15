@@ -17,6 +17,7 @@ import { validateRequest } from '../middleware/validation';
 import { AdminAccountRepository } from '../repositories/implementations/AdminAccountRepository';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { GameRepository } from '../repositories/implementations/GameRepository';
+import { LedgerRepository } from '../repositories/implementations/LedgerRepository';
 import { PlaybackSessionRepository } from '../repositories/implementations/PlaybackSessionRepository';
 import { PurchaseRepository } from '../repositories/implementations/PurchaseRepository';
 import { RefundRepository } from '../repositories/implementations/RefundRepository';
@@ -27,6 +28,7 @@ import { AudienceService } from '../services/AudienceService';
 import { getMarketplaceConfig } from '../lib/marketplace';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
 import type { IRefundWriter } from '../services/IRefundService';
+import { LedgerService } from '../services/LedgerService';
 import { RefundService } from '../services/RefundService';
 import { MarketplaceStoreService } from '../services/MarketplaceStoreService';
 import { SmsService } from '../services/SmsService';
@@ -95,6 +97,7 @@ function getRefundService(): IRefundWriter {
     const ownerRepo = new OwnerAccountRepository(prisma);
     const smsService = new SmsService(gameRepo, viewerIdentityRepo, viewerIdentityRepo);
     const marketplace = new MarketplaceStoreService(getMarketplaceConfig());
+    const ledgerRepo = new LedgerRepository(prisma);
     refundServiceInstance = new RefundService(
       purchaseRepo,
       purchaseRepo,
@@ -104,7 +107,9 @@ function getRefundService(): IRefundWriter {
       entitlementRepo,
       smsService,
       ownerRepo,
-      marketplace
+      marketplace,
+      new LedgerService(ledgerRepo, ownerRepo),
+      ledgerRepo
     );
   }
   return refundServiceInstance;
