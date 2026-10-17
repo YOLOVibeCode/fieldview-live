@@ -30,7 +30,7 @@ export interface MarketplaceWebhookEvent {
   id?: string;
   type?: string;
   buyer?: { userId?: string | null } | null;
-  money?: { amountCents?: number | null; feeCents?: number | null } | null;
+  money?: { amountCents?: number | null; feeCents?: number | null; refundedCents?: number | null } | null;
   refs?: { paymentId?: string | null } | null;
   seller?: { key?: string | null; chargesEnabled?: boolean } | null;
   data?: {
@@ -173,7 +173,13 @@ router.post('/marketplace', (req, res, next) => {
         if (paymentId) {
           const purchase = await purchaseRepo.getByPaymentProviderId(paymentId);
           if (purchase) {
-            await purchaseRepo.update(purchase.id, { status: 'refunded', refundedAt: new Date() });
+            // money.refundedCents is the total refunded so far; without it, assume a full refund.
+            const refundedCents = event.money?.refundedCents;
+            const isPartial = typeof refundedCents === 'number' && refundedCents < purchase.amountCents;
+            await purchaseRepo.update(purchase.id, {
+              status: isPartial ? 'partially_refunded' : 'refunded',
+              refundedAt: new Date(),
+            });
           }
         }
       }

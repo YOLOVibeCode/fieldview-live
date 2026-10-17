@@ -1,13 +1,26 @@
 /**
  * Seek Overlay E2E Tests
  *
- * Verifies the tap-to-reveal seek overlay, Go Live button, and keyboard seeking.
+ * Verifies the long-press seek overlay, Go Live button, and keyboard seeking.
  * Uses /demo/seek-protection which renders VidstackPlayer with SeekOverlay.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const SEEK_PROTECTION_URL = '/demo/seek-protection';
+
+async function revealSeekOverlay(page: Page): Promise<void> {
+  const zone = page.getByTestId('seek-overlay-longpress-zone');
+  await zone.waitFor({ state: 'visible' });
+  const box = await zone.boundingBox();
+  if (!box) {
+    throw new Error('seek-overlay-longpress-zone has no bounding box');
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(2100);
+  await page.mouse.up();
+}
 
 test.describe('Seek overlay', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,15 +29,25 @@ test.describe('Seek overlay', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('tapping center trigger zone shows seek overlay buttons', async ({ page }) => {
-    const trigger = page.getByTestId('seek-overlay-trigger');
-    await trigger.click();
+  test('a tap does not show seek overlay buttons', async ({ page }) => {
+    await page.getByTestId('seek-overlay-longpress-zone').click();
+    await expect(page.getByTestId('seek-overlay-buttons')).not.toBeVisible();
+  });
+
+  test('holding 2s shows seek overlay buttons', async ({ page }) => {
+    await revealSeekOverlay(page);
     await expect(page.getByTestId('seek-overlay-buttons')).toBeVisible({ timeout: 2000 });
   });
 
+  test('tapping elsewhere on the page dismisses the overlay', async ({ page }) => {
+    await revealSeekOverlay(page);
+    await expect(page.getByTestId('seek-overlay-buttons')).toBeVisible({ timeout: 2000 });
+    await page.locator('body').click({ position: { x: 8, y: 8 }, force: true });
+    await expect(page.getByTestId('seek-overlay-buttons')).not.toBeVisible();
+  });
+
   test('tapping backdrop dismisses the overlay', async ({ page }) => {
-    const trigger = page.getByTestId('seek-overlay-trigger');
-    await trigger.click();
+    await revealSeekOverlay(page);
     await expect(page.getByTestId('seek-overlay-buttons')).toBeVisible({ timeout: 2000 });
     const backdrop = page.getByTestId('seek-overlay-backdrop');
     const box = await backdrop.boundingBox();
@@ -38,8 +61,7 @@ test.describe('Seek overlay', () => {
   });
 
   test('seek overlay auto-dismisses after idle timeout', async ({ page }) => {
-    const trigger = page.getByTestId('seek-overlay-trigger');
-    await trigger.click();
+    await revealSeekOverlay(page);
     await expect(page.getByTestId('seek-overlay-buttons')).toBeVisible({ timeout: 2000 });
     await page.waitForTimeout(5500);
     await expect(page.getByTestId('seek-overlay-buttons')).not.toBeVisible();

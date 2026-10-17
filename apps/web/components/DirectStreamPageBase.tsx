@@ -39,6 +39,7 @@ import { ViewerAnalyticsPanel } from '@/components/ViewerAnalyticsPanel';
 import { PaywallModal } from '@/components/PaywallModal';
 // v2 Components
 import { StreamPlayer } from '@/components/v2/video/StreamPlayer';
+import { SeekHoldHint } from '@/components/v2/video/SeekHoldHint';
 import { useFullscreen } from '@/hooks/v2/useFullscreen';
 import { Chat, ReportEventSheet } from '@/components/v2/chat';
 import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
@@ -1183,6 +1184,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </StreamPlayer>
               )}
 
+              <SeekHoldHint />
+
               {/* Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet) */}
 
               {/* Real-time bookmark toast notifications (portrait) */}
@@ -1878,6 +1881,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </StreamPlayer>
               )}
 
+              <SeekHoldHint />
+
               {/* Bookmark controls removed — bookmarks accessed via drawer (right-edge tab / portrait tab / mobile bottom sheet) */}
 
               {/* Real-time bookmark toast notifications */}
@@ -1936,8 +1941,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               )}
               {/* Touch-friendly hint */}
               {!isFullscreen && isTouch && (
-                <p className="mt-2">
-                  💡 Tap video for controls • Tap 📊 for score • Tap 💬 to chat
+                <p className="mt-2" data-testid="hint-seek-hold">
+                  💡 Hold the video 2s to skip • Tap 📊 for score • Tap 💬 to chat
                 </p>
               )}
             </div>
