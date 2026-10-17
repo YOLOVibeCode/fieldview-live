@@ -6,13 +6,14 @@ import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 
 const getById = vi.fn();
 const update = vi.fn();
+const getByPaymentProviderId = vi.fn();
 
 vi.mock('../../lib/prisma', () => ({
   prisma: { viewerIdentity: { findUnique: vi.fn().mockResolvedValue({ email: 'viewer@example.com' }) } },
 }));
 
 vi.mock('../../repositories/implementations/PurchaseRepository', () => ({
-  PurchaseRepository: vi.fn().mockImplementation(() => ({ getById, update, getByPaymentProviderId: vi.fn() })),
+  PurchaseRepository: vi.fn().mockImplementation(() => ({ getById, update, getByPaymentProviderId })),
 }));
 
 import type { PurchaseFulfillmentService } from '../../services/PurchaseFulfillmentService';
@@ -70,6 +71,7 @@ describe('POST /api/webhooks/marketplace (event v1)', () => {
     vi.stubEnv('FIELDVIEW_WEBHOOK_CALLBACK_URL', CALLBACK);
     getById.mockReset();
     update.mockReset();
+    getByPaymentProviderId.mockReset();
     fulfillPaidPurchase.mockClear();
     setPurchaseFulfillmentService({ fulfillPaidPurchase } as unknown as PurchaseFulfillmentService);
   });
@@ -103,6 +105,29 @@ describe('POST /api/webhooks/marketplace (event v1)', () => {
     const res = await send(v1('marketplace.purchase.failed'));
     expect(res.status).toBe(200);
     expect(update).toHaveBeenCalledWith('purchase_1', expect.objectContaining({ status: 'failed' }));
+  });
+
+  it('marks a partial refund as partially_refunded', async () => {
+    getByPaymentProviderId.mockResolvedValue({ id: 'purchase_1', status: 'paid', amountCents: 500 });
+    const res = await send(
+      v1('marketplace.refund.completed', {
+        money: { amountCents: 500, currency: 'USD', refundedCents: 200, feeCents: 50 },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(getByPaymentProviderId).toHaveBeenCalledWith('pay_1');
+    expect(update).toHaveBeenCalledWith('purchase_1', expect.objectContaining({ status: 'partially_refunded' }));
+  });
+
+  it('marks a full refund as refunded', async () => {
+    getByPaymentProviderId.mockResolvedValue({ id: 'purchase_1', status: 'paid', amountCents: 500 });
+    const res = await send(
+      v1('marketplace.refund.completed', {
+        money: { amountCents: 500, currency: 'USD', refundedCents: 500, feeCents: 50 },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(update).toHaveBeenCalledWith('purchase_1', expect.objectContaining({ status: 'refunded' }));
   });
 
   it('rejects an event signed with another key', async () => {

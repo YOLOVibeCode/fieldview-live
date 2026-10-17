@@ -5,18 +5,23 @@
  * Handles refund evaluation and processing.
  */
 
+import type { Purchase, Refund } from '@prisma/client';
+
 import { BadRequestError, NotFoundError } from '../lib/errors';
+import { logger } from '../lib/logger';
 import { resolveSellerKey } from '../lib/marketplace';
+import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
+import type { ILedgerReader } from '../repositories/ILedgerRepository';
 import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
 import type { IPlaybackSessionReader } from '../repositories/IPlaybackSessionRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
 import type { IRefundReader as IRefundRepoReader, IRefundWriter as IRefundRepoWriter } from '../repositories/IRefundRepository';
 import { calculateRefund, type RefundCalculationInput } from '../utils/refundCalculator';
 
-import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
-import type { IMarketplaceStorePayments } from './MarketplaceStoreService';
 import type { IRefundReader, IRefundWriter, AggregatedTelemetry, RefundEvaluation } from './IRefundService';
 import type { ISmsWriter } from './ISmsService';
+import type { LedgerService } from './LedgerService';
+import type { IMarketplaceStorePayments } from './MarketplaceStoreService';
 
 const DEFAULT_GAME_DURATION_MS = 90 * 60 * 1000; // 90 minutes
 
@@ -30,7 +35,9 @@ export class RefundService implements IRefundReader, IRefundWriter {
     private entitlementReader: IEntitlementRepoReader,
     private smsWriter: ISmsWriter,
     private ownerReader: IOwnerAccountReader,
-    private marketplace: IMarketplaceStorePayments
+    private marketplace: IMarketplaceStorePayments,
+    private ledgerService: Pick<LedgerService, 'createRefundLedgerEntries'>,
+    private ledgerReader: Pick<ILedgerReader, 'findByReference'>
   ) {}
 
   async evaluateRefundEligibility(purchaseId: string): Promise<RefundEvaluation> {
@@ -117,10 +124,11 @@ export class RefundService implements IRefundReader, IRefundWriter {
       throw new NotFoundError('Purchase not found');
     }
 
-    // Check if already refunded
-    const existingRefunds = await this.refundReader.getByPurchaseId(purchaseId);
-    if (existingRefunds.length > 0) {
-      throw new BadRequestError('Purchase already refunded');
+    // Check if already refunded, or retry a refund whose store call failed
+    const pending = this.findRetryableRefund(await this.refundReader.getByPurchaseId(purchaseId));
+    if (pending) {
+      await this.processMarketplaceRefund(pending.id);
+      return pending;
     }
 
     // Re-evaluate to get refund amount
@@ -148,15 +156,8 @@ export class RefundService implements IRefundReader, IRefundWriter {
       },
     });
 
-    // Update purchase status
+    // Refund on the store; this also updates the purchase status once the store accepts it
     const refundAmount = evaluation.amountCents;
-    const isFullRefund = refundAmount >= purchase.amountCents;
-    await this.purchaseWriter.update(purchaseId, {
-      status: isFullRefund ? 'refunded' : 'partially_refunded',
-      refundedAt: new Date(),
-    });
-
-    // Process Square refund
     await this.processMarketplaceRefund(refund.id);
 
     // Send SMS notification
@@ -189,9 +190,15 @@ export class RefundService implements IRefundReader, IRefundWriter {
     if (!purchase) {
       throw new NotFoundError('Purchase not found');
     }
-    const existingRefunds = await this.refundReader.getByPurchaseId(purchaseId);
-    if (existingRefunds.length > 0) {
-      throw new BadRequestError('Purchase already refunded');
+    const pending = this.findRetryableRefund(await this.refundReader.getByPurchaseId(purchaseId));
+    if (pending) {
+      if (pending.amountCents !== amountCents) {
+        throw new BadRequestError(
+          `A refund of ${pending.amountCents} cents is already pending for this purchase; retry with that amount`
+        );
+      }
+      await this.processMarketplaceRefund(pending.id);
+      return pending;
     }
     if (amountCents <= 0 || amountCents > purchase.amountCents) {
       throw new BadRequestError('Invalid refund amount');
@@ -215,15 +222,20 @@ export class RefundService implements IRefundReader, IRefundWriter {
       },
     });
 
-    const isFullRefund = amountCents >= purchase.amountCents;
-    await this.purchaseWriter.update(purchaseId, {
-      status: isFullRefund ? 'refunded' : 'partially_refunded',
-      refundedAt: new Date(),
-    });
-
     await this.processMarketplaceRefund(refund.id);
 
     return refund;
+  }
+
+  /**
+   * A refund whose store call failed stays unprocessed. Retrying it reuses its id,
+   * which is the store's idempotency key, so a retry can never refund twice.
+   */
+  private findRetryableRefund(existingRefunds: Refund[]): Refund | undefined {
+    if (existingRefunds.some((r) => r.processedAt)) {
+      throw new BadRequestError('Purchase already refunded');
+    }
+    return existingRefunds[0];
   }
 
   async processSquareRefund(refundId: string): Promise<void> {
@@ -261,12 +273,36 @@ export class RefundService implements IRefundReader, IRefundWriter {
           refundId,
           reason: refund.reasonCode,
         });
+
+        // Update the purchase only after the store accepts the refund. processedAt goes
+        // last, so a failure in between leaves the refund retryable (every step is idempotent).
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const isFullRefund = refund.amountCents >= (purchase.amountCents as number);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+        await this.purchaseWriter.update(purchase.id, {
+          status: isFullRefund ? 'refunded' : 'partially_refunded',
+          refundedAt: new Date(),
+        });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        await this.writeRefundLedger(purchase, refund.amountCents, refundId);
         await this.refundWriter.update(refundId, { processedAt: new Date() });
         return;
       }
     }
 
     throw new BadRequestError('Owner marketplace seller is not configured for this purchase');
+  }
+
+  private async writeRefundLedger(purchase: Purchase, amountCents: number, refundId: string): Promise<void> {
+    try {
+      const existing = await this.ledgerReader.findByReference('refund', refundId);
+      if (existing.length === 0) {
+        await this.ledgerService.createRefundLedgerEntries(purchase, amountCents, refundId);
+      }
+    } catch (ledgerError) {
+      // The money has already moved; a missing ledger row must not fail the refund.
+      logger.error({ ledgerError, refundId }, 'Failed to create refund ledger entries');
+    }
   }
 
   /**
