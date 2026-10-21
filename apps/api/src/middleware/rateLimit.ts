@@ -67,6 +67,19 @@ export const checkoutRateLimit = createRateLimiter({
 });
 
 /**
+ * Access-link Rate Limit: 5 requests per IP per 15 minutes.
+ * Each request can send an email, so keep it tight.
+ */
+export const accessLinkRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many access link requests, please try again later.',
+  keyGenerator: (req: Request) => ipKeyGenerator(req.ip || 'unknown'),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Watch Rate Limit: 20 requests per IP per minute
  */
 export const watchRateLimit = createRateLimiter({

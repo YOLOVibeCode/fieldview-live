@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe('buildReceiptStreamUrl', () => {
-  it('returns /direct/{slug} for direct stream purchases', async () => {
+  it('returns /direct/{slug} with the access token for direct stream purchases', async () => {
     vi.stubEnv('APP_URL', 'https://fieldview.live');
     dsFindUnique.mockResolvedValue({ slug: 'my-stream' });
 
@@ -26,7 +26,7 @@ describe('buildReceiptStreamUrl', () => {
       'token-abc',
     );
 
-    expect(url).toBe('https://fieldview.live/direct/my-stream');
+    expect(url).toBe('https://fieldview.live/direct/my-stream?access=token-abc');
   });
 
   it('returns /stream/{token} for game purchases', async () => {
