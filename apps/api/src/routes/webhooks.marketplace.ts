@@ -180,6 +180,14 @@ router.post('/marketplace', (req, res, next) => {
               status: isPartial ? 'partially_refunded' : 'refunded',
               refundedAt: new Date(),
             });
+            // A full refund ends access; a partial refund keeps it.
+            if (!isPartial) {
+              const entitlementRepo = new EntitlementRepository(prisma);
+              const entitlement = await entitlementRepo.getByPurchaseId(purchase.id);
+              if (entitlement && entitlement.status !== 'revoked') {
+                await entitlementRepo.update(entitlement.id, { status: 'revoked', revokedAt: new Date() });
+              }
+            }
           }
         }
       }
@@ -198,6 +206,20 @@ router.post('/marketplace', (req, res, next) => {
               marketplaceSellerKey: sellerKey,
               paymentsConnectedAt: owner.paymentsConnectedAt ?? new Date(),
             });
+          }
+        }
+      }
+
+      // The seller can no longer take charges: the coach is not payment-ready,
+      // so viewers see "Payments unavailable" instead of a checkout that fails.
+      const sellerBlocked = event.type === 'seller.updated' && event.seller?.chargesEnabled === false;
+      if (sellerBlocked) {
+        const sellerKey = event.seller?.key || (req.headers['x-connect-seller-key'] as string | undefined);
+        if (sellerKey) {
+          const ownerRepo = new OwnerAccountRepository(prisma);
+          const owner = await ownerRepo.findById(sellerKey);
+          if (owner?.paymentsConnectedAt) {
+            await ownerRepo.update(owner.id, { paymentsConnectedAt: null });
           }
         }
       }
