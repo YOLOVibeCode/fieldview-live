@@ -72,6 +72,10 @@ router.get('/me/payments/status', requireOwnerAuth, (req: AuthRequest, res, next
         merchantId = status.merchantId;
         if (connected && !owner.paymentsConnectedAt) {
           await repo.update(owner.id, { paymentsConnectedAt: new Date(), payoutProviderRef: merchantId ?? owner.payoutProviderRef });
+        } else if (!connected && owner.paymentsConnectedAt) {
+          // The store says the seller is no longer connected: stop taking payments.
+          await repo.update(owner.id, { paymentsConnectedAt: null });
+          owner.paymentsConnectedAt = null;
         }
       }
 

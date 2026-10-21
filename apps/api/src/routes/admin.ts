@@ -109,7 +109,8 @@ function getRefundService(): IRefundWriter {
       ownerRepo,
       marketplace,
       new LedgerService(ledgerRepo, ownerRepo),
-      ledgerRepo
+      ledgerRepo,
+      entitlementRepo
     );
   }
   return refundServiceInstance;

@@ -38,3 +38,11 @@ export function isStepComplete(step: PaymentsStep, status: OwnerPaymentsStatus):
   }
   return status.connected;
 }
+
+/**
+ * The paywall checkbox in the owner console. A coach whose payments aren't ready
+ * can't turn the paywall on, but can always turn an active paywall off.
+ */
+export function isPaywallToggleDisabled(paymentsReady: boolean, paywallOn: boolean): boolean {
+  return !paymentsReady && !paywallOn;
+}

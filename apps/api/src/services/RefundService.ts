@@ -10,7 +10,10 @@ import type { Purchase, Refund } from '@prisma/client';
 import { BadRequestError, NotFoundError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { resolveSellerKey } from '../lib/marketplace';
-import type { IEntitlementReader as IEntitlementRepoReader } from '../repositories/IEntitlementRepository';
+import type {
+  IEntitlementReader as IEntitlementRepoReader,
+  IEntitlementWriter as IEntitlementRepoWriter,
+} from '../repositories/IEntitlementRepository';
 import type { ILedgerReader } from '../repositories/ILedgerRepository';
 import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
 import type { IPlaybackSessionReader } from '../repositories/IPlaybackSessionRepository';
@@ -37,7 +40,8 @@ export class RefundService implements IRefundReader, IRefundWriter {
     private ownerReader: IOwnerAccountReader,
     private marketplace: IMarketplaceStorePayments,
     private ledgerService: Pick<LedgerService, 'createRefundLedgerEntries'>,
-    private ledgerReader: Pick<ILedgerReader, 'findByReference'>
+    private ledgerReader: Pick<ILedgerReader, 'findByReference'>,
+    private entitlementWriter: Pick<IEntitlementRepoWriter, 'update'>
   ) {}
 
   async evaluateRefundEligibility(purchaseId: string): Promise<RefundEvaluation> {
@@ -285,12 +289,24 @@ export class RefundService implements IRefundReader, IRefundWriter {
         });
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         await this.writeRefundLedger(purchase, refund.amountCents, refundId);
+        if (isFullRefund) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+          await this.revokeAccess(purchase.id);
+        }
         await this.refundWriter.update(refundId, { processedAt: new Date() });
         return;
       }
     }
 
     throw new BadRequestError('Owner marketplace seller is not configured for this purchase');
+  }
+
+  /** A full refund ends the viewer's access to the stream. */
+  private async revokeAccess(purchaseId: string): Promise<void> {
+    const entitlement = await this.entitlementReader.getByPurchaseId(purchaseId);
+    if (entitlement && entitlement.status !== 'revoked') {
+      await this.entitlementWriter.update(entitlement.id, { status: 'revoked', revokedAt: new Date() });
+    }
   }
 
   private async writeRefundLedger(purchase: Purchase, amountCents: number, refundId: string): Promise<void> {

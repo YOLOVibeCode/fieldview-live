@@ -36,6 +36,7 @@ describe('RefundService', () => {
   const marketplace = { refund: vi.fn(), createCheckout: vi.fn() };
   const ledgerService = { createRefundLedgerEntries: vi.fn() };
   const ledgerReader = { findByReference: vi.fn() };
+  const entitlementWriter = { update: vi.fn() };
 
   let svc: RefundService;
 
@@ -50,6 +51,7 @@ describe('RefundService', () => {
     refundReader.getById.mockResolvedValue(pendingRefund());
     marketplace.refund.mockResolvedValue(undefined);
     ledgerReader.findByReference.mockResolvedValue([]);
+    entitlementReader.getByPurchaseId.mockResolvedValue({ id: 'ent-1', status: 'active' });
     svc = new RefundService(
       purchaseReader as never,
       purchaseWriter as never,
@@ -62,6 +64,7 @@ describe('RefundService', () => {
       marketplace as never,
       ledgerService as never,
       ledgerReader as never,
+      entitlementWriter as never,
     );
   });
 
@@ -125,6 +128,20 @@ describe('RefundService', () => {
         'refund-1',
         expect.objectContaining({ processedAt: expect.any(Date) as Date }),
       );
+    });
+
+    it('revokes the viewer\'s access on a full refund', async () => {
+      await svc.processMarketplaceRefund('refund-1');
+      expect(entitlementWriter.update).toHaveBeenCalledWith(
+        'ent-1',
+        expect.objectContaining({ status: 'revoked', revokedAt: expect.any(Date) as Date }),
+      );
+    });
+
+    it('keeps the viewer\'s access on a partial refund', async () => {
+      refundReader.getById.mockResolvedValue(pendingRefund({ amountCents: 200 }));
+      await svc.processMarketplaceRefund('refund-1');
+      expect(entitlementWriter.update).not.toHaveBeenCalled();
     });
 
     it('does nothing for a refund that was already processed', async () => {
