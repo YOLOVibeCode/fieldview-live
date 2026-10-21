@@ -24,7 +24,7 @@ This product does not sign up for OpenAI, Twilio, or SendGrid. It calls two Noct
 - **Mail** — `POST /email/send` or SendGrid drop-in `POST /v3/mail/send` on `api.sendgrid.noctusoft.com`, with the product key and `X-App-Env` (`dev` captures in smtp4dev, `uat` tags and sends, anything else is real delivery).
 - **Text** — `POST /sms/send` or Twilio drop-in on `api.twilio.noctusoft.com`.
 - **One store** — the product's billing alias on noctusoft-relay. Square item codes are `NOCTU-{PRODUCT}-…`. The Square category is `Noctusoft — {brand}`.
-- **Marketplace** — Connect Hub, the FieldView shape: `POST /connect/{productKey}/recipients/{seller}/charge`. The seller is the merchant. The fee lives on that product's `connect_apps` row.
+- **Marketplace** — the FieldView shape: signed buy links to the store at `/buy/connect/{productKey}/{seller}` (`packages/store-client`), webhook `POST /api/webhooks/marketplace`, refunds via `/v1/refunds`. The seller is the merchant. The fee lives on that product's `connect_apps` row and is fixed at 10%.
 
 ## Layout
 
@@ -92,7 +92,7 @@ Known friction in a fresh clone:
 - Do not run migrations against any real database (`prisma migrate deploy|reset`, `pnpm db:migrate`, `scripts/apply-prod-migration.ts`, `scripts/clone-prod-to-uat.ts`). (Enforced.) You **may** add a new migration folder under `packages/data-model/prisma/migrations/` when the schema changes (that path is gitignored; stage it with `git add -f`); never edit an existing one.
 - Do not modify `.github/workflows/`, `railway.toml`, `Dockerfile`, `scripts/railway-start.sh`, or `.husky/` unless the brief explicitly says so.
 - Do not commit secrets or `.env` files. This repo must hold **no** Square / Twilio / SendGrid / Google credentials: all vendor traffic goes through the Noctusoft relay (see `CLAUDE.md`).
-- Do not extend the legacy in-repo Square "Model A" integration; the decided direction is the relay Connect Hub (`docs/RELAY-CONNECT-HUB-MIGRATION.md`).
+- Do not bring back the removed Square "Model A" integration or the Connect Hub charge path. Payments go through the Noctusoft store marketplace, and paywall rules are in `docs/PAYWALL-PLAN.md`.
 - Do not add runtime dependencies without stating why in the PR description.
 - Do not bump `version` in `package.json` files; `scripts/version-manager.sh` owns that and humans run it at deploy time.
 
