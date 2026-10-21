@@ -8,6 +8,13 @@ import { apiClient } from '@/lib/api-client';
 import { dataEventBus, DataEvents } from '@/lib/event-bus';
 import { watchPathFromPurchaseStatus } from '@/lib/checkout-return';
 
+const POLL_INTERVAL_MS = 2000;
+// The store's webhook normally lands within seconds; after this, stop polling
+// and point the viewer to the receipt email, which carries the same watch link.
+const POLL_TIMEOUT_MS = 2 * 60 * 1000;
+
+type Outcome = 'pending' | 'paid' | 'failed' | 'unconfirmed';
+
 export default function CheckoutSuccessPage() {
   const params = useParams();
   const router = useRouter();
@@ -15,13 +22,19 @@ export default function CheckoutSuccessPage() {
 
   const [entitlementToken, setEntitlementToken] = useState<string | null>(null);
   const [watchPath, setWatchPath] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [outcome, setOutcome] = useState<Outcome>('pending');
 
   useEffect(() => {
+    if (!purchaseId) return undefined;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = Date.now();
+
     // Poll for purchase status and get entitlement token
     async function checkPurchaseStatus() {
       try {
         const data = await apiClient.getPurchaseStatus(purchaseId);
+        if (cancelled) return;
         if (data.status === 'paid' && data.entitlementToken) {
           setEntitlementToken(data.entitlementToken);
           setWatchPath(watchPathFromPurchaseStatus(data));
@@ -29,30 +42,35 @@ export default function CheckoutSuccessPage() {
             purchaseId,
             entitlementToken: data.entitlementToken,
           });
-          setLoading(false);
+          setOutcome('paid');
           return;
         }
 
         if (data.status === 'failed') {
           dataEventBus.emit(DataEvents.PURCHASE_FAILED, { purchaseId });
-          setLoading(false);
+          setOutcome('failed');
           return;
         }
 
-        // Poll again after delay
-        setTimeout(checkPurchaseStatus, 2000);
-      } catch (err) {
-        // Best-effort: show generic success state if status polling fails.
-        setLoading(false);
+        if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+          setOutcome('unconfirmed');
+          return;
+        }
+        timer = setTimeout(() => void checkPurchaseStatus(), POLL_INTERVAL_MS);
+      } catch {
+        // Don't claim success we can't confirm.
+        if (!cancelled) setOutcome('unconfirmed');
       }
     }
 
-    if (purchaseId) {
-      checkPurchaseStatus();
-    }
+    void checkPurchaseStatus();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [purchaseId]);
 
-  if (loading) {
+  if (outcome === 'pending') {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 gradient-primary">
         <Card className="w-full max-w-md shadow-lg">
@@ -68,6 +86,34 @@ export default function CheckoutSuccessPage() {
               Please wait while we confirm your payment.
             </CardDescription>
           </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (outcome === 'failed' || outcome === 'unconfirmed') {
+    const failed = outcome === 'failed';
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 gradient-primary">
+        <Card
+          className="w-full max-w-md shadow-lg"
+          data-testid={failed ? 'checkout-failed' : 'checkout-pending-timeout'}
+        >
+          <CardHeader className="text-center space-y-2">
+            <CardTitle className="text-xl sm:text-2xl">
+              {failed ? "Payment didn't go through" : 'Still confirming your payment'}
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              {failed
+                ? 'You were not charged. Go back to the stream to try again.'
+                : "This is taking longer than usual. If the payment went through, your receipt email has your watch link. You don't need to pay again."}
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex flex-col gap-3 pt-2">
+            <Button variant="outline" className="w-full" onClick={() => router.push('/')} aria-label="Go to home page">
+              Go Home
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     );

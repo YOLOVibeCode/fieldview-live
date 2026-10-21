@@ -62,6 +62,10 @@ export function PaywallModal({
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'info' | 'payment'>('info');
+  const [accessLinkOpen, setAccessLinkOpen] = useState(false);
+  const [accessLinkEmail, setAccessLinkEmail] = useState('');
+  const [accessLinkSending, setAccessLinkSending] = useState(false);
+  const [accessLinkSent, setAccessLinkSent] = useState(false);
 
   const priceDisplay = (priceInCents / 100).toFixed(2);
 
@@ -107,6 +111,29 @@ export function PaywallModal({
       setError(getUserFriendlyMessage(err));
     } finally {
       setCreatingPurchase(false);
+    }
+  };
+
+  // Already paid (another device, lost the tab): email the watch link to the
+  // address that paid. Only the inbox owner gets the link.
+  const handleSendAccessLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessLinkEmail.includes('@')) {
+      setError('Enter the email you paid with');
+      return;
+    }
+    setError(null);
+    setAccessLinkSending(true);
+    try {
+      await apiRequest<{ sent: boolean }>(`/api/direct/${slug}/access-link`, {
+        method: 'POST',
+        body: JSON.stringify({ email: accessLinkEmail }),
+      });
+      setAccessLinkSent(true);
+    } catch (err) {
+      setError(getUserFriendlyMessage(err));
+    } finally {
+      setAccessLinkSending(false);
     }
   };
 
@@ -246,6 +273,48 @@ export function PaywallModal({
                 </Button>
               )}
             </form>
+          )}
+
+          {step === 'info' && (
+            <div className="border-t border-outline pt-4" data-testid="paywall-already-paid">
+              {accessLinkSent ? (
+                <p data-testid="access-link-sent" className="text-sm text-muted-foreground" role="status">
+                  If that email paid for this stream, we&apos;ve sent your watch link. Check your inbox.
+                </p>
+              ) : accessLinkOpen ? (
+                <form onSubmit={(e) => void handleSendAccessLink(e)} className="space-y-3">
+                  <Label htmlFor="access-link-email">Email you paid with</Label>
+                  <Input
+                    id="access-link-email"
+                    type="email"
+                    value={accessLinkEmail}
+                    onChange={(e) => setAccessLinkEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    data-testid="input-access-link-email"
+                    autoComplete="email"
+                  />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full min-h-[44px]"
+                    disabled={accessLinkSending}
+                    data-testid="btn-send-access-link"
+                  >
+                    {accessLinkSending ? 'Sending…' : 'Email me my watch link'}
+                  </Button>
+                </form>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full min-h-[44px]"
+                  onClick={() => setAccessLinkOpen(true)}
+                  data-testid="btn-paywall-already-paid"
+                >
+                  Already paid? Email me my watch link
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Step 2: Inline one-tap payment */}

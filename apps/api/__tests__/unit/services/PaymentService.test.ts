@@ -389,6 +389,20 @@ describe('PaymentService - Recipient Field Assignment', () => {
       expect(result.purchaseId).toBe(purchase.id);
     });
 
+    it('checks out an event page against its parent stream and returns to the event', async () => {
+      const result = await paymentService.createDirectStreamCheckout(
+        'paid-stream/game-1',
+        viewer.email!,
+        'Buy',
+        'Er',
+      );
+      expect(prisma.directStream.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { slug: 'paid-stream' } }),
+      );
+      expect(result.purchaseId).toBe(purchase.id);
+      expect(decodeURIComponent(result.checkoutUrl)).toContain('/direct/paid-stream/game-1');
+    });
+
     it('throws with /owners/payments message for unconnected owner', async () => {
       (prisma.directStream.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
         ...directStream,

@@ -22,6 +22,13 @@ import { useGameChat } from '@/hooks/useGameChat';
 import { useGameChatV2 } from '@/hooks/useGameChatV2';
 import { useViewerIdentity } from '@/hooks/useViewerIdentity';
 import { useGlobalViewerAuth } from '@/hooks/useGlobalViewerAuth';
+import {
+  accessHeaders,
+  captureAccessToken,
+  clearAccessToken,
+  getAccessToken,
+  parentSlugFromBootstrapUrl,
+} from '@/lib/paywall-access';
 import { useCollapsiblePanel } from '@/hooks/useCollapsiblePanel';
 import { usePaywall } from '@/hooks/usePaywall';
 import { cn } from '@/lib/utils';
@@ -272,9 +279,10 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // Track if paywall check is complete
   const [paywallChecked, setPaywallChecked] = useState(false);
   
-  // Compute isBlocked based on bootstrap and paywall state
-  // This overrides the hook's internal calculation since we have bootstrap data
-  const isPaywallBlocked = bootstrap?.paywallEnabled && !paywall.hasPaid;
+  // The server decides: a paywalled bootstrap comes back with streamLocked=false
+  // only for a valid access token or the stream admin.
+  const isPaywallBlocked = Boolean(bootstrap?.paywallEnabled && bootstrap?.streamLocked !== false && !paywall.hasPaid);
+  const accessParentSlug = useMemo(() => parentSlugFromBootstrapUrl(config.bootstrapUrl), [config.bootstrapUrl]);
 
   const markMediaReadyFromVideo = useCallback(() => {
     setMediaReady(true);
@@ -359,23 +367,16 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
 
   // Load bootstrap data
   useEffect(() => {
-    // Pass the viewer's identity so the server can return the (entitlement-gated)
-    // streamUrl directly for an already-paid viewer. Anonymous callers get a
+    // Send proof of payment (the access token from the watch link) so the
+    // server returns the gated streamUrl to a buyer. Anonymous callers get a
     // null streamUrl — the paywall is enforced server-side, not just in the UI.
-    const bootstrapViewerId = globalAuth.viewerIdentityId || viewer.viewerId;
-    const bootstrapEmail = globalAuth.viewerEmail;
-    let bootstrapFetchUrl = config.bootstrapUrl;
-    if (bootstrapViewerId || bootstrapEmail) {
-      const idParams = new URLSearchParams();
-      if (bootstrapViewerId) idParams.append('viewerId', bootstrapViewerId);
-      else if (bootstrapEmail) idParams.append('email', bootstrapEmail);
-      bootstrapFetchUrl += (bootstrapFetchUrl.includes('?') ? '&' : '?') + idParams.toString();
-    }
+    const accessToken = captureAccessToken(accessParentSlug);
+    const bootstrapFetchUrl = config.bootstrapUrl;
     console.log('[DirectStream] 🚀 Fetching bootstrap from:', bootstrapFetchUrl);
     setStatus('loading');
     setMediaReady(false);
 
-    apiRequest<Bootstrap>(bootstrapFetchUrl, { retries: 1 })
+    apiRequest<Bootstrap>(bootstrapFetchUrl, { retries: 1, headers: accessHeaders(accessToken) })
       .then((data: Bootstrap) => {
         console.log('[DirectStream] 📡 Bootstrap response received');
         
@@ -398,75 +399,19 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         
         // Check paywall status before initializing player
         if (data.paywallEnabled) {
-          // Check if user has already paid (localStorage)
-          const storageKey = `paywall_${data.slug}`;
-          const stored = localStorage.getItem(storageKey);
-          const localHasPaid = stored ? JSON.parse(stored).hasPaid : false;
-          
-          if (localHasPaid) {
-            console.log('[DirectStream] 💳 localStorage says paid, verifying with server...');
-            
-            // CRITICAL SECURITY: Verify with server before granting access
-            // Get viewer identity from global auth or local viewer state
-            const viewerId = globalAuth.viewerIdentityId || viewer.viewerId;
-            const email = globalAuth.viewerEmail;
-            
-            // Build query params
-            const params = new URLSearchParams();
-            if (viewerId) params.append('viewerId', viewerId);
-            else if (email) params.append('email', email);
-            
-            // Verify access with server
-            apiRequest<{
-              hasAccess: boolean;
-              reason?: string;
-              entitlement?: { expiresAt: string };
-              streamUrl?: string | null;
-              muxPlaybackId?: string | null;
-            }>(`/api/direct/${data.slug}/verify-access?${params.toString()}`, { retries: 1 })
-              .then(verifyResult => {
-                if (verifyResult.hasAccess) {
-                  console.log('[DirectStream] ✅ Server verified access, initializing player');
-                  console.log('[DirectStream] 📝 Reason:', verifyResult.reason);
-                  if (verifyResult.entitlement) {
-                    console.log('[DirectStream] 🎫 Entitlement expires:', verifyResult.entitlement.expiresAt);
-                  }
-                  setPaywallChecked(true);
-                  // streamUrl/muxPlaybackId are withheld from a paywalled bootstrap;
-                  // the entitlement-gated values come back from verify-access.
-                  const unlockedUrl = verifyResult.streamUrl ?? data.streamUrl;
-                  if (verifyResult.muxPlaybackId) {
-                    setBootstrap(prev =>
-                      prev ? { ...prev, muxPlaybackId: verifyResult.muxPlaybackId ?? prev.muxPlaybackId } : prev
-                    );
-                  }
-                  if (unlockedUrl) {
-                    setStreamUrl(unlockedUrl);
-                  } else {
-                    setStatus(isScheduledWithinMinutes(data.scheduledStartAt, 30) ? 'incoming' : 'offline');
-                  }
-                } else {
-                  // Server says no access - localStorage is invalid
-                  console.warn('[DirectStream] ⚠️ Server denied access:', verifyResult.reason);
-                  console.warn('[DirectStream] 🧹 Clearing invalid localStorage state');
-                  localStorage.removeItem(storageKey);
-                  setPaywallChecked(true);
-                  paywall.openPaywall();
-                  setStatus('loading');
-                }
-              })
-              .catch(err => {
-                console.error('[DirectStream] ❌ Verification failed:', err);
-                console.warn('[DirectStream] 🧹 Clearing localStorage due to verification error');
-                // On error, be conservative: require payment
-                localStorage.removeItem(storageKey);
-                setPaywallChecked(true);
-                paywall.openPaywall();
-                setStatus('loading');
-              });
+          setPaywallChecked(true);
+          if (data.streamLocked === false) {
+            // Server accepted the access token (or the stream admin): play.
+            console.log('[DirectStream] ✅ Paid access confirmed by server');
+            if (data.streamUrl) {
+              setStreamUrl(data.streamUrl);
+            } else {
+              setStatus(isScheduledWithinMinutes(data.scheduledStartAt, 30) ? 'incoming' : 'offline');
+            }
           } else {
+            // No valid proof of payment. A saved token that no longer works is dropped.
+            if (accessToken) clearAccessToken(accessParentSlug);
             console.log('[DirectStream] 🔒 Paywall enabled, showing paywall modal');
-            setPaywallChecked(true);
             paywall.openPaywall();
             setStatus('loading'); // Keep loading until payment
           }
@@ -495,18 +440,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   useEffect(() => {
     if (status !== 'incoming' || !config.bootstrapUrl) return;
     const intervalId = setInterval(() => {
-      // Carry identity so an entitled viewer waiting on a scheduled paywalled
+      // Carry the access token so a buyer waiting on a scheduled paywalled
       // stream receives the gated streamUrl once it goes live.
-      const refreshViewerId = globalAuth.viewerIdentityId || viewer.viewerId;
-      const refreshEmail = globalAuth.viewerEmail;
-      let refreshUrl = config.bootstrapUrl;
-      if (refreshViewerId || refreshEmail) {
-        const p = new URLSearchParams();
-        if (refreshViewerId) p.append('viewerId', refreshViewerId);
-        else if (refreshEmail) p.append('email', refreshEmail);
-        refreshUrl += (refreshUrl.includes('?') ? '&' : '?') + p.toString();
-      }
-      apiRequest<Bootstrap>(refreshUrl, { retries: 1 })
+      apiRequest<Bootstrap>(config.bootstrapUrl, {
+        retries: 1,
+        headers: accessHeaders(getAccessToken(accessParentSlug)),
+      })
         .then((data: Bootstrap) => {
           if (data?.streamUrl) {
             setBootstrap(data);
@@ -537,32 +476,32 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
   // from the paywalled bootstrap (which returned null). Retries cover the brief
   // window while the entitlement is being created. Declared after globalAuth/viewer
   // so its dependency array does not reference them before initialization.
-  const unlockStreamAfterPurchase = useCallback((streamSlug: string, paidEmail?: string) => {
-    // Prefer the email that actually paid — an anonymous viewer who paid via the
-    // modal isn't in globalAuth yet. Fall back to the established identity for
-    // returning/registered viewers.
-    const params = new URLSearchParams();
-    if (paidEmail) {
-      params.append('email', paidEmail);
-    } else {
-      const viewerId = globalAuth.viewerIdentityId || viewer.viewerId;
-      if (viewerId) params.append('viewerId', viewerId);
-      else if (globalAuth.viewerEmail) params.append('email', globalAuth.viewerEmail);
-    }
+  const closePaywall = paywall.closePaywall;
+  const unlockStreamAfterPurchase = useCallback((streamSlug: string) => {
+    // Proof of access is the saved access token or the stream admin's JWT.
     apiRequest<{ hasAccess: boolean; streamUrl?: string | null; muxPlaybackId?: string | null }>(
-      `/api/direct/${streamSlug}/verify-access?${params.toString()}`,
-      { retries: 2 }
+      `/api/direct/${streamSlug}/verify-access`,
+      { retries: 2, headers: accessHeaders(getAccessToken(accessParentSlug), adminJwt) }
     )
       .then(result => {
-        if (result.muxPlaybackId) {
-          setBootstrap(prev =>
-            prev ? { ...prev, muxPlaybackId: result.muxPlaybackId ?? prev.muxPlaybackId } : prev
-          );
-        }
+        if (!result.hasAccess) return;
+        setBootstrap(prev =>
+          prev
+            ? { ...prev, streamLocked: false, muxPlaybackId: result.muxPlaybackId ?? prev.muxPlaybackId }
+            : prev
+        );
+        closePaywall();
         if (result.streamUrl) setStreamUrl(result.streamUrl);
       })
-      .catch(err => console.error('[DirectStream] Post-purchase stream unlock failed:', err));
-  }, [globalAuth.viewerIdentityId, globalAuth.viewerEmail, viewer.viewerId]);
+      .catch(err => console.error('[DirectStream] Stream unlock failed:', err));
+  }, [accessParentSlug, adminJwt, closePaywall]);
+
+  // A stream admin who unlocked the admin panel watches without paying.
+  useEffect(() => {
+    if (adminJwt && bootstrap?.slug && bootstrap.paywallEnabled && bootstrap.streamLocked) {
+      unlockStreamAfterPurchase(bootstrap.slug);
+    }
+  }, [adminJwt, bootstrap?.slug, bootstrap?.paywallEnabled, bootstrap?.streamLocked, unlockStreamAfterPurchase]);
 
   // Auto-register if globally authenticated and no paywall
   useEffect(() => {
@@ -1049,7 +988,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                 </div>
               )}
               {/* Paywall Blocker Overlay */}
-              {isPaywallBlocked && paywallChecked && (
+              {isPaywallBlocked && paywallChecked && bootstrap && (
                 <div className="absolute inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm">
                   <div className="text-center text-white max-w-xs mx-auto px-4">
                     <div className="w-16 h-16 mx-auto mb-4 bg-amber-600/20 rounded-full flex items-center justify-center border border-amber-500/30">
@@ -1322,9 +1261,9 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
             slug={bootstrap.slug}
             isOpen={paywall.showPaywall}
             onClose={paywall.closePaywall}
-            onSuccess={(paidEmail) => {
+            onSuccess={() => {
               paywall.markAsPaid(bootstrap.slug);
-              unlockStreamAfterPurchase(bootstrap.slug, paidEmail);
+              unlockStreamAfterPurchase(bootstrap.slug);
             }}
             priceInCents={bootstrap.priceInCents || 0}
             paywallMessage={bootstrap.paywallMessage}
@@ -1646,14 +1585,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               slug={bootstrap.slug}
               isOpen={paywall.showPaywall}
               onClose={paywall.closePaywall}
-              onSuccess={(paidEmail) => {
+              onSuccess={() => {
                 // Mark as paid in localStorage and close modal
                 paywall.markAsPaid(bootstrap.slug);
 
                 // Stream URL is gated server-side; fetch the now-entitled URL
                 // (verify-access) instead of the withheld bootstrap value.
                 console.log('[DirectStream] Payment successful, unlocking stream URL');
-                unlockStreamAfterPurchase(bootstrap.slug, paidEmail);
+                unlockStreamAfterPurchase(bootstrap.slug);
               }}
               priceInCents={bootstrap.priceInCents || 0}
               paywallMessage={bootstrap.paywallMessage}
@@ -1670,7 +1609,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
               style={{ minHeight: isMobile ? '200px' : isTablet ? '300px' : '400px' }}
             >
               {/* Paywall Blocker Overlay */}
-              {isPaywallBlocked && paywallChecked && (
+              {isPaywallBlocked && paywallChecked && bootstrap && (
                 <div 
                   className="absolute inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm"
                   data-testid="paywall-blocker"

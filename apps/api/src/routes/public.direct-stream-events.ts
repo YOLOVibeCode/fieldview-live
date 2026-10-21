@@ -9,7 +9,7 @@ import { BadRequestError, NotFoundError, ForbiddenError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { DirectStreamEventRepository } from '../repositories/DirectStreamEventRepository';
 import { DirectStreamEventService } from '../services/DirectStreamEventService';
-import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
+import { checkStreamAccess, streamAccessCredentials } from '../lib/stream-entitlement';
 import { logger } from '../lib/logger';
 
 export function createPublicDirectStreamEventsRouter(): Router {
@@ -50,18 +50,18 @@ router.get(
         }
         
         // 🔒 Paywall enforcement (server-side): withhold the playable URL for a
-        // paywalled event unless the caller proves entitlement (via viewerId/email).
-        // Entitlements are tied to the parent direct stream. Fails closed.
+        // paywalled event unless the caller proves payment (entitlement token header)
+        // or is the stream admin. Entitlements are tied to the parent direct stream.
+        // Fails closed.
         let deliverStreamUrl: string | null = config.streamUrl ?? null;
         let streamLocked = false;
         if (config.paywallEnabled) {
-          const { viewerId, email } = req.query as { viewerId?: string; email?: string };
           const parent = await prisma.directStream.findUnique({
             where: { slug: config.parentSlug },
-            select: { id: true },
+            select: { id: true, slug: true },
           });
           const entitled = parent
-            ? await hasValidStreamEntitlement(parent.id, { viewerId, email })
+            ? (await checkStreamAccess(parent, streamAccessCredentials(req))).granted
             : false;
           if (!entitled) {
             deliverStreamUrl = null;

@@ -14,6 +14,7 @@ import { getEmailProvider } from '../lib/email';
 import { getOwnerPaymentsReadiness } from '../lib/payments-readiness';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
+import { parseDirectKey } from '../lib/direct-slug';
 import type { IEntitlementReader, IEntitlementWriter } from '../repositories/IEntitlementRepository';
 import type { IGameReader } from '../repositories/IGameRepository';
 import type { IPurchaseReader, IPurchaseWriter } from '../repositories/IPurchaseRepository';
@@ -265,9 +266,10 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     viewerPhone?: string,
     returnUrl?: string
   ): Promise<CheckoutResponse> {
-    // Get DirectStream
+    // An event page sends `parent/event`; the purchase belongs to the parent stream.
+    const { key: pageKey, parentSlug } = parseDirectKey(directStreamSlug);
     const stream = await prisma.directStream.findUnique({
-      where: { slug: directStreamSlug },
+      where: { slug: parentSlug },
       include: { ownerAccount: true },
     });
 
@@ -361,7 +363,7 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
       recipientType,
     }, 'DirectStream paywall checkout created');
 
-    const finalReturnUrl = returnUrl || `${APP_URL}/direct/${directStreamSlug}?payment=success`;
+    const finalReturnUrl = returnUrl || `${APP_URL}/direct/${pageKey}?payment=success`;
     const checkoutUrl = `${APP_URL}/checkout/${purchase.id}/payment?returnUrl=${encodeURIComponent(finalReturnUrl)}`;
 
     return {
