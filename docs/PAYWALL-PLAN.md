@@ -15,7 +15,7 @@ funds and holds no payment-vendor secrets. See [CLAUDE.md](../CLAUDE.md) for the
 | # | Topic | Decision |
 |---|---|---|
 | 1 | What one payment buys | The coach chooses per stream: **one season** (every game in the stream until the season ends) or **one game**. |
-| 2 | Fees | Per stream, the coach chooses to **absorb** the fees or **add them on top** of the viewer's price. Platform-wide coupons only apply on a stream if the coach **opts in**, and their discount comes out of the coach's take. |
+| 2 | Fees | Per stream, the coach chooses to **absorb** the fees or **pass them on to the viewer**. Passing them on adds both the 10% platform fee and card processing on top of the coach's price. Platform-wide coupons only apply on a stream if the coach **opts in**, and their discount comes out of the coach's take. |
 | 3 | Coupons | Coaches can create their own coupons. Platform admins can create platform-wide coupons. |
 | 4 | Pausing | "Pause until": a time-boxed pause that ends on its own. No open-ended pause. |
 | 5 | Platform fee | Exactly **10%**, never more. The relay's fee setting is 10% on `fieldview`, `fieldview-uat` and `fieldview-dev`. |
@@ -41,8 +41,10 @@ funds and holds no payment-vendor secrets. See [CLAUDE.md](../CLAUDE.md) for the
   - FieldView estimates it from config. The default is Square online pricing, 2.9% + 30¢; to be confirmed for the store.
   - The ledger records the **actual** processing and platform fee from the paid webhook (`processor_fee_cents`, `money.feeCents`).
 - **Fee mode** is a per-stream setting, `DirectStream.feeMode`: `'absorb'` (default) or `'pass_through'`.
+  The console labels them "I cover the fees" and "Viewers pay the fees".
   - **absorb:** the viewer pays `P`. The coach nets `P − 10% − processing`.
-  - **pass_through:** the viewer pays `G`, rounded up to the cent, so the coach nets about `P`:
+  - **pass_through:** both the 10% platform fee and card processing are passed on to the viewer. The viewer pays `G`,
+    rounded up to the cent, so the coach nets about `P`:
 
     ```
     G = ceil( (P + processingFixed) / (1 − 0.10 − processingRate) )
@@ -175,7 +177,8 @@ funds and holds no payment-vendor secrets. See [CLAUDE.md](../CLAUDE.md) for the
 
 ## 3. Stages
 
-Each stage is one PR (or a small set) with tests written first.
+Each stage is one PR (or a small set) with tests written first. The file-level development plan, split into six PRs
+(A–F), is [PAYWALL-IMPLEMENTATION.md](PAYWALL-IMPLEMENTATION.md).
 
 ### Stage 1: foundation (security and unlock), done in #257 and #258
 - **#257, access:** unlock with the purchase token or the stream admin's JWT; close the legacy URL leak;
