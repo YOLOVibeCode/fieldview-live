@@ -24,6 +24,12 @@
 
 *1185 words • Updated 1/7/2026*
 
+### [Paywall Plan: pricing, fees, access scope, pause, coupons, break-even](PAYWALL-PLAN.md)
+Source of truth for the DirectStream paywall (decided 2026-10-21).
+
+### [Paywall Implementation Plan](PAYWALL-IMPLEMENTATION.md)
+Stages 2–5 as six PRs (A–F): files, schema changes, tests first, done criteria.
+
 ### [Social Producer Panel + Paywall + Email Notifications Architecture](architecture/SOCIAL_PRODUCER_PAYWALL_ARCHITECTURE.md)
 
 *1915 words • Updated 1/8/2026*
