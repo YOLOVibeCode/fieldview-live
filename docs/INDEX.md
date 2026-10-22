@@ -24,7 +24,7 @@
 
 *1185 words • Updated 1/7/2026*
 
-### [Paywall Plan: pricing, fees, pause, coupons](PAYWALL-PLAN.md)
+### [Paywall Plan: pricing, fees, access scope, pause, coupons, break-even](PAYWALL-PLAN.md)
 Source of truth for the DirectStream paywall (decided 2026-10-21).
 
 ### [Social Producer Panel + Paywall + Email Notifications Architecture](architecture/SOCIAL_PRODUCER_PAYWALL_ARCHITECTURE.md)
