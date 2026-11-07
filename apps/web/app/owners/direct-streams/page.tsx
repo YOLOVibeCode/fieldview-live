@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { sportRegistry } from '@fieldview/data-model';
 import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
-import { isPaymentsReady } from '@/lib/owner-payments-readiness';
+import { isPaymentsReady, isPaywallToggleDisabled } from '@/lib/owner-payments-readiness';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4301';
 
@@ -446,7 +446,7 @@ export default function OwnerDirectStreamsPage() {
                                       type="checkbox"
                                       checked={editPaywall}
                                       onChange={(e) => setEditPaywall(e.target.checked)}
-                                      disabled={!paymentsReady}
+                                      disabled={isPaywallToggleDisabled(paymentsReady, editPaywall)}
                                       data-testid="checkbox-paywall"
                                     />
                                     Paywall
