@@ -151,12 +151,30 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
   return { Authorization: `Bearer ${token}` };
 }
 
-// Owner store marketplace onboarding status
+// Owner store marketplace onboarding status (GET /api/owners/me/payments/status)
 export interface OwnerPaymentsStatus {
   sellerKey: string | null;
+  /** The relay's opaque seller ref. */
   merchantId: string | null;
+  /** The seller can take charges right now. */
   connected: boolean;
   connectedAt: string | null;
+  /** Relay seller status: not_connected | pending | active | restricted | disconnected | action_required. */
+  status?: string | null;
+  chargesEnabled?: boolean;
+  payoutsEnabled?: boolean;
+  /** The coach accepted the Recipient Agreement (step 1). */
+  agreementAccepted?: boolean;
+  agreementVersion?: string | null;
+  agreementAcceptedAt?: string | null;
+  mode?: 'test' | 'live' | null;
+}
+
+export interface OwnerPaymentsAgreementResult {
+  accepted: boolean;
+  version: string;
+  acceptedAt: string | null;
+  sellerKey: string;
 }
 
 export interface OwnerPurchaseEarnings {
@@ -854,6 +872,15 @@ export const apiClient = {
     return apiRequest<{ onboardingUrl: string; sellerKey: string }>(`/api/owners/me/payments/connect`, {
       method: 'POST',
       headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  /** Step 1 of payout setup: record the coach's acceptance of the Recipient Agreement. */
+  async ownerPaymentsAcceptAgreement(ownerToken: string, version?: string): Promise<OwnerPaymentsAgreementResult> {
+    return apiRequest<OwnerPaymentsAgreementResult>(`/api/owners/me/payments/agreement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...withBearerToken(ownerToken) },
+      body: JSON.stringify(version ? { version } : {}),
     });
   },
 };
