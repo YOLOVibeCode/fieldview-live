@@ -38,7 +38,6 @@ jobs:
         run: |
           pnpm --filter @fieldview/data-model build
           pnpm --filter @fieldview/dvr-service build
-          pnpm --filter @fieldview/store-client build
 
       - name: Run type check
         run: pnpm type-check

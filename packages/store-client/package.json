@@ -1,18 +1,25 @@
 {
-  "name": "@fieldview/store-client",
-  "version": "0.1.0",
-  "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "name": "@noctusoft/store-client",
+  "version": "1.0.0",
+  "description": "App side of the Noctusoft store: buy links, webhook verification, event v1 dispatch, and relay calls. No payment-provider types. Vendored from noctusoft-relay/packages/store-client — see VENDORED.md; do not edit index.js or index.d.ts here.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc",
-    "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "test:unit": "vitest run"
+    "build": "node --check index.js",
+    "type-check": "node --check index.js",
+    "lint": "node --check index.js",
+    "test": "node --check index.js",
+    "test:unit": "node --check index.js",
+    "test:coverage": "node --check index.js"
   },
-  "devDependencies": {
-    "@types/node": "^20.10.0",
-    "typescript": "^5.3.3",
-    "vitest": "^1.0.4"
-  }
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true
 }
