@@ -1,5 +1,5 @@
 /**
- * Marketplace store service interfaces (Noctusoft store v1).
+ * Marketplace store service interfaces (Noctusoft store, Connect Hub).
  */
 
 export type {
@@ -7,7 +7,9 @@ export type {
   IMarketplaceStorePayments,
   MarketplaceCheckoutInput,
   MarketplaceCheckoutResult,
+  MarketplaceOnboardingDetails,
   MarketplaceRefundInput,
+  MarketplaceSellerStatus,
 } from './MarketplaceStoreService';
 
 import type { IMarketplaceStoreOnboarding, IMarketplaceStorePayments } from './MarketplaceStoreService';
