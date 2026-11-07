@@ -15,8 +15,17 @@ export async function buildReceiptStreamUrl(
       select: { slug: true },
     });
     if (directStream?.slug) {
-      return `${appUrl}/direct/${directStream.slug}`;
+      return directStreamWatchUrl(directStream.slug, entitlementToken);
     }
   }
   return `${appUrl}/stream/${entitlementToken}`;
+}
+
+/**
+ * Watch link for a direct stream (or `parent/event`) that carries the buyer's
+ * entitlement token. The page saves the token and strips it from the URL.
+ */
+export function directStreamWatchUrl(slugKey: string, entitlementToken: string): string {
+  const appUrl = (process.env.APP_URL || 'https://fieldview.live').replace(/\/$/, '');
+  return `${appUrl}/direct/${slugKey}?access=${encodeURIComponent(entitlementToken)}`;
 }

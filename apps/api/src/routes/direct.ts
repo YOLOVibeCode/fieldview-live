@@ -31,7 +31,10 @@ import {
   assertPaymentsReadyForPaywall,
   getOwnerPaymentsReadiness,
 } from '../lib/payments-readiness';
-import { hasValidStreamEntitlement } from '../lib/stream-entitlement';
+import { checkStreamAccess, streamAccessCredentials } from '../lib/stream-entitlement';
+import { directStreamWatchUrl } from '../lib/receipt-stream-url';
+import { getEmailProvider } from '../lib/email';
+import { accessLinkRateLimit } from '../middleware/rateLimit';
 import { parseDirectKey, rewriteHierarchicalDirectPath } from '../lib/direct-slug';
 import { resolveMuxStreamType } from '../lib/mux-stream-type';
 
@@ -225,16 +228,14 @@ router.get(
 
         // 🔒 Paywall enforcement (server-side): never hand the playable URL — or,
         // for Mux, the playback id, which alone unlocks the stream via
-        // https://stream.mux.com/<id>.m3u8 — to a caller without a valid
-        // entitlement. Entitled callers receive it by passing their viewerId/email;
-        // otherwise the client obtains it from /verify-access. Fails closed.
+        // https://stream.mux.com/<id>.m3u8 — to a caller without proof of payment
+        // (the entitlement token header) or the stream admin's JWT. Fails closed.
         let deliverStreamUrl: string | null = effectiveStreamUrl ?? null;
         let deliverMuxPlaybackId: string | null = muxPlaybackId ?? null;
         let streamLocked = false;
         if (directStream.paywallEnabled) {
-          const { viewerId, email } = req.query as { viewerId?: string; email?: string };
-          const entitled = await hasValidStreamEntitlement(directStream.id, { viewerId, email });
-          if (!entitled) {
+          const access = await checkStreamAccess(directStream, streamAccessCredentials(req));
+          if (!access.granted) {
             deliverStreamUrl = null;
             deliverMuxPlaybackId = null;
             streamLocked = true;
@@ -807,10 +808,19 @@ router.get(
         const key = slug.toLowerCase();
         const directStream = await prisma.directStream.findUnique({
           where: { slug: key },
-          select: { streamUrl: true },
+          select: { id: true, slug: true, streamUrl: true, paywallEnabled: true },
         });
 
         if (directStream && directStream.streamUrl) {
+          // 🔒 Same rule as /bootstrap: a paywalled stream's URL needs proof of payment.
+          if (directStream.paywallEnabled) {
+            const access = await checkStreamAccess(directStream, streamAccessCredentials(req));
+            if (!access.granted) {
+              return res.status(403).json({
+                error: { code: 'PAYWALL_LOCKED', message: 'This stream requires a purchase' },
+              });
+            }
+          }
           return res.json({ streamUrl: directStream.streamUrl });
         }
 
@@ -1194,25 +1204,21 @@ router.post(
   }
 );
 
-// GET /api/direct/:slug/verify-access - Verify viewer has paid access to stream
+// GET /api/direct/:slug/verify-access - Verify the caller has paid access to the stream.
+// Proof is the entitlement token (x-fieldview-access header) or the stream admin's JWT.
 router.get(
   '/:slug/verify-access',
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
-        const { slug } = req.params;
-        const { viewerId, email } = req.query as { viewerId?: string; email?: string };
+        const { parentSlug, eventSlug } = parseDirectKey(req.params.slug);
 
-        logger.info({ slug, viewerId, email }, 'Verifying stream access');
-
-        // 1. Find DirectStream
         const stream = await prisma.directStream.findUnique({
-          where: { slug },
+          where: { slug: parentSlug },
           select: {
             id: true,
-            gameId: true,
+            slug: true,
             paywallEnabled: true,
-            ownerAccountId: true,
             streamUrl: true,
             game: {
               select: {
@@ -1228,109 +1234,115 @@ router.get(
           throw new NotFoundError('Stream not found');
         }
 
-        // Playable fields to return alongside a GRANTED access decision, so the
-        // client can obtain the URL the bootstrap withheld — without a separate
-        // round-trip. Only ever spread into hasAccess:true responses.
+        // An event can carry its own stream URL; otherwise it plays the parent's.
+        let eventStreamUrl: string | null = null;
+        if (eventSlug) {
+          const event = await prisma.directStreamEvent.findUnique({
+            where: { directStreamId_eventSlug: { directStreamId: stream.id, eventSlug } },
+            select: { streamUrl: true },
+          });
+          if (!event) {
+            throw new NotFoundError('Stream event not found');
+          }
+          eventStreamUrl = event.streamUrl ?? null;
+        }
+
+        // Playable fields, only ever spread into hasAccess:true responses.
+        const playableUrl = eventStreamUrl ?? stream.streamUrl;
         const vaStreamSource = stream.game?.streamSource ?? null;
-        const vaMuxPlaybackId = vaStreamSource?.muxPlaybackId ?? extractMuxPlaybackId(stream.streamUrl);
-        const vaStreamProvider = vaStreamSource?.type ?? inferStreamProvider(stream.streamUrl);
+        const vaMuxPlaybackId = eventStreamUrl
+          ? extractMuxPlaybackId(eventStreamUrl)
+          : (vaStreamSource?.muxPlaybackId ?? extractMuxPlaybackId(stream.streamUrl));
+        const vaStreamProvider = eventStreamUrl
+          ? inferStreamProvider(eventStreamUrl)
+          : (vaStreamSource?.type ?? inferStreamProvider(stream.streamUrl));
         const vaProtectionLevel = vaStreamSource?.protectionLevel ?? (vaMuxPlaybackId ? 'moderate' : 'none');
         const grantedStreamFields = {
-          streamUrl: stream.streamUrl,
+          streamUrl: playableUrl,
           muxPlaybackId: vaMuxPlaybackId,
           streamProvider: vaStreamProvider,
           protectionLevel: vaProtectionLevel,
         };
 
-        // 2. If paywall not enabled, allow access
         if (!stream.paywallEnabled) {
-          logger.info({ slug }, 'Stream has no paywall, access granted');
-          return res.json({
-            hasAccess: true,
-            reason: 'no_paywall',
-            ...grantedStreamFields,
-          });
+          return res.json({ hasAccess: true, reason: 'no_paywall', ...grantedStreamFields });
         }
 
-        // 3. Find viewer
-        let viewer = null;
-        if (viewerId) {
-          viewer = await prisma.viewerIdentity.findUnique({
-            where: { id: viewerId },
-            select: { id: true, email: true },
-          });
-        } else if (email) {
-          viewer = await prisma.viewerIdentity.findUnique({
-            where: { email },
-            select: { id: true, email: true },
-          });
+        const access = await checkStreamAccess(stream, streamAccessCredentials(req));
+        logger.info({ slug: stream.slug, eventSlug, reason: access.reason }, 'Verified stream access');
+
+        if (!access.granted) {
+          return res.json({ hasAccess: false, reason: access.reason });
         }
-
-        if (!viewer) {
-          logger.info({ slug, viewerId, email }, 'Viewer not found, access denied');
-          return res.json({
-            hasAccess: false,
-            reason: 'viewer_not_found',
-          });
-        }
-
-        // 4. Check for valid entitlement
-        // Entitlement must be:
-        // - For this viewer (through purchase)
-        // - For this direct stream
-        // - Not expired (validTo >= now)
-        const entitlement = await prisma.entitlement.findFirst({
-          where: {
-            purchase: {
-              viewerId: viewer.id,
-              directStreamId: stream.id,
-            },
-            status: 'active',
-            validTo: { gte: new Date() }, // Not expired
-          },
-          select: {
-            id: true,
-            validFrom: true,
-            validTo: true,
-            tokenId: true,
-          },
-          orderBy: { validFrom: 'desc' }, // Most recent first
-        });
-
-        if (entitlement) {
-          logger.info({
-            slug,
-            viewerId: viewer.id,
-            entitlementId: entitlement.id,
-          }, 'Valid entitlement found, access granted');
-          
-          return res.json({
-            hasAccess: true,
-            reason: 'valid_entitlement',
-            entitlement: {
-              id: entitlement.id,
-              validFrom: entitlement.validFrom,
-              validTo: entitlement.validTo,
-              tokenId: entitlement.tokenId,
-            },
-            ...grantedStreamFields,
-          });
-        }
-
-        // 5. No valid entitlement found
-        logger.info({
-          slug,
-          viewerId: viewer.id,
-          gameId: stream.gameId,
-        }, 'No valid entitlement found, access denied');
-        
-        return res.json({
-          hasAccess: false,
-          reason: 'no_entitlement',
-        });
-
+        return res.json({ hasAccess: true, reason: access.reason, ...grantedStreamFields });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Verify access failed');
+        next(error);
+      }
+    })();
+  }
+);
+
+const AccessLinkSchema = z.object({ email: z.string().email() });
+
+// POST /api/direct/:slug/access-link - Email a buyer their watch link.
+// Proves the caller owns the inbox. The response never says whether the
+// email has paid, so it can't be used to probe who bought access.
+router.post(
+  '/:slug/access-link',
+  accessLinkRateLimit,
+  (req: Request, res: Response, next: NextFunction) => {
+    void (async () => {
+      try {
+        const parsed = AccessLinkSchema.safeParse(req.body);
+        if (!parsed.success) {
+          throw new BadRequestError('A valid email is required');
+        }
+        const email = parsed.data.email.toLowerCase().trim();
+        const { key, parentSlug } = parseDirectKey(req.params.slug);
+
+        const stream = await prisma.directStream.findUnique({
+          where: { slug: parentSlug },
+          select: { id: true, title: true },
+        });
+        const viewer = stream
+          ? await prisma.viewerIdentity.findUnique({ where: { email }, select: { id: true } })
+          : null;
+        const entitlement = viewer && stream
+          ? await prisma.entitlement.findFirst({
+              where: {
+                purchase: { viewerId: viewer.id, directStreamId: stream.id },
+                status: 'active',
+                validTo: { gte: new Date() },
+              },
+              select: { tokenId: true },
+              orderBy: { validFrom: 'desc' },
+            })
+          : null;
+
+        if (stream && entitlement) {
+          const watchUrl = directStreamWatchUrl(key, entitlement.tokenId);
+          const text = [
+            `Here is your link to watch ${stream.title}:`,
+            ``,
+            watchUrl,
+            ``,
+            `Anyone with this link can watch, so keep it to yourself.`,
+          ].join('\n');
+          try {
+            await getEmailProvider().sendEmail({
+              to: email,
+              subject: `Your FieldView.Live watch link`,
+              text,
+              html: text.replace(/\n/g, '<br>'),
+            });
+          } catch (emailError) {
+            logger.error({ emailError, slug: parentSlug }, 'Failed to send access link email');
+          }
+        }
+
+        return res.status(202).json({ sent: true });
+      } catch (error) {
         next(error);
       }
     })();
