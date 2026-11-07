@@ -26,7 +26,7 @@ export interface UpdateOwnerAccountData {
   name?: string;
   payoutProviderRef?: string | null;
   marketplaceSellerKey?: string;
-  paymentsConnectedAt?: Date;
+  paymentsConnectedAt?: Date | null;
 }
 
 /**

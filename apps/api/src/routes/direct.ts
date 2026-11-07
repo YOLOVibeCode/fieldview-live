@@ -28,7 +28,7 @@ import { PurchaseRepository } from '../repositories/implementations/PurchaseRepo
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { WatchLinkRepository } from '../repositories/implementations/WatchLinkRepository';
 import {
-  assertPaymentsReadyForPaywall,
+  assertPaymentsReadyForPaywallChange,
   getOwnerPaymentsReadiness,
 } from '../lib/payments-readiness';
 import { checkStreamAccess, streamAccessCredentials } from '../lib/stream-entitlement';
@@ -660,8 +660,6 @@ router.post(
           parentUpdateData.reminderMinutes = body.reminderMinutes;
         }
 
-        const effectivePaywall = body.paywallEnabled ?? existingStream.paywallEnabled;
-        const effectivePrice = body.priceInCents ?? existingStream.priceInCents;
         const ownerPaymentsFields = await prisma.ownerAccount.findUnique({
           where: { id: existingStream.ownerAccountId },
           select: {
@@ -670,7 +668,11 @@ router.post(
           },
         });
         if (ownerPaymentsFields) {
-          assertPaymentsReadyForPaywall(ownerPaymentsFields, effectivePaywall, effectivePrice);
+          assertPaymentsReadyForPaywallChange(
+            ownerPaymentsFields,
+            { paywallEnabled: body.paywallEnabled, priceInCents: body.priceInCents },
+            existingStream,
+          );
         }
 
         // Update in database
