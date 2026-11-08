@@ -2,6 +2,7 @@ import type { OwnerPaymentsStatus } from '@/lib/api-client';
 
 export type PaymentsReadinessPhase = 'not_started' | 'onboarding' | 'ready';
 
+/** 1 = accept the Recipient Agreement, 2 = connect payouts on the provider's form. */
 export type PaymentsStep = 1 | 2;
 
 const BADGE_LABELS: Record<PaymentsReadinessPhase, string> = {
@@ -10,11 +11,19 @@ const BADGE_LABELS: Record<PaymentsReadinessPhase, string> = {
   ready: 'Ready',
 };
 
+/** Step 1 is done. An older status without the field counts a seller key as started. */
+export function isAgreementAccepted(status: OwnerPaymentsStatus): boolean {
+  if (typeof status.agreementAccepted === 'boolean') {
+    return status.agreementAccepted;
+  }
+  return Boolean(status.sellerKey);
+}
+
 export function getPaymentsReadinessPhase(status: OwnerPaymentsStatus): PaymentsReadinessPhase {
-  if (status.connected && status.connectedAt) {
+  if (status.connected) {
     return 'ready';
   }
-  if (status.sellerKey) {
+  if (isAgreementAccepted(status)) {
     return 'onboarding';
   }
   return 'not_started';
@@ -29,12 +38,20 @@ export function isPaymentsReady(status: OwnerPaymentsStatus): boolean {
 }
 
 export function getActiveStep(status: OwnerPaymentsStatus): PaymentsStep {
-  return status.sellerKey ? 2 : 1;
+  return isAgreementAccepted(status) ? 2 : 1;
 }
 
 export function isStepComplete(step: PaymentsStep, status: OwnerPaymentsStatus): boolean {
   if (step === 1) {
-    return Boolean(status.sellerKey);
+    return isAgreementAccepted(status);
   }
   return status.connected;
+}
+
+/**
+ * The paywall checkbox in the owner console. A coach whose payments aren't ready
+ * can't turn the paywall on, but can always turn an active paywall off.
+ */
+export function isPaywallToggleDisabled(paymentsReady: boolean, paywallOn: boolean): boolean {
+  return !paymentsReady && !paywallOn;
 }

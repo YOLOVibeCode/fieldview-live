@@ -54,3 +54,28 @@ export function assertPaymentsReadyForPaywall(
     400,
   );
 }
+
+/**
+ * Guard for a settings save. It only applies when the save actually changes the
+ * paywall or the price (forms re-send unchanged values), so a coach whose seller
+ * disconnected can still edit other settings and can always turn the paywall off.
+ */
+export function assertPaymentsReadyForPaywallChange(
+  owner: OwnerPaymentsReadinessInput,
+  requested: { paywallEnabled?: boolean; priceInCents?: number },
+  existing: { paywallEnabled: boolean; priceInCents: number },
+  opts?: { bypass?: boolean },
+): void {
+  const paywallChanged =
+    requested.paywallEnabled !== undefined && requested.paywallEnabled !== existing.paywallEnabled;
+  const priceChanged = requested.priceInCents !== undefined && requested.priceInCents !== existing.priceInCents;
+  if (!paywallChanged && !priceChanged) {
+    return;
+  }
+  assertPaymentsReadyForPaywall(
+    owner,
+    requested.paywallEnabled ?? existing.paywallEnabled,
+    requested.priceInCents ?? existing.priceInCents,
+    opts,
+  );
+}

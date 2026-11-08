@@ -26,7 +26,8 @@ export interface UpdateOwnerAccountData {
   name?: string;
   payoutProviderRef?: string | null;
   marketplaceSellerKey?: string;
-  paymentsConnectedAt?: Date;
+  /** null clears it: the seller can no longer take charges. */
+  paymentsConnectedAt?: Date | null;
 }
 
 /**

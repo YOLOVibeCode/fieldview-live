@@ -6,9 +6,10 @@ import express, { type Router } from 'express';
 import { z } from 'zod';
 
 import { BadRequestError, NotFoundError } from '../lib/errors';
+import { logger } from '../lib/logger';
+import { getMarketplaceConfig, resolveSellerKey } from '../lib/marketplace';
 import { prisma } from '../lib/prisma';
 import { buildReceiptStreamUrl } from '../lib/receipt-stream-url';
-import { getMarketplaceConfig, resolveSellerKey } from '../lib/marketplace';
 import { validateRequest } from '../middleware/validation';
 import { EntitlementRepository } from '../repositories/implementations/EntitlementRepository';
 import { OwnerAccountRepository } from '../repositories/implementations/OwnerAccountRepository';
@@ -43,6 +44,30 @@ function getStoreService(): MarketplaceStoreService {
 
 export function setMarketplaceStorePaymentsService(service: MarketplaceStoreService): void {
   storeServiceInstance = service;
+}
+
+/** What the viewer sees they pay for on the store's hosted page: the stream or game. */
+async function describePurchase(purchase: {
+  id: string;
+  directStreamId?: string | null;
+  gameId?: string | null;
+}): Promise<string | undefined> {
+  try {
+    if (purchase.directStreamId) {
+      const stream = await prisma.directStream.findUnique({
+        where: { id: purchase.directStreamId },
+        select: { title: true },
+      });
+      if (stream?.title) return stream.title;
+    }
+    if (purchase.gameId) {
+      const game = await prisma.game.findUnique({ where: { id: purchase.gameId }, select: { title: true } });
+      if (game?.title) return game.title;
+    }
+  } catch (error) {
+    logger.warn({ error, purchaseId: purchase.id }, 'Could not describe the purchase for its buy link');
+  }
+  return undefined;
 }
 
 function getHandlers(): PublicPurchaseHandlers {
@@ -114,6 +139,11 @@ function getHandlers(): PublicPurchaseHandlers {
           select: { email: true },
         });
 
+        if (!viewer?.email) {
+          // The relay refuses a buy link with no buyer email at the click; fail here instead.
+          throw new BadRequestError("Checkout needs the viewer's email address");
+        }
+
         const successUrl = opts?.returnUrl || `${APP_URL}/checkout/${purchaseId}/success`;
         const cancelUrl = `${APP_URL}/checkout/${purchaseId}/payment?cancelled=1`;
 
@@ -124,7 +154,8 @@ function getHandlers(): PublicPurchaseHandlers {
           purchaseId,
           successUrl,
           cancelUrl,
-          buyerEmail: viewer?.email ?? undefined,
+          buyerEmail: viewer.email,
+          description: await describePurchase(purchase),
         });
 
         if (session.paymentId) {
