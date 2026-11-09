@@ -1,5 +1,9 @@
 # FieldView Recipient (Payouts) Agreement — v1
 
+> **SUPERSEDED on 2026-11-09 by [v2](RECIPIENT-AGREEMENT-v2.md).** This version described a
+> Square integration FieldView no longer uses. It is kept because sellers accepted it; it is
+> not offered to new sellers.
+
 > **DRAFT — pending attorney review.** This is a best-effort starting point for the
 > agreement a coach/owner accepts before connecting Square to receive payouts. It
 > MUST be reviewed and finalized by counsel before go-live. The version string here

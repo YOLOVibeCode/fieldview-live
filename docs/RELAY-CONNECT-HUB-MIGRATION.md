@@ -97,11 +97,11 @@ Relay canary + `test.squareup.noctusoft.com` console (catalog, card-on-file, cha
 | `NOCTUSOFT_RELAY_SQUARE_BASE_URL` | Connect Hub base | `https://api.square.noctusoft.com` |
 | `NOCTUSOFT_PRODUCT_KEY` | Connect Hub product slug | `fieldview` |
 | `PAYMENTS_VIA_RELAY` | Route checkout/refunds through the relay | `false` (OFF) |
-| `RELAY_AGREEMENT_VERSION` | Recipient Agreement version to record | `v1` |
+| `RELAY_AGREEMENT_VERSION` | Recipient Agreement version to record (must equal the relay row's `agreement_version`) | `v2` |
 | `FIELDVIEW_WEBHOOK_SECRET` | Verifies relay-forwarded webhooks (HMAC) | — (required for webhooks) |
 | `FIELDVIEW_WEBHOOK_CALLBACK_URL` | Exact URL the relay signs against | `${API_BASE_URL}/api/webhooks/relay` |
 
-On `ns` (relay): `connect_apps` for `fieldview` → `app_fee_bps=1000`, `agreement_version=v1`, `webhook_callback_url`, `post_connect_redirect=…/owners/dashboard?payments_connected=true`; set `NOCTUSOFT_SQUARE_WEBHOOK_SIGNATURE_KEY_{PROD,SANDBOX}` + the product's webhook signing secret; register the relay's Square webhook. The Recipient Agreement text (v1) must match: see `docs/legal/RECIPIENT-AGREEMENT-v1.md` (attorney review pending).
+On `ns` (relay): `connect_apps` for `fieldview` → `app_fee_bps=1000`, `agreement_version=v2`, `webhook_callback_url`, `post_connect_redirect=…/owners/dashboard?payments_connected=true`; set `NOCTUSOFT_SQUARE_WEBHOOK_SIGNATURE_KEY_{PROD,SANDBOX}` + the product's webhook signing secret; register the relay's Square webhook. The Recipient Agreement text (v2, Stripe through the Noctusoft Store; v1 was Square-worded) must match: see `docs/legal/RECIPIENT-AGREEMENT-v2.md` (attorney review pending). A coach whose acceptance is older than the current version is sent back to step 1 by `GET /me/payments/status` (`agreementAccepted:false`, `agreementCurrentVersion`).
 
 ## 10. Canary checklist (before flipping `PAYMENTS_VIA_RELAY=true` in prod)
 

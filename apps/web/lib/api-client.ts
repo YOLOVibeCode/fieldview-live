@@ -163,9 +163,12 @@ export interface OwnerPaymentsStatus {
   status?: string | null;
   chargesEnabled?: boolean;
   payoutsEnabled?: boolean;
-  /** The coach accepted the Recipient Agreement (step 1). */
+  /** The coach accepted the Recipient Agreement at its current version (step 1). */
   agreementAccepted?: boolean;
+  /** The version the coach accepted, if any; older than agreementCurrentVersion means re-acceptance is due. */
   agreementVersion?: string | null;
+  /** The version the API asks coaches to accept today. */
+  agreementCurrentVersion?: string | null;
   agreementAcceptedAt?: string | null;
   mode?: 'test' | 'live' | null;
 }
