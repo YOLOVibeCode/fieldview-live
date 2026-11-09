@@ -18,4 +18,13 @@ describe('legal pages content', () => {
     expect(terms).toContain('Message frequency varies');
     expect(terms).toContain('Carriers are not liable for delayed or undelivered messages');
   });
+
+  it('recipient agreement page describes the Stripe marketplace at version v2 with no Square wording', () => {
+    const agreement = readFileSync(join(__dirname, '../legal/recipient-agreement/page.tsx'), 'utf8');
+    expect(agreement).toContain('Effective version: v2');
+    expect(agreement).toContain('Noctusoft Store');
+    expect(agreement).toContain('Stripe Connected Account Agreement');
+    expect(agreement).toContain('10% of each purchase price');
+    expect(agreement).not.toMatch(/Square/);
+  });
 });

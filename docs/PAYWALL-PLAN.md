@@ -245,4 +245,4 @@ the entity page, and actual progress from the ledger.
 ## 5. Open questions
 
 1. **Processing rate:** what does the store charge for card processing? The plan assumes 2.9% + 30¢ (Square online) until confirmed. It's only used for pass-through prices and break-even estimates; the ledger always records the actual fee.
-2. **Recipient Agreement:** the attorney review of `RECIPIENT-AGREEMENT-v1` is still pending before the first real coach.
+2. **Recipient Agreement:** `RECIPIENT-AGREEMENT-v2` (2026-11-09) replaced the Square-worded v1 with the Stripe/Noctusoft Store terms that are actually in force; its attorney review is still pending before the first real coach.

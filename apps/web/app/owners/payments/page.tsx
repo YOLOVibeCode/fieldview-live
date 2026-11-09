@@ -266,6 +266,14 @@ function PaymentsInner() {
                   </p>
                 ) : (
                   <>
+                    {status.agreementVersion &&
+                    status.agreementCurrentVersion &&
+                    status.agreementVersion !== status.agreementCurrentVersion ? (
+                      <p className="text-sm text-amber-800" data-testid="notice-agreement-stale">
+                        You accepted version {status.agreementVersion}. Version {status.agreementCurrentVersion} replaces
+                        it: please read and accept the new version. Your payouts keep working in the meantime.
+                      </p>
+                    ) : null}
                     <label className="flex items-start gap-2 text-sm" htmlFor="agree">
                       <input
                         id="agree"
