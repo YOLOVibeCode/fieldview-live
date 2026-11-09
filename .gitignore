@@ -20,6 +20,9 @@ out/
 # OS
 .DS_Store
 
+# Claude Code git worktrees (local only)
+.claude/worktrees/
+
 # IDE
 .vscode/
 .idea/
