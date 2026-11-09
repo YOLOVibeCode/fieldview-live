@@ -27,7 +27,7 @@ import { MarketplaceStoreService } from '../services/MarketplaceStoreService';
 
 const router = express.Router();
 const APP_URL = process.env.APP_URL || 'http://localhost:4300';
-const AGREEMENT_VERSION = process.env.RELAY_AGREEMENT_VERSION || 'v1';
+const AGREEMENT_VERSION = process.env.RELAY_AGREEMENT_VERSION || 'v2';
 
 /** Where the relay sends the coach after the provider's form (an allowed return origin). */
 function paymentsReturnUrl(): string {
@@ -142,8 +142,10 @@ router.get('/me/payments/status', requireOwnerAuth, (req: AuthRequest, res, next
         status: relay?.status ?? null,
         chargesEnabled: relay?.chargesEnabled ?? false,
         payoutsEnabled: relay?.payoutsEnabled ?? false,
-        agreementAccepted: relay?.agreementAccepted ?? false,
+        // Accepted means accepted at the current version: an older acceptance sends the coach back to step 1.
+        agreementAccepted: Boolean(relay?.agreementAccepted) && relay?.agreementVersion === AGREEMENT_VERSION,
         agreementVersion: relay?.agreementVersion ?? null,
+        agreementCurrentVersion: AGREEMENT_VERSION,
         agreementAcceptedAt: relay?.agreementAcceptedAt ?? null,
         mode: relay?.mode ?? null,
       });

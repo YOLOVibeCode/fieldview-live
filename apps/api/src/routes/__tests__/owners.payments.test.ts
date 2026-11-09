@@ -61,7 +61,7 @@ const relayStatus = (over: Partial<MarketplaceSellerStatus> = {}): MarketplaceSe
   sellerRef: 'sel_1',
   mode: 'live',
   agreementAccepted: true,
-  agreementVersion: 'v1',
+  agreementVersion: 'v2',
   agreementAcceptedAt: '2026-11-07T00:00:00.000Z',
   ...over,
 });
@@ -75,14 +75,14 @@ beforeEach(() => {
 
 describe('POST /api/owners/me/payments/agreement', () => {
   it('assigns the seller key and records the current agreement version on the relay', async () => {
-    store.acceptAgreement.mockResolvedValue({ version: 'v1', acceptedAt: '2026-11-07T00:00:00.000Z' });
+    store.acceptAgreement.mockResolvedValue({ version: 'v2', acceptedAt: '2026-11-07T00:00:00.000Z' });
 
     const res = await request(app()).post('/api/owners/me/payments/agreement').send({});
 
     expect(res.status).toBe(200);
     expect(update).toHaveBeenCalledWith('owner-1', { marketplaceSellerKey: 'owner-1' });
-    expect(store.acceptAgreement).toHaveBeenCalledWith('owner-1', 'v1');
-    expect(res.body).toEqual({ accepted: true, version: 'v1', acceptedAt: '2026-11-07T00:00:00.000Z', sellerKey: 'owner-1' });
+    expect(store.acceptAgreement).toHaveBeenCalledWith('owner-1', 'v2');
+    expect(res.body).toEqual({ accepted: true, version: 'v2', acceptedAt: '2026-11-07T00:00:00.000Z', sellerKey: 'owner-1' });
   });
 
   it('passes an explicit version through', async () => {
@@ -160,10 +160,21 @@ describe('GET /api/owners/me/payments/status', () => {
       chargesEnabled: true,
       payoutsEnabled: true,
       agreementAccepted: true,
-      agreementVersion: 'v1',
+      agreementVersion: 'v2',
+      agreementCurrentVersion: 'v2',
       mode: 'live',
     });
     expect(res.body.connectedAt).toEqual(expect.any(String));
+  });
+
+  it('sends a coach whose acceptance is an older version back to the agreement step, without touching the connection', async () => {
+    findById.mockResolvedValue(owner({ marketplaceSellerKey: 'owner-1', paymentsConnectedAt: new Date('2026-10-01T00:00:00Z'), payoutProviderRef: 'sel_1' }));
+    store.getSellerStatus.mockResolvedValue(relayStatus({ agreementVersion: 'v1' }));
+
+    const res = await request(app()).get('/api/owners/me/payments/status');
+
+    expect(update).not.toHaveBeenCalled();
+    expect(res.body).toMatchObject({ connected: true, agreementAccepted: false, agreementVersion: 'v1', agreementCurrentVersion: 'v2' });
   });
 
   it('clears paymentsConnectedAt when the relay no longer reports the seller as able to charge', async () => {

@@ -125,6 +125,20 @@ describe('OwnerPaymentsPage', () => {
     expect(screen.getByTestId('text-seller-status')).toHaveTextContent(/active/i);
   });
 
+  it('asks a connected coach to accept a newer agreement version, says why, and keeps payouts Ready', async () => {
+    vi.mocked(apiClient.ownerPaymentsStatus).mockResolvedValue(
+      agreed({
+        connected: true, connectedAt: '2026-11-07T01:00:00Z', status: 'active', chargesEnabled: true, payoutsEnabled: true, merchantId: 'sel_1', mode: 'live',
+        agreementAccepted: false, agreementVersion: 'v1', agreementCurrentVersion: 'v2',
+      }),
+    );
+    render(<OwnerPaymentsPage />);
+
+    expect(await screen.findByTestId('notice-agreement-stale')).toHaveTextContent(/version v1.*version v2/i);
+    expect(screen.getByTestId('checkbox-agree')).toBeInTheDocument();
+    expect(screen.getByTestId('status-payments-ready')).toBeInTheDocument();
+  });
+
   it('explains a failed return from the provider', async () => {
     searchParams.set('seller', 'failed');
     searchParams.set('code', 'DECLINED');
