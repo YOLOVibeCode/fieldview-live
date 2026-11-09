@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 
 import './globals.css';
 import '@/styles/v2/tokens.css'; // v2 Design Tokens
+import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { PublicLegalFooter } from '@/components/PublicLegalFooter';
 import { TrakletWidget } from '@/components/TrakletWidget';
 import { VersionDisplay } from '@/components/VersionDisplay';
@@ -65,6 +66,7 @@ export default function RootLayout({
           <PublicLegalFooter />
         </div>
         <TrakletWidget />
+        <FeedbackWidget />
         <VersionDisplay />
       </body>
     </html>
