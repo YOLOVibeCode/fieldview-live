@@ -6,6 +6,8 @@
 
 import { z } from 'zod';
 
+import { zListPriceInCentsNullableOptional } from '../utils/pricing';
+
 /**
  * Create DirectStreamEvent Schema
  * 
@@ -27,7 +29,7 @@ export const CreateDirectStreamEventSchema = z.object({
   chatEnabled: z.boolean().nullable().optional(),
   scoreboardEnabled: z.boolean().nullable().optional(),
   paywallEnabled: z.boolean().nullable().optional(),
-  priceInCents: z.number().int().min(0).max(1000000).nullable().optional(),
+  priceInCents: zListPriceInCentsNullableOptional(),
   paywallMessage: z.string().max(1000).nullable().optional(),
   allowAnonymousView: z.boolean().nullable().optional(),
   requireEmailVerification: z.boolean().nullable().optional(),
@@ -60,7 +62,7 @@ export const UpdateDirectStreamEventSchema = z.object({
   chatEnabled: z.boolean().nullable().optional(),
   scoreboardEnabled: z.boolean().nullable().optional(),
   paywallEnabled: z.boolean().nullable().optional(),
-  priceInCents: z.number().int().min(0).max(1000000).nullable().optional(),
+  priceInCents: zListPriceInCentsNullableOptional(),
   paywallMessage: z.string().max(1000).nullable().optional(),
   allowAnonymousView: z.boolean().nullable().optional(),
   requireEmailVerification: z.boolean().nullable().optional(),

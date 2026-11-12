@@ -21,7 +21,11 @@ import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { OwnerDirectStreamRepository } from '../repositories/OwnerDirectStreamRepository';
 import { OwnerDirectStreamService } from '../services/OwnerDirectStreamService';
-import { sportRegistry } from '@fieldview/data-model';
+import {
+  sportRegistry,
+  zListPriceInCents,
+  zListPriceInCentsOptional,
+} from '@fieldview/data-model';
 
 // Validation schemas (inline to avoid cross-package ZodError instanceof issues)
 const CreateOwnerDirectStreamSchema = z.object({
@@ -37,7 +41,7 @@ const CreateOwnerDirectStreamSchema = z.object({
   chatEnabled: z.boolean().optional().default(true),
   scoreboardEnabled: z.boolean().optional().default(false),
   paywallEnabled: z.boolean().optional().default(false),
-  priceInCents: z.number().int().min(0).max(1000000).optional().default(0),
+  priceInCents: zListPriceInCents().optional().default(0),
   paywallMessage: z.string().max(1000).optional(),
   allowAnonymousView: z.boolean().optional().default(true),
   requireEmailVerification: z.boolean().optional().default(true),
@@ -61,7 +65,7 @@ const UpdateOwnerDirectStreamSchema = z.object({
   chatEnabled: z.boolean().optional(),
   scoreboardEnabled: z.boolean().optional(),
   paywallEnabled: z.boolean().optional(),
-  priceInCents: z.number().int().min(0).max(1000000).optional(),
+  priceInCents: zListPriceInCentsOptional(),
   paywallMessage: z.string().max(1000).nullable().optional(),
   allowAnonymousView: z.boolean().optional(),
   requireEmailVerification: z.boolean().optional(),

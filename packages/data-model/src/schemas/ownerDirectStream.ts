@@ -6,6 +6,8 @@
 
 import { z } from 'zod';
 
+import { zListPriceInCents, zListPriceInCentsOptional } from '../utils/pricing';
+
 export const CreateOwnerDirectStreamSchema = z.object({
   slug: z
     .string()
@@ -23,7 +25,7 @@ export const CreateOwnerDirectStreamSchema = z.object({
 
   // Paywall
   paywallEnabled: z.boolean().optional().default(false),
-  priceInCents: z.number().int().min(0).max(1000000).optional().default(0),
+  priceInCents: zListPriceInCents().optional().default(0),
   paywallMessage: z.string().max(1000).optional(),
 
   // Access control
@@ -49,7 +51,7 @@ export const UpdateOwnerDirectStreamSchema = z.object({
 
   // Paywall
   paywallEnabled: z.boolean().optional(),
-  priceInCents: z.number().int().min(0).max(1000000).optional(),
+  priceInCents: zListPriceInCentsOptional(),
   paywallMessage: z.string().max(1000).nullable().optional(),
 
   // Access control

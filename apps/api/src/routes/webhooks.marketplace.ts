@@ -19,8 +19,6 @@ import { calculateMarketplaceSplit } from '../utils/feeCalculator';
 
 const router = express.Router();
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
-const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
-
 /**
  * Event v1 carries the purchase id as `buyer.userId` (the connect buy link's
  * `user`), the payment as `refs.paymentId`, and the platform fee as
@@ -138,7 +136,7 @@ router.post('/marketplace', (req, res, next) => {
           return res.status(200).json({ received: true });
         }
 
-        const splitEstimate = calculateMarketplaceSplit(purchase.amountCents, PLATFORM_FEE_PERCENT);
+        const splitEstimate = calculateMarketplaceSplit(purchase.amountCents);
         const appFee = event.money?.feeCents ?? event.data?.app_fee_cents;
         const processorFee = event.data?.processor_fee_cents;
         const platformFeeCents = typeof appFee === 'number' ? appFee : splitEstimate.platformFeeCents;

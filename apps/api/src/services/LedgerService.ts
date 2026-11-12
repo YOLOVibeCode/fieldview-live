@@ -6,6 +6,7 @@
  */
 
 import type { Purchase } from '@prisma/client';
+import { platformFeePercentLabel } from '@fieldview/data-model';
 
 import type { ILedgerWriter } from '../repositories/ILedgerRepository';
 import type { IOwnerAccountReader } from '../repositories/IOwnerAccountRepository';
@@ -30,7 +31,7 @@ export class LedgerService {
   async createPurchaseLedgerEntries(
     purchase: Purchase,
     split: MarketplaceSplit,
-    actualProcessorFeeCents?: number // Use actual Square fee if available, otherwise use estimated
+    actualProcessorFeeCents?: number // Use actual processor fee from webhook when available
   ): Promise<void> {
     // Check if ledger entries already exist for this purchase (idempotency)
     // Note: We'll check this in the caller to avoid circular dependency
@@ -54,7 +55,7 @@ export class LedgerService {
       description: `Purchase: ${purchase.amountCents / 100} ${purchase.currency}`,
     });
 
-    // 2. Platform fee entry (debit from owner) - 10% of gross
+    // 2. Platform fee entry (debit from owner)
     await this.ledgerWriter.create({
       ownerAccountId: ownerAccount.id,
       type: 'platform_fee',
@@ -62,10 +63,10 @@ export class LedgerService {
       currency: purchase.currency,
       referenceType: 'purchase',
       referenceId: purchase.id,
-      description: `Platform fee (10%): ${split.platformFeeCents / 100} ${purchase.currency}`,
+      description: `Platform fee (${platformFeePercentLabel()}): ${split.platformFeeCents / 100} ${purchase.currency}`,
     });
 
-    // 3. Processor fee entry (debit from owner) - actual Square processing fee
+    // 3. Processor fee entry (debit from owner)
     await this.ledgerWriter.create({
       ownerAccountId: ownerAccount.id,
       type: 'processor_fee',

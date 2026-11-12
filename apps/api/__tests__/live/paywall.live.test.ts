@@ -261,20 +261,12 @@ describe('LIVE: Paywall Functionality (Square Sandbox)', () => {
     );
 
     // This test doesn't require payment processing - just verifies fee calculation
-    it(
-      'verifies platform fee percentage is configurable via PLATFORM_FEE_PERCENT',
-      async () => {
-        assertLiveTestEnv();
+    it('verifies platform fee is fixed at 10% via shared pricing module', async () => {
+      assertLiveTestEnv();
 
-        // The env variable is set to 10% - verify the calculation uses it
-        const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
-        expect(platformFeePercent).toBe(10);
-
-        // Test fee calculation
-        const split = calculateMarketplaceSplit(1000, platformFeePercent);
-        expect(split.platformFeeCents).toBe(100); // 10% of $10.00
-      }
-    );
+      const split = calculateMarketplaceSplit(1000);
+      expect(split.platformFeeCents).toBe(100);
+    });
   });
 
   describe('Ledger Entry Verification', () => {
