@@ -184,7 +184,8 @@ router.get('/me/transparency', requireOwnerAuth, (req: AuthRequest, res, next) =
         netEarnings: netEarningsCents / 100,
         currency: 'USD',
         // Transparency message
-        message: 'Full transparency: Platform fee (10%) supports FieldView operations. Processor fees are charged by Square. Owner bears processor fees per marketplace Model A.',
+        message:
+          'Full transparency: The platform fee supports FieldView operations. Payment processing fees are set by the payment provider and deducted from your payout.',
       });
     } catch (error) {
       next(error);

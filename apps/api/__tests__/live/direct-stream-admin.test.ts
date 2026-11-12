@@ -168,7 +168,7 @@ describe('DirectStream Admin Settings API (JWT)', () => {
       const res = await request
         .post(`/api/direct/${testSlug}/settings`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ priceInCents: 100000 }); // > $999.99
+        .send({ priceInCents: 1_000_001 }); // > $10,000 max
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBeDefined();
@@ -194,14 +194,14 @@ describe('DirectStream Admin Settings API (JWT)', () => {
           streamUrl: 'https://multi.stream.com/test.m3u8',
           chatEnabled: false,
           paywallEnabled: true,
-          priceInCents: 999,
+          priceInCents: 100,
         });
 
       expect(res.status).toBe(200);
       expect(res.body.settings.streamUrl).toBe('https://multi.stream.com/test.m3u8');
       expect(res.body.settings.chatEnabled).toBe(false);
       expect(res.body.settings.paywallEnabled).toBe(true);
-      expect(res.body.settings.priceInCents).toBe(999);
+      expect(res.body.settings.priceInCents).toBe(100);
     });
 
     // 🆕 Stream-page decoupling: Settings save without stream URL

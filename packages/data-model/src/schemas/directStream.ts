@@ -8,6 +8,12 @@
 
 import { z } from 'zod';
 
+import {
+  isValidListPrice,
+  zListPriceInCents,
+  zListPriceInCentsOptional,
+} from '../utils/pricing';
+
 // Base direct stream data
 export const DirectStreamSchema = z.object({
   id: z.string().uuid(),
@@ -15,7 +21,7 @@ export const DirectStreamSchema = z.object({
   title: z.string().min(1).max(200),
   streamUrl: z.string().url().nullable(),
   paywallEnabled: z.boolean(),
-  priceInCents: z.number().int().min(0).max(99999), // Max $999.99
+  priceInCents: zListPriceInCents(),
   paywallMessage: z.string().max(1000).nullable(),
   allowSavePayment: z.boolean(),
   chatEnabled: z.boolean(),
@@ -31,7 +37,7 @@ export const UpdateDirectStreamSettingsSchema = z.object({
   password: z.string().min(1),  // Admin password (verified on server)
   streamUrl: z.string().url().optional(),
   paywallEnabled: z.boolean().optional(),
-  priceInCents: z.number().int().min(0).max(99999).optional(),
+  priceInCents: zListPriceInCentsOptional(),
   paywallMessage: z.string().max(1000).nullable().optional(),
   allowSavePayment: z.boolean().optional(),
   chatEnabled: z.boolean().optional(),
@@ -49,7 +55,7 @@ export const DirectStreamBootstrapSchema = z.object({
   
   // Paywall info
   paywallEnabled: z.boolean(),
-  priceInCents: z.number().int().min(0),
+  priceInCents: zListPriceInCents(),
   paywallMessage: z.string().max(1000).nullable(),
   allowSavePayment: z.boolean(),
 });
@@ -58,7 +64,7 @@ export type DirectStreamBootstrap = z.infer<typeof DirectStreamBootstrapSchema>;
 
 // Price validation helper
 export const validatePrice = (priceInCents: number): boolean => {
-  return priceInCents >= 0 && priceInCents <= 99999;
+  return isValidListPrice(priceInCents);
 };
 
 // Format price for display

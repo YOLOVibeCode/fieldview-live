@@ -117,8 +117,7 @@ SQUARE_REDIRECT_URI="http://localhost:4301/api/owners/square/callback"
 # Encryption (already set!)
 ENCRYPTION_KEY="your_encryption_key"
 
-# Platform Fee
-PLATFORM_FEE_PERCENT="10"
+# Platform fee is fixed at 10% in code (PLATFORM_FEE_BPS); no env var.
 
 # API
 PORT=4301

@@ -35,8 +35,7 @@ JWT_EXPIRES_IN="24h"
 APP_URL="https://fieldview.live"
 
 # ===== PAYOUT / FEES =====
-# Platform fee percent applied to purchases (default 10)
-PLATFORM_FEE_PERCENT="10"
+# Platform fee is fixed at 10% (PLATFORM_FEE_BPS) in packages/data-model — no env var.
 
 # ===== API =====
 PORT=3001

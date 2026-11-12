@@ -4,6 +4,8 @@
 
 import type { OwnerAccount } from '@prisma/client';
 
+import { MIN_CHARGE_CENTS } from '@fieldview/data-model';
+
 import { AppError } from './errors';
 
 export type OwnerPaymentsReadinessInput = Pick<
@@ -29,7 +31,7 @@ export function getOwnerPaymentsReadiness(owner: OwnerPaymentsReadinessInput): P
 }
 
 export function wouldChargeViewers(paywallEnabled: boolean, priceInCents: number): boolean {
-  return paywallEnabled && priceInCents > 0;
+  return paywallEnabled && priceInCents >= MIN_CHARGE_CENTS;
 }
 
 export function assertPaymentsReadyForPaywall(
