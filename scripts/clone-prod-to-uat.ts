@@ -118,8 +118,8 @@ async function anonymize() {
     await prisma.purchase.updateMany({ data: { lastAccessedIp: null } });
     await prisma.payout.updateMany({ data: { payoutProviderRef: null } });
 
-    // --- Veo credentials (both columns are NON-null; mask rather than null) ---
-    await prisma.veoIntegration.updateMany({ data: { veoEmail: 'veo-disabled@uat.invalid', veoPasswordEncrypted: '' } });
+    // --- Camera sources (Veo, …): hold prod credentials, so UAT gets none. Reconnect in UAT if needed. ---
+    await prisma.cameraSource.deleteMany({});
 
     // --- Ephemeral token/secret tables: delete outright (they regenerate) ---
     await prisma.emailVerificationToken.deleteMany({});

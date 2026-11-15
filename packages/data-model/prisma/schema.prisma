@@ -36,29 +36,29 @@ model OwnerAccount {
   organizations         Organization[]
   directStreams         DirectStream[] // 🆕 Relation for DirectStream paywall revenue
   deviceFingerprints    OwnerAccountFingerprint[] // 🆕 For abuse detection
-  veoIntegration        VeoIntegration? // Optional Veo scraper credentials (encrypted)
+  cameraSources         CameraSource[] // Connected camera platforms (Veo, …) for live-stream discovery
 
   @@index([status])
   @@index([payoutProviderRef])
   @@index([marketplaceSellerKey])
 }
 
-// Veo stream scraper: credentials and diagnostics URL per owner (encrypted at rest)
-model VeoIntegration {
-  id                   String   @id @default(uuid()) @db.Uuid
-  ownerAccountId       String   @unique @db.Uuid
-  veoEmail             String
-  veoPasswordEncrypted String
-  veoDiagnosticsUrl    String   @db.VarChar(2048)
-  // Browser-free path: a seeded auth.veo.co `_session` cookie header (encrypted).
-  // When present, the connector mints tokens over pure HTTP — no Chromium at runtime.
-  veoSessionCookieEncrypted String? @db.Text
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+// A connected camera-platform account (Veo, …) that FieldView can ask "what is live right now?".
+// One per provider per owner. `secrets` is { name: ciphertext }: every value is AES-256-GCM
+// encrypted (apps/api/src/lib/encryption.ts) and must never be returned by an API or logged.
+model CameraSource {
+  id             String   @id @default(uuid()) @db.Uuid
+  ownerAccountId String   @db.Uuid
+  provider       String // Camera provider registry id, e.g. 'veo'
+  config         Json // Non-secret settings, e.g. { email, clubUrl }
+  secrets        Json // { name: ciphertext }
+  status         String   @default("active") // 'active' | 'needs_reconnect'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   ownerAccount OwnerAccount @relation(fields: [ownerAccountId], references: [id], onDelete: Cascade)
 
-  @@index([ownerAccountId])
+  @@unique([ownerAccountId, provider])
 }
 
 model OwnerUser {

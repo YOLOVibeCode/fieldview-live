@@ -104,6 +104,19 @@ export const adminRateLimit = createRateLimiter({
 });
 
 /**
+ * Live stream search: 10 per stream admin per minute.
+ * Each request calls the owner's camera platform, so keep it modest.
+ */
+export const liveStreamSearchRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many live stream searches, please wait a moment.',
+  keyGenerator: (req: Request) => `live-streams:${req.admin?.slug ?? ipKeyGenerator(req.ip || 'unknown')}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Game event report: 6 per viewer per minute (~1 per 10s average)
  */
 export const gameEventRateLimit = createRateLimiter({

@@ -31,10 +31,12 @@ Game 0—N SMSMessage (inbound/outbound)
   - `association_operator` role is optional MVP (can be Post-MVP)
 
 ### CameraSource
-- **Fields**: `id`, `ownerAccountId`, `type` (veo|pixellot|rtmp), `configRef` (encrypted credentials/config), `status` (active|inactive), `createdAt`
+- **Fields**: `id`, `ownerAccountId`, `provider` (camera provider registry id, e.g. `veo`), `config` (non-secret settings), `secrets` (`{ name: ciphertext }`), `status` (active|needs_reconnect), `createdAt`, `updatedAt`
 - **Notes**:
-  - Sensitive credentials should be stored encrypted and access-limited
-  - `configRef` may point to encrypted storage or secrets manager
+  - A connected camera-platform account FieldView can ask "what is live right now?". One per provider per owner.
+  - Every `secrets` value is encrypted (AES-256-GCM) and is never returned by an API or logged
+  - Code: `apps/api/src/modules/camera-sources/`. To add a platform, implement `ILiveStreamLister` + `ICameraConnector` under `providers/<name>/` and register it in `registry.ts`
+  - Not the same as `streamProvider` (how a stream is played) or `StreamSource` (a Game's playback config)
 
 ### Game
 - **Fields**: `id`, `ownerAccountId`, `title`, `homeTeam`, `awayTeam`, `startsAt`, `endsAt` (optional), `state` (draft|active|live|ended|cancelled), `priceCents`, `currency` (default: USD)
