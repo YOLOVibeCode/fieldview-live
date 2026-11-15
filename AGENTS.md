@@ -34,7 +34,7 @@ pnpm workspace (`pnpm-workspace.yaml`: `packages/*`, `apps/*`).
   - `src/routes/` - one file per route group (`owners.*.ts`, `public.*.ts`, `admin.*.ts`, `webhooks.*.ts`). Register in `src/server.ts`.
   - `src/services/` - business logic. Segregated interfaces (`IXReader` / `IXWriter`), constructor DI.
   - `src/repositories/` - Prisma access, read/write separation.
-  - `src/middleware/`, `src/lib/`, `src/utils/`, `src/jobs/`, `src/modules/` (e.g. `veo-scraper`).
+  - `src/middleware/`, `src/lib/`, `src/utils/`, `src/jobs/`, `src/modules/` (e.g. `camera-sources`).
   - Tests: `__tests__/unit/`, `__tests__/integration/`, `src/**/__tests__/` (Vitest). `__tests__/live/` needs a running stack and is excluded from `test:unit`.
 - `apps/web/` - Next.js 14 App Router frontend (`app/`, `components/`, `hooks/`, `lib/`).
   - `lib/api-client.ts` (`apiRequest<T>`, `ApiError`), `lib/event-bus.ts` (`DataEventBus`).

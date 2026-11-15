@@ -17,7 +17,6 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "type-check": "tsc --noEmit",
-    "veo-scraper": "dotenv -e .env -- tsx scripts/run-veo-scraper.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
   },
