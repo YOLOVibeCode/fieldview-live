@@ -7,7 +7,7 @@ import {
   type ICameraProviderRegistry,
   type LiveStream,
 } from '../interfaces';
-import { LiveStreamFinder } from '../LiveStreamFinder';
+import { LiveStreamFinder, type ISecretsVault } from '../LiveStreamFinder';
 
 const OWNER = 'owner-1';
 
@@ -38,17 +38,32 @@ function registryOf(...providers: ICameraProvider[]): ICameraProviderRegistry {
   };
 }
 
+/** Stand-in for encryption so tests need no real ciphertext: "open:" / "sealed:" prefixes. */
+function fakeVault(opts: { stale?: boolean } = {}): ISecretsVault {
+  return {
+    open: vi.fn((sealed) =>
+      Object.fromEntries(Object.entries(sealed as Record<string, string>).map(([k, v]) => [k, `open:${v}`]))
+    ),
+    seal: vi.fn((secrets, scope) =>
+      Object.fromEntries(
+        Object.entries(secrets).map(([k, v]) => [k, `sealed(${scope.ownerAccountId}/${scope.provider}):${v}`])
+      )
+    ),
+    needsReseal: vi.fn(() => opts.stale ?? false),
+  };
+}
+
 function setup(records: CameraSourceRecord[], ...providers: ICameraProvider[]) {
   const setStatus = vi.fn(async () => {});
+  const updateSecrets = vi.fn(async () => {});
+  const vault = fakeVault();
   const finder = new LiveStreamFinder({
     sourceReader: { listByOwner: vi.fn(async () => records) },
-    sourceWriter: { setStatus },
+    sourceWriter: { setStatus, updateSecrets },
     registry: registryOf(...providers),
-    // Stand-in for decryption so tests need no real ciphertext.
-    openSecrets: (sealed) =>
-      Object.fromEntries(Object.entries(sealed as Record<string, string>).map(([k, v]) => [k, `open:${v}`])),
+    vault,
   });
-  return { finder, setStatus };
+  return { finder, setStatus, updateSecrets, vault };
 }
 
 const LIVE: LiveStream = {
@@ -66,9 +81,12 @@ describe('LiveStreamFinder', () => {
 
   it('asks the provider with the decrypted connection and returns its live streams', async () => {
     const veo = provider('veo', 'Veo', async () => [LIVE]);
-    const { finder } = setup([record()], veo);
+    const { finder, vault, updateSecrets } = setup([record()], veo);
 
     const result = await finder.findForOwner(OWNER);
+
+    expect(vault.open).toHaveBeenCalledWith({ sessionCookie: 'sealed-cookie' }, { ownerAccountId: OWNER, provider: 'veo' });
+    expect(updateSecrets).not.toHaveBeenCalled();
 
     expect(veo.lister.listLive).toHaveBeenCalledWith({
       id: 'cs-1',
@@ -136,10 +154,13 @@ describe('LiveStreamFinder', () => {
     const setStatus = vi.fn(async () => {});
     const finder = new LiveStreamFinder({
       sourceReader: { listByOwner: async () => [record()] },
-      sourceWriter: { setStatus },
+      sourceWriter: { setStatus, updateSecrets: vi.fn(async () => {}) },
       registry: registryOf(veo),
-      openSecrets: () => {
-        throw new Error('Could not decrypt camera source secret "sessionCookie"');
+      vault: {
+        ...fakeVault(),
+        open: () => {
+          throw new Error('Could not decrypt camera source secret "sessionCookie"');
+        },
       },
     });
 
@@ -148,5 +169,40 @@ describe('LiveStreamFinder', () => {
     expect(veo.lister.listLive).not.toHaveBeenCalled();
     expect(setStatus).not.toHaveBeenCalled();
     expect(result.sources).toEqual([{ provider: 'veo', displayName: 'Veo', status: 'error' }]);
+  });
+
+  it('re-seals secrets stored in an older format, bound to the owner and provider', async () => {
+    const veo = provider('veo', 'Veo', async () => [LIVE]);
+    const updateSecrets = vi.fn(async () => {});
+    const finder = new LiveStreamFinder({
+      sourceReader: { listByOwner: async () => [record()] },
+      sourceWriter: { setStatus: vi.fn(async () => {}), updateSecrets },
+      registry: registryOf(veo),
+      vault: fakeVault({ stale: true }),
+    });
+
+    const result = await finder.findForOwner(OWNER);
+
+    expect(updateSecrets).toHaveBeenCalledWith('cs-1', { sessionCookie: 'sealed(owner-1/veo):open:sealed-cookie' });
+    expect(result.streams).toEqual([LIVE]);
+  });
+
+  it('still returns streams when the re-seal cannot be saved', async () => {
+    const veo = provider('veo', 'Veo', async () => [LIVE]);
+    const finder = new LiveStreamFinder({
+      sourceReader: { listByOwner: async () => [record()] },
+      sourceWriter: {
+        setStatus: vi.fn(async () => {}),
+        updateSecrets: vi.fn(async () => {
+          throw new Error('database down');
+        }),
+      },
+      registry: registryOf(veo),
+      vault: fakeVault({ stale: true }),
+    });
+
+    const result = await finder.findForOwner(OWNER);
+
+    expect(result).toEqual({ streams: [LIVE], sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }] });
   });
 });

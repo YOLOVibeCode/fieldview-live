@@ -57,4 +57,8 @@ export class CameraSourceRepository implements ICameraSourceReader, ICameraSourc
   async setStatus(id: string, status: CameraSourceStatus): Promise<void> {
     await this.prisma.cameraSource.update({ where: { id }, data: { status } });
   }
+
+  async updateSecrets(id: string, secrets: Record<string, string>): Promise<void> {
+    await this.prisma.cameraSource.update({ where: { id }, data: { secrets: secrets as Prisma.InputJsonObject } });
+  }
 }

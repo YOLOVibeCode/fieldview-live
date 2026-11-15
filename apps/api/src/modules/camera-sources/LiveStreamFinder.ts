@@ -20,14 +20,22 @@ import {
   type SourceHealth,
   type SourceReport,
 } from './interfaces';
-import { openSecrets as defaultOpenSecrets } from './secrets';
+import { openSecrets, sealSecrets, secretsNeedReseal, type SecretScope } from './secrets';
+
+/** Opens and seals a source's secrets (injectable for tests). */
+export interface ISecretsVault {
+  open(sealed: unknown, scope: SecretScope): Record<string, string>;
+  seal(secrets: Record<string, string>, scope: SecretScope): Record<string, string>;
+  needsReseal(sealed: unknown): boolean;
+}
+
+const defaultVault: ISecretsVault = { open: openSecrets, seal: sealSecrets, needsReseal: secretsNeedReseal };
 
 export interface LiveStreamFinderDeps {
   sourceReader: ICameraSourceReader;
-  sourceWriter: Pick<ICameraSourceWriter, 'setStatus'>;
+  sourceWriter: Pick<ICameraSourceWriter, 'setStatus' | 'updateSecrets'>;
   registry: ICameraProviderRegistry;
-  /** Decrypt a stored secrets column (injectable for tests). */
-  openSecrets?: (sealed: unknown) => Record<string, string>;
+  vault?: ISecretsVault;
 }
 
 interface SourceOutcome {
@@ -37,15 +45,15 @@ interface SourceOutcome {
 
 export class LiveStreamFinder implements ILiveStreamFinder {
   private readonly sourceReader: ICameraSourceReader;
-  private readonly sourceWriter: Pick<ICameraSourceWriter, 'setStatus'>;
+  private readonly sourceWriter: Pick<ICameraSourceWriter, 'setStatus' | 'updateSecrets'>;
   private readonly registry: ICameraProviderRegistry;
-  private readonly openSecrets: (sealed: unknown) => Record<string, string>;
+  private readonly vault: ISecretsVault;
 
   constructor(deps: LiveStreamFinderDeps) {
     this.sourceReader = deps.sourceReader;
     this.sourceWriter = deps.sourceWriter;
     this.registry = deps.registry;
-    this.openSecrets = deps.openSecrets ?? defaultOpenSecrets;
+    this.vault = deps.vault ?? defaultVault;
   }
 
   async findForOwner(ownerAccountId: string): Promise<OwnerLiveStreams> {
@@ -70,12 +78,16 @@ export class LiveStreamFinder implements ILiveStreamFinder {
       displayName = provider.displayName;
       if (source.status === 'needs_reconnect') return outcome('needs_reconnect');
 
+      const scope: SecretScope = { ownerAccountId: source.ownerAccountId, provider: source.provider };
+      const secrets = this.vault.open(source.secrets, scope);
+      await this.resealIfStale(source, secrets, scope);
+
       const streams = await provider.lister.listLive({
         id: source.id,
         ownerAccountId: source.ownerAccountId,
         provider: source.provider,
         config: source.config,
-        secrets: this.openSecrets(source.secrets),
+        secrets,
       });
       return outcome('ok', streams);
     } catch (err) {
@@ -89,6 +101,21 @@ export class LiveStreamFinder implements ILiveStreamFinder {
       }
       logger.error({ err, cameraSourceId: source.id, provider: source.provider }, 'Camera source lookup failed');
       return outcome('error');
+    }
+  }
+
+  /** Upgrade secrets stored in an older format or under a rotated key. Best effort: never blocks a lookup. */
+  private async resealIfStale(
+    source: CameraSourceRecord,
+    secrets: Record<string, string>,
+    scope: SecretScope
+  ): Promise<void> {
+    if (!this.vault.needsReseal(source.secrets)) return;
+    try {
+      await this.sourceWriter.updateSecrets(source.id, this.vault.seal(secrets, scope));
+      logger.info({ cameraSourceId: source.id }, 'Camera source secrets re-sealed');
+    } catch (err) {
+      logger.error({ err, cameraSourceId: source.id }, 'Could not re-seal camera source secrets');
     }
   }
 }
