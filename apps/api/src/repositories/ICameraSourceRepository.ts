@@ -41,4 +41,6 @@ export interface ICameraSourceWriter {
   setStatus(id: string, status: CameraSourceStatus): Promise<void>;
   /** Replace the stored (already encrypted) secrets, e.g. after re-sealing them. */
   updateSecrets(id: string, secrets: Record<string, string>): Promise<void>;
+  /** Disconnect. Resolves false when there was nothing to remove. */
+  deleteByOwnerAndProvider(ownerAccountId: string, provider: string): Promise<boolean>;
 }

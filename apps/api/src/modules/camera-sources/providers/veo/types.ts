@@ -47,21 +47,11 @@ export interface VeoMatchRow {
   createdAtMs: number | null;
 }
 
-// ── One-time browser login (seeding only; never on the server's request path) ─
+// ── Signing in ───────────────────────────────────────────────────────────────
 
 export interface VeoLoginCredentials {
   email: string;
   password: string;
-}
-
-/** Authenticated browser context (Playwright BrowserContext at runtime). */
-export interface VeoBrowserSession {
-  context: unknown;
-}
-
-export interface IVeoBrowserLogin {
-  login(credentials: VeoLoginCredentials): Promise<VeoBrowserSession>;
-  logout(session: VeoBrowserSession): Promise<void>;
 }
 
 /** Turn an email + password into the durable `_session` cookie header. */

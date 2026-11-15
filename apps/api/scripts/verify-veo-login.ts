@@ -15,13 +15,28 @@ import type { FetchLike } from '../src/modules/camera-sources/interfaces';
 
 const DEFAULT_CLUB_URL = 'https://app.veo.co/clubs/noctusoft-inc/live/streaming-diagnostics';
 
-function fromNote(note: string): { email?: string; password?: string; labels: string[] } {
-  const lines = note.split(/\r?\n/);
-  const labels = lines
-    .map((line) => line.match(/^\s*([A-Za-z][A-Za-z _-]{0,30}?)\s*[:=]/)?.[1]?.trim().toLowerCase())
-    .filter((label): label is string => !!label);
-  const password = note.match(/^\s*(?:veo\s*)?pass(?:word)?\s*[:=]\s*(.+?)\s*$/im)?.[1];
-  const email = note.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)?.[0];
+/**
+ * Pull the login out of a free-text note. A labelled line may be a Markdown list item and
+ * the label may be bold: "password: x", "- password: x", "- **Password:** x", "- **Password**: x".
+ */
+function labelled(note: string, label: string): string | undefined {
+  const line = new RegExp(
+    `^[ \\t]*(?:[-*+][ \\t]+)?[*_\`]*[ \\t]*${label}[ \\t]*[*_\`]*[ \\t]*[:=][*_\`]*[ \\t]+(.+?)[ \\t]*$`,
+    'im'
+  );
+  return note.match(line)?.[1]?.replace(/^`(.*)`$/, '$1');
+}
+
+export function fromNote(note: string): { email?: string; password?: string; labels: string[] } {
+  const labels = note
+    .split(/\r?\n/)
+    .map((l) => l.match(/^[ \t]*(?:[-*+][ \t]+)?[*_`]*[ \t]*([A-Za-z][A-Za-z _-]{0,30}?)[ \t]*[*_`]*[ \t]*[:=]/)?.[1])
+    .filter((label): label is string => !!label)
+    .map((label) => label.trim().toLowerCase());
+  const password = labelled(note, '(?:veo[ \\t]*)?pass(?:word)?');
+  const email =
+    labelled(note, '(?:e-?mail|username|login)')?.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)?.[0] ??
+    note.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)?.[0];
   return { email, password, labels };
 }
 
@@ -63,8 +78,10 @@ async function main(): Promise<void> {
   console.log('\n✅ Browser-free Veo login works end to end.');
 }
 
-main().catch((e: unknown) => {
-  const err = e as { name?: string; message?: string };
-  console.error('ERR', err?.name, err?.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e: unknown) => {
+    const err = e as { name?: string; message?: string };
+    console.error('ERR', err?.name, err?.message);
+    process.exit(1);
+  });
+}

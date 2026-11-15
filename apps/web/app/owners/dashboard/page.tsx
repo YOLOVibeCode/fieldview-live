@@ -273,6 +273,34 @@ function DashboardInner() {
             </CardContent>
           </Card>
 
+          <Card className="card-interactive" data-testid="card-camera-sources">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-base sm:text-lg">Streaming providers</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Connect Veo to pull in live stream links</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <a
+                href="/owners/camera-sources"
+                className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
+                data-testid="link-camera-sources"
+              >
+                Manage providers
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </CardContent>
+          </Card>
+
           <Card className="card-interactive" data-testid="card-earnings">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">

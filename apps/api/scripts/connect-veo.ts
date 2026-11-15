@@ -1,17 +1,17 @@
 /**
- * Connect (or reconnect) an owner's Veo camera source and store it encrypted.
+ * Connect (or reconnect) an owner's Veo camera source from the command line.
+ * The owner portal's Streaming providers page does the same thing; this is for
+ * setting up an environment without the UI.
  *
- * Runs the one-time Veo browser login on THIS machine (needs Chromium here, never
- * on the server), or takes an already-captured session cookie from COOKIE_FILE.
- * It goes through the same connector the app uses, so the session is verified
- * against Veo before anything is stored. The password is used once and not kept.
+ * It goes through the connector the app uses: signs in to Veo over plain HTTP,
+ * verifies the session, and stores it encrypted. The password is used once and not kept.
  *
  * Usage (from apps/api, with DATABASE_URL and ENCRYPTION_KEY for the target env set):
  *   OWNER_EMAIL=owner@example.com VEO_EMAIL=coach@example.com \
  *   VEO_CLUB_URL=https://app.veo.co/clubs/<club>/live/streaming-diagnostics \
  *   VEO_PASSWORD='…' npx tsx scripts/connect-veo.ts
  *
- *   Use COOKIE_FILE=/path/to/cookie instead of VEO_PASSWORD to skip the browser.
+ *   COOKIE_FILE=/path/to/cookie may replace VEO_PASSWORD (an already-issued session).
  *   Pass VEO_PASSWORD literally: dotenv-cli expands `$` and corrupts it.
  */
 import * as fs from 'fs';
@@ -19,8 +19,6 @@ import * as fs from 'fs';
 import { prisma } from '../src/lib/prisma';
 import { sealSecrets } from '../src/modules/camera-sources/secrets';
 import { createVeoProvider } from '../src/modules/camera-sources/providers/veo';
-import { PlaywrightVeoLogin } from '../src/modules/camera-sources/providers/veo/browser/PlaywrightVeoLogin';
-import { VeoCookieSeeder } from '../src/modules/camera-sources/providers/veo/browser/VeoCookieSeeder';
 import { CameraSourceRepository } from '../src/repositories/implementations/CameraSourceRepository';
 
 function required(name: string): string {
@@ -49,9 +47,9 @@ async function main(): Promise<void> {
   }
 
   const ownerAccountId = await resolveOwnerAccountId();
-  const veo = createVeoProvider({ sessionSeeder: new VeoCookieSeeder(new PlaywrightVeoLogin()) });
+  const veo = createVeoProvider();
 
-  console.log(`Connecting ${veo.displayName} for owner ${ownerAccountId}${cookieFile ? '' : ' (browser login)'}…`);
+  console.log(`Connecting ${veo.displayName} for owner ${ownerAccountId}…`);
   const result = await veo.connector.connect(input);
 
   const saved = await new CameraSourceRepository(prisma).upsert({
