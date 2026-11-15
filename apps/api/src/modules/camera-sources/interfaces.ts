@@ -171,7 +171,11 @@ export interface ILiveStreamPoller {
 
 export interface HttpResponse {
   status: number;
-  headers: { get(name: string): string | null };
+  headers: {
+    get(name: string): string | null;
+    /** Each Set-Cookie header separately (the global `fetch` provides this). */
+    getSetCookie?(): string[];
+  };
   json(): Promise<unknown>;
   text(): Promise<string>;
 }
