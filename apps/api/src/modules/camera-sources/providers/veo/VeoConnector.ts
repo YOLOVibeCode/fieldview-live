@@ -1,9 +1,9 @@
 /**
  * VeoConnector — Veo's ICameraConnector.
  *
- * Accepts either an already-seeded session cookie, or an email + password that a
- * session seeder turns into one. The session is verified before anything is
- * returned for storage. The password is used once and never stored.
+ * Signs in with the owner's email + password (or accepts an already-issued session
+ * cookie), verifies the session, and returns what to store. The password is used
+ * once and never stored.
  */
 
 import { z } from 'zod';
@@ -30,13 +30,13 @@ const ConnectInputSchema = z
 export interface VeoConnectorDeps {
   /** Prove a session cookie works. @throws ConnectionExpiredError when it does not. */
   verifySession: (sessionCookie: string) => Promise<void>;
-  /** Password → session. Absent where no login method is available (the server, today). */
-  sessionSeeder?: IVeoSessionSeeder;
+  /** Password → session. */
+  sessionSeeder: IVeoSessionSeeder;
 }
 
 export class VeoConnector implements ICameraConnector {
   private readonly verifySession: (sessionCookie: string) => Promise<void>;
-  private readonly sessionSeeder?: IVeoSessionSeeder;
+  private readonly sessionSeeder: IVeoSessionSeeder;
 
   constructor(deps: VeoConnectorDeps) {
     this.verifySession = deps.verifySession;
@@ -50,16 +50,10 @@ export class VeoConnector implements ICameraConnector {
     }
     const { email, clubUrl, password } = parsed.data;
 
-    const sessionCookie = parsed.data.sessionCookie ?? (await this.seedSession(email, password as string));
+    const sessionCookie =
+      parsed.data.sessionCookie ?? (await this.sessionSeeder.seed({ email, password: password as string }));
     await this.verifySession(sessionCookie);
 
     return { config: { email, clubUrl }, secrets: { sessionCookie } };
-  }
-
-  private async seedSession(email: string, password: string): Promise<string> {
-    if (!this.sessionSeeder) {
-      throw new BadRequestError('Veo password login is not available on this server yet');
-    }
-    return this.sessionSeeder.seed({ email, password });
   }
 }

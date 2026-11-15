@@ -23,7 +23,8 @@ export * from './interfaces';
 export { createCameraProviderRegistry } from './registry';
 export { sealSecrets } from './secrets';
 
-const cameraSources = new CameraSourceRepository(prisma);
+/** The app's camera source store (reader + writer). */
+export const cameraSources = new CameraSourceRepository(prisma);
 
 /** One registry per process, so each provider's token cache is shared by search and cron. */
 export const cameraProviderRegistry = createCameraProviderRegistry();

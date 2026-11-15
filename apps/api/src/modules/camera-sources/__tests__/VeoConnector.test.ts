@@ -5,11 +5,17 @@ import { ConnectionExpiredError } from '../interfaces';
 import { VeoConnector } from '../providers/veo/VeoConnector';
 
 const CLUB_URL = 'https://app.veo.co/clubs/noctusoft-inc/live/streaming-diagnostics';
+/** A seeder that must not be reached in tests that pass a session cookie or fail validation. */
+const sessionSeeder = {
+  seed: async (): Promise<string> => {
+    throw new Error('seeder should not be called');
+  },
+};
 
 describe('VeoConnector', () => {
   it('accepts an already-seeded session cookie, verifies it, and returns what to store', async () => {
     const verifySession = vi.fn(async () => {});
-    const connector = new VeoConnector({ verifySession });
+    const connector = new VeoConnector({ verifySession, sessionSeeder });
 
     const result = await connector.connect({
       email: 'coach@example.com',
@@ -37,16 +43,8 @@ describe('VeoConnector', () => {
     expect(JSON.stringify(result)).not.toContain('pw');
   });
 
-  it('refuses a password login when no seeder is available on this host', async () => {
-    const connector = new VeoConnector({ verifySession: async () => {} });
-
-    await expect(
-      connector.connect({ email: 'coach@example.com', clubUrl: CLUB_URL, password: 'pw' })
-    ).rejects.toThrow(/not available/i);
-  });
-
   it('rejects input with neither a password nor a session cookie', async () => {
-    const connector = new VeoConnector({ verifySession: async () => {} });
+    const connector = new VeoConnector({ verifySession: async () => {}, sessionSeeder });
 
     await expect(connector.connect({ email: 'coach@example.com', clubUrl: CLUB_URL })).rejects.toBeInstanceOf(
       BadRequestError
@@ -54,7 +52,7 @@ describe('VeoConnector', () => {
   });
 
   it('rejects a club URL that has no club in it', async () => {
-    const connector = new VeoConnector({ verifySession: async () => {} });
+    const connector = new VeoConnector({ verifySession: async () => {}, sessionSeeder });
 
     await expect(
       connector.connect({ email: 'coach@example.com', clubUrl: 'https://app.veo.co/', sessionCookie: '_session=abc' })
@@ -62,7 +60,7 @@ describe('VeoConnector', () => {
   });
 
   it('rejects an invalid email', async () => {
-    const connector = new VeoConnector({ verifySession: async () => {} });
+    const connector = new VeoConnector({ verifySession: async () => {}, sessionSeeder });
 
     await expect(
       connector.connect({ email: 'not-an-email', clubUrl: CLUB_URL, sessionCookie: '_session=abc' })
@@ -71,6 +69,7 @@ describe('VeoConnector', () => {
 
   it('does not return anything to store when the session fails verification', async () => {
     const connector = new VeoConnector({
+      sessionSeeder,
       verifySession: async () => {
         throw new ConnectionExpiredError();
       },

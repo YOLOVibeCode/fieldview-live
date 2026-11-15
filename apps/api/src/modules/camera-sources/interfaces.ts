@@ -59,10 +59,21 @@ export interface ICameraConnector {
   connect(input: Record<string, string>): Promise<ConnectResult>;
 }
 
+/** One input the owner fills in to connect a platform. Drives the Connect form. */
+export interface ConnectField {
+  /** Key in the input passed to ICameraConnector.connect. */
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'url' | 'password';
+  placeholder?: string;
+  help?: string;
+}
+
 /** One registry entry per camera platform. */
 export interface ICameraProvider {
   readonly id: string;
   readonly displayName: string;
+  readonly connectFields: readonly ConnectField[];
   readonly lister: ILiveStreamLister;
   readonly connector: ICameraConnector;
 }
@@ -171,7 +182,11 @@ export interface ILiveStreamPoller {
 
 export interface HttpResponse {
   status: number;
-  headers: { get(name: string): string | null };
+  headers: {
+    get(name: string): string | null;
+    /** Each Set-Cookie header separately (the global `fetch` provides this). */
+    getSetCookie?(): string[];
+  };
   json(): Promise<unknown>;
   text(): Promise<string>;
 }

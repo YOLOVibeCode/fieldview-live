@@ -24,7 +24,7 @@ function record(overrides: Partial<CameraSourceRecord> = {}): CameraSourceRecord
 }
 
 function provider(id: string, displayName: string, listLive: ICameraProvider['lister']['listLive']): ICameraProvider {
-  return { id, displayName, lister: { listLive: vi.fn(listLive) }, connector: { connect: vi.fn() } };
+  return { id, displayName, connectFields: [], lister: { listLive: vi.fn(listLive) }, connector: { connect: vi.fn() } };
 }
 
 function registryOf(...providers: ICameraProvider[]): ICameraProviderRegistry {

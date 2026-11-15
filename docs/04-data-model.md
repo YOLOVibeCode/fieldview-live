@@ -35,7 +35,8 @@ Game 0—N SMSMessage (inbound/outbound)
 - **Notes**:
   - A connected camera-platform account FieldView can ask "what is live right now?". One per provider per owner.
   - Every `secrets` value is encrypted (AES-256-GCM) and is never returned by an API or logged
-  - Code: `apps/api/src/modules/camera-sources/`. To add a platform, implement `ILiveStreamLister` + `ICameraConnector` under `providers/<name>/` and register it in `registry.ts`
+  - Code: `apps/api/src/modules/camera-sources/`. To add a platform, implement `ILiveStreamLister` + `ICameraConnector` and list its `connectFields` under `providers/<name>/`, then register it in `registry.ts`
+  - Owners connect and disconnect on the portal's Streaming providers page (`/owners/camera-sources`), which renders each provider's form from `connectFields`
   - Not the same as `streamProvider` (how a stream is played) or `StreamSource` (a Game's playback config)
 
 ### Game

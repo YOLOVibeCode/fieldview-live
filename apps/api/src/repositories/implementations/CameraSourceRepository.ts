@@ -61,4 +61,9 @@ export class CameraSourceRepository implements ICameraSourceReader, ICameraSourc
   async updateSecrets(id: string, secrets: Record<string, string>): Promise<void> {
     await this.prisma.cameraSource.update({ where: { id }, data: { secrets: secrets as Prisma.InputJsonObject } });
   }
+
+  async deleteByOwnerAndProvider(ownerAccountId: string, provider: string): Promise<boolean> {
+    const { count } = await this.prisma.cameraSource.deleteMany({ where: { ownerAccountId, provider } });
+    return count > 0;
+  }
 }
