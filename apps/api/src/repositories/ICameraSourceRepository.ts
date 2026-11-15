@@ -39,4 +39,6 @@ export interface ICameraSourceWriter {
   /** Create or replace the owner's source for a provider; resets status to 'active'. */
   upsert(data: UpsertCameraSourceData): Promise<CameraSourceRecord>;
   setStatus(id: string, status: CameraSourceStatus): Promise<void>;
+  /** Replace the stored (already encrypted) secrets, e.g. after re-sealing them. */
+  updateSecrets(id: string, secrets: Record<string, string>): Promise<void>;
 }

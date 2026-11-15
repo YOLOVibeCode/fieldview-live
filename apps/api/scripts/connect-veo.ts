@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     ownerAccountId,
     provider: veo.id,
     config: result.config,
-    secrets: sealSecrets(result.secrets),
+    secrets: sealSecrets(result.secrets, { ownerAccountId, provider: veo.id }),
   });
   console.log(`✅ ${veo.displayName} connected and verified (camera source ${saved.id}, status ${saved.status}).`);
 }
