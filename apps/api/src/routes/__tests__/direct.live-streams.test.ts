@@ -37,7 +37,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   dsFindUnique.mockResolvedValue({ ownerAccountId: 'owner-1' });
   findForOwner.mockResolvedValue({
-    streams: [{ provider: 'veo', title: 'Diablos vs Storm', streamUrl: 'https://stream.mux.com/LIVE.m3u8' }],
+    streams: [
+      {
+        provider: 'veo',
+        title: 'Diablos vs Storm',
+        streamUrl: 'https://stream.mux.com/LIVE.m3u8',
+        startedAt: new Date('2026-11-15T20:00:00.000Z'),
+      },
+    ],
     sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }],
   });
 });
@@ -56,10 +63,22 @@ describe('GET /api/direct/:slug/live-streams', () => {
           providerName: 'Veo',
           title: 'Diablos vs Storm',
           streamUrl: 'https://stream.mux.com/LIVE.m3u8',
+          startedAt: '2026-11-15T20:00:00.000Z',
         },
       ],
       sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }],
     });
+  });
+
+  it('returns a null start time when the platform does not give one', async () => {
+    findForOwner.mockResolvedValue({
+      streams: [{ provider: 'veo', title: 'A vs B', streamUrl: 'https://stream.mux.com/X.m3u8', startedAt: null }],
+      sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }],
+    });
+
+    const res = await request(app()).get('/api/direct/diablos/live-streams');
+
+    expect(res.body.streams[0].startedAt).toBeNull();
   });
 
   it('resolves a game page (parent/event) to its parent stream’s owner', async () => {

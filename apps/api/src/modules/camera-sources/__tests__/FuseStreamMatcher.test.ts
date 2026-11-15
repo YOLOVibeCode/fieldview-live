@@ -17,6 +17,7 @@ describe('FuseStreamMatcher', () => {
         provider: 'veo',
         title: 'Timber Creek vs Byron Nelson',
         streamUrl: 'https://stream.mux.com/x',
+        startedAt: null,
       },
     ];
     const result = await matcher.match(rows, []);
@@ -45,6 +46,7 @@ describe('FuseStreamMatcher', () => {
         provider: 'veo',
         title: 'Timber Creek vs Byron Nelson Varsity',
         streamUrl: 'https://stream.mux.com/abc',
+        startedAt: null,
       },
     ];
     const candidates: MatchCandidate[] = [
@@ -70,6 +72,7 @@ describe('FuseStreamMatcher', () => {
         provider: 'veo',
         title: 'Some Match',
         streamUrl: '',
+        startedAt: null,
       },
     ];
     const candidates: MatchCandidate[] = [
@@ -92,6 +95,7 @@ describe('FuseStreamMatcher', () => {
         provider: 'veo',
         title: 'Timber Creek High School vs Byron Nelson Varsity',
         streamUrl: 'https://stream.mux.com/xyz',
+        startedAt: null,
       },
     ];
     const candidates: MatchCandidate[] = [
@@ -122,6 +126,7 @@ describe('FuseStreamMatcher', () => {
         provider: 'veo',
         title: 'Completely Different Name XYZ',
         streamUrl: 'https://stream.mux.com/a',
+        startedAt: null,
       },
     ];
     const candidates: MatchCandidate[] = [

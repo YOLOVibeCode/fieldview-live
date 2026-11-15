@@ -53,6 +53,7 @@ export function createDirectLiveStreamsRouter(deps: DirectLiveStreamsRouterDeps 
               providerName: providerNames.get(s.provider) ?? s.provider,
               title: s.title,
               streamUrl: s.streamUrl,
+              startedAt: s.startedAt ? s.startedAt.toISOString() : null,
             })),
             sources: found.sources,
           });

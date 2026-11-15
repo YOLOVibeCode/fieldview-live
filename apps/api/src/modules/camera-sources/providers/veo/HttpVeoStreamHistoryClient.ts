@@ -7,6 +7,7 @@
  * map + keep only currently-live rows (reusing the tested pure helpers).
  */
 
+import { logger } from '../../../../lib/logger';
 import { ConnectionExpiredError, type FetchLike } from '../../interfaces';
 
 import { mapStreamHistoryToRows, isLiveRow, type StreamHistoryResponse } from './stream-history';
@@ -43,6 +44,14 @@ export class HttpVeoStreamHistoryClient implements IVeoStreamHistoryClient {
     }
 
     const data = (await res.json().catch(() => null)) as StreamHistoryResponse | null;
-    return mapStreamHistoryToRows(data).filter(isLiveRow);
+    const rows = mapStreamHistoryToRows(data);
+    const live = rows.filter((row) => isLiveRow(row));
+
+    // Status counts only (no titles or URLs): shows what Veo reports during a real game.
+    const statuses: Record<string, number> = {};
+    for (const row of rows) statuses[row.status || '(none)'] = (statuses[row.status || '(none)'] ?? 0) + 1;
+    logger.info({ clubSlug, statuses, live: live.length }, 'Veo stream history fetched');
+
+    return live;
   }
 }

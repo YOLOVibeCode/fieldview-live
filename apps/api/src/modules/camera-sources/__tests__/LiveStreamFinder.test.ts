@@ -51,7 +51,12 @@ function setup(records: CameraSourceRecord[], ...providers: ICameraProvider[]) {
   return { finder, setStatus };
 }
 
-const LIVE: LiveStream = { provider: 'veo', title: 'Diablos vs Storm', streamUrl: 'https://stream.mux.com/L.m3u8' };
+const LIVE: LiveStream = {
+  provider: 'veo',
+  title: 'Diablos vs Storm',
+  streamUrl: 'https://stream.mux.com/L.m3u8',
+  startedAt: null,
+};
 
 describe('LiveStreamFinder', () => {
   it('returns nothing when the owner has no camera sources', async () => {

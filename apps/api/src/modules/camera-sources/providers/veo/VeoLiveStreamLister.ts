@@ -47,7 +47,16 @@ export class VeoLiveStreamLister implements ILiveStreamLister {
 
     const rows = await this.fetchRows(this.tokenProviderFor(connection.id, cookie), clubSlug);
     return rows.flatMap((row) =>
-      row.streamUrl ? [{ provider: VEO_PROVIDER_ID, title: row.matchName, streamUrl: row.streamUrl }] : []
+      row.streamUrl
+        ? [
+            {
+              provider: VEO_PROVIDER_ID,
+              title: row.matchName,
+              streamUrl: row.streamUrl,
+              startedAt: row.createdAtMs != null ? new Date(row.createdAtMs) : null,
+            },
+          ]
+        : []
     );
   }
 

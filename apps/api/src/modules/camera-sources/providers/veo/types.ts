@@ -43,6 +43,8 @@ export interface VeoMatchRow {
   streamUrl: string | null;
   uploadSpeed: number | null;
   firmware: string;
+  /** When the broadcast was created, epoch milliseconds (`creation_time`). */
+  createdAtMs: number | null;
 }
 
 // ── One-time browser login (seeding only; never on the server's request path) ─

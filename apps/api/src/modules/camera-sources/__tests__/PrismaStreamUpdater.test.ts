@@ -37,6 +37,7 @@ describe('PrismaStreamUpdater', () => {
           provider: 'veo',
           title: 'Match A',
           streamUrl: 'https://stream.mux.com/new',
+          startedAt: null,
         },
         event: {
           eventId: 'ev-1',
@@ -72,6 +73,7 @@ describe('PrismaStreamUpdater', () => {
           provider: 'veo',
           title: 'Match A',
           streamUrl: url,
+          startedAt: null,
         },
         event: {
           eventId: 'ev-1',
@@ -117,6 +119,7 @@ describe('PrismaStreamUpdater', () => {
           provider: 'veo',
           title: 'A',
           streamUrl: 'https://stream.mux.com/1',
+          startedAt: null,
         },
         event: {
           eventId: 'ev-1',
@@ -132,6 +135,7 @@ describe('PrismaStreamUpdater', () => {
           provider: 'veo',
           title: 'B',
           streamUrl: 'https://stream.mux.com/2',
+          startedAt: null,
         },
         event: {
           eventId: 'ev-2',

@@ -4,7 +4,12 @@ import type { LiveStream, MatchCandidate, StreamMatch, UpdateResult } from '../i
 import { LiveStreamSyncer } from '../LiveStreamSyncer';
 
 const OWNER = 'owner-1';
-const stream: LiveStream = { provider: 'veo', title: 'Diablos vs Storm', streamUrl: 'https://stream.mux.com/L.m3u8' };
+const stream: LiveStream = {
+  provider: 'veo',
+  title: 'Diablos vs Storm',
+  streamUrl: 'https://stream.mux.com/L.m3u8',
+  startedAt: null,
+};
 const candidate: MatchCandidate = {
   eventId: 'ev-1',
   eventSlug: 'diablos-storm',

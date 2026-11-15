@@ -74,6 +74,24 @@ describe('FindLiveStreamButton', () => {
     expect(screen.queryByTestId('list-live-streams')).not.toBeInTheDocument();
   });
 
+  it('shows when each stream started, so similar titles can be told apart', async () => {
+    const startedAt = '2026-11-15T20:05:00.000Z';
+    respond({
+      streams: [{ ...stream('Diablos vs Storm', 'LIVE1'), startedAt }, stream('Diablos vs Storm', 'LIVE2')],
+      sources: [VEO_OK],
+    });
+    renderButton();
+
+    fireEvent.click(screen.getByTestId('btn-find-live-stream'));
+
+    await waitFor(() => expect(screen.getByTestId('list-live-streams')).toBeInTheDocument());
+    const expected = new Date(startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    expect(screen.getByTestId('btn-use-live-stream-https://stream.mux.com/LIVE1.m3u8')).toHaveTextContent(
+      `started ${expected}`
+    );
+    expect(screen.getByTestId('btn-use-live-stream-https://stream.mux.com/LIVE2.m3u8')).not.toHaveTextContent('started');
+  });
+
   it('says so when nothing is live', async () => {
     respond({ streams: [], sources: [VEO_OK] });
     const { onPick } = renderButton();

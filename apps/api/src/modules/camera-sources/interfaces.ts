@@ -16,6 +16,8 @@ export interface LiveStream {
   title: string;
   /** Playable URL (HLS). */
   streamUrl: string;
+  /** When the broadcast started, if the platform says. Tells apart streams with similar titles. */
+  startedAt: Date | null;
 }
 
 /** A stored camera source with its secrets decrypted. In memory only — never log or return it. */

@@ -19,6 +19,8 @@ interface FoundLiveStream {
   providerName: string;
   title: string;
   streamUrl: string;
+  /** ISO time the broadcast started, when the provider reports it. */
+  startedAt?: string | null;
 }
 
 interface SourceReport {
@@ -67,6 +69,14 @@ function describeNothingFound(sources: SourceReport[]): SearchResult {
 
 function titleOf(stream: FoundLiveStream): string {
   return stream.title.trim() || 'Untitled stream';
+}
+
+/** "started 3:05 PM" in the viewer's own time zone, or nothing when unknown. */
+function startedLabel(stream: FoundLiveStream): string {
+  if (!stream.startedAt) return '';
+  const started = new Date(stream.startedAt);
+  if (Number.isNaN(started.getTime())) return '';
+  return `started ${started.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 }
 
 export function FindLiveStreamButton({ slug, adminToken, onPick }: FindLiveStreamButtonProps) {
@@ -139,7 +149,9 @@ export function FindLiveStreamButton({ slug, adminToken, onPick }: FindLiveStrea
                   data-testid={`btn-use-live-stream-${stream.streamUrl}`}
                 >
                   <span className="truncate">{titleOf(stream)}</span>
-                  <span className="ml-2 shrink-0 text-muted-foreground">{stream.providerName}</span>
+                  <span className="ml-2 shrink-0 text-muted-foreground">
+                    {[stream.providerName, startedLabel(stream)].filter(Boolean).join(' · ')}
+                  </span>
                 </Button>
               </li>
             ))}

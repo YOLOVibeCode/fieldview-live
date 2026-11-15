@@ -24,6 +24,7 @@ function row(overrides: Partial<VeoMatchRow> = {}): VeoMatchRow {
     streamUrl: 'https://stream.mux.com/LIVE1.m3u8',
     uploadSpeed: null,
     firmware: '3.9.8',
+    createdAtMs: null,
     ...overrides,
   };
 }
@@ -51,10 +52,18 @@ describe('VeoLiveStreamLister', () => {
     const streams = await lister.listLive(connection());
 
     expect(streams).toEqual([
-      { provider: 'veo', title: 'Diablos vs Storm', streamUrl: 'https://stream.mux.com/LIVE1.m3u8' },
+      { provider: 'veo', title: 'Diablos vs Storm', streamUrl: 'https://stream.mux.com/LIVE1.m3u8', startedAt: null },
     ]);
     expect(createTokenProvider).toHaveBeenCalledWith('_session=abc');
     expect(fetchLiveStreams).toHaveBeenCalledWith('AT1', 'noctusoft-inc');
+  });
+
+  it('passes the broadcast start time through when Veo gives one', async () => {
+    const { lister } = setup({ fetchLiveStreams: async () => [row({ createdAtMs: 1782158164079 })] });
+
+    const [stream] = await lister.listLive(connection());
+
+    expect(stream.startedAt).toEqual(new Date(1782158164079));
   });
 
   it('drops rows that have no playable URL', async () => {
