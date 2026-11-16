@@ -1,9 +1,12 @@
 /**
  * Encryption Module Unit Tests
  *
- * Verifies that Square OAuth tokens are properly encrypted before storage.
+ * Verifies that secrets (camera source credentials; originally Square OAuth tokens)
+ * are properly encrypted before storage.
  * Critical for security: tokens must never be stored in plaintext.
  */
+
+import crypto from 'crypto';
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
@@ -36,26 +39,30 @@ describe('Encryption Module', () => {
       expect(encrypted).not.toContain('secret');
     });
 
-    it('produces output in correct format (iv:authTag:ciphertext)', async () => {
+    it('produces output in correct format (v2:keyId:iv:authTag:ciphertext)', async () => {
       const { encrypt } = await import('@/lib/encryption');
       const plaintext = 'test-token';
 
       const encrypted = encrypt(plaintext);
       const parts = encrypted.split(':');
 
-      // Should have exactly 3 parts
-      expect(parts).toHaveLength(3);
+      // Should have exactly 5 parts
+      expect(parts).toHaveLength(5);
+      expect(parts[0]).toBe('v2');
+
+      // Key id is a short fingerprint of the key (8 hex chars), never the key itself
+      expect(parts[1]).toMatch(/^[0-9a-f]{8}$/);
 
       // IV should be 32 hex chars (16 bytes)
-      expect(parts[0]).toHaveLength(32);
-      expect(parts[0]).toMatch(/^[0-9a-f]+$/);
+      expect(parts[2]).toHaveLength(32);
+      expect(parts[2]).toMatch(/^[0-9a-f]+$/);
 
       // Auth tag should be 32 hex chars (16 bytes)
-      expect(parts[1]).toHaveLength(32);
-      expect(parts[1]).toMatch(/^[0-9a-f]+$/);
+      expect(parts[3]).toHaveLength(32);
+      expect(parts[3]).toMatch(/^[0-9a-f]+$/);
 
       // Ciphertext should be hex
-      expect(parts[2]).toMatch(/^[0-9a-f]+$/);
+      expect(parts[4]).toMatch(/^[0-9a-f]+$/);
     });
 
     it('produces different output for same input (random IV)', async () => {
@@ -124,7 +131,7 @@ describe('Encryption Module', () => {
       const parts = encrypted.split(':');
 
       // Tamper with the ciphertext
-      const tamperedCiphertext = parts[0] + ':' + parts[1] + ':' + 'ff'.repeat(parts[2]!.length / 2);
+      const tamperedCiphertext = [...parts.slice(0, 4), 'ff'.repeat(parts[4]!.length / 2)].join(':');
 
       expect(() => decrypt(tamperedCiphertext)).toThrow();
     });
@@ -139,10 +146,10 @@ describe('Encryption Module', () => {
       const parts = encrypted.split(':');
 
       // GCM auth tag is 16 bytes = 32 hex chars
-      expect(parts[1]).toHaveLength(32);
+      expect(parts[3]).toHaveLength(32);
 
       // Verify tampering the auth tag causes decryption to fail
-      const tamperedAuthTag = parts[0] + ':' + '00'.repeat(16) + ':' + parts[2];
+      const tamperedAuthTag = [...parts.slice(0, 3), '00'.repeat(16), parts[4]].join(':');
       expect(() => decrypt(tamperedAuthTag)).toThrow();
     });
 
@@ -204,8 +211,8 @@ describe('Encryption Module', () => {
       expect(typeof encrypted).toBe('string');
       expect(encrypted.length).toBeGreaterThan(0);
 
-      // Should only contain hex characters and colons (safe for any DB)
-      expect(encrypted).toMatch(/^[0-9a-f:]+$/);
+      // Should only contain the version tag, hex characters and colons (safe for any DB)
+      expect(encrypted).toMatch(/^v2:[0-9a-f:]+$/);
 
       // Should NOT contain the original token
       expect(encrypted).not.toContain('sq0atp');
@@ -222,5 +229,109 @@ describe('Encryption Module', () => {
       expect(decrypt(encrypt(shortToken))).toBe(shortToken);
       expect(decrypt(encrypt(longToken))).toBe(longToken);
     });
+  });
+
+  /** The pre-v2 format: iv:authTag:ciphertext, key = scrypt(ENCRYPTION_KEY, 'fieldview-salt'), no context. */
+  function legacyEncrypt(plaintext: string, keyMaterial: string): string {
+    const key = crypto.scryptSync(keyMaterial, 'fieldview-salt', 32);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const body = cipher.update(plaintext, 'utf8', 'hex') + cipher.final('hex');
+    return `${iv.toString('hex')}:${cipher.getAuthTag().toString('hex')}:${body}`;
+  }
+
+  describe('Context binding', () => {
+    it('round-trips a value bound to its context', async () => {
+      const { encrypt, decrypt } = await import('@/lib/encryption');
+      const sealed = encrypt('_session=abc', 'camera-source:owner-1:veo:sessionCookie');
+
+      expect(sealed).not.toContain('_session=abc');
+      expect(decrypt(sealed, 'camera-source:owner-1:veo:sessionCookie')).toBe('_session=abc');
+    });
+
+    it('refuses to open a value under a different context (moved to another owner or field)', async () => {
+      const { encrypt, decrypt } = await import('@/lib/encryption');
+      const sealed = encrypt('_session=abc', 'camera-source:owner-1:veo:sessionCookie');
+
+      expect(() => decrypt(sealed, 'camera-source:owner-2:veo:sessionCookie')).toThrow();
+      expect(() => decrypt(sealed, 'camera-source:owner-1:veo:password')).toThrow();
+      expect(() => decrypt(sealed)).toThrow();
+    });
+
+    it('rejects an unknown format version', async () => {
+      const { decrypt } = await import('@/lib/encryption');
+
+      expect(() => decrypt('v9:a:b:c:d')).toThrow('Invalid ciphertext format');
+    });
+  });
+
+  describe('Legacy values (written before context binding)', () => {
+    const KEY = 'test-encryption-key-for-unit-tests-32chars!';
+
+    it('still opens a legacy value, whatever context is asked for', async () => {
+      const { decrypt } = await import('@/lib/encryption');
+      const legacy = legacyEncrypt('_session=old', KEY);
+
+      expect(decrypt(legacy, 'camera-source:owner-1:veo:sessionCookie')).toBe('_session=old');
+      expect(decrypt(legacy)).toBe('_session=old');
+    });
+
+    it('flags a legacy value for re-sealing, and a current one as fine', async () => {
+      const { encrypt, needsReseal } = await import('@/lib/encryption');
+
+      expect(needsReseal(legacyEncrypt('x', KEY))).toBe(true);
+      expect(needsReseal(encrypt('x', 'ctx'))).toBe(false);
+    });
+  });
+
+  describe('Key rotation', () => {
+    afterEach(() => {
+      delete process.env.ENCRYPTION_KEY_PREVIOUS;
+    });
+
+    it('opens values sealed with the previous key and flags them for re-sealing', async () => {
+      const { encrypt, decrypt, needsReseal } = await import('@/lib/encryption');
+      process.env.ENCRYPTION_KEY = 'rotation-key-A';
+      const sealedWithA = encrypt('secret', 'ctx');
+
+      process.env.ENCRYPTION_KEY = 'rotation-key-B';
+      process.env.ENCRYPTION_KEY_PREVIOUS = 'rotation-key-A';
+
+      expect(decrypt(sealedWithA, 'ctx')).toBe('secret');
+      expect(needsReseal(sealedWithA)).toBe(true);
+      expect(needsReseal(encrypt('secret', 'ctx'))).toBe(false);
+    });
+
+    it('opens a legacy value sealed with the previous key', async () => {
+      const { decrypt } = await import('@/lib/encryption');
+      const legacy = legacyEncrypt('old', 'rotation-key-A');
+      process.env.ENCRYPTION_KEY = 'rotation-key-B';
+      process.env.ENCRYPTION_KEY_PREVIOUS = 'rotation-key-A';
+
+      expect(decrypt(legacy)).toBe('old');
+    });
+  });
+
+  describe('Deployed environments', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      delete process.env.RAILWAY_ENVIRONMENT;
+      delete process.env.RAILWAY_ENVIRONMENT_NAME;
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it.each(['RAILWAY_ENVIRONMENT', 'RAILWAY_ENVIRONMENT_NAME'])(
+      'refuses the development key when ENCRYPTION_KEY is missing and %s is set',
+      async (signal) => {
+        delete process.env.ENCRYPTION_KEY;
+        process.env.NODE_ENV = 'development';
+        process.env[signal] = 'dev';
+        vi.resetModules();
+        const { encrypt } = await import('@/lib/encryption');
+
+        expect(() => encrypt('x', 'ctx')).toThrow(/ENCRYPTION_KEY/);
+      }
+    );
   });
 });

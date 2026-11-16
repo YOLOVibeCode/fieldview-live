@@ -215,7 +215,7 @@ export const StreamSourceSchema = z.object({
 The schema currently defines **38 models**:
 
 **Owner / org / billing**
-`OwnerAccount`, `VeoIntegration`, `OwnerUser`, `Organization`, `OrganizationMember`, `Subscription`, `LedgerEntry`, `Payout`, `CouponCode`, `CouponRedemption`
+`OwnerAccount`, `CameraSource`, `OwnerUser`, `Organization`, `OrganizationMember`, `Subscription`, `LedgerEntry`, `Payout`, `CouponCode`, `CouponRedemption`
 
 **Games & streaming**
 `Game`, `StreamSource`, `GameScoreboard`, `GameChatMessage`, `Event`, `WatchChannel`, `WatchEventCode`, `DirectStream`, `DirectStreamEvent`, `DirectStreamRegistration`, `VideoClip`, `VideoBookmark`

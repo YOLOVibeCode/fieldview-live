@@ -47,9 +47,6 @@ SQUARE_APPLICATION_ID="your-application-id"
 SQUARE_APPLICATION_SECRET="your-application-secret"
 SQUARE_REDIRECT_URI="http://localhost:4301/api/owners/square/callback"
 
-# Platform fee
-PLATFORM_FEE_PERCENT="10"
-
 # Other required vars (see ENV_SANDBOX_TEMPLATE.txt)
 ```
 
@@ -131,7 +128,6 @@ SQUARE_REDIRECT_URI=https://api.fieldview.live/api/owners/square/callback
 
 **Verify existing:**
 ```
-PLATFORM_FEE_PERCENT=10
 DATABASE_URL=<railway-postgres-url>
 ```
 

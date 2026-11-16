@@ -22,12 +22,10 @@ railway connect postgres
 **Local (`apps/api/.env`):**
 - [ ] `ENCRYPTION_KEY` - Required! Generate with `openssl rand -base64 32`
 - [ ] `DATABASE_URL` - PostgreSQL connection string
-- [ ] `PLATFORM_FEE_PERCENT` - Default "10"
 - [ ] Square credentials (sandbox for local)
 
 **Production (Railway):**
 - [ ] `ENCRYPTION_KEY` - Required! Must be set
-- [ ] `PLATFORM_FEE_PERCENT` - Default "10"
 - [ ] Square production credentials
 - [ ] `SQUARE_REDIRECT_URI` - `https://api.fieldview.live/api/owners/square/callback`
 

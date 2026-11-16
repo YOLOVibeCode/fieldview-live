@@ -151,6 +151,28 @@ function withBearerToken(token: string | null | undefined): HeadersInit | undefi
   return { Authorization: `Bearer ${token}` };
 }
 
+// Owner streaming providers ("camera sources") — GET /api/owners/me/camera-sources
+export interface CameraConnectField {
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'url' | 'password';
+  placeholder?: string;
+  help?: string;
+}
+
+export interface CameraProviderConnection {
+  status: 'active' | 'needs_reconnect';
+  /** Non-secret settings only (e.g. login email, club page). Credentials are never returned. */
+  config: Record<string, unknown>;
+}
+
+export interface CameraProviderInfo {
+  id: string;
+  displayName: string;
+  connectFields: CameraConnectField[];
+  connection: CameraProviderConnection | null;
+}
+
 // Owner store marketplace onboarding status (GET /api/owners/me/payments/status)
 export interface OwnerPaymentsStatus {
   sellerKey: string | null;
@@ -867,6 +889,34 @@ export const apiClient = {
 
   async ownerLedger(ownerToken: string): Promise<OwnerLedgerResponse> {
     return apiRequest<OwnerLedgerResponse>(`/api/owners/me/ledger`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  /**
+   * Owner streaming providers (camera sources) — all require the owner token.
+   */
+  async ownerCameraSources(ownerToken: string): Promise<{ providers: CameraProviderInfo[] }> {
+    return apiRequest<{ providers: CameraProviderInfo[] }>(`/api/owners/me/camera-sources`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  async ownerCameraSourceConnect(
+    ownerToken: string,
+    providerId: string,
+    fields: Record<string, string>
+  ): Promise<{ id: string; displayName: string; connection: CameraProviderConnection }> {
+    return apiRequest(`/api/owners/me/camera-sources/${encodeURIComponent(providerId)}`, {
+      method: 'PUT',
+      headers: { ...withBearerToken(ownerToken) },
+      body: JSON.stringify({ fields }),
+    });
+  },
+
+  async ownerCameraSourceDisconnect(ownerToken: string, providerId: string): Promise<{ disconnected: boolean }> {
+    return apiRequest<{ disconnected: boolean }>(`/api/owners/me/camera-sources/${encodeURIComponent(providerId)}`, {
+      method: 'DELETE',
       headers: { ...withBearerToken(ownerToken) },
     });
   },

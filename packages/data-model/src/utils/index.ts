@@ -5,4 +5,5 @@
  */
 
 export * from './masking';
+export * from './pricing';
 export * from './feeCalculator';

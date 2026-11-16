@@ -19,6 +19,7 @@ import {
   extractMuxPlaybackId,
   sportRegistry,
   seedClockSeconds,
+  zListPriceInCentsOptional,
 } from '@fieldview/data-model';
 // 🆕 Payment service dependencies
 import { PaymentService } from '../services/PaymentService';
@@ -499,7 +500,7 @@ router.post(
           streamUrl: z.string().url().optional().nullable(),
           chatEnabled: z.boolean().optional(),
           paywallEnabled: z.boolean().optional(),
-          priceInCents: z.number().int().min(0).max(99999).optional(),
+          priceInCents: zListPriceInCentsOptional(),
           paywallMessage: z.string().max(1000).optional().nullable(),
           allowSavePayment: z.boolean().optional(),
           scoreboardEnabled: z.boolean().optional(),

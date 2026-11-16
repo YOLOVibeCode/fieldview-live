@@ -17,6 +17,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { PLATFORM_FEE_BPS } from '@fieldview/data-model';
+
 import { BottomSheet } from './primitives/BottomSheet';
 import { TouchButton } from './primitives/TouchButton';
 
@@ -24,7 +26,7 @@ import { TouchButton } from './primitives/TouchButton';
 const VEO_CAMERA_COST = 999; // $999 Veo Cam 3
 const VEO_LIVE_MONTHLY = 65; // $65/month Veo Live subscription
 const SUGGESTED_GAME_PRICE = 499; // $4.99 suggested price per game (in cents)
-const PLATFORM_FEE_PERCENT = 10; // 10% platform fee
+const PLATFORM_FEE_FRACTION = PLATFORM_FEE_BPS / 10_000;
 
 export interface WelcomeModalProps {
   isOpen: boolean;
@@ -41,7 +43,7 @@ function calculateBreakeven(
   pricePerGame: number,
   viewersPerGame: number
 ): number {
-  const netPerGame = pricePerGame * (1 - PLATFORM_FEE_PERCENT / 100) * viewersPerGame;
+  const netPerGame = pricePerGame * (1 - PLATFORM_FEE_FRACTION) * viewersPerGame;
   return Math.ceil(totalCost / netPerGame);
 }
 

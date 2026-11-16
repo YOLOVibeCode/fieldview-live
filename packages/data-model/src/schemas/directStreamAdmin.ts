@@ -6,6 +6,8 @@
 
 import { z } from 'zod';
 
+import { zListPriceInCents, zListPriceInCentsOptional } from '../utils/pricing';
+
 export const CreateDirectStreamSchema = z.object({
   slug: z
     .string()
@@ -16,7 +18,7 @@ export const CreateDirectStreamSchema = z.object({
   streamUrl: z.string().url('Invalid stream URL').optional(),
   scheduledStartAt: z.string().datetime().optional(), // ISO 8601
   paywallEnabled: z.boolean().optional().default(false),
-  priceInCents: z.number().int().min(0).max(1000000).optional().default(0),
+  priceInCents: zListPriceInCents().optional().default(0),
   paywallMessage: z.string().max(1000).optional(),
   allowSavePayment: z.boolean().optional().default(false),
   adminPassword: z.string().min(8, 'Admin password must be at least 8 characters'),
@@ -36,7 +38,7 @@ export const UpdateDirectStreamSchema = z.object({
   streamUrl: z.string().url().optional(),
   scheduledStartAt: z.string().datetime().optional(),
   paywallEnabled: z.boolean().optional(),
-  priceInCents: z.number().int().min(0).max(1000000).optional(),
+  priceInCents: zListPriceInCentsOptional(),
   paywallMessage: z.string().max(1000).optional(),
   allowSavePayment: z.boolean().optional(),
   chatEnabled: z.boolean().optional(),

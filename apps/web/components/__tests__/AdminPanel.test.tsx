@@ -115,6 +115,40 @@ describe('AdminPanel', () => {
       });
     });
 
+    it('fills the stream URL from the one stream that is live on the streaming provider', async () => {
+      (fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ token: 'jwt-token-123' }) })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              streams: [
+                {
+                  provider: 'veo',
+                  providerName: 'Veo',
+                  title: 'Diablos vs Storm',
+                  streamUrl: 'https://stream.mux.com/LIVE1.m3u8',
+                },
+              ],
+              sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }],
+            }),
+        });
+      render(<AdminPanel {...defaultProps} />);
+      fireEvent.change(screen.getByTestId('admin-password-input'), { target: { value: 'correct' } });
+      fireEvent.submit(screen.getByTestId('admin-unlock-form'));
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-find-live-stream')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('btn-find-live-stream'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('stream-url-input')).toHaveValue('https://stream.mux.com/LIVE1.m3u8');
+      });
+      // Finding a stream only fills the field; nothing is saved until the admin presses Save.
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it('should show chat enabled and paywall toggles when unlocked', async () => {
       (fetch as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ token: 'jwt' }) })

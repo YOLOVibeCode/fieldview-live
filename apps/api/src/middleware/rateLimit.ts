@@ -104,6 +104,33 @@ export const adminRateLimit = createRateLimiter({
 });
 
 /**
+ * Live stream search: 10 per stream admin per minute.
+ * Each request calls the owner's camera platform, so keep it modest.
+ */
+export const liveStreamSearchRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many live stream searches, please wait a moment.',
+  keyGenerator: (req: Request) => `live-streams:${req.admin?.slug ?? ipKeyGenerator(req.ip || 'unknown')}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Connecting a camera source: 5 attempts per owner per 15 minutes.
+ * Each attempt is a real sign-in on the camera platform with the owner's password.
+ */
+export const cameraSourceConnectRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many connection attempts, please try again later.',
+  keyGenerator: (req: Request) =>
+    `camera-connect:${(req as { ownerAccountId?: string }).ownerAccountId ?? ipKeyGenerator(req.ip || 'unknown')}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Game event report: 6 per viewer per minute (~1 per 10s average)
  */
 export const gameEventRateLimit = createRateLimiter({

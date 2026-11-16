@@ -1,38 +1,32 @@
 /**
- * Verify the BROWSER-FREE Veo HTTP connector against live Veo.
+ * Verify the Veo camera provider against live Veo, driven only by a seeded
+ * `_session` cookie — no browser, no database. Read-only.
  *
- * Exercises the real production classes (HttpVeoAuthenticator + HttpVeoStreamScraper
- * + HttpVeoStreamHistoryClient) driven only by a seeded `_session` cookie — no browser.
- *
- *   COOKIE_FILE=/path/to/cookie [VEO_DIAGNOSTICS_URL=…] npx tsx scripts/verify-veo-http.ts
+ *   COOKIE_FILE=/path/to/cookie [VEO_CLUB_URL=…] npx tsx scripts/verify-veo-http.ts
  */
 import * as fs from 'fs';
 
-import { HttpVeoAuthenticator } from '../src/modules/veo-scraper/implementations/HttpVeoAuthenticator';
-import { HttpVeoStreamHistoryClient } from '../src/modules/veo-scraper/implementations/HttpVeoStreamHistoryClient';
-import { HttpVeoStreamScraper } from '../src/modules/veo-scraper/implementations/HttpVeoStreamScraper';
-import type { FetchLike } from '../src/modules/veo-scraper/interfaces';
+import { createVeoProvider } from '../src/modules/camera-sources/providers/veo';
 
 async function main(): Promise<void> {
   const cookieFile = process.env.COOKIE_FILE;
   if (!cookieFile) throw new Error('COOKIE_FILE=<path to _session cookie header> required');
   const sessionCookie = fs.readFileSync(cookieFile, 'utf8').trim();
-  const diagnosticsUrl =
-    process.env.VEO_DIAGNOSTICS_URL ||
-    'https://app.veo.co/clubs/noctusoft-inc/live/streaming-diagnostics';
+  const clubUrl =
+    process.env.VEO_CLUB_URL || 'https://app.veo.co/clubs/noctusoft-inc/live/streaming-diagnostics';
 
-  const auth = new HttpVeoAuthenticator();
-  const scraper = new HttpVeoStreamScraper({
-    streamClient: new HttpVeoStreamHistoryClient({ fetch: globalThis.fetch as unknown as FetchLike }),
+  const veo = createVeoProvider();
+  const streams = await veo.lister.listLive({
+    id: 'verify',
+    ownerAccountId: 'verify',
+    provider: veo.id,
+    config: { clubUrl },
+    secrets: { sessionCookie },
   });
 
-  const session = await auth.login({ email: '', password: '', sessionCookie });
-  const rows = await scraper.scrape(session, diagnosticsUrl);
-  await auth.logout(session);
-
-  console.log(`live rows (status !== 'finished' && has url): ${rows.length}`);
-  for (const r of rows.slice(0, 5)) console.log('  -', r.matchName, '| status', r.status, '|', r.streamUrl);
-  console.log('\n✅ Real HTTP connector ran against live Veo, cookie-only, no browser.');
+  console.log(`live streams (not finished, with a URL): ${streams.length}`);
+  for (const s of streams.slice(0, 5)) console.log('  -', s.title, '|', s.streamUrl);
+  console.log('\n✅ Veo provider ran against live Veo, cookie-only, no browser.');
 }
 
 main().catch((e: unknown) => {

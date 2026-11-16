@@ -10,6 +10,8 @@
 
 import { z } from 'zod';
 
+import { zListPriceInCents, zListPriceInCentsOptional } from '../utils/pricing';
+
 /**
  * Page Configuration Schema
  * 
@@ -27,7 +29,7 @@ export const DirectStreamPageConfigSchema = z.object({
   
   // Paywall settings
   paywallEnabled: z.boolean(),
-  priceInCents: z.number().int().min(0).max(99999),
+  priceInCents: zListPriceInCents(),
   paywallMessage: z.string().max(1000).nullable(),
   allowSavePayment: z.boolean(),
   
@@ -82,7 +84,7 @@ export const DirectStreamBootstrapResponseSchema = z.object({
   chatEnabled: z.boolean(),
   scoreboardEnabled: z.boolean(),
   paywallEnabled: z.boolean(),
-  priceInCents: z.number().int().min(0),
+  priceInCents: zListPriceInCents(),
   paywallMessage: z.string().nullable(),
   allowSavePayment: z.boolean(),
   scoreboardHomeTeam: z.string().nullable(),
@@ -116,7 +118,7 @@ export const DirectStreamSettingsUpdateSchema = z.object({
   chatEnabled: z.boolean().optional(),
   scoreboardEnabled: z.boolean().optional(),
   paywallEnabled: z.boolean().optional(),
-  priceInCents: z.number().int().min(0).max(99999).optional(),
+  priceInCents: zListPriceInCentsOptional(),
   paywallMessage: z.string().max(1000).nullable().optional(),
   allowSavePayment: z.boolean().optional(),
   

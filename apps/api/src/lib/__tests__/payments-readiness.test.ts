@@ -1,6 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { assertPaymentsReadyForPaywallChange, getOwnerPaymentsReadiness } from '../payments-readiness';
+import {
+  assertPaymentsReadyForPaywallChange,
+  getOwnerPaymentsReadiness,
+  wouldChargeViewers,
+} from '../payments-readiness';
+
+describe('wouldChargeViewers', () => {
+  it('does not charge for sub-dollar paid prices', () => {
+    expect(wouldChargeViewers(true, 99)).toBe(false);
+    expect(wouldChargeViewers(true, 50)).toBe(false);
+  });
+
+  it('charges when paywall is on and price meets minimum', () => {
+    expect(wouldChargeViewers(true, 100)).toBe(true);
+    expect(wouldChargeViewers(true, 500)).toBe(true);
+  });
+
+  it('does not charge when paywall is off', () => {
+    expect(wouldChargeViewers(false, 500)).toBe(false);
+  });
+});
 
 describe('getOwnerPaymentsReadiness', () => {
   it('returns store ready when seller onboarded', () => {
