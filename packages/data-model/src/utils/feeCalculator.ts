@@ -1,9 +1,8 @@
 /**
- * Marketplace Fee Calculator
- * 
- * Calculates marketplace split for Square payments.
- * Square: 2.9% + $0.30 per transaction.
+ * Marketplace fee split — thin wrapper over shared pricing module.
  */
+
+import { split, type SplitResult } from './pricing';
 
 export interface MarketplaceSplit {
   grossAmountCents: number;
@@ -12,23 +11,25 @@ export interface MarketplaceSplit {
   ownerNetCents: number;
 }
 
-export function calculateMarketplaceSplit(
+function toMarketplaceSplit(
   grossAmountCents: number,
-  platformFeePercent: number = 10
+  parts: SplitResult,
 ): MarketplaceSplit {
-  // Square: 2.9% + $0.30 per transaction
-  const processorFeeCents = Math.round(grossAmountCents * 0.029 + 30);
-  
-  // Platform fee: percentage of gross
-  const platformFeeCents = Math.round(grossAmountCents * (platformFeePercent / 100));
-  
-  // Owner net: gross - platform fee - processor fee
-  const ownerNetCents = grossAmountCents - platformFeeCents - processorFeeCents;
-  
   return {
     grossAmountCents,
-    platformFeeCents,
-    processorFeeCents,
-    ownerNetCents,
+    platformFeeCents: parts.platformFeeCents,
+    processorFeeCents: parts.processingCents,
+    ownerNetCents: parts.coachNetCents,
   };
+}
+
+/**
+ * @param grossAmountCents - Total charged amount in cents
+ * @param _deprecatedPlatformFeePercent - ignored; platform fee is fixed at PLATFORM_FEE_BPS
+ */
+export function calculateMarketplaceSplit(
+  grossAmountCents: number,
+  _deprecatedPlatformFeePercent?: number,
+): MarketplaceSplit {
+  return toMarketplaceSplit(grossAmountCents, split({ chargedCents: grossAmountCents }));
 }

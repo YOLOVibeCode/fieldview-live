@@ -14,6 +14,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { FindLiveStreamButton } from './FindLiveStreamButton';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -498,6 +499,10 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
             data-testid="stream-url-input"
             aria-label="Stream URL"
           />
+          {/* Fill the URL from whatever is live on the owner's streaming provider (Veo, …) */}
+          {adminToken && (
+            <FindLiveStreamButton slug={slug} adminToken={adminToken} onPick={setStreamUrl} />
+          )}
         </div>
 
         {/* Broadcast Message - visible to all viewers as overlay + in chat */}

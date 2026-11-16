@@ -329,7 +329,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
       id: 'ds-1',
       slug: 'paid-stream',
       paywallEnabled: true,
-      priceInCents: 999,
+      priceInCents: 1000,
       ownerAccount: storeReadyOwner,
     };
 
@@ -353,7 +353,7 @@ describe('PaymentService - Recipient Field Assignment', () => {
       eventId: null,
       directStreamId: directStream.id,
       viewerId: viewer.id,
-      amountCents: 999,
+      amountCents: 1000,
       currency: 'USD',
       platformFeeCents: 100,
       processorFeeCents: 30,

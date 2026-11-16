@@ -15,7 +15,7 @@ import { initSentry } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import { sendStreamReminders } from './jobs/send-stream-reminders';
 import { autoPurgeDeletedStreams } from './jobs/auto-purge-streams';
-import { checkAndPollVeoStreams } from './jobs/veo-stream-poll';
+import { checkAndPollCameraSources } from './jobs/camera-source-poll';
 import { createAdminRouter } from './routes/admin';
 import { createAdminCouponsRouter } from './routes/admin.coupons';
 import { createAdminPlatformRouter } from './routes/admin.platform';
@@ -32,6 +32,7 @@ import { createOwnersMembersRouter } from './routes/owners.members';
 import { createOwnersDirectStreamsRouter } from './routes/owners.direct-streams';
 import { createOwnersLedgerRouter } from './routes/owners.ledger';
 import { createOwnersPaymentsRouter } from './routes/owners.payments';
+import { createOwnersCameraSourcesRouter } from './routes/owners.camera-sources';
 import { createPublicRouter } from './routes/public.checkout';
 import { createPublicSmsOptInRouter } from './routes/public.sms-opt-in';
 import { createPublicSubscriptionsRouter } from './routes/public.subscriptions';
@@ -42,6 +43,7 @@ import { createPublicWatchLinksRouter } from './routes/public.watch-links';
 import { createStreamLinksRouter } from './routes/stream-links';
 import { createDirectRouter } from './routes/direct';
 import { createDirectLifecycleRouter } from './routes/direct-lifecycle';
+import { createDirectLiveStreamsRouter } from './routes/direct.live-streams';
 import { createDirectViewerRouter } from './routes/public.direct-viewer';
 import { rewriteHierarchicalDirectPath } from './lib/direct-slug';
 import { createPublicDirectRegistrationRouter } from './routes/public.direct-registration';
@@ -134,6 +136,7 @@ app.use('/api/owners', createOwnersWatchLinksRouter());
 app.use('/api/owners', createOwnersEventsRouter());
 app.use('/api/owners', createOwnersMembersRouter());
 app.use('/api/owners', createOwnersDirectStreamsRouter());
+app.use('/api/owners', createOwnersCameraSourcesRouter());
 app.use('/api/owners', createOwnersLedgerRouter());
 app.use('/api/owners', createOwnersPaymentsRouter());
 app.use('/api/public', createPublicRouter());
@@ -157,6 +160,7 @@ app.use('/api/streams', createStreamLinksRouter());
 app.use('/api/direct', rewriteHierarchicalDirectPath);
 app.use('/api/direct', createDirectRouter());
 app.use('/api/direct', createDirectLifecycleRouter());
+app.use('/api/direct', createDirectLiveStreamsRouter());
 app.use('/api/direct', scoreboardRouter);
 app.use('/api/direct', gameEventsRouter);
 app.use('/api/clips', clipsRouter);
@@ -193,17 +197,17 @@ cron.schedule('0 3 * * *', async () => {
   }
 });
 
-// Veo stream polling: start session-cached pollers for upcoming events (every minute)
+// Camera source polling: match live camera streams to upcoming events (every minute)
 cron.schedule('* * * * *', async () => {
   try {
-    await checkAndPollVeoStreams();
+    await checkAndPollCameraSources();
   } catch (error) {
-    logger.error({ error }, 'Veo stream poll cron job failed');
+    logger.error({ error }, 'Camera source poll cron job failed');
   }
 });
 
 logger.info(
-  'Cron jobs initialized: stream reminders (every minute), auto-purge (daily at 3 AM), Veo stream poll (every minute)'
+  'Cron jobs initialized: stream reminders (every minute), auto-purge (daily at 3 AM), camera source poll (every minute)'
 );
 
 // Initialize cleanup jobs (DVR video cleanup)

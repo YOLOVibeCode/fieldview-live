@@ -134,7 +134,6 @@ NODE_ENV=production
 API_BASE_URL="https://api.fieldview.live"
 APP_URL="https://fieldview.live"
 CORS_ORIGIN="https://fieldview.live,https://www.fieldview.live"
-PLATFORM_FEE_PERCENT="10"
 LOG_LEVEL="info"
 ```
 

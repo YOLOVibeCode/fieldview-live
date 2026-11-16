@@ -132,8 +132,7 @@ SQUARE_APPLICATION_ID=<production-app-id>
 SQUARE_APPLICATION_SECRET=<production-app-secret>
 SQUARE_REDIRECT_URI=https://api.fieldview.live/api/owners/square/callback
 
-# Platform Fee
-PLATFORM_FEE_PERCENT=10
+# Platform fee: fixed 10% in packages/data-model (PLATFORM_FEE_BPS); not configurable via env.
 
 # Mux Streaming
 MUX_TOKEN_ID=<your-mux-token-id>

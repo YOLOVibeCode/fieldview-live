@@ -30,7 +30,6 @@ import { ReceiptService } from './ReceiptService';
 import type { CouponService } from './CouponService';
 
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
-const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
 
 export class PaymentService implements IPaymentReader, IPaymentWriter {
   private ledgerService: LedgerService;
@@ -122,7 +121,7 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     const finalAmountCents = Math.max(0, game.priceCents - discountCents);
 
     // Calculate marketplace split on the discounted amount
-    const split = calculateMarketplaceSplit(finalAmountCents, PLATFORM_FEE_PERCENT);
+    const split = calculateMarketplaceSplit(finalAmountCents);
 
     let recipientOwnerAccountId: string = ownerAccount.id;
     let recipientType: 'personal' | 'organization' | null = null;
@@ -208,7 +207,7 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     }
 
     // Calculate marketplace split
-    const split = calculateMarketplaceSplit(channel.priceCents, PLATFORM_FEE_PERCENT);
+    const split = calculateMarketplaceSplit(channel.priceCents);
 
     // Determine recipient based on organization owner account
     const organization = await this.watchLinkReader.getOrganizationById(channel.organizationId);
@@ -318,7 +317,7 @@ export class PaymentService implements IPaymentReader, IPaymentWriter {
     }
 
     // Calculate marketplace split
-    const split = calculateMarketplaceSplit(stream.priceInCents, PLATFORM_FEE_PERCENT);
+    const split = calculateMarketplaceSplit(stream.priceInCents);
 
     // Determine recipient based on account type (same logic as Game/Channel)
     let recipientOwnerAccountId: string = ownerAccount.id;
