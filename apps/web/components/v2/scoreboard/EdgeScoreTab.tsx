@@ -37,9 +37,13 @@ function Row({ team, score }: { team: TeamData; score: ReactNode }) {
       <span
         data-testid="jersey-patch"
         aria-hidden
-        className="inline-block w-2 h-2 rounded-[2px] border border-white/80 shrink-0"
+        className="inline-flex w-2.5 h-2.5 rounded-[2px] border border-white/80 shrink-0 overflow-hidden flex-col"
         style={{ backgroundColor: team.color }}
-      />
+      >
+        {team.highlight ? (
+          <span data-testid="jersey-highlight" className="block h-1 w-full" style={{ backgroundColor: team.highlight }} />
+        ) : null}
+      </span>
       {score}
     </div>
   );

@@ -789,6 +789,8 @@ model GameScoreboard {
   awayTeamName    String @default("Away")
   homeJerseyColor String @default("#1E40AF") // Tailwind blue-700
   awayJerseyColor String @default("#DC2626") // Tailwind red-600
+  homeHighlightColor String?
+  awayHighlightColor String?
 
   // Score Tracking
   homeScore Int @default(0)

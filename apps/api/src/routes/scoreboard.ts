@@ -143,6 +143,8 @@ function toScoreboardEvent(sb: {
   awayTeamName: string;
   homeJerseyColor: string;
   awayJerseyColor: string;
+  homeHighlightColor?: string | null;
+  awayHighlightColor?: string | null;
   homeScore: number;
   awayScore: number;
   clockMode: string;
@@ -172,6 +174,8 @@ function toScoreboardEvent(sb: {
     awayTeamName: sb.awayTeamName,
     homeJerseyColor: sb.homeJerseyColor,
     awayJerseyColor: sb.awayJerseyColor,
+    homeHighlightColor: sb.homeHighlightColor ?? null,
+    awayHighlightColor: sb.awayHighlightColor ?? null,
     homeScore: sb.homeScore,
     awayScore: sb.awayScore,
     clockMode: sb.clockMode,

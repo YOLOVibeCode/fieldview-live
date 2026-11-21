@@ -29,6 +29,7 @@ export interface TeamData {
   name: string;
   score: number;
   color: string;
+  highlight?: string;
 }
 
 export interface ApiScoreboardResponse {
@@ -39,6 +40,8 @@ export interface ApiScoreboardResponse {
   awayScore: number;
   homeJerseyColor: string;
   awayJerseyColor: string;
+  homeHighlightColor?: string | null;
+  awayHighlightColor?: string | null;
   clockMode?: string;
   clockSeconds?: number;
   clockStartedAt?: string | null;

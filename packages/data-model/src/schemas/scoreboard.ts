@@ -20,6 +20,8 @@ export const UpdateGameScoreboardSchema = z.object({
   awayTeamName: z.string().min(1).max(100).optional(),
   homeJerseyColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   awayJerseyColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  homeHighlightColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  awayHighlightColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
   homeScore: z.number().int().min(0).max(999).optional(),
   awayScore: z.number().int().min(0).max(999).optional(),
   period: z.number().int().min(1).max(99).optional(),
