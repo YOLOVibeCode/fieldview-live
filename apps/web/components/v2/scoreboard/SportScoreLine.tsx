@@ -15,6 +15,7 @@ import type { MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { sportRegistry } from '@fieldview/data-model';
 import type { TeamData } from './Scoreboard';
+import { InlineScoreField } from './InlineScoreField';
 import type { OverlayCrowdsourceProps } from './overlayCrowdsource';
 
 function stopAnd(e: MouseEvent, fn?: () => void) {
@@ -31,8 +32,8 @@ export interface SportScoreLineProps {
   crowdsource?: Pick<OverlayCrowdsourceProps, 'enabled' | 'onTapTeam' | 'onTapPeriod'>;
   /** Tap the clock to set the linesman time. */
   onEditClock?: () => void;
-  /** Tap a score when viewer editing is allowed. */
-  onEditScore?: (team: 'home' | 'away') => void;
+  /** Commit a score when viewer editing is allowed. */
+  onCommitScore?: (team: 'home' | 'away', score: number) => void | Promise<void>;
   variant: 'overlay' | 'bar';
   className?: string;
 }
@@ -60,7 +61,7 @@ function OverlayScoreLine({
   hideClock,
   crowdsource,
   onEditClock,
-  onEditScore,
+  onCommitScore,
 }: {
   homeTeam: TeamData;
   awayTeam: TeamData;
@@ -69,7 +70,7 @@ function OverlayScoreLine({
   hideClock: boolean;
   crowdsource: SportScoreLineProps['crowdsource'];
   onEditClock?: () => void;
-  onEditScore?: (team: 'home' | 'away') => void;
+  onCommitScore?: (team: 'home' | 'away', score: number) => void | Promise<void>;
 }) {
   const reporting = crowdsource?.enabled === true;
   const homeAbbr = teamAbbr(homeTeam);
@@ -138,18 +139,17 @@ function OverlayScoreLine({
         </span>
       )}
 
-      {onEditScore ? (
-        <button
-          type="button"
-          data-testid="btn-overlay-team-home"
-          aria-label={`Edit score for ${homeTeam.name}`}
-          onClick={(e) => stopAnd(e, () => onEditScore('home'))}
-          className="flex items-center gap-1.5 shrink-0 rounded px-0.5 hover:bg-white/15"
-        >
+      {onCommitScore ? (
+        <div className="flex items-center gap-1.5 shrink-0">
           <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: homeTeam.color }} />
           <span>{homeAbbr}</span>
-          <span className="tabular-nums">{homeTeam.score}</span>
-        </button>
+          <InlineScoreField
+            value={homeTeam.score}
+            color={homeTeam.color}
+            commit={(score) => onCommitScore('home', score)}
+            aria-label={`Edit score for ${homeTeam.name}`}
+          />
+        </div>
       ) : reporting ? (
         <button
           type="button"
@@ -172,18 +172,17 @@ function OverlayScoreLine({
 
       <span className="mx-2 shrink-0">-</span>
 
-      {onEditScore ? (
-        <button
-          type="button"
-          data-testid="btn-overlay-team-away"
-          aria-label={`Edit score for ${awayTeam.name}`}
-          onClick={(e) => stopAnd(e, () => onEditScore('away'))}
-          className="flex items-center gap-1.5 shrink-0 rounded px-0.5 hover:bg-white/15"
-        >
-          <span className="tabular-nums">{awayTeam.score}</span>
+      {onCommitScore ? (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <InlineScoreField
+            value={awayTeam.score}
+            color={awayTeam.color}
+            commit={(score) => onCommitScore('away', score)}
+            aria-label={`Edit score for ${awayTeam.name}`}
+          />
           <span>{awayAbbr}</span>
           <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: awayTeam.color }} />
-        </button>
+        </div>
       ) : reporting ? (
         <button
           type="button"
@@ -324,7 +323,7 @@ export function SportScoreLine({
   time,
   crowdsource,
   onEditClock,
-  onEditScore,
+  onCommitScore,
   variant,
   className,
 }: SportScoreLineProps) {
@@ -341,7 +340,7 @@ export function SportScoreLine({
           hideClock={hideClock}
           crowdsource={crowdsource}
           onEditClock={onEditClock}
-          onEditScore={onEditScore}
+          onCommitScore={onCommitScore}
         />
       </div>
     );

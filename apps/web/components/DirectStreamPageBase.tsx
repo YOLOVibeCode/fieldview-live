@@ -53,10 +53,11 @@ import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
 import { GameEventToast } from '@/components/v2/chat/GameEventToast';
 import { ScoreAlertsOptIn } from '@/components/v2/chat/ScoreAlertsOptIn';
 import { confirmGameEvent, reportGameEvent, resolveGameEvent } from '@/lib/api/gameEvents';
-import { ClockEditSheet, MiniScoreOverlay, ScoreEditSheet, Scoreboard, toOverlayPendingEvent } from '@/components/v2/scoreboard';
+import { ClockEditSheet, EdgeScoreTab, MiniScoreOverlay, Scoreboard, ScoreboardChangeList, toOverlayPendingEvent } from '@/components/v2/scoreboard';
 import type { OverlayCrowdsourceProps } from '@/components/v2/scoreboard';
 import { pickPendingOverlayEvent } from '@/lib/chat/pickPendingOverlayEvent';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
+import { useScoreboardChanges } from '@/hooks/useScoreboardChanges';
 import { ViewerAuthModal } from '@/components/v2/auth';
 import { GuestNamePrompt } from '@/components/v2/chat/GuestNamePrompt';
 import { TouchButton, Badge } from '@/components/v2/primitives';
@@ -835,7 +836,6 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     team?: 'home' | 'away';
   } | null>(null);
   const [clockSheetOpen, setClockSheetOpen] = useState(false);
-  const [scoreEditTeam, setScoreEditTeam] = useState<'home' | 'away' | null>(null);
 
   const overlayCrowdsource = useMemo((): OverlayCrowdsourceProps | undefined => {
     if (!reporting) return undefined;
@@ -855,6 +855,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     (!bootstrap?.allowViewerReporting &&
       (!!viewer.isUnlocked ||
         (!!bootstrap?.allowAnonymousScoreEdit && !!bootstrap?.allowViewerScoreEdit)));
+
+  const scoreHistory = useScoreboardChanges(bootstrap?.slug ?? null);
+  const commitScore = async (team: 'home' | 'away', score: number) => {
+    await scoreboardData.updateScore(team, score);
+    await scoreHistory.refresh();
+  };
 
   // Live viewer count
   const viewerCount = useViewerCount({
@@ -1109,7 +1115,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       sportId={scoreboardData.sportId ?? bootstrap?.sport}
                       crowdsource={overlayCrowdsource}
                       onEditClock={scoreboardEditable ? () => setClockSheetOpen(true) : undefined}
-                      onEditScore={scoreboardEditable ? setScoreEditTeam : undefined}
+                      onCommitScore={scoreboardEditable ? commitScore : undefined}
                     />
                   )}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
@@ -1279,16 +1285,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         <ClockEditSheet
           isOpen={clockSheetOpen}
           currentTime={scoreboardData.time}
-          onSave={scoreboardData.setClock}
+          onSave={async (seconds) => {
+            await scoreboardData.setClock(seconds);
+            await scoreHistory.refresh();
+          }}
           onClose={() => setClockSheetOpen(false)}
-        />
-        <ScoreEditSheet
-          isOpen={scoreEditTeam !== null}
-          teamName={scoreEditTeam === 'away' ? scoreboardData.awayTeam.name : scoreboardData.homeTeam.name}
-          currentScore={scoreEditTeam === 'away' ? scoreboardData.awayTeam.score : scoreboardData.homeTeam.score}
-          teamColor={scoreEditTeam === 'away' ? scoreboardData.awayTeam.color : scoreboardData.homeTeam.color}
-          onSave={(next) => scoreboardData.updateScore(scoreEditTeam ?? 'home', next)}
-          onClose={() => setScoreEditTeam(null)}
         />
         {reporting && (
           <ReportEventSheet
@@ -1490,58 +1491,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                   {/* Tablet/Desktop: Collapsible left-edge sidebar */}
                   {/* Collapsed: Left-edge tab */}
                   {scoreboardPanel.isCollapsed && (
-                  <button
-                    type="button"
-                    data-testid="btn-expand-scoreboard"
-                    className={cn(
-                      'fixed left-0 top-1/2 -translate-y-1/2 z-30',
-                      'w-14 py-3',
-                      'bg-black/80 backdrop-blur-md',
-                      'border-r-2 border-white/20',
-                      'rounded-r-lg',
-                      'shadow-2xl shadow-blue-500/10',
-                      'cursor-pointer pointer-events-auto',
-                      'hover:bg-black/90 hover:border-white/40 hover:shadow-blue-500/30',
-                      'transition-all duration-300',
-                      'flex flex-col items-center gap-1',
-                      'group'
-                    )}
-                    onClick={scoreboardPanel.toggle}
-                    aria-label="Expand scoreboard"
-                  >
-                      {/* Home: initial + score */}
-                      <div className="flex items-center gap-1">
-                        <span
-                          className="text-[10px] font-bold uppercase leading-none"
-                          style={{ color: scoreboardData.homeTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
-                        >
-                          {scoreboardData.homeTeam.name.charAt(0)}
-                        </span>
-                        <span
-                          className="text-sm font-bold tabular-nums leading-none"
-                          style={{ color: scoreboardData.homeTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
-                        >
-                          {scoreboardData.homeTeam.score}
-                        </span>
-                      </div>
-                      {/* Expand arrow */}
-                      <div className="text-white/50 text-[10px] font-bold group-hover:text-white/90 transition-colors leading-none">&rArr;</div>
-                      {/* Away: initial + score */}
-                      <div className="flex items-center gap-1">
-                        <span
-                          className="text-[10px] font-bold uppercase leading-none"
-                          style={{ color: scoreboardData.awayTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
-                        >
-                          {scoreboardData.awayTeam.name.charAt(0)}
-                        </span>
-                        <span
-                          className="text-sm font-bold tabular-nums leading-none"
-                          style={{ color: scoreboardData.awayTeam.color, textShadow: '0 0 2px rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.2)' }}
-                        >
-                          {scoreboardData.awayTeam.score}
-                        </span>
-                      </div>
-                  </button>
+                    <EdgeScoreTab
+                      homeTeam={scoreboardData.homeTeam}
+                      awayTeam={scoreboardData.awayTeam}
+                      editable={scoreboardEditable}
+                      onCommit={commitScore}
+                      onExpand={scoreboardPanel.toggle}
+                    />
                   )}
 
                   {/* Expanded Scoreboard Panel */}
@@ -1581,8 +1537,13 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                         time={scoreboardData.time}
                         mode="sidebar"
                         editable={scoreboardEditable}
-                        onScoreUpdate={scoreboardData.updateScore}
+                        onScoreUpdate={commitScore}
                         data-testid="scoreboard-v2"
+                      />
+                      <ScoreboardChangeList
+                        changes={scoreHistory.changes}
+                        homeName={scoreboardData.homeTeam.name}
+                        awayName={scoreboardData.awayTeam.name}
                       />
 
                       {(scoreboardData.error || scoreboardData.saveError) && (
@@ -1821,7 +1782,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       sportId={scoreboardData.sportId ?? bootstrap?.sport}
                       crowdsource={overlayCrowdsource}
                       onEditClock={scoreboardEditable ? () => setClockSheetOpen(true) : undefined}
-                      onEditScore={scoreboardEditable ? setScoreEditTeam : undefined}
+                      onCommitScore={scoreboardEditable ? commitScore : undefined}
                     />
                   )}
                   {/* Bookmark markers overlaid on the timeline */}
@@ -2375,16 +2336,11 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         <ClockEditSheet
           isOpen={clockSheetOpen}
           currentTime={scoreboardData.time}
-          onSave={scoreboardData.setClock}
+          onSave={async (seconds) => {
+            await scoreboardData.setClock(seconds);
+            await scoreHistory.refresh();
+          }}
           onClose={() => setClockSheetOpen(false)}
-        />
-        <ScoreEditSheet
-          isOpen={scoreEditTeam !== null}
-          teamName={scoreEditTeam === 'away' ? scoreboardData.awayTeam.name : scoreboardData.homeTeam.name}
-          currentScore={scoreEditTeam === 'away' ? scoreboardData.awayTeam.score : scoreboardData.homeTeam.score}
-          teamColor={scoreEditTeam === 'away' ? scoreboardData.awayTeam.color : scoreboardData.homeTeam.color}
-          onSave={(next) => scoreboardData.updateScore(scoreEditTeam ?? 'home', next)}
-          onClose={() => setScoreEditTeam(null)}
         />
         {reporting && (
           <ReportEventSheet

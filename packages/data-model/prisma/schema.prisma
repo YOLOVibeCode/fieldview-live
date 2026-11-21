@@ -818,8 +818,26 @@ model GameScoreboard {
   updatedAt DateTime @updatedAt
 
   directStream DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  changes      ScoreboardChange[]
 
   @@index([directStreamId])
+}
+
+// Append-only log of score and clock commits.
+model ScoreboardChange {
+  id               String   @id @default(uuid()) @db.Uuid
+  gameScoreboardId String   @db.Uuid
+  field            String
+  fromValue        String
+  toValue          String
+  matchClockLabel  String
+  periodLabel      String
+  editedBy         String
+  createdAt        DateTime @default(now())
+
+  scoreboard GameScoreboard @relation(fields: [gameScoreboardId], references: [id], onDelete: Cascade)
+
+  @@index([gameScoreboardId, createdAt])
 }
 
 // DirectStream Registration - Viewer registration for stream access + chat

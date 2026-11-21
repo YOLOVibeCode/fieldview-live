@@ -13,6 +13,12 @@ export type { ScoreCardProps } from './ScoreCard';
 export { ScoreEditSheet } from './ScoreEditSheet';
 export type { ScoreEditSheetProps } from './ScoreEditSheet';
 
+export { EdgeScoreTab } from './EdgeScoreTab';
+export type { EdgeScoreTabProps } from './EdgeScoreTab';
+
+export { ScoreboardChangeList } from './ScoreboardChangeList';
+export type { ScoreboardChangeListProps } from './ScoreboardChangeList';
+
 export { ClockEditSheet } from './ClockEditSheet';
 export type { ClockEditSheetProps } from './ClockEditSheet';
 
