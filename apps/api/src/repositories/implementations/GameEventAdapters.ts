@@ -120,6 +120,8 @@ export class ScoreboardBroadcasterAdapter implements IScoreboardBroadcaster {
       awayTeamName: snapshot.awayTeamName,
       homeJerseyColor: snapshot.homeJerseyColor,
       awayJerseyColor: snapshot.awayJerseyColor,
+      homeHighlightColor: null,
+      awayHighlightColor: null,
       homeScore: snapshot.homeScore,
       awayScore: snapshot.awayScore,
       clockMode: snapshot.clockMode,
