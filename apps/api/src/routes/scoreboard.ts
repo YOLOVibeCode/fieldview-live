@@ -13,15 +13,47 @@ import {
   sportRegistry,
   seedClockSeconds,
   resolveClockSeconds,
+  formatClock,
   UpdateGameScoreboardSchema,
   ValidateProducerPasswordSchema,
   SetClockSchema,
 } from '@fieldview/data-model';
 import { getScoreboardPubSub, type ScoreboardEvent } from '../lib/scoreboard-pubsub';
 import { NotFoundError, BadRequestError, UnauthorizedError, ForbiddenError, ConflictError } from '../lib/errors';
+import { scoreboardChanges } from '../services/scoreboard-change.service';
+import type { AppendScoreboardChange } from '../services/scoreboard-change.interfaces';
 
 const router: Router = Router();
 const periodLabeler = new PeriodLabeler(sportRegistry);
+
+function clockDirectionFor(sport: string): 'up' | 'down' | 'none' {
+  try {
+    return sportRegistry.getSport(sport).clock.mode;
+  } catch {
+    return 'up';
+  }
+}
+
+function displayedClock(sport: string, sb: {
+  clockMode: string;
+  clockSeconds: number;
+  clockStartedAt: Date | string | null;
+}): string {
+  return formatClock(resolveClockSeconds({
+    mode: (sb.clockMode as 'stopped' | 'running' | 'paused') ?? 'stopped',
+    clockDirection: clockDirectionFor(sport),
+    clockSeconds: sb.clockSeconds,
+    clockStartedAt: sb.clockStartedAt,
+  }));
+}
+
+async function noteChange(change: AppendScoreboardChange): Promise<void> {
+  try {
+    await scoreboardChanges.append(change);
+  } catch (error) {
+    logger.error({ error }, 'Failed to record scoreboard change');
+  }
+}
 
 function resolveParentSlug(slug: string): string {
   const key = slug.toLowerCase();
@@ -532,6 +564,28 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
 });
 
 /**
+ * GET /api/direct/:slug/scoreboard/changes
+ * Newest score and clock commits for this board.
+ */
+router.get('/:slug/scoreboard/changes', async (req: Request, res: Response, next: NextFunction) => {
+  const slug = resolveParentSlug(req.params.slug);
+  try {
+    const stream = await prisma.directStream.findUnique({
+      where: { slug },
+      include: { scoreboard: true },
+    });
+    if (!stream?.scoreboard) {
+      throw new NotFoundError('Scoreboard not found');
+    }
+    const changes = await scoreboardChanges.listRecent(stream.scoreboard.id);
+    res.json(changes);
+  } catch (error) {
+    logger.error({ error, slug }, 'Failed to list scoreboard changes');
+    next(error);
+  }
+});
+
+/**
  * POST /api/direct/:slug/scoreboard/clock/set
  * Set the match clock to a linesman time and run from that instant.
  */
@@ -565,6 +619,16 @@ router.post('/:slug/scoreboard/clock/set', validateProducerAccess, async (req: R
         lastEditedBy: 'Sideline',
         lastEditedAt: now,
       },
+    });
+
+    await noteChange({
+      scoreboardId: stream.scoreboard.id,
+      field: 'clock',
+      fromValue: displayedClock(stream.sport, stream.scoreboard),
+      toValue: formatClock(validation.data.clockSeconds),
+      matchClockLabel: formatClock(validation.data.clockSeconds),
+      periodLabel: periodLabeler.formatPeriod(stream.sport, stream.scoreboard.period ?? 1, stream.scoreboard.periodDetail),
+      editedBy: 'Sideline',
     });
 
     const event = toScoreboardEvent(updatedScoreboard, stream.sport);
@@ -729,6 +793,18 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       where: { id: stream.scoreboard.id },
       data: updateData,
     });
+
+    if (isScoreField) {
+      await noteChange({
+        scoreboardId: stream.scoreboard.id,
+        field: field as 'homeScore' | 'awayScore',
+        fromValue: String(stream.scoreboard[field as 'homeScore' | 'awayScore']),
+        toValue: String(sanitizedValue),
+        matchClockLabel: displayedClock(stream.sport, stream.scoreboard),
+        periodLabel: periodLabeler.formatPeriod(stream.sport, stream.scoreboard.period ?? 1, stream.scoreboard.periodDetail),
+        editedBy: viewerName,
+      });
+    }
 
     // Broadcast to SSE subscribers
     getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));

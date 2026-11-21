@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect } from 'vitest';
 import { MiniScoreOverlay } from '../scoreboard/MiniScoreOverlay';
 import type { OverlayCrowdsourceProps } from '../scoreboard/overlayCrowdsource';
@@ -70,21 +70,23 @@ describe('MiniScoreOverlay', () => {
       expect(onEditClock).toHaveBeenCalledTimes(1);
     });
 
-    it('tapping a score opens the editor when editing is allowed', () => {
-      const onEditScore = vi.fn();
+    it('tapping a score number commits that score when editing is allowed', async () => {
+      const onCommitScore = vi.fn();
       render(
         <MiniScoreOverlay
           homeTeam={homeTeam}
           awayTeam={awayTeam}
           period="2nd Half"
           time="00:00"
-          onEditScore={onEditScore}
+          onCommitScore={onCommitScore}
         />
       );
-      fireEvent.click(screen.getByTestId('btn-overlay-team-home'));
-      fireEvent.click(screen.getByTestId('btn-overlay-team-away'));
-      expect(onEditScore).toHaveBeenNthCalledWith(1, 'home');
-      expect(onEditScore).toHaveBeenNthCalledWith(2, 'away');
+      const [homeNumber] = screen.getAllByTestId('btn-inline-score');
+      fireEvent.click(homeNumber);
+      const input = screen.getByTestId('input-inline-score');
+      fireEvent.change(input, { target: { value: '3' } });
+      fireEvent.blur(input);
+      await waitFor(() => expect(onCommitScore).toHaveBeenCalledWith('home', 3));
     });
 
     it('does not render overlay tap targets', () => {
