@@ -89,6 +89,21 @@ describe('MiniScoreOverlay', () => {
       await waitFor(() => expect(onCommitScore).toHaveBeenCalledWith('home', 3));
     });
 
+    it('draws a highlight stripe on the jersey patch', () => {
+      render(
+        <MiniScoreOverlay
+          homeTeam={{ ...homeTeam, highlight: '#1D4ED8' }}
+          awayTeam={{ ...awayTeam, highlight: '#16A34A' }}
+          period="1st Half"
+          time="00:00"
+        />
+      );
+      const stripes = screen.getAllByTestId('jersey-highlight');
+      expect(stripes).toHaveLength(2);
+      expect(stripes[0]).toHaveStyle({ backgroundColor: '#1D4ED8' });
+      expect(stripes[1]).toHaveStyle({ backgroundColor: '#16A34A' });
+    });
+
     it('puts a jersey patch to the right of each team name', () => {
       render(
         <MiniScoreOverlay

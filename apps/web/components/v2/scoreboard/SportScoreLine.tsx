@@ -44,14 +44,18 @@ function teamAbbr(team: TeamData): string {
 
 const SCORE_INK = '#FFFFFF';
 
-function JerseyPatch({ color }: { color: string }) {
+function JerseyPatch({ color, highlight }: { color: string; highlight?: string }) {
   return (
     <span
       data-testid="jersey-patch"
       aria-hidden
-      className="inline-block w-2.5 h-2.5 rounded-[2px] border border-white/80 shrink-0"
+      className="inline-flex w-3 h-3 rounded-[2px] border border-white/80 shrink-0 overflow-hidden flex-col"
       style={{ backgroundColor: color }}
-    />
+    >
+      {highlight ? (
+        <span data-testid="jersey-highlight" className="block h-1 w-full" style={{ backgroundColor: highlight }} />
+      ) : null}
+    </span>
   );
 }
 
@@ -161,13 +165,13 @@ function OverlayScoreLine({
           className="flex items-center gap-1.5 shrink-0 rounded px-0.5 hover:bg-white/15"
         >
           <span>{homeAbbr}</span>
-          <JerseyPatch color={homeTeam.color} />
+          <JerseyPatch color={homeTeam.color} highlight={homeTeam.highlight} />
           <span className="tabular-nums text-white">{homeTeam.score}</span>
         </button>
       ) : (
         <div className="flex items-center gap-1.5 shrink-0">
           <span>{homeAbbr}</span>
-          <JerseyPatch color={homeTeam.color} />
+          <JerseyPatch color={homeTeam.color} highlight={homeTeam.highlight} />
           {onCommitScore ? (
             <InlineScoreField
               value={homeTeam.score}
@@ -193,7 +197,7 @@ function OverlayScoreLine({
         >
           <span className="tabular-nums text-white">{awayTeam.score}</span>
           <span>{awayAbbr}</span>
-          <JerseyPatch color={awayTeam.color} />
+          <JerseyPatch color={awayTeam.color} highlight={awayTeam.highlight} />
         </button>
       ) : (
         <div className="flex items-center gap-1.5 shrink-0">
@@ -208,7 +212,7 @@ function OverlayScoreLine({
             <span className="tabular-nums text-white">{awayTeam.score}</span>
           )}
           <span>{awayAbbr}</span>
-          <JerseyPatch color={awayTeam.color} />
+          <JerseyPatch color={awayTeam.color} highlight={awayTeam.highlight} />
         </div>
       )}
     </>
@@ -266,7 +270,7 @@ function BarScoreLine({
             className="flex items-center gap-1.5 rounded px-1 py-0.5 hover:bg-[var(--fv-color-bg-tertiary)]"
           >
             <span className="text-xs font-semibold tracking-wide">{homeAbbr}</span>
-            <JerseyPatch color={homeTeam.color} />
+            <JerseyPatch color={homeTeam.color} highlight={homeTeam.highlight} />
             <span className="font-bold text-lg tabular-nums leading-none">{homeTeam.score}</span>
           </button>
           <span className="text-[var(--fv-color-text-muted)] text-xs">-</span>
@@ -279,21 +283,21 @@ function BarScoreLine({
           >
             <span className="font-bold text-lg tabular-nums leading-none">{awayTeam.score}</span>
             <span className="text-xs font-semibold tracking-wide">{awayAbbr}</span>
-            <JerseyPatch color={awayTeam.color} />
+            <JerseyPatch color={awayTeam.color} highlight={awayTeam.highlight} />
           </button>
         </>
       ) : (
         <>
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold tracking-wide">{homeAbbr}</span>
-            <JerseyPatch color={homeTeam.color} />
+            <JerseyPatch color={homeTeam.color} highlight={homeTeam.highlight} />
           </div>
           <span className="font-bold text-lg tabular-nums leading-none">{homeTeam.score}</span>
           <span className="text-[var(--fv-color-text-muted)] text-xs">-</span>
           <span className="font-bold text-lg tabular-nums leading-none">{awayTeam.score}</span>
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold tracking-wide">{awayAbbr}</span>
-            <JerseyPatch color={awayTeam.color} />
+            <JerseyPatch color={awayTeam.color} highlight={awayTeam.highlight} />
           </div>
         </>
       )}

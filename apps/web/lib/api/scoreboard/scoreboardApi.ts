@@ -260,11 +260,13 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
         name: response.homeTeamName,
         score: response.homeScore,
         color: response.homeJerseyColor,
+        highlight: response.homeHighlightColor ?? undefined,
       },
       awayTeam: {
         name: response.awayTeamName,
         score: response.awayScore,
         color: response.awayJerseyColor,
+        highlight: response.awayHighlightColor ?? undefined,
       },
       period,
       time: response.hideClock ? undefined : time,

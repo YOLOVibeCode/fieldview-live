@@ -33,6 +33,8 @@ export interface TeamData {
   abbreviation?: string;
   score: number;
   color: string;
+  /** Second jersey color, drawn as a stripe on the patch. */
+  highlight?: string;
 }
 
 export interface ScoreboardProps {

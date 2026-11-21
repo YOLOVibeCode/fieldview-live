@@ -12,6 +12,8 @@ export interface ScoreboardEvent {
   awayTeamName: string;
   homeJerseyColor: string;
   awayJerseyColor: string;
+  homeHighlightColor: string | null;
+  awayHighlightColor: string | null;
   homeScore: number;
   awayScore: number;
   clockMode: string;
