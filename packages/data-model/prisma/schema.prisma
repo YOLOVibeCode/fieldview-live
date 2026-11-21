@@ -710,7 +710,7 @@ model DirectStream {
 
   // Relations
   ownerAccount        OwnerAccount               @relation(fields: [ownerAccountId], references: [id])
-  scoreboard          GameScoreboard?
+  scoreboards         GameScoreboard[]
   chatMessages        GameChatMessage[]
   purchases           Purchase[]
   registrations       DirectStreamRegistration[]
@@ -770,6 +770,7 @@ model DirectStreamEvent {
   updatedAt DateTime @updatedAt
 
   directStream       DirectStream               @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  scoreboard         GameScoreboard?
   registrations      DirectStreamRegistration[]
   verificationTokens EmailVerificationToken[]
 
@@ -782,7 +783,8 @@ model DirectStreamEvent {
 // Social Producer Panel - Scoreboard Management
 model GameScoreboard {
   id             String @id @default(uuid()) @db.Uuid
-  directStreamId String @unique @db.Uuid
+  directStreamId String @db.Uuid
+  directStreamEventId String? @unique @db.Uuid
 
   // Team Information
   homeTeamName    String @default("Home")
@@ -820,6 +822,7 @@ model GameScoreboard {
   updatedAt DateTime @updatedAt
 
   directStream DirectStream @relation(fields: [directStreamId], references: [id], onDelete: Cascade)
+  event        DirectStreamEvent? @relation(fields: [directStreamEventId], references: [id], onDelete: Cascade)
   changes      ScoreboardChange[]
 
   @@index([directStreamId])

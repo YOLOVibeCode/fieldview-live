@@ -32,7 +32,7 @@ router.post(
         const stream = await prisma.directStream.findUnique({
           where: { slug },
           include: {
-            scoreboard: true,
+            scoreboards: { where: { directStreamEventId: null }, take: 1 },
             chatMessages: true,
             purchases: true,
           },
@@ -61,8 +61,9 @@ router.post(
 
         // Get stats
         const chatCount = stream.chatMessages.length;
-        const finalScore = stream.scoreboard
-          ? { home: stream.scoreboard.homeScore, away: stream.scoreboard.awayScore }
+        const parentBoard = stream.scoreboards[0];
+        const finalScore = parentBoard
+          ? { home: parentBoard.homeScore, away: parentBoard.awayScore }
           : null;
 
         logger.info(
@@ -264,7 +265,9 @@ router.get(
         const streams = await prisma.directStream.findMany({
           where,
           include: {
-            scoreboard: {
+            scoreboards: {
+              where: { directStreamEventId: null },
+              take: 1,
               select: {
                 homeScore: true,
                 awayScore: true,
@@ -295,7 +298,7 @@ router.get(
             autoPurgeAt: s.autoPurgeAt,
             chatMessages: s._count.chatMessages,
             purchases: s._count.purchases,
-            scoreboard: s.scoreboard,
+            scoreboard: s.scoreboards[0] ?? null,
           })),
         });
       } catch (error) {
