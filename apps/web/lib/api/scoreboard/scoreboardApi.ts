@@ -21,11 +21,16 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
     this.baseUrl = baseUrl;
   }
 
+  /** Path only — apiRequest already prefixes NEXT_PUBLIC_API_URL. */
+  private scoreboardPath(slug: string, suffix = ''): string {
+    return `/api/direct/${encodeURIComponent(slug)}/scoreboard${suffix}`;
+  }
+
   // IScoreboardReader implementation
   async fetch(slug: string): Promise<ScoreboardData> {
     try {
       const raw = await apiRequest<ApiScoreboardResponse>(
-        `${this.baseUrl}/api/direct/${encodeURIComponent(slug)}/scoreboard`,
+        this.scoreboardPath(slug),
         {
           method: 'GET',
           retries: 2,
@@ -58,7 +63,7 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
       if (isCleanedUp) return;
 
       eventSource = new EventSource(
-        `${this.baseUrl}/api/direct/${encodeURIComponent(slug)}/scoreboard/stream`
+        `${this.baseUrl}${this.scoreboardPath(slug, '/stream')}`
       );
 
       const handleSnapshot = (event: MessageEvent) => {
@@ -130,7 +135,7 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
 
     try {
       const data = await apiRequest<ApiScoreboardResponse>(
-        `${this.baseUrl}/api/direct/${encodeURIComponent(slug)}/scoreboard/viewer-update`,
+        this.scoreboardPath(slug, '/viewer-update'),
         {
           method: 'POST',
           headers: auth?.adminToken || auth?.viewerToken
@@ -160,7 +165,7 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
 
     try {
       const data = await apiRequest<ApiScoreboardResponse>(
-        `${this.baseUrl}/api/direct/${encodeURIComponent(slug)}/scoreboard/viewer-update`,
+        this.scoreboardPath(slug, '/viewer-update'),
         {
           method: 'POST',
           headers: auth?.adminToken || auth?.viewerToken
@@ -171,6 +176,22 @@ class ScoreboardApiClient implements IScoreboardReader, IScoreboardWriter {
             field,
             value: name,
           }),
+          retries: 1,
+        } as any
+      );
+      return this.toScoreboardData(data);
+    } catch (error) {
+      throw this.enhanceError(error);
+    }
+  }
+
+  async setClock(slug: string, clockSeconds: number): Promise<ScoreboardData> {
+    try {
+      const data = await apiRequest<ApiScoreboardResponse>(
+        this.scoreboardPath(slug, '/clock/set'),
+        {
+          method: 'POST',
+          body: JSON.stringify({ clockSeconds }),
           retries: 1,
         } as any
       );

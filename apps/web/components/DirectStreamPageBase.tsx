@@ -53,7 +53,7 @@ import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
 import { GameEventToast } from '@/components/v2/chat/GameEventToast';
 import { ScoreAlertsOptIn } from '@/components/v2/chat/ScoreAlertsOptIn';
 import { confirmGameEvent, reportGameEvent, resolveGameEvent } from '@/lib/api/gameEvents';
-import { MiniScoreOverlay, Scoreboard, toOverlayPendingEvent } from '@/components/v2/scoreboard';
+import { ClockEditSheet, MiniScoreOverlay, Scoreboard, toOverlayPendingEvent } from '@/components/v2/scoreboard';
 import type { OverlayCrowdsourceProps } from '@/components/v2/scoreboard';
 import { pickPendingOverlayEvent } from '@/lib/chat/pickPendingOverlayEvent';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
@@ -834,6 +834,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     category: 'scoring' | 'period';
     team?: 'home' | 'away';
   } | null>(null);
+  const [clockSheetOpen, setClockSheetOpen] = useState(false);
 
   const overlayCrowdsource = useMemo((): OverlayCrowdsourceProps | undefined => {
     if (!reporting) return undefined;
@@ -1106,6 +1107,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       time={scoreboardData.time}
                       sportId={scoreboardData.sportId ?? bootstrap?.sport}
                       crowdsource={overlayCrowdsource}
+                      onEditClock={() => setClockSheetOpen(true)}
                     />
                   )}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
@@ -1272,6 +1274,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           />
         )}
 
+        <ClockEditSheet
+          isOpen={clockSheetOpen}
+          currentTime={scoreboardData.time}
+          onSave={scoreboardData.setClock}
+          onClose={() => setClockSheetOpen(false)}
+        />
         {reporting && (
           <ReportEventSheet
             isOpen={overlayReport !== null}
@@ -1802,6 +1810,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       time={scoreboardData.time}
                       sportId={scoreboardData.sportId ?? bootstrap?.sport}
                       crowdsource={overlayCrowdsource}
+                      onEditClock={() => setClockSheetOpen(true)}
                     />
                   )}
                   {/* Bookmark markers overlaid on the timeline */}
@@ -2352,6 +2361,12 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
         )}
 
         {/* v2 Viewer Auth Modal */}
+        <ClockEditSheet
+          isOpen={clockSheetOpen}
+          currentTime={scoreboardData.time}
+          onSave={scoreboardData.setClock}
+          onClose={() => setClockSheetOpen(false)}
+        />
         {reporting && (
           <ReportEventSheet
             isOpen={overlayReport !== null}

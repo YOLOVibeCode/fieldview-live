@@ -55,6 +55,21 @@ describe('MiniScoreOverlay', () => {
   });
 
   describe('display-only (crowdsource off)', () => {
+    it('tapping the clock opens the linesman time sheet', () => {
+      const onEditClock = vi.fn();
+      render(
+        <MiniScoreOverlay
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period="1st Half"
+          time="18:40"
+          onEditClock={onEditClock}
+        />
+      );
+      fireEvent.click(screen.getByTestId('btn-overlay-clock'));
+      expect(onEditClock).toHaveBeenCalledTimes(1);
+    });
+
     it('does not render overlay tap targets', () => {
       render(
         <MiniScoreOverlay

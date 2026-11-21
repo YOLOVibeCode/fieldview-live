@@ -22,6 +22,8 @@ export interface MiniScoreOverlayProps {
   time?: string;
   sportId?: string;
   crowdsource?: OverlayCrowdsourceProps;
+  /** Tap the clock to set the linesman time. */
+  onEditClock?: () => void;
   className?: string;
   'data-testid'?: string;
 }
@@ -38,6 +40,7 @@ export function MiniScoreOverlay({
   time,
   sportId,
   crowdsource,
+  onEditClock,
   className,
   'data-testid': dataTestId = 'mini-score-overlay',
 }: MiniScoreOverlayProps) {
@@ -98,6 +101,7 @@ export function MiniScoreOverlay({
           period={period}
           time={time}
           crowdsource={reporting ? crowdsource : undefined}
+          onEditClock={onEditClock}
           variant="overlay"
           className="flex-1"
         />

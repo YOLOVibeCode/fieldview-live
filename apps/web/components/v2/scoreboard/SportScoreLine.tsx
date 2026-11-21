@@ -29,6 +29,8 @@ export interface SportScoreLineProps {
   period?: string;
   time?: string;
   crowdsource?: Pick<OverlayCrowdsourceProps, 'enabled' | 'onTapTeam' | 'onTapPeriod'>;
+  /** Tap the clock to set the linesman time. */
+  onEditClock?: () => void;
   variant: 'overlay' | 'bar';
   className?: string;
 }
@@ -55,6 +57,7 @@ function OverlayScoreLine({
   time,
   hideClock,
   crowdsource,
+  onEditClock,
 }: {
   homeTeam: TeamData;
   awayTeam: TeamData;
@@ -62,11 +65,30 @@ function OverlayScoreLine({
   time: string | undefined;
   hideClock: boolean;
   crowdsource: SportScoreLineProps['crowdsource'];
+  onEditClock?: () => void;
 }) {
   const reporting = crowdsource?.enabled === true;
   const homeAbbr = teamAbbr(homeTeam);
   const awayAbbr = teamAbbr(awayTeam);
   const showClock = !hideClock && Boolean(time);
+  const clockText = showClock ? time : (!period && !hideClock ? '--:--' : null);
+  const clockNode = clockText ? (
+    onEditClock ? (
+      <button
+        type="button"
+        data-testid="btn-overlay-clock"
+        aria-label="Set match clock"
+        onClick={(e) => stopAnd(e, onEditClock)}
+        className="tabular-nums font-mono text-xs rounded px-0.5 hover:bg-white/15"
+      >
+        <span data-testid="overlay-clock">{clockText}</span>
+      </button>
+    ) : (
+      <span data-testid="overlay-clock" className="tabular-nums font-mono text-xs">
+        {clockText}
+      </span>
+    )
+  ) : null;
 
   const periodClockContent = (
     <>
@@ -75,22 +97,28 @@ function OverlayScoreLine({
           {period}
         </span>
       )}
-      {showClock && (
-        <span data-testid="overlay-clock" className="tabular-nums font-mono text-xs">
-          {time}
-        </span>
-      )}
-      {!period && !showClock && !hideClock && (
-        <span data-testid="overlay-clock" className="tabular-nums font-mono text-xs">
-          --:--
-        </span>
-      )}
+      {clockNode}
     </>
   );
 
   return (
     <>
-      {reporting ? (
+      {reporting && onEditClock ? (
+        <span className="flex items-center gap-1 shrink-0 mr-3 whitespace-nowrap text-white/90">
+          {period && (
+            <button
+              type="button"
+              data-testid="btn-overlay-period"
+              aria-label="Report a period event"
+              onClick={(e) => stopAnd(e, crowdsource.onTapPeriod)}
+              className="rounded px-0.5 hover:bg-white/15"
+            >
+              <span data-testid="overlay-period" className="font-medium">{period}</span>
+            </button>
+          )}
+          {clockNode}
+        </span>
+      ) : reporting ? (
         <button
           type="button"
           data-testid="btn-overlay-period"
@@ -267,6 +295,7 @@ export function SportScoreLine({
   period,
   time,
   crowdsource,
+  onEditClock,
   variant,
   className,
 }: SportScoreLineProps) {
@@ -282,6 +311,7 @@ export function SportScoreLine({
           time={time}
           hideClock={hideClock}
           crowdsource={crowdsource}
+          onEditClock={onEditClock}
         />
       </div>
     );

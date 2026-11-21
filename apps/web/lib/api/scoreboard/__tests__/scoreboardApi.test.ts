@@ -45,7 +45,7 @@ describe('ScoreboardApiClient', () => {
       const result = await scoreboardApi.fetch('test-slug');
       
       expect(mockApiRequest).toHaveBeenCalledWith(
-        expect.stringContaining('/api/direct/test-slug/scoreboard'),
+        '/api/direct/test-slug/scoreboard',
         expect.objectContaining({
           method: 'GET',
           retries: 2,
@@ -108,7 +108,7 @@ describe('ScoreboardApiClient', () => {
       const result = await scoreboardApi.updateScore('test-slug', 'home', 15);
       
       expect(mockApiRequest).toHaveBeenCalledWith(
-        expect.stringContaining('/api/direct/test-slug/scoreboard/viewer-update'),
+        '/api/direct/test-slug/scoreboard/viewer-update',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -268,6 +268,34 @@ describe('ScoreboardApiClient', () => {
       cleanup();
       
       expect(mockEventSource.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('setClock()', () => {
+    it('posts the linesman time in seconds', async () => {
+      mockApiRequest.mockResolvedValue({
+        id: '123',
+        homeTeamName: 'Sting WTX',
+        awayTeamName: 'Lonestar CTX',
+        homeScore: 0,
+        awayScore: 2,
+        homeJerseyColor: '#0A2342',
+        awayJerseyColor: '#C4A35A',
+        clockMode: 'running',
+        clockSeconds: 1120,
+        clockStartedAt: new Date().toISOString(),
+      });
+
+      const result = await scoreboardApi.setClock('stingquinn', 1120);
+
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        '/api/direct/stingquinn/scoreboard/clock/set',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ clockSeconds: 1120 }),
+        })
+      );
+      expect(result.time).toMatch(/18:4/);
     });
   });
 

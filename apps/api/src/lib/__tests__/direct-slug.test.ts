@@ -48,6 +48,13 @@ describe('rewriteHierarchicalDirectPath', () => {
     expect(run('/e2e-test/bootstrap')).toBe('/e2e-test/bootstrap');
     expect(run('/dev-free-stream/unlock-admin')).toBe('/dev-free-stream/unlock-admin');
   });
+
+  it('does not treat reserved API leaves as event slugs', () => {
+    expect(run('/stingquinn/scoreboard/stream')).toBe('/stingquinn/scoreboard/stream');
+    expect(run('/stingquinn/scoreboard/validate')).toBe('/stingquinn/scoreboard/validate');
+    expect(run('/stingquinn/viewers/active')).toBe('/stingquinn/viewers/active');
+    expect(run('/e2e-test/events/abc/confirm')).toBe('/e2e-test/events/abc/confirm');
+  });
 });
 
 describe('rewriteHierarchicalPublicDirectPath', () => {

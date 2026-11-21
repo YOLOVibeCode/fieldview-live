@@ -19,9 +19,28 @@ export function parseDirectKey(raw: string): {
   return { key: parentSlug, parentSlug };
 }
 
+/** Second path segment is a route leaf, not a DirectStreamEvent slug. */
+const DIRECT_API_LEAVES = new Set([
+  'admin-broadcast',
+  'bootstrap',
+  'checkout',
+  'events',
+  'heartbeat',
+  'payment-methods',
+  'save-payment-method',
+  'score-alerts',
+  'scoreboard',
+  'settings',
+  'unlock-admin',
+  'verify-access',
+  'viewer-count',
+  'viewers',
+]);
+
 /**
  * Rewrite /parent/event/... to /parent%2Fevent/... so /:slug/leaf routes match.
  * Two-segment paths like /e2e-test/bootstrap are unchanged.
+ * Reserved leaves (/slug/scoreboard/stream) are not treated as event slugs.
  */
 export function rewriteHierarchicalDirectPath(
   req: Request,
@@ -33,7 +52,7 @@ export function rewriteHierarchicalDirectPath(
   const pathOnly = qIndex === -1 ? raw : raw.slice(0, qIndex);
   const qs = qIndex === -1 ? '' : raw.slice(qIndex);
   const m = pathOnly.match(/^\/([^/]+)\/([^/]+)\/(.+)$/);
-  if (m) {
+  if (m && !DIRECT_API_LEAVES.has(m[2].toLowerCase())) {
     const parent = m[1];
     const eventSlug = m[2];
     const rest = m[3];
