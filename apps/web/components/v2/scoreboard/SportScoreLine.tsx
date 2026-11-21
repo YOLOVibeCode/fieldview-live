@@ -42,6 +42,19 @@ function teamAbbr(team: TeamData): string {
   return (team.abbreviation || team.name).slice(0, 3).toUpperCase();
 }
 
+const SCORE_INK = '#FFFFFF';
+
+function JerseyPatch({ color }: { color: string }) {
+  return (
+    <span
+      data-testid="jersey-patch"
+      aria-hidden
+      className="inline-block w-2.5 h-2.5 rounded-[2px] border border-white/80 shrink-0"
+      style={{ backgroundColor: color }}
+    />
+  );
+}
+
 function resolveHideClock(sportId: string | undefined): boolean {
   if (!sportId) return false;
   try {
@@ -139,18 +152,7 @@ function OverlayScoreLine({
         </span>
       )}
 
-      {onCommitScore ? (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: homeTeam.color }} />
-          <span>{homeAbbr}</span>
-          <InlineScoreField
-            value={homeTeam.score}
-            color={homeTeam.color}
-            commit={(score) => onCommitScore('home', score)}
-            aria-label={`Edit score for ${homeTeam.name}`}
-          />
-        </div>
-      ) : reporting ? (
+      {reporting && !onCommitScore ? (
         <button
           type="button"
           data-testid="btn-overlay-team-home"
@@ -158,32 +160,30 @@ function OverlayScoreLine({
           onClick={(e) => stopAnd(e, () => crowdsource.onTapTeam('home'))}
           className="flex items-center gap-1.5 shrink-0 rounded px-0.5 hover:bg-white/15"
         >
-          <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: homeTeam.color }} />
           <span>{homeAbbr}</span>
-          <span className="tabular-nums">{homeTeam.score}</span>
+          <JerseyPatch color={homeTeam.color} />
+          <span className="tabular-nums text-white">{homeTeam.score}</span>
         </button>
       ) : (
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: homeTeam.color }} />
           <span>{homeAbbr}</span>
-          <span className="tabular-nums">{homeTeam.score}</span>
+          <JerseyPatch color={homeTeam.color} />
+          {onCommitScore ? (
+            <InlineScoreField
+              value={homeTeam.score}
+              color={SCORE_INK}
+              commit={(score) => onCommitScore('home', score)}
+              aria-label={`Edit score for ${homeTeam.name}`}
+            />
+          ) : (
+            <span className="tabular-nums text-white">{homeTeam.score}</span>
+          )}
         </div>
       )}
 
       <span className="mx-2 shrink-0">-</span>
 
-      {onCommitScore ? (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <InlineScoreField
-            value={awayTeam.score}
-            color={awayTeam.color}
-            commit={(score) => onCommitScore('away', score)}
-            aria-label={`Edit score for ${awayTeam.name}`}
-          />
-          <span>{awayAbbr}</span>
-          <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: awayTeam.color }} />
-        </div>
-      ) : reporting ? (
+      {reporting && !onCommitScore ? (
         <button
           type="button"
           data-testid="btn-overlay-team-away"
@@ -191,15 +191,24 @@ function OverlayScoreLine({
           onClick={(e) => stopAnd(e, () => crowdsource.onTapTeam('away'))}
           className="flex items-center gap-1.5 shrink-0 rounded px-0.5 hover:bg-white/15"
         >
-          <span className="tabular-nums">{awayTeam.score}</span>
+          <span className="tabular-nums text-white">{awayTeam.score}</span>
           <span>{awayAbbr}</span>
-          <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: awayTeam.color }} />
+          <JerseyPatch color={awayTeam.color} />
         </button>
       ) : (
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="tabular-nums">{awayTeam.score}</span>
+          {onCommitScore ? (
+            <InlineScoreField
+              value={awayTeam.score}
+              color={SCORE_INK}
+              commit={(score) => onCommitScore('away', score)}
+              aria-label={`Edit score for ${awayTeam.name}`}
+            />
+          ) : (
+            <span className="tabular-nums text-white">{awayTeam.score}</span>
+          )}
           <span>{awayAbbr}</span>
-          <span className="w-[3px] self-stretch shrink-0 rounded-sm" style={{ backgroundColor: awayTeam.color }} />
+          <JerseyPatch color={awayTeam.color} />
         </div>
       )}
     </>
@@ -256,8 +265,8 @@ function BarScoreLine({
             onClick={() => crowdsource.onTapTeam('home')}
             className="flex items-center gap-1.5 rounded px-1 py-0.5 hover:bg-[var(--fv-color-bg-tertiary)]"
           >
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeTeam.color }} />
             <span className="text-xs font-semibold tracking-wide">{homeAbbr}</span>
+            <JerseyPatch color={homeTeam.color} />
             <span className="font-bold text-lg tabular-nums leading-none">{homeTeam.score}</span>
           </button>
           <span className="text-[var(--fv-color-text-muted)] text-xs">-</span>
@@ -270,21 +279,21 @@ function BarScoreLine({
           >
             <span className="font-bold text-lg tabular-nums leading-none">{awayTeam.score}</span>
             <span className="text-xs font-semibold tracking-wide">{awayAbbr}</span>
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayTeam.color }} />
+            <JerseyPatch color={awayTeam.color} />
           </button>
         </>
       ) : (
         <>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeTeam.color }} />
             <span className="text-xs font-semibold tracking-wide">{homeAbbr}</span>
+            <JerseyPatch color={homeTeam.color} />
           </div>
           <span className="font-bold text-lg tabular-nums leading-none">{homeTeam.score}</span>
           <span className="text-[var(--fv-color-text-muted)] text-xs">-</span>
           <span className="font-bold text-lg tabular-nums leading-none">{awayTeam.score}</span>
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold tracking-wide">{awayAbbr}</span>
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayTeam.color }} />
+            <JerseyPatch color={awayTeam.color} />
           </div>
         </>
       )}

@@ -89,6 +89,21 @@ describe('MiniScoreOverlay', () => {
       await waitFor(() => expect(onCommitScore).toHaveBeenCalledWith('home', 3));
     });
 
+    it('puts a jersey patch to the right of each team name', () => {
+      render(
+        <MiniScoreOverlay
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period="1st Half"
+          time="00:00"
+        />
+      );
+      const patches = screen.getAllByTestId('jersey-patch');
+      expect(patches).toHaveLength(2);
+      expect(patches[0]).toHaveStyle({ backgroundColor: homeTeam.color });
+      expect(patches[1]).toHaveStyle({ backgroundColor: awayTeam.color });
+    });
+
     it('does not render overlay tap targets', () => {
       render(
         <MiniScoreOverlay

@@ -31,12 +31,15 @@ const shell = cn(
 function Row({ team, score }: { team: TeamData; score: ReactNode }) {
   return (
     <div className="flex items-center gap-1">
-      <span
-        className="text-[10px] font-bold uppercase leading-none"
-        style={{ color: team.color, textShadow: '0 0 2px rgba(0,0,0,0.85)' }}
-      >
+      <span className="text-[10px] font-bold uppercase leading-none text-white">
         {team.name.charAt(0)}
       </span>
+      <span
+        data-testid="jersey-patch"
+        aria-hidden
+        className="inline-block w-2 h-2 rounded-[2px] border border-white/80 shrink-0"
+        style={{ backgroundColor: team.color }}
+      />
       {score}
     </div>
   );
@@ -52,9 +55,9 @@ export function EdgeScoreTab({ homeTeam, awayTeam, editable, onCommit, onExpand 
         onClick={onExpand}
         aria-label="Expand scoreboard"
       >
-        <Row team={homeTeam} score={<span className="text-sm font-bold tabular-nums" style={{ color: homeTeam.color }}>{homeTeam.score}</span>} />
+        <Row team={homeTeam} score={<span className="text-sm font-bold tabular-nums text-white">{homeTeam.score}</span>} />
         <span className="text-white/50 text-[10px] font-bold leading-none" aria-hidden>&rArr;</span>
-        <Row team={awayTeam} score={<span className="text-sm font-bold tabular-nums" style={{ color: awayTeam.color }}>{awayTeam.score}</span>} />
+        <Row team={awayTeam} score={<span className="text-sm font-bold tabular-nums text-white">{awayTeam.score}</span>} />
       </button>
     );
   }
@@ -66,7 +69,7 @@ export function EdgeScoreTab({ homeTeam, awayTeam, editable, onCommit, onExpand 
         score={
           <InlineScoreField
             value={homeTeam.score}
-            color={homeTeam.color}
+            color="#FFFFFF"
             commit={(score) => onCommit('home', score)}
             aria-label={`Edit score for ${homeTeam.name}`}
           />
@@ -86,7 +89,7 @@ export function EdgeScoreTab({ homeTeam, awayTeam, editable, onCommit, onExpand 
         score={
           <InlineScoreField
             value={awayTeam.score}
-            color={awayTeam.color}
+            color="#FFFFFF"
             commit={(score) => onCommit('away', score)}
             aria-label={`Edit score for ${awayTeam.name}`}
           />
