@@ -70,6 +70,23 @@ describe('MiniScoreOverlay', () => {
       expect(onEditClock).toHaveBeenCalledTimes(1);
     });
 
+    it('tapping a score opens the editor when editing is allowed', () => {
+      const onEditScore = vi.fn();
+      render(
+        <MiniScoreOverlay
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period="2nd Half"
+          time="00:00"
+          onEditScore={onEditScore}
+        />
+      );
+      fireEvent.click(screen.getByTestId('btn-overlay-team-home'));
+      fireEvent.click(screen.getByTestId('btn-overlay-team-away'));
+      expect(onEditScore).toHaveBeenNthCalledWith(1, 'home');
+      expect(onEditScore).toHaveBeenNthCalledWith(2, 'away');
+    });
+
     it('does not render overlay tap targets', () => {
       render(
         <MiniScoreOverlay

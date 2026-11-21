@@ -53,7 +53,7 @@ import { AdminBroadcast } from '@/components/v2/chat/AdminBroadcast';
 import { GameEventToast } from '@/components/v2/chat/GameEventToast';
 import { ScoreAlertsOptIn } from '@/components/v2/chat/ScoreAlertsOptIn';
 import { confirmGameEvent, reportGameEvent, resolveGameEvent } from '@/lib/api/gameEvents';
-import { ClockEditSheet, MiniScoreOverlay, Scoreboard, toOverlayPendingEvent } from '@/components/v2/scoreboard';
+import { ClockEditSheet, MiniScoreOverlay, ScoreEditSheet, Scoreboard, toOverlayPendingEvent } from '@/components/v2/scoreboard';
 import type { OverlayCrowdsourceProps } from '@/components/v2/scoreboard';
 import { pickPendingOverlayEvent } from '@/lib/chat/pickPendingOverlayEvent';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
@@ -835,6 +835,7 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
     team?: 'home' | 'away';
   } | null>(null);
   const [clockSheetOpen, setClockSheetOpen] = useState(false);
+  const [scoreEditTeam, setScoreEditTeam] = useState<'home' | 'away' | null>(null);
 
   const overlayCrowdsource = useMemo((): OverlayCrowdsourceProps | undefined => {
     if (!reporting) return undefined;
@@ -1107,7 +1108,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       time={scoreboardData.time}
                       sportId={scoreboardData.sportId ?? bootstrap?.sport}
                       crowdsource={overlayCrowdsource}
-                      onEditClock={() => setClockSheetOpen(true)}
+                      onEditClock={scoreboardEditable ? () => setClockSheetOpen(true) : undefined}
+                      onEditScore={scoreboardEditable ? setScoreEditTeam : undefined}
                     />
                   )}
                   {bookmarkMarkers.bookmarks.length > 0 && duration > 0 && (
@@ -1279,6 +1281,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           currentTime={scoreboardData.time}
           onSave={scoreboardData.setClock}
           onClose={() => setClockSheetOpen(false)}
+        />
+        <ScoreEditSheet
+          isOpen={scoreEditTeam !== null}
+          teamName={scoreEditTeam === 'away' ? scoreboardData.awayTeam.name : scoreboardData.homeTeam.name}
+          currentScore={scoreEditTeam === 'away' ? scoreboardData.awayTeam.score : scoreboardData.homeTeam.score}
+          teamColor={scoreEditTeam === 'away' ? scoreboardData.awayTeam.color : scoreboardData.homeTeam.color}
+          onSave={(next) => scoreboardData.updateScore(scoreEditTeam ?? 'home', next)}
+          onClose={() => setScoreEditTeam(null)}
         />
         {reporting && (
           <ReportEventSheet
@@ -1810,7 +1820,8 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
                       time={scoreboardData.time}
                       sportId={scoreboardData.sportId ?? bootstrap?.sport}
                       crowdsource={overlayCrowdsource}
-                      onEditClock={() => setClockSheetOpen(true)}
+                      onEditClock={scoreboardEditable ? () => setClockSheetOpen(true) : undefined}
+                      onEditScore={scoreboardEditable ? setScoreEditTeam : undefined}
                     />
                   )}
                   {/* Bookmark markers overlaid on the timeline */}
@@ -2366,6 +2377,14 @@ export function DirectStreamPageBase({ config, children }: DirectStreamPageBaseP
           currentTime={scoreboardData.time}
           onSave={scoreboardData.setClock}
           onClose={() => setClockSheetOpen(false)}
+        />
+        <ScoreEditSheet
+          isOpen={scoreEditTeam !== null}
+          teamName={scoreEditTeam === 'away' ? scoreboardData.awayTeam.name : scoreboardData.homeTeam.name}
+          currentScore={scoreEditTeam === 'away' ? scoreboardData.awayTeam.score : scoreboardData.homeTeam.score}
+          teamColor={scoreEditTeam === 'away' ? scoreboardData.awayTeam.color : scoreboardData.homeTeam.color}
+          onSave={(next) => scoreboardData.updateScore(scoreEditTeam ?? 'home', next)}
+          onClose={() => setScoreEditTeam(null)}
         />
         {reporting && (
           <ReportEventSheet
