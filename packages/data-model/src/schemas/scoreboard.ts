@@ -44,6 +44,12 @@ export const ClockOperationSchema = z.object({
   producerPassword: z.string().optional(), // For auth if password is set
 });
 
+/** Sideline sets the match clock to a linesman time and it runs from there. */
+export const SetClockSchema = z.object({
+  clockSeconds: z.number().int().min(0).max(99 * 60 + 59),
+  producerPassword: z.string().optional(),
+});
+
 /**
  * Public scoreboard response (what viewers see)
  */
@@ -75,5 +81,6 @@ export type CreateGameScoreboard = z.infer<typeof CreateGameScoreboardSchema>;
 export type UpdateGameScoreboard = z.infer<typeof UpdateGameScoreboardSchema>;
 export type ValidateProducerPassword = z.infer<typeof ValidateProducerPasswordSchema>;
 export type ClockOperation = z.infer<typeof ClockOperationSchema>;
+export type SetClock = z.infer<typeof SetClockSchema>;
 export type ScoreboardResponse = z.infer<typeof ScoreboardResponseSchema>;
 

@@ -15,6 +15,7 @@ import {
   resolveClockSeconds,
   UpdateGameScoreboardSchema,
   ValidateProducerPasswordSchema,
+  SetClockSchema,
 } from '@fieldview/data-model';
 import { getScoreboardPubSub, type ScoreboardEvent } from '../lib/scoreboard-pubsub';
 import { NotFoundError, BadRequestError, UnauthorizedError, ForbiddenError, ConflictError } from '../lib/errors';
@@ -526,6 +527,56 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
     });
   } catch (error) {
     logger.error({ error, slug }, 'Failed to reset clock');
+    next(error);
+  }
+});
+
+/**
+ * POST /api/direct/:slug/scoreboard/clock/set
+ * Set the match clock to a linesman time and run from that instant.
+ */
+router.post('/:slug/scoreboard/clock/set', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
+  const slug = resolveParentSlug(req.params.slug);
+
+  try {
+    const validation = SetClockSchema.safeParse(req.body);
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      const errorMessage = firstError ? `${firstError.path.join('.')}: ${firstError.message}` : 'Invalid request';
+      throw new BadRequestError(errorMessage, validation.error.errors);
+    }
+
+    const stream = await prisma.directStream.findUnique({
+      where: { slug },
+      include: { scoreboard: true },
+    });
+
+    if (!stream || !stream.scoreboard) {
+      throw new NotFoundError('Scoreboard not found');
+    }
+
+    const now = new Date();
+    const updatedScoreboard = await prisma.gameScoreboard.update({
+      where: { id: stream.scoreboard.id },
+      data: {
+        clockMode: 'running',
+        clockSeconds: validation.data.clockSeconds,
+        clockStartedAt: now,
+        lastEditedBy: 'Sideline',
+        lastEditedAt: now,
+      },
+    });
+
+    const event = toScoreboardEvent(updatedScoreboard, stream.sport);
+    getScoreboardPubSub().publish(slug, event);
+
+    res.json({
+      ...event,
+      id: updatedScoreboard.id,
+      requiresPassword: !!updatedScoreboard.producerPassword,
+    });
+  } catch (error) {
+    logger.error({ error, slug }, 'Failed to set clock');
     next(error);
   }
 });

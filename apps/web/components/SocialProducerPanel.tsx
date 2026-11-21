@@ -51,6 +51,7 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
   const [saving, setSaving] = useState(false);
   const [awayColorTouched, setAwayColorTouched] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [clockDraft, setClockDraft] = useState('');
 
   // Fetch scoreboard data
   useEffect(() => {
@@ -189,6 +190,38 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
       setScoreboard(updated);
     } catch (err) {
       setError(getUserFriendlyMessage(err));
+    }
+  };
+
+  const applyLinesmanTime = async () => {
+    if (!scoreboard) return;
+    const match = /^(\d{1,2}):([0-5]\d)$/.exec(clockDraft.trim());
+    if (!match) {
+      setError('Enter the linesman time as MM:SS');
+      return;
+    }
+    const clockSeconds = Number(match[1]) * 60 + Number(match[2]);
+    if (clockSeconds > 99 * 60 + 59) {
+      setError('Clock must be 99:59 or less');
+      return;
+    }
+    try {
+      setSaving(true);
+      const headers: Record<string, string> = {};
+      if (isAdmin && adminJwt) headers['Authorization'] = `Bearer ${adminJwt}`;
+      const body: { clockSeconds: number; producerPassword?: string } = { clockSeconds };
+      if (!isAdmin && scoreboard.editMode === 'password') body.producerPassword = password;
+      const updated = await apiRequest<GameScoreboard>(`/api/direct/${slug}/scoreboard/clock/set`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+      setScoreboard(updated);
+      setError(null);
+    } catch (err) {
+      setError(getUserFriendlyMessage(err));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -604,6 +637,28 @@ export function SocialProducerPanel({ slug, isAdmin, adminJwt }: SocialProducerP
               Reset
             </Button>
           </div>
+          <div className="flex gap-2">
+            <Input
+              data-testid="input-linesman-time"
+              aria-label="Linesman time"
+              inputMode="numeric"
+              placeholder="18:40"
+              value={clockDraft}
+              onChange={(e) => setClockDraft(e.target.value)}
+            />
+            <Button
+              type="button"
+              data-testid="btn-clock-set"
+              onClick={() => void applyLinesmanTime()}
+              disabled={saving}
+              aria-label="Set clock to linesman time"
+            >
+              Set
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Ask the linesman, enter MM:SS, then Set. The clock runs from that time.
+          </p>
         </div>
         )}
 

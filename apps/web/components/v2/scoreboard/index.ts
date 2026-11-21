@@ -13,6 +13,9 @@ export type { ScoreCardProps } from './ScoreCard';
 export { ScoreEditSheet } from './ScoreEditSheet';
 export type { ScoreEditSheetProps } from './ScoreEditSheet';
 
+export { ClockEditSheet } from './ClockEditSheet';
+export type { ClockEditSheetProps } from './ClockEditSheet';
+
 export { GameClock } from './GameClock';
 export type { GameClockProps } from './GameClock';
 

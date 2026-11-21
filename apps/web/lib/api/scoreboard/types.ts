@@ -88,6 +88,7 @@ export interface IScoreboardClockWriter {
   startClock(slug: string, auth?: { adminToken?: string }): Promise<ScoreboardData>;
   pauseClock(slug: string, auth?: { adminToken?: string }): Promise<ScoreboardData>;
   resetClock(slug: string, auth?: { adminToken?: string }): Promise<ScoreboardData>;
+  setClock(slug: string, clockSeconds: number): Promise<ScoreboardData>;
 }
 
 // ISP: Error handling (4 methods)
