@@ -166,6 +166,7 @@ export function Scoreboard({
             abbreviation={homeTeam.abbreviation}
             score={homeTeam.score}
             color={homeTeam.color}
+            highlight={homeTeam.highlight}
             winning={homeWinning && !isTied}
             losing={awayWinning && !isTied}
             variant={mode === 'minimal' ? 'compact' : 'default'}
@@ -186,6 +187,7 @@ export function Scoreboard({
             abbreviation={awayTeam.abbreviation}
             score={awayTeam.score}
             color={awayTeam.color}
+            highlight={awayTeam.highlight}
             winning={awayWinning && !isTied}
             losing={homeWinning && !isTied}
             variant={mode === 'minimal' ? 'compact' : 'default'}
