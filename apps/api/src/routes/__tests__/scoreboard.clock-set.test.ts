@@ -8,7 +8,7 @@ import { errorHandler } from '../../middleware/errorHandler';
 vi.mock('../../lib/prisma', () => ({
   prisma: {
     directStream: { findUnique: vi.fn() },
-    gameScoreboard: { update: vi.fn() },
+    gameScoreboard: { update: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   },
 }));
 
@@ -66,6 +66,7 @@ function app(): Express {
 }
 
 const dsFindUnique = prisma.directStream.findUnique as unknown as ReturnType<typeof vi.fn>;
+const sbFindFirst = prisma.gameScoreboard.findFirst as unknown as ReturnType<typeof vi.fn>;
 const sbUpdate = prisma.gameScoreboard.update as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -76,6 +77,7 @@ describe('POST /scoreboard/clock/set', () => {
   it('sets the clock to the linesman time and starts it', async () => {
     const stream = streamWithBoard();
     dsFindUnique.mockResolvedValue(stream);
+    sbFindFirst.mockResolvedValue(stream.scoreboard);
     sbUpdate.mockImplementation(async ({ data }: { data: { clockSeconds: number; clockMode: string } }) => ({
       ...stream.scoreboard,
       ...data,
@@ -98,7 +100,9 @@ describe('POST /scoreboard/clock/set', () => {
   });
 
   it('rejects a clock past 99:59', async () => {
-    dsFindUnique.mockResolvedValue(streamWithBoard());
+    const stream = streamWithBoard();
+    dsFindUnique.mockResolvedValue(stream);
+    sbFindFirst.mockResolvedValue(stream.scoreboard);
     const res = await request(app())
       .post(`/api/direct/${STREAM_SLUG}/scoreboard/clock/set`)
       .send({ clockSeconds: 100 * 60 });
@@ -110,6 +114,7 @@ describe('POST /scoreboard/clock/set', () => {
     const stream = streamWithBoard();
     stream.scoreboard.producerPassword = 'hashed';
     dsFindUnique.mockResolvedValue(stream);
+    sbFindFirst.mockResolvedValue(stream.scoreboard);
     const res = await request(app())
       .post(`/api/direct/${STREAM_SLUG}/scoreboard/clock/set`)
       .send({ clockSeconds: 60 });

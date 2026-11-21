@@ -8,7 +8,7 @@ import { errorHandler } from '../../middleware/errorHandler';
 vi.mock('../../lib/prisma', () => ({
   prisma: {
     directStream: { findUnique: vi.fn() },
-    gameScoreboard: { create: vi.fn() },
+    gameScoreboard: { create: vi.fn(), findFirst: vi.fn() },
   },
 }));
 
@@ -59,6 +59,7 @@ function app(): Express {
 }
 
 const dsFindUnique = prisma.directStream.findUnique as unknown as ReturnType<typeof vi.fn>;
+const sbFindFirst = prisma.gameScoreboard.findFirst as unknown as ReturnType<typeof vi.fn>;
 const sbCreate = prisma.gameScoreboard.create as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -70,9 +71,8 @@ describe('scoreboard auto-create', () => {
     const stream = streamFixture();
     const scoreboard = createdScoreboard();
 
-    dsFindUnique
-      .mockResolvedValueOnce(stream)
-      .mockResolvedValueOnce({ ...stream, scoreboard });
+    dsFindUnique.mockResolvedValue(stream);
+    sbFindFirst.mockResolvedValue(null);
     sbCreate.mockResolvedValue(scoreboard);
 
     const res = await request(app()).get(`/api/direct/${STREAM_SLUG}/scoreboard`);
@@ -84,6 +84,7 @@ describe('scoreboard auto-create', () => {
         awayTeamName: 'Rivals',
         homeJerseyColor: '#111111',
         awayJerseyColor: '#222222',
+        directStreamEventId: null,
       }),
     });
     expect(res.body.homeTeamName).toBe('Twin Cities');

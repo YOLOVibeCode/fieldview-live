@@ -21,7 +21,7 @@ export async function autoPurgeDeletedStreams() {
       include: {
         chatMessages: { select: { id: true } },
         purchases: { select: { id: true } },
-        scoreboard: { select: { id: true } },
+        scoreboards: { select: { id: true } },
       },
     });
 

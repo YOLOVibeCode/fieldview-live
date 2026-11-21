@@ -31,8 +31,8 @@ export class PrismaScoreboardMutator implements IScoreboardMutator {
     periodDetail?: string | null;
     lastEditedBy: string;
   }): Promise<ScoreboardSnapshot> {
-    const existing = await this.prisma.gameScoreboard.findUnique({
-      where: { directStreamId: input.streamId },
+    const existing = await this.prisma.gameScoreboard.findFirst({
+      where: { directStreamId: input.streamId, directStreamEventId: null },
     });
     if (!existing) {
       throw new Error('Scoreboard not found');

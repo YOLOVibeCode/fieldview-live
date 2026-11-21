@@ -96,15 +96,16 @@ async function requireProducer(req: Request, slug: string): Promise<string> {
 
   const stream = await prisma.directStream.findUnique({
     where: { slug },
-    include: { scoreboard: true },
+    include: { scoreboards: { where: { directStreamEventId: null }, take: 1 } },
   });
   if (!stream) throw new NotFoundError('Stream not found');
-  if (!stream.scoreboard?.producerPassword) {
+  const board = stream.scoreboards[0];
+  if (!board?.producerPassword) {
     return 'Producer';
   }
   const password = (req.body as { producerPassword?: string }).producerPassword;
   if (!password) throw new UnauthorizedError('Producer password required');
-  const ok = await comparePassword(password, stream.scoreboard.producerPassword);
+  const ok = await comparePassword(password, board.producerPassword);
   if (!ok) throw new UnauthorizedError('Invalid password');
   return 'Producer';
 }
