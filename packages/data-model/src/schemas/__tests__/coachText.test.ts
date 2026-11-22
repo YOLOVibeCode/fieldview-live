@@ -10,12 +10,15 @@ import {
   buildOwnerCommandsConsentPlain,
 } from '../../sms/compliance';
 import {
-  COACH_TEXT_LINK_STATES,
+  AddCoachTextPhoneSchema,
+  COACH_TEXT_MAX_ACCOUNTS_PER_PHONE,
+  COACH_TEXT_MAX_PHONES_PER_LOGIN,
+  COACH_TEXT_PHONE_STATES,
+  CoachTextHistoryItemSchema,
   CoachTextHistoryQuerySchema,
-  CoachTextLinkStartedSchema,
+  CoachTextPhoneCodeSchema,
   CoachTextQuestionSchema,
   CoachTextStatusSchema,
-  StartCoachTextLinkSchema,
   UpdateCoachTextSettingsSchema,
   isIanaTimeZone,
 } from '../coachText';
@@ -59,29 +62,52 @@ describe('isIanaTimeZone', () => {
   );
 });
 
-describe('StartCoachTextLinkSchema', () => {
-  it('accepts a phone as the coach typed it', () => {
-    const parsed = StartCoachTextLinkSchema.parse({ phone: '(214) 555-0100' });
-    expect(parsed).toEqual({ phone: '(214) 555-0100' });
+describe('coach text limits', () => {
+  it('lets a login add ten phones', () => {
+    expect(COACH_TEXT_MAX_PHONES_PER_LOGIN).toBe(10);
   });
 
-  it('accepts a known time zone', () => {
-    const parsed = StartCoachTextLinkSchema.parse({ phone: '2145550100', timeZone: 'America/Chicago' });
-    expect(parsed.timeZone).toBe('America/Chicago');
+  it('lets a phone work with nine accounts, one for each answer digit', () => {
+    expect(COACH_TEXT_MAX_ACCOUNTS_PER_PHONE).toBe(9);
+  });
+});
+
+describe('AddCoachTextPhoneSchema', () => {
+  it("accepts a person's name and a phone as the coach typed it", () => {
+    const parsed = AddCoachTextPhoneSchema.parse({ label: 'Jordan', phone: '(214) 555-0100' });
+    expect(parsed).toEqual({ label: 'Jordan', phone: '(214) 555-0100' });
+  });
+
+  it('trims the name', () => {
+    expect(AddCoachTextPhoneSchema.parse({ label: '  Coach Mike ', phone: '2145550100' }).label).toBe('Coach Mike');
+  });
+
+  it.each(['', '   ', 'x'.repeat(41), 'Jor\ndan', 'Jor\u0000dan'])('rejects the name %j', (label) => {
+    expect(AddCoachTextPhoneSchema.safeParse({ label, phone: '2145550100' }).success).toBe(false);
+  });
+
+  it('accepts a name of forty characters', () => {
+    expect(AddCoachTextPhoneSchema.safeParse({ label: 'x'.repeat(40), phone: '2145550100' }).success).toBe(true);
   });
 
   it('rejects an empty phone', () => {
-    expect(StartCoachTextLinkSchema.safeParse({ phone: '' }).success).toBe(false);
+    expect(AddCoachTextPhoneSchema.safeParse({ label: 'Jordan', phone: '' }).success).toBe(false);
   });
 
   it('rejects a phone that is too long', () => {
-    expect(StartCoachTextLinkSchema.safeParse({ phone: '1'.repeat(33) }).success).toBe(false);
+    expect(AddCoachTextPhoneSchema.safeParse({ label: 'Jordan', phone: '1'.repeat(33) }).success).toBe(false);
   });
 
-  it('rejects an unknown time zone', () => {
-    expect(StartCoachTextLinkSchema.safeParse({ phone: '2145550100', timeZone: 'Nowhere/Land' }).success).toBe(
-      false,
-    );
+  it('rejects a missing name', () => {
+    expect(AddCoachTextPhoneSchema.safeParse({ phone: '2145550100' }).success).toBe(false);
+  });
+
+  it("takes the browser's time zone when it is a known one", () => {
+    const parsed = AddCoachTextPhoneSchema.parse({ label: 'Jordan', phone: '2145550100', timeZone: 'America/Denver' });
+    expect(parsed.timeZone).toBe('America/Denver');
+    expect(
+      AddCoachTextPhoneSchema.safeParse({ label: 'Jordan', phone: '2145550100', timeZone: 'Nowhere/Land' }).success
+    ).toBe(false);
   });
 });
 
@@ -107,40 +133,83 @@ describe('CoachTextHistoryQuerySchema', () => {
 });
 
 describe('CoachTextStatusSchema', () => {
-  const status = {
-    enabled: true,
-    state: 'pending',
-    productNumber: '+18773435308',
-    phoneMasked: null,
-    pendingPhoneMasked: '(***) ***-0100',
-    codeExpiresAt: '2026-11-22T01:10:00.000Z',
+  const linked = {
+    id: '2f1c4f0e-8a51-4e43-9d0b-7b8d1c2e3f40',
+    label: 'Ricardo',
+    phoneMasked: '(***) ***-0100',
+    state: 'linked',
+    codeExpiresAt: null,
+    verifiedAt: '2026-11-22T01:05:00.000Z',
+    lastCommandAt: '2026-11-22T01:05:00.000Z',
     unverifiedTextSeen: false,
+  };
+  const waiting = {
+    id: '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d',
+    label: 'Jordan',
+    phoneMasked: '(***) ***-0142',
+    state: 'pending',
+    codeExpiresAt: '2026-11-22T01:10:00.000Z',
     verifiedAt: null,
     lastCommandAt: null,
+    unverifiedTextSeen: true,
+  };
+  const status = {
+    enabled: true,
+    productNumber: '+18773435308',
     timeZone: 'America/Chicago',
+    maxPhones: 10,
+    phones: [linked, waiting],
     commands: [],
   };
 
-  it('parses a status answer', () => {
+  it('parses a status answer with several phones', () => {
     expect(CoachTextStatusSchema.parse(status)).toEqual(status);
   });
 
-  it('knows exactly five states', () => {
-    expect([...COACH_TEXT_LINK_STATES]).toEqual(['none', 'pending', 'linked', 'paused', 'expired']);
-    expect(CoachTextStatusSchema.safeParse({ ...status, state: 'active' }).success).toBe(false);
+  it('parses an account with no phones yet', () => {
+    expect(CoachTextStatusSchema.parse({ ...status, phones: [] }).phones).toEqual([]);
+  });
+
+  it('knows exactly four phone states', () => {
+    expect([...COACH_TEXT_PHONE_STATES]).toEqual(['pending', 'linked', 'paused', 'expired']);
+    const unknown = { ...status, phones: [{ ...linked, state: 'active' }] };
+    expect(CoachTextStatusSchema.safeParse(unknown).success).toBe(false);
+  });
+
+  it('rejects a phone row without an id', () => {
+    const { id: _id, ...noId } = linked;
+    expect(CoachTextStatusSchema.safeParse({ ...status, phones: [noId] }).success).toBe(false);
   });
 });
 
-describe('CoachTextLinkStartedSchema', () => {
-  it('requires a six-digit code', () => {
-    const started = {
-      code: '482913',
-      codeExpiresAt: '2026-11-22T01:10:00.000Z',
-      productNumber: '+18773435308',
-      smsHref: 'sms:+18773435308?&body=LINK%20482913',
+describe('CoachTextPhoneCodeSchema', () => {
+  const code = {
+    id: '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d',
+    code: '482913',
+    codeExpiresAt: '2026-11-22T01:10:00.000Z',
+    productNumber: '+18773435308',
+    smsHref: 'sms:+18773435308?&body=LINK%20482913',
+  };
+
+  it('names the phone and carries a six-digit code', () => {
+    expect(CoachTextPhoneCodeSchema.safeParse(code).success).toBe(true);
+    expect(CoachTextPhoneCodeSchema.safeParse({ ...code, code: '48291' }).success).toBe(false);
+    const { id: _id, ...noId } = code;
+    expect(CoachTextPhoneCodeSchema.safeParse(noId).success).toBe(false);
+  });
+});
+
+describe('CoachTextHistoryItemSchema', () => {
+  it("carries the name of the phone that sent the text, or null when it isn't known", () => {
+    const item = {
+      createdAt: '2026-11-22T01:05:00.000Z',
+      body: 'LINK ******',
+      status: 'done',
+      replyText: 'This phone now runs text commands for Tigers FC.',
+      phoneLabel: 'Jordan',
     };
-    expect(CoachTextLinkStartedSchema.safeParse(started).success).toBe(true);
-    expect(CoachTextLinkStartedSchema.safeParse({ ...started, code: '48291' }).success).toBe(false);
+    expect(CoachTextHistoryItemSchema.parse(item)).toEqual(item);
+    expect(CoachTextHistoryItemSchema.parse({ ...item, phoneLabel: null }).phoneLabel).toBeNull();
   });
 });
 
@@ -169,5 +238,19 @@ describe('CoachTextQuestionSchema', () => {
 
   it('rejects a question with no options', () => {
     expect(CoachTextQuestionSchema.safeParse({ ...question, options: [] }).success).toBe(false);
+  });
+
+  it('stores which account each option of an account question stands for', () => {
+    const pickAccount = {
+      v: 1,
+      kind: 'pick_account',
+      options: [
+        { n: 1, label: 'Tigers FC', linkId: '2f1c4f0e-8a51-4e43-9d0b-7b8d1c2e3f40' },
+        { n: 2, label: 'Hawks FC', linkId: '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d' },
+      ],
+    };
+    expect(CoachTextQuestionSchema.parse(pickAccount)).toEqual(pickAccount);
+    const badLink = { ...pickAccount, options: [{ n: 1, label: 'Tigers FC', linkId: 'not-a-uuid' }] };
+    expect(CoachTextQuestionSchema.safeParse(badLink).success).toBe(false);
   });
 });

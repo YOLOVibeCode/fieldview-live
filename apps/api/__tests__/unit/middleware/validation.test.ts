@@ -1,4 +1,4 @@
-import { StartCoachTextLinkSchema } from '@fieldview/data-model';
+import { AddCoachTextPhoneSchema } from '@fieldview/data-model';
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { validateRequest } from '@/middleware/validation';
@@ -46,9 +46,9 @@ describe('validateRequest', () => {
   it('rejects invalid input for a schema from the shared data-model package', () => {
     // That package can bring its own loaded copy of zod (it does under the test runner),
     // and its ZodError is then not an instance of the class this middleware imports.
-    const middleware = validateRequest({ body: StartCoachTextLinkSchema });
+    const middleware = validateRequest({ body: AddCoachTextPhoneSchema });
     const req = {
-      body: { phone: '' },
+      body: { label: 'Jordan', phone: '' },
     } as any;
     const res = {} as any;
     const next = vi.fn();

@@ -1,8 +1,9 @@
 /**
- * Coach text commands: emails the login when its phone link changes.
+ * Coach text commands: emails the login when its phone list changes.
  *
  * A linked phone can change what a stream shows, so the login hears about
- * every link and unlink, with the phone masked and the page to undo it.
+ * every phone that links and every phone removed, with the person's name, the
+ * number masked and the page to undo it.
  */
 
 import { sendEmail, type EmailOptions } from '../../lib/email';
@@ -14,7 +15,7 @@ import type { ICoachTextNotifier } from './interfaces';
 type SendEmail = (options: EmailOptions) => Promise<void>;
 
 const SUBJECT_LINKED = 'A phone was linked to your FieldView account';
-const SUBJECT_UNLINKED = 'A phone was unlinked from your FieldView account';
+const SUBJECT_REMOVED = 'A phone was removed from your FieldView account';
 
 function portalUrl(): string {
   const appUrl = (process.env.APP_URL || 'https://fieldview.live').replace(/\/$/, '');
@@ -36,11 +37,12 @@ export class EmailLinkNotifier implements ICoachTextNotifier {
   async linked(input: {
     email: string;
     accountName: string;
+    label: string;
     phoneMasked: string;
     paused: boolean;
   }): Promise<void> {
     const paragraphs = [
-      `The phone ${input.phoneMasked} was linked to your FieldView login for ${input.accountName}. Texts from it can now run FieldView commands for that account.`,
+      `${input.label}'s phone ${input.phoneMasked} was linked to your FieldView login for ${input.accountName}. Texts from it can now run FieldView commands for that account.`,
     ];
     if (input.paused) {
       const number = formatNanpForDisplay(coachTextNumber());
@@ -52,33 +54,23 @@ export class EmailLinkNotifier implements ICoachTextNotifier {
       input.email,
       SUBJECT_LINKED,
       paragraphs,
-      'If this was not you, unlink the phone here:'
+      'If this was not you, remove the phone here:'
     );
   }
 
-  async movedAway(input: { email: string; phoneMasked: string }): Promise<void> {
-    await this.deliver(
-      input.email,
-      SUBJECT_UNLINKED,
-      [
-        `The phone ${input.phoneMasked} no longer runs FieldView commands for your login. It was linked to another FieldView login, and a phone works with one login at a time.`,
-      ],
-      'To link a phone to your login again, go here:'
-    );
-  }
-
-  async unlinked(input: {
+  async removed(input: {
     email: string;
     accountName: string;
+    label: string;
     phoneMasked: string;
   }): Promise<void> {
     await this.deliver(
       input.email,
-      SUBJECT_UNLINKED,
+      SUBJECT_REMOVED,
       [
-        `The phone ${input.phoneMasked} was unlinked from your FieldView login for ${input.accountName}. Texts from it no longer run FieldView commands.`,
+        `${input.label}'s phone ${input.phoneMasked} was removed from your FieldView login for ${input.accountName}. Texts from it no longer run FieldView commands for that account.`,
       ],
-      'If this was not you, check your account and link the phone again here:'
+      'If this was not you, check your account and add the phone again here:'
     );
   }
 

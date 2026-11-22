@@ -3,55 +3,103 @@
 /**
  * Owner portal: Text commands.
  *
- * An owner links one mobile phone to the account so they can run game day by text. The link
- * is proven by a text from that phone: the page shows a code once, the owner texts it to the
- * FieldView number, and the page watches for the link to appear.
+ * A login keeps a list of phones that run game day by text: the owner's own and their
+ * helpers'. Each phone is proven by a text from it. The owner types the person's name and
+ * number, the page shows a code once, that person texts LINK and the code to the FieldView
+ * number from that phone, and the page watches for the row to turn to Linked. The text is
+ * also that person's opt-in, so a helper needs no login.
  *
- * The code lives in memory only. It is never put in browser storage, and after a reload the
- * page says so instead of showing it again.
+ * Codes live in memory only. They are never put in browser storage, and after a reload a
+ * waiting row says so instead of showing its code again.
  */
 
 import {
   buildOwnerCommandsConsentPlain,
   isIanaTimeZone,
   type CoachTextHistoryItem,
-  type CoachTextLinkStarted,
+  type CoachTextPhoneCode,
+  type CoachTextPhoneStatus,
   type CoachTextStatus,
 } from '@fieldview/data-model';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
-import { apiClient } from '@/lib/api-client';
+import { ApiError, apiClient } from '@/lib/api-client';
 import { formatPhoneForDisplay } from '@/lib/phone';
 
-type View = 'off' | 'not_linked' | 'waiting' | 'linked' | 'paused' | 'expired';
-
-/** A link code as the API returned it, with the number the owner typed. Kept in memory only. */
-interface StartedLink extends CoachTextLinkStarted {
-  phone: string;
+/** The browser's IANA time zone, when it has a known one. The API keeps it only until one is picked. */
+function browserTimeZone(): string | undefined {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone && isIanaTimeZone(zone) ? zone : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-interface UiState {
-  /** The owner asked for the link form (Start over, Link again), whatever the stored state is. */
-  showForm: boolean;
-  notice: 'linked' | 'code_expired' | null;
+/** A code as the API returned it, with the name it was asked for. Kept in memory only. */
+interface HeldCode extends CoachTextPhoneCode {
+  label: string;
+  /** How long the code had to run when it arrived, in whole minutes. */
+  minutes: number;
 }
 
-const NO_UI: UiState = { showForm: false, notice: null };
+interface PhonesState {
+  status: CoachTextStatus | null;
+  /** The codes this browser asked for, by phone id. */
+  codes: ReadonlyMap<string, HeldCode>;
+  /** Phones whose LINK text arrived while the page was open. */
+  linked: ReadonlySet<string>;
+  /** Goes up each time a phone is linked, so the recent texts are read again. */
+  linkCount: number;
+}
 
-/** How often the page asks whether the text has arrived. */
+type PhonesAction =
+  /** The list as the API has it. */
+  | { type: 'status'; status: CoachTextStatus }
+  /** A code from adding a phone or asking for a new one. */
+  | { type: 'code'; code: CoachTextPhoneCode; label: string; minutes: number }
+  | { type: 'removed'; id: string }
+  | { type: 'timeZone'; timeZone: string };
+
+/** What one row shows. */
+type RowView = 'waiting' | 'code_expired' | 'linked' | 'paused' | 'expired';
+
+/** What the owner is doing to one row. */
+interface RowUi {
+  codeBusy: boolean;
+  codeError: string | null;
+  confirmingRemove: boolean;
+  removeBusy: boolean;
+  removeError: string | null;
+}
+
+const NO_PHONES: PhonesState = { status: null, codes: new Map(), linked: new Set(), linkCount: 0 };
+
+const IDLE_ROW: RowUi = {
+  codeBusy: false,
+  codeError: null,
+  confirmingRemove: false,
+  removeBusy: false,
+  removeError: null,
+};
+
+/** How often the page asks whether a text has arrived. */
 const POLL_MS = 3_000;
 const TICK_MS = 1_000;
 
-const VIEW_LABELS: Record<View, string> = {
-  off: 'Not turned on',
-  not_linked: 'Not linked',
-  waiting: 'Step 2 of 2',
+/** The longest name AddCoachTextPhoneSchema takes. */
+const LABEL_MAX = 40;
+const PHONE_MAX = 32;
+
+const ROW_LABELS: Record<RowView, string> = {
+  waiting: 'Waiting',
+  code_expired: 'Code expired',
   linked: 'Linked',
   paused: 'Paused',
   expired: 'Expired',
@@ -102,31 +150,127 @@ function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function viewOf(status: CoachTextStatus, showForm: boolean): View {
-  if (!status.enabled) return 'off';
-  if (showForm) return 'not_linked';
-  switch (status.state) {
-    case 'pending':
-      return 'waiting';
+/** The API's reason for turning a request down, such as PHONE_ALREADY_ADDED. */
+function reasonOf(error: unknown): string | null {
+  return error instanceof ApiError ? error.code : null;
+}
+
+function addErrorMessage(error: unknown): string {
+  if (reasonOf(error) === 'PHONE_ALREADY_ADDED') return 'This number is already on your list.';
+  return messageOf(error, 'Could not get a code. Try again.');
+}
+
+function newCodeErrorMessage(error: unknown): string {
+  if (reasonOf(error) === 'PHONE_ALREADY_LINKED') return 'This phone is already linked.';
+  return messageOf(error, 'Could not get a new code. Try again.');
+}
+
+function sameInstant(a: string, b: string): boolean {
+  return Date.parse(a) === Date.parse(b);
+}
+
+/** Whether a code this browser holds is still the one the phone waits on. */
+function stillHeld(phone: CoachTextPhoneStatus | undefined, held: HeldCode): boolean {
+  if (!phone || phone.state === 'linked' || phone.state === 'paused') return false;
+  // A different time means a newer code, asked for somewhere else, replaced this one.
+  if (phone.state === 'pending' && phone.codeExpiresAt !== null) {
+    return sameInstant(phone.codeExpiresAt, held.codeExpiresAt);
+  }
+  return true;
+}
+
+function phonesReducer(state: PhonesState, action: PhonesAction): PhonesState {
+  switch (action.type) {
+    case 'status': {
+      const next = action.status;
+      const rows = new Map(next.phones.map((phone) => [phone.id, phone]));
+      const before = new Map((state.status?.phones ?? []).map((phone) => [phone.id, phone]));
+      const codes = new Map<string, HeldCode>();
+      state.codes.forEach((held, id) => {
+        if (stillHeld(rows.get(id), held)) codes.set(id, held);
+      });
+      const linked = new Set([...state.linked].filter((id) => rows.get(id)?.state === 'linked'));
+      let newlyLinked = 0;
+      next.phones.forEach((phone) => {
+        if (phone.state === 'linked' && before.get(phone.id)?.state === 'pending') {
+          linked.add(phone.id);
+          newlyLinked += 1;
+        }
+      });
+      return { status: next, codes, linked, linkCount: state.linkCount + newlyLinked };
+    }
+    case 'code': {
+      const { code, label, minutes } = action;
+      const codes = new Map(state.codes).set(code.id, { ...code, label, minutes });
+      const linked = new Set(state.linked);
+      linked.delete(code.id);
+      if (!state.status) return { ...state, codes, linked };
+      const waiting = {
+        label,
+        state: 'pending' as const,
+        codeExpiresAt: code.codeExpiresAt,
+        unverifiedTextSeen: false,
+      };
+      const current = state.status.phones;
+      // The row is the API's until the list is read again; a new one has no number to show yet.
+      const phones = current.some((phone) => phone.id === code.id)
+        ? current.map((phone) => (phone.id === code.id ? { ...phone, ...waiting } : phone))
+        : [
+            ...current,
+            { id: code.id, phoneMasked: '', verifiedAt: null, lastCommandAt: null, ...waiting },
+          ];
+      return { ...state, status: { ...state.status, phones }, codes, linked };
+    }
+    case 'removed': {
+      const codes = new Map(state.codes);
+      codes.delete(action.id);
+      const linked = new Set(state.linked);
+      linked.delete(action.id);
+      const status = state.status
+        ? {
+            ...state.status,
+            phones: state.status.phones.filter((phone) => phone.id !== action.id),
+          }
+        : null;
+      return { ...state, status, codes, linked };
+    }
+    case 'timeZone':
+      return state.status
+        ? { ...state, status: { ...state.status, timeZone: action.timeZone } }
+        : state;
+  }
+}
+
+/** When the code a phone waits on runs out, or NaN when it waits on none. */
+function codeExpiryOf(phone: CoachTextPhoneStatus, held: HeldCode | undefined): number {
+  if (phone.state === 'linked' || phone.state === 'paused') return Number.NaN;
+  if (held) return Date.parse(held.codeExpiresAt);
+  return phone.state === 'pending' && phone.codeExpiresAt
+    ? Date.parse(phone.codeExpiresAt)
+    : Number.NaN;
+}
+
+function isLive(expiresAtMs: number, now: number): boolean {
+  return Number.isFinite(expiresAtMs) && now < expiresAtMs;
+}
+
+function rowViewOf(phone: CoachTextPhoneStatus, expiresAtMs: number, now: number): RowView {
+  switch (phone.state) {
     case 'linked':
       return 'linked';
     case 'paused':
       return 'paused';
     case 'expired':
-      return 'expired';
+      return isLive(expiresAtMs, now) ? 'waiting' : 'expired';
     default:
-      return 'not_linked';
+      return isLive(expiresAtMs, now) ? 'waiting' : 'code_expired';
   }
 }
 
-/** The time zone this browser is in, when it says so and FieldView can use the name. */
-function readBrowserTimeZone(): string | null {
-  try {
-    const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return zone && isIanaTimeZone(zone) ? zone : null;
-  } catch {
-    return null;
-  }
+/** Whole minutes from `at` until the code runs out. */
+function minutesUntil(iso: string, at: number): number {
+  const ms = Date.parse(iso) - at;
+  return Number.isFinite(ms) ? Math.max(1, Math.round(ms / 60_000)) : 0;
 }
 
 /** The common US and Canadian zones, plus the selected one when it is not among them. */
@@ -205,77 +349,119 @@ function TimeZoneField({
   );
 }
 
-interface LinkFormProps {
+function ConsentLine() {
+  return (
+    <p
+      data-testid="consent-text-commands"
+      className="text-xs sm:text-sm leading-relaxed text-muted-foreground"
+    >
+      {buildOwnerCommandsConsentPlain()}{' '}
+      <Link
+        href="/terms#sms"
+        className="underline underline-offset-2"
+        data-testid="link-text-commands-terms"
+      >
+        Terms
+      </Link>
+      {' · '}
+      <Link
+        href="/privacy"
+        className="underline underline-offset-2"
+        data-testid="link-text-commands-privacy"
+      >
+        Privacy
+      </Link>
+    </p>
+  );
+}
+
+interface AddPhoneFormProps {
+  label: string;
+  onLabelChange: (value: string) => void;
   phone: string;
   onPhoneChange: (value: string) => void;
-  zone: string;
-  onZoneChange: (zone: string) => void;
   busy: boolean;
   error: string | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
-function LinkForm({
+function AddPhoneForm({
+  label,
+  onLabelChange,
   phone,
   onPhoneChange,
-  zone,
-  onZoneChange,
   busy,
   error,
   onSubmit,
-}: LinkFormProps) {
+}: AddPhoneFormProps) {
+  const errorId = error ? ' text-phone-add-error' : '';
   return (
-    <form onSubmit={onSubmit} className="space-y-4" data-testid="form-text-commands-link">
+    <form
+      onSubmit={onSubmit}
+      aria-labelledby="text-phones-add-heading"
+      className="space-y-4"
+      data-testid="form-add-phone"
+    >
+      <h4 id="text-phones-add-heading" className="text-sm font-semibold">
+        Add a phone
+      </h4>
+
       <div className="space-y-1">
-        <label htmlFor="text-commands-phone" className="text-sm font-medium">
+        <label htmlFor="text-phone-label" className="text-sm font-medium">
+          Name
+        </label>
+        <Input
+          id="text-phone-label"
+          name="label"
+          type="text"
+          autoComplete="off"
+          maxLength={LABEL_MAX}
+          placeholder="e.g. Jordan"
+          value={label}
+          onChange={(event) => onLabelChange(event.target.value)}
+          aria-describedby={`text-phone-label-help${errorId}`}
+          required
+          disabled={busy}
+          data-testid="input-phone-label"
+        />
+        <p id="text-phone-label-help" className="text-xs text-muted-foreground">
+          Who will text from this phone. Helpers do not need a FieldView login.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="text-phone-number" className="text-sm font-medium">
           Mobile number
         </label>
         <Input
-          id="text-commands-phone"
+          id="text-phone-number"
           name="phone"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          maxLength={32}
+          maxLength={PHONE_MAX}
           placeholder="(214) 555-0100"
           value={phone}
           onChange={(event) => onPhoneChange(event.target.value)}
-          aria-describedby="text-commands-phone-help"
+          aria-describedby={`text-phone-number-help${errorId}`}
           required
           disabled={busy}
-          data-testid="input-text-commands-phone"
+          data-testid="input-phone-number"
         />
-        <p id="text-commands-phone-help" className="text-xs text-muted-foreground">
-          The phone you will text from. US and Canadian numbers only.
+        <p id="text-phone-number-help" className="text-xs text-muted-foreground">
+          US and Canadian mobile numbers only.
         </p>
       </div>
 
-      <TimeZoneField value={zone} onChange={onZoneChange} disabled={busy} />
-
-      <p
-        data-testid="consent-text-commands"
-        className="text-xs sm:text-sm leading-relaxed text-muted-foreground"
-      >
-        {buildOwnerCommandsConsentPlain()}{' '}
-        <Link
-          href="/terms#sms"
-          className="underline underline-offset-2"
-          data-testid="link-text-commands-terms"
-        >
-          Terms
-        </Link>
-        {' · '}
-        <Link
-          href="/privacy"
-          className="underline underline-offset-2"
-          data-testid="link-text-commands-privacy"
-        >
-          Privacy
-        </Link>
-      </p>
+      <ConsentLine />
 
       {error && (
-        <p role="alert" data-testid="error-text-commands-link" className={ERROR_LINE}>
+        <p
+          role="alert"
+          id="text-phone-add-error"
+          data-testid="error-add-phone"
+          className={ERROR_LINE}
+        >
           {error}
         </p>
       )}
@@ -284,125 +470,286 @@ function LinkForm({
         type="submit"
         disabled={busy}
         data-loading={busy ? 'true' : 'false'}
-        data-testid="btn-text-commands-get-code"
+        data-testid="btn-add-phone"
       >
-        {busy ? 'Working…' : 'Get my code'}
+        {busy ? 'Working…' : 'Get code'}
       </Button>
     </form>
   );
 }
 
-interface WaitingForTextProps {
-  status: CoachTextStatus;
-  started: StartedLink | null;
-  codeExpired: boolean;
-  countdown: string | null;
-  onStartOver: () => void;
+/** The code to text, from the phone it was made for. */
+function CodePanel({ phoneId, name, held }: { phoneId: string; name: string; held: HeldCode }) {
+  const minutes = `${held.minutes} minute${held.minutes === 1 ? '' : 's'}`;
+  return (
+    <div
+      data-testid={`panel-phone-code-${phoneId}`}
+      className="rounded-lg border bg-muted/40 p-3 space-y-3"
+    >
+      <p className="text-sm leading-relaxed" data-testid={`text-phone-code-${phoneId}`}>
+        {`From ${name}'s phone, text `}
+        <span className="font-mono text-lg font-semibold tracking-wider whitespace-nowrap select-all">
+          LINK {held.code}
+        </span>
+        {` to ${formatPhoneForDisplay(held.productNumber)} within ${minutes}.`}
+      </p>
+      {held.smsHref.startsWith('sms:') && (
+        <div className="space-y-1">
+          <Button asChild size="sm" data-testid={`link-open-messages-${phoneId}`}>
+            <a href={held.smsHref}>Open messages on this phone</a>
+          </Button>
+          <p className="text-xs text-muted-foreground" data-testid={`hint-open-messages-${phoneId}`}>
+            {`Only when this page is open on ${name}'s phone. Otherwise give ${name} the code.`}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function WaitingForText({
-  status,
-  started,
-  codeExpired,
-  countdown,
-  onStartOver,
-}: WaitingForTextProps) {
+function PhoneFacts({ phone, timeZone }: { phone: CoachTextPhoneStatus; timeZone: string }) {
   return (
-    <div className="space-y-4">
-      {codeExpired ? (
-        <p data-testid="text-commands-code-expired" role="status" className={NOTICE_AMBER}>
-          That code has expired.
-        </p>
-      ) : (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+      {phone.verifiedAt && (
         <>
-          {started ? (
-            <div className="space-y-2">
-              <p className="text-sm" data-testid="text-commands-from">
-                From {formatPhoneForDisplay(started.phone)}, text this:
-              </p>
-              <p
-                className="text-3xl sm:text-4xl font-mono font-semibold tracking-wider select-all"
-                data-testid="text-commands-code"
-              >
-                LINK {started.code}
-              </p>
-              <p className="text-sm" data-testid="text-commands-to">
-                to {formatPhoneForDisplay(started.productNumber)}
-              </p>
-              {started.smsHref.startsWith('sms:') && (
-                <Button asChild data-testid="btn-text-commands-open-messages">
-                  <a href={started.smsHref}>Open my messages</a>
-                </Button>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm" data-testid="text-commands-code-hidden">
-              FieldView is waiting for a text from {status.pendingPhoneMasked ?? 'your phone'}. The
-              code is shown only once, so it is not on this page any more. If you do not have it,
-              start over to get a new one.
+          <dt className="text-muted-foreground">Linked</dt>
+          <dd data-testid={`text-phone-linked-at-${phone.id}`}>
+            {formatWhen(phone.verifiedAt, timeZone, DAY)}
+          </dd>
+        </>
+      )}
+      <dt className="text-muted-foreground">Last text</dt>
+      <dd data-testid={`text-phone-last-text-${phone.id}`}>
+        {phone.lastCommandAt ? formatWhen(phone.lastCommandAt, timeZone, DAY_AND_TIME) : 'None yet'}
+      </dd>
+    </dl>
+  );
+}
+
+interface RemoveControlProps {
+  phoneId: string;
+  name: string;
+  confirming: boolean;
+  busy: boolean;
+  error: string | null;
+  onAsk: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+/** Removing takes two steps, so one stray tap cannot cut a phone off on game day. */
+function RemoveControl({
+  phoneId,
+  name,
+  confirming,
+  busy,
+  error,
+  onAsk,
+  onConfirm,
+  onCancel,
+}: RemoveControlProps) {
+  if (!confirming) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onAsk}
+        aria-label={`Remove ${name}'s phone`}
+        data-testid={`btn-remove-phone-${phoneId}`}
+      >
+        Remove
+      </Button>
+    );
+  }
+  return (
+    <div
+      data-testid={`confirm-remove-phone-${phoneId}`}
+      role="group"
+      aria-label={`Remove ${name}'s phone`}
+      className="basis-full rounded-lg border p-3 space-y-2"
+    >
+      <p className="text-sm">
+        {`Remove ${name}'s phone? Texts from it will stop working for this account.`}
+      </p>
+      {error && (
+        <p role="alert" data-testid={`error-remove-phone-${phoneId}`} className={ERROR_LINE}>
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          disabled={busy}
+          data-loading={busy ? 'true' : 'false'}
+          onClick={onConfirm}
+          data-testid={`btn-confirm-remove-phone-${phoneId}`}
+        >
+          {busy ? 'Working…' : 'Remove now'}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={onCancel}
+          data-testid={`btn-cancel-remove-phone-${phoneId}`}
+        >
+          Keep it
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface PhoneRowProps {
+  phone: CoachTextPhoneStatus;
+  view: RowView;
+  /** The code to show, while it is live and this browser holds it. */
+  held: HeldCode | null;
+  countdown: string | null;
+  /** The phone's LINK text arrived while the page was open. */
+  justLinked: boolean;
+  productNumber: string;
+  timeZone: string;
+  ui: RowUi;
+  onNewCode: () => void;
+  onAskRemove: () => void;
+  onConfirmRemove: () => void;
+  onCancelRemove: () => void;
+}
+
+function PhoneRow({
+  phone,
+  view,
+  held,
+  countdown,
+  justLinked,
+  productNumber,
+  timeZone,
+  ui,
+  onNewCode,
+  onAskRemove,
+  onConfirmRemove,
+  onCancelRemove,
+}: PhoneRowProps) {
+  const { id, label: name } = phone;
+  const canRenew = view === 'waiting' || view === 'code_expired' || view === 'expired';
+  return (
+    <li data-testid={`row-text-phone-${id}`} data-state={view} className="p-3 sm:p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium break-words" data-testid={`text-phone-label-${id}`}>
+            {name}
+          </p>
+          {phone.phoneMasked && (
+            <p className="text-sm text-muted-foreground" data-testid={`text-phone-number-${id}`}>
+              {phone.phoneMasked}
             </p>
           )}
+        </div>
+        <span data-testid={`status-phone-${id}`} data-state={view} className={`${PILL} shrink-0`}>
+          {ROW_LABELS[view]}
+        </span>
+      </div>
 
+      {view === 'waiting' && (
+        <div className="space-y-2">
           <p
             role="status"
-            data-testid="text-commands-waiting"
+            data-testid={`text-phone-waiting-${id}`}
             className="text-sm text-muted-foreground"
           >
-            Waiting for your text{'…'}
+            {`Waiting for ${name}'s text…`}
           </p>
-
+          {held ? (
+            <CodePanel phoneId={id} name={name} held={held} />
+          ) : (
+            <p className="text-sm" data-testid={`text-phone-code-hidden-${id}`}>
+              {`The code is shown only once. If ${name} does not have it, get a new code.`}
+            </p>
+          )}
           {countdown && (
-            <p data-testid="text-commands-countdown" className="text-sm text-muted-foreground">
+            <p data-testid={`text-phone-countdown-${id}`} className="text-sm text-muted-foreground">
               Code expires in {countdown}
             </p>
           )}
-
-          {status.unverifiedTextSeen && (
+          {phone.unverifiedTextSeen && (
             <div
-              data-testid="notice-text-commands-unverified"
+              data-testid={`notice-phone-unverified-${id}`}
               role="status"
               className={NOTICE_AMBER}
             >
               A text arrived but could not be verified. Send it again.
             </div>
           )}
-        </>
+        </div>
       )}
 
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onStartOver}
-        data-testid="btn-text-commands-start-over"
-      >
-        Start over
-      </Button>
-    </div>
-  );
-}
+      {view === 'code_expired' && (
+        <p data-testid={`notice-phone-code-expired-${id}`} role="status" className={NOTICE_AMBER}>
+          That code has expired. Get a new one.
+        </p>
+      )}
 
-function PhoneFacts({ status }: { status: CoachTextStatus }) {
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-      <dt className="text-muted-foreground">Phone</dt>
-      <dd data-testid="text-commands-phone">{status.phoneMasked ?? 'Unknown'}</dd>
-      {status.verifiedAt && (
-        <>
-          <dt className="text-muted-foreground">Linked</dt>
-          <dd data-testid="text-commands-linked-at">
-            {formatWhen(status.verifiedAt, status.timeZone, DAY)}
-          </dd>
-        </>
+      {view === 'linked' && justLinked && (
+        <div data-testid={`notice-phone-linked-${id}`} role="status" className={NOTICE_GREEN}>
+          {`${name}'s phone is linked.`}
+        </div>
       )}
-      {status.lastCommandAt && (
-        <>
-          <dt className="text-muted-foreground">Last text</dt>
-          <dd data-testid="text-commands-last-text">
-            {formatWhen(status.lastCommandAt, status.timeZone, DAY_AND_TIME)}
-          </dd>
-        </>
+
+      {view === 'paused' && (
+        <div data-testid={`notice-phone-paused-${id}`} className={`${NOTICE_AMBER} space-y-1`}>
+          <p>This phone texted STOP, so commands are paused and FieldView cannot reply.</p>
+          <p>Text START to {formatPhoneForDisplay(productNumber)} to turn it back on.</p>
+        </div>
       )}
-    </dl>
+
+      {view === 'expired' && (
+        <p data-testid={`notice-phone-expired-${id}`} className="text-sm">
+          Not used for a long time, so its link was turned off. Get a new code to link it again.
+        </p>
+      )}
+
+      {(view === 'linked' || view === 'paused' || view === 'expired') && (
+        <PhoneFacts phone={phone} timeZone={timeZone} />
+      )}
+
+      {ui.codeError && (
+        <p role="alert" data-testid={`error-phone-${id}`} className={ERROR_LINE}>
+          {ui.codeError}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-start gap-2">
+        {canRenew && (
+          <Button
+            type="button"
+            size="sm"
+            variant={view === 'waiting' ? 'outline' : 'default'}
+            disabled={ui.codeBusy}
+            data-loading={ui.codeBusy ? 'true' : 'false'}
+            onClick={onNewCode}
+            aria-label={`New code for ${name}'s phone`}
+            data-testid={`btn-new-code-${id}`}
+          >
+            {ui.codeBusy ? 'Working…' : 'New code'}
+          </Button>
+        )}
+        <RemoveControl
+          phoneId={id}
+          name={name}
+          confirming={ui.confirmingRemove}
+          busy={ui.removeBusy}
+          error={ui.removeError}
+          onAsk={onAskRemove}
+          onConfirm={onConfirmRemove}
+          onCancel={onCancelRemove}
+        />
+      </div>
+    </li>
   );
 }
 
@@ -474,6 +821,14 @@ function RecentTexts({ items, failed, timeZone }: RecentTextsProps) {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
                   {formatWhen(item.createdAt, timeZone, DAY_AND_TIME)}
+                  {item.phoneLabel && (
+                    <>
+                      {' · '}
+                      <span data-testid="text-history-phone" className="font-medium text-foreground">
+                        {item.phoneLabel}
+                      </span>
+                    </>
+                  )}
                 </span>
                 <span data-status={item.status} className={PILL}>
                   {outcomeLabel(item.status)}
@@ -491,106 +846,31 @@ function RecentTexts({ items, failed, timeZone }: RecentTextsProps) {
   );
 }
 
-interface UnlinkControlProps {
-  confirming: boolean;
-  busy: boolean;
-  error: string | null;
-  onAsk: () => void;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-/** Unlinking takes two steps, so one stray tap cannot cut a phone off on game day. */
-function UnlinkControl({
-  confirming,
-  busy,
-  error,
-  onAsk,
-  onConfirm,
-  onCancel,
-}: UnlinkControlProps) {
-  if (!confirming) {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onAsk}
-        data-testid="btn-text-commands-unlink"
-      >
-        Unlink this phone
-      </Button>
-    );
-  }
-  return (
-    <div
-      data-testid="confirm-text-commands-unlink"
-      role="group"
-      aria-label="Unlink this phone"
-      className="rounded-lg border p-3 space-y-2"
-    >
-      <p className="text-sm">
-        Unlink this phone? Texts from it will stop working until a phone is linked again.
-      </p>
-      {error && (
-        <p role="alert" data-testid="error-text-commands-unlink" className={ERROR_LINE}>
-          {error}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          disabled={busy}
-          data-loading={busy ? 'true' : 'false'}
-          onClick={onConfirm}
-          data-testid="btn-text-commands-unlink-confirm"
-        >
-          {busy ? 'Working…' : 'Unlink now'}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busy}
-          onClick={onCancel}
-          data-testid="btn-text-commands-unlink-cancel"
-        >
-          Keep it
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export default function OwnerTextCommandsPage() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
-  const [status, setStatus] = useState<CoachTextStatus | null>(null);
+  const [{ status, codes, linked, linkCount }, dispatch] = useReducer(phonesReducer, NO_PHONES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Linking a phone.
-  const [started, setStarted] = useState<StartedLink | null>(null);
-  const [ui, setUi] = useState<UiState>(NO_UI);
   const [now, setNow] = useState(() => Date.now());
-  const [phone, setPhone] = useState('');
-  const [browserZone] = useState<string | null>(readBrowserTimeZone);
-  const [chosenZone, setChosenZone] = useState<string | null>(null);
-  const [linkBusy, setLinkBusy] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
 
-  // A linked phone.
+  // Adding a phone.
+  const [label, setLabel] = useState('');
+  const [phone, setPhone] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // A new code or a remove, row by row.
+  const [rowUi, setRowUi] = useState<Readonly<Partial<Record<string, RowUi>>>>({});
+
+  // The account.
   const [pendingZone, setPendingZone] = useState<string | null>(null);
   const [zoneError, setZoneError] = useState<string | null>(null);
   const [history, setHistory] = useState<CoachTextHistoryItem[] | null>(null);
   const [historyFailed, setHistoryFailed] = useState(false);
-  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
-  const [unlinkBusy, setUnlinkBusy] = useState(false);
-  const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
-  /** One status check at a time. */
-  const pollInFlight = useRef(false);
+  /** Status checks that have not answered yet. */
+  const checksOut = useRef(0);
   /** Goes up whenever the page learns something newer than a check that is still out. */
   const generation = useRef(0);
 
@@ -601,8 +881,7 @@ export default function OwnerTextCommandsPage() {
     setLoading(true);
     setError(null);
     try {
-      const next = await apiClient.ownerTextCommands(token);
-      setStatus(next);
+      dispatch({ type: 'status', status: await apiClient.ownerTextCommands(token) });
       setNow(Date.now());
     } catch (e) {
       setError(messageOf(e, 'Could not load text commands.'));
@@ -611,28 +890,24 @@ export default function OwnerTextCommandsPage() {
     }
   }, []);
 
-  /** Asks once whether the text has arrived. A failed check is left to the next one. */
-  const poll = useCallback(async () => {
+  /**
+   * Reads the list once. The regular check skips its turn while another is still out; a
+   * forced one goes anyway, because the page needs the answer now and nothing older counts.
+   * A failed check is left to the next one.
+   */
+  const check = useCallback(async (force = false) => {
     const token = getOwnerToken();
-    if (!token || pollInFlight.current) return;
-    pollInFlight.current = true;
+    if (!token || (!force && checksOut.current > 0)) return;
+    if (force) generation.current += 1;
+    checksOut.current += 1;
     const asked = generation.current;
     try {
       const next = await apiClient.ownerTextCommands(token);
-      if (asked !== generation.current) return;
-      if (next.state !== 'pending') {
-        setStarted(null);
-        setUi((current) => {
-          if (next.state === 'linked') return { showForm: false, notice: 'linked' };
-          // An owner who already chose to start over does not need to hear the old code ran out.
-          return current.showForm ? current : { showForm: false, notice: 'code_expired' };
-        });
-      }
-      setStatus(next);
+      if (asked === generation.current) dispatch({ type: 'status', status: next });
     } catch {
       // Nothing to show: the next check is three seconds away.
     } finally {
-      pollInFlight.current = false;
+      checksOut.current -= 1;
     }
   }, []);
 
@@ -650,37 +925,39 @@ export default function OwnerTextCommandsPage() {
     if (authenticated) void loadStatus();
   }, [authenticated, loadStatus]);
 
-  const view = status ? viewOf(status, ui.showForm) : null;
-  const codeExpiresAtMs = status?.codeExpiresAt ? Date.parse(status.codeExpiresAt) : Number.NaN;
-  const codeExpired = Number.isFinite(codeExpiresAtMs) && now >= codeExpiresAtMs;
-  const countdown =
-    Number.isFinite(codeExpiresAtMs) && !codeExpired
-      ? formatCountdown(codeExpiresAtMs - now)
-      : null;
-  // The old code stays live while the owner looks at the form again, so the watch goes on.
-  const watching = status?.enabled === true && status.state === 'pending' && !codeExpired;
-  const isLinked = view === 'linked';
+  const enabled = status?.enabled === true;
+  const phones = enabled ? status.phones : [];
+  const rows = phones.map((row) => {
+    const held = codes.get(row.id);
+    const expiresAtMs = codeExpiryOf(row, held);
+    return { phone: row, held, expiresAtMs, view: rowViewOf(row, expiresAtMs, now) };
+  });
+  const liveExpiries = rows
+    .filter((row) => row.view === 'waiting')
+    .map((row) => row.expiresAtMs);
+  const watching = liveExpiries.length > 0;
+  const nextExpiryMs = watching ? Math.min(...liveExpiries) : Number.NaN;
 
-  // While a code is live: count it down every second and check for the text every three.
+  // While any code is live: count down every second and check for the text every three.
   useEffect(() => {
     if (!watching) return undefined;
     const tick = setInterval(() => {
       const at = Date.now();
       setNow(at);
-      // The watch ends here. A phone's browser sleeps while its owner is away sending the
-      // text, so ask one last time before saying the code ran out.
-      if (at >= codeExpiresAtMs) void poll();
+      // A watch ends as its code runs out. A phone's browser sleeps while its owner is away
+      // sending the text, so ask one last time before saying the code ran out.
+      if (at >= nextExpiryMs) void check();
     }, TICK_MS);
-    const check = setInterval(() => void poll(), POLL_MS);
+    const poll = setInterval(() => void check(), POLL_MS);
     return () => {
       clearInterval(tick);
-      clearInterval(check);
+      clearInterval(poll);
     };
-  }, [watching, poll, codeExpiresAtMs]);
+  }, [watching, check, nextExpiryMs]);
 
-  // The recent texts, each time the page comes to show a linked phone.
+  // The recent texts, when the page opens and again each time a phone is linked.
   useEffect(() => {
-    if (!isLinked) return undefined;
+    if (!enabled) return undefined;
     const token = getOwnerToken();
     if (!token) return undefined;
     let cancelled = false;
@@ -697,7 +974,7 @@ export default function OwnerTextCommandsPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLinked]);
+  }, [enabled, linkCount]);
 
   function logout() {
     localStorage.removeItem('owner_token');
@@ -705,56 +982,98 @@ export default function OwnerTextCommandsPage() {
     router.push('/owners/login');
   }
 
-  /** The zone the link form starts on: the owner's pick, else the browser's, else the account's. */
-  function linkZoneOf(current: CoachTextStatus): string {
-    return chosenZone ?? browserZone ?? current.timeZone;
+  function patchRow(id: string, patch: Partial<RowUi>) {
+    setRowUi((current) => ({ ...current, [id]: { ...(current[id] ?? IDLE_ROW), ...patch } }));
   }
 
-  async function handleStartLink(event: FormEvent<HTMLFormElement>) {
+  function forgetRow(id: string) {
+    setRowUi((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)));
+  }
+
+  /** Keeps a code the API just gave, and shows it in its row. */
+  function holdCode(code: CoachTextPhoneCode, name: string) {
+    const at = Date.now();
+    // A check that is still out was asked before this code existed.
+    generation.current += 1;
+    dispatch({ type: 'code', code, label: name, minutes: minutesUntil(code.codeExpiresAt, at) });
+    setNow(at);
+  }
+
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (linkBusy || !status) return;
+    if (addBusy || !status) return;
     const token = getOwnerToken();
     if (!token) return;
-    const trimmed = phone.trim();
-    if (!trimmed) {
-      setLinkError('Enter your mobile number.');
+    const name = label.trim();
+    const number = phone.trim();
+    if (!name) {
+      setAddError('Enter a name.');
       return;
     }
-    setLinkBusy(true);
-    setLinkError(null);
+    if (!number) {
+      setAddError('Enter a mobile number.');
+      return;
+    }
+    setAddBusy(true);
+    setAddError(null);
     try {
-      const result = await apiClient.ownerTextCommandsStartLink(token, {
-        phone: trimmed,
-        timeZone: linkZoneOf(status),
-      });
-      // A check that is still out was asked before this code existed.
-      generation.current += 1;
-      setStarted({ ...result, phone: trimmed });
-      setStatus((current) =>
-        current
-          ? {
-              ...current,
-              state: 'pending',
-              codeExpiresAt: result.codeExpiresAt,
-              pendingPhoneMasked: null,
-              unverifiedTextSeen: false,
-            }
-          : current
+      const timeZone = browserTimeZone();
+      holdCode(
+        await apiClient.ownerTextCommandsAddPhone(token, {
+          label: name,
+          phone: number,
+          ...(timeZone ? { timeZone } : {}),
+        }),
+        name
       );
-      setUi(NO_UI);
-      setNow(Date.now());
+      setLabel('');
+      setPhone('');
+      // The list from the API, with the new row's masked number.
+      void check(true);
     } catch (e) {
-      setLinkError(messageOf(e, 'Could not get a code. Try again.'));
+      setAddError(addErrorMessage(e));
+      // The list filled up somewhere else: read it again, which hides the form.
+      if (reasonOf(e) === 'PHONE_LIMIT_REACHED') void check(true);
     } finally {
-      setLinkBusy(false);
+      setAddBusy(false);
     }
   }
 
-  /** Back to the form. Nothing is unlinked: a new code simply replaces the old one. */
-  function showLinkForm() {
-    setStarted(null);
-    setLinkError(null);
-    setUi({ showForm: true, notice: null });
+  async function handleNewCode(target: CoachTextPhoneStatus) {
+    const token = getOwnerToken();
+    if (!token || rowUi[target.id]?.codeBusy) return;
+    patchRow(target.id, { codeBusy: true, codeError: null });
+    try {
+      holdCode(await apiClient.ownerTextCommandsNewCode(token, target.id), target.label);
+      patchRow(target.id, { codeBusy: false });
+    } catch (e) {
+      patchRow(target.id, { codeBusy: false, codeError: newCodeErrorMessage(e) });
+      const reason = reasonOf(e);
+      // The row is out of date: the phone was linked, or removed, somewhere else.
+      if (reason === 'PHONE_ALREADY_LINKED' || reason === 'NOT_FOUND') void check(true);
+    }
+  }
+
+  async function handleRemove(target: CoachTextPhoneStatus) {
+    const token = getOwnerToken();
+    if (!token || rowUi[target.id]?.removeBusy) return;
+    patchRow(target.id, { removeBusy: true, removeError: null });
+    try {
+      await apiClient.ownerTextCommandsRemovePhone(token, target.id);
+    } catch (e) {
+      // NOT_FOUND: the phone is gone already, which is what the owner asked for.
+      if (reasonOf(e) !== 'NOT_FOUND') {
+        patchRow(target.id, {
+          removeBusy: false,
+          removeError: messageOf(e, 'Could not remove this phone. Try again.'),
+        });
+        return;
+      }
+    }
+    // A check that is still out could bring the phone back.
+    generation.current += 1;
+    dispatch({ type: 'removed', id: target.id });
+    forgetRow(target.id);
   }
 
   async function handleZoneChange(zone: string) {
@@ -763,35 +1082,13 @@ export default function OwnerTextCommandsPage() {
     setPendingZone(zone);
     setZoneError(null);
     try {
-      setStatus(await apiClient.ownerTextCommandsSetTimeZone(token, zone));
+      const saved = await apiClient.ownerTextCommandsSetTimeZone(token, zone);
+      dispatch({ type: 'timeZone', timeZone: saved.timeZone });
     } catch (e) {
       setZoneError(messageOf(e, 'Could not save the time zone.'));
     } finally {
       setPendingZone(null);
     }
-  }
-
-  async function handleUnlink() {
-    const token = getOwnerToken();
-    if (!token || unlinkBusy) return;
-    setUnlinkBusy(true);
-    setUnlinkError(null);
-    try {
-      await apiClient.ownerTextCommandsUnlink(token);
-    } catch (e) {
-      setUnlinkError(messageOf(e, 'Could not unlink this phone. Try again.'));
-      setUnlinkBusy(false);
-      return;
-    }
-    setUnlinkBusy(false);
-    setConfirmingUnlink(false);
-    setStarted(null);
-    setUi(NO_UI);
-    setPhone('');
-    setHistory(null);
-    setHistoryFailed(false);
-    setStatus(null);
-    await loadStatus();
   }
 
   if (!authenticated) {
@@ -810,7 +1107,7 @@ export default function OwnerTextCommandsPage() {
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-semibold truncate">Text commands</h1>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Link your phone, then run game day by text
+                Link your phones, then run game day by text
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -852,73 +1149,86 @@ export default function OwnerTextCommandsPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading text commands{'…'}</p>
           </div>
-        ) : status && view ? (
+        ) : status ? (
           <Card data-testid="panel-text-commands">
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>Text commands</CardTitle>
-                <span data-testid="status-text-commands" data-state={view} className={PILL}>
-                  {VIEW_LABELS[view]}
+                <span
+                  data-testid="status-text-commands"
+                  data-state={enabled ? 'on' : 'off'}
+                  className={PILL}
+                >
+                  {enabled ? `${phones.length} of ${status.maxPhones} phones` : 'Not turned on'}
                 </span>
               </div>
-              {(view === 'off' || view === 'not_linked') && (
-                <CardDescription>
-                  Run game day from your phone. Text FieldView to put your live camera stream on a
-                  game page.
-                </CardDescription>
-              )}
+              <CardDescription>
+                Run game day from your phones. Text FieldView to put your live camera stream on a
+                game page.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {ui.notice === 'code_expired' && view !== 'off' && view !== 'waiting' && (
-                <div
-                  data-testid="notice-text-commands-code-expired"
-                  role="status"
-                  className={NOTICE_AMBER}
-                >
-                  That code has expired. Get a new one.
-                </div>
-              )}
-
-              {view === 'off' && (
+            <CardContent className="space-y-6">
+              {!enabled ? (
                 <p data-testid="text-commands-off" className="text-sm">
                   Text commands are not turned on for this account yet.
                 </p>
-              )}
-
-              {view === 'not_linked' && (
-                <LinkForm
-                  phone={phone}
-                  onPhoneChange={setPhone}
-                  zone={linkZoneOf(status)}
-                  onZoneChange={setChosenZone}
-                  busy={linkBusy}
-                  error={linkError}
-                  onSubmit={(event) => void handleStartLink(event)}
-                />
-              )}
-
-              {view === 'waiting' && (
-                <WaitingForText
-                  status={status}
-                  started={started}
-                  codeExpired={codeExpired}
-                  countdown={countdown}
-                  onStartOver={showLinkForm}
-                />
-              )}
-
-              {view === 'linked' && (
+              ) : (
                 <>
-                  {ui.notice === 'linked' && (
-                    <div
-                      data-testid="notice-text-commands-linked"
-                      role="status"
-                      className={NOTICE_GREEN}
-                    >
-                      Your phone is linked.
-                    </div>
+                  <section
+                    aria-labelledby="text-phones-heading"
+                    className="space-y-2"
+                    data-testid="section-text-phones"
+                  >
+                    <h4 id="text-phones-heading" className="text-sm font-semibold">
+                      Phones
+                    </h4>
+                    {rows.length === 0 ? (
+                      <p data-testid="empty-text-phones" className="text-sm text-muted-foreground">
+                        No phones yet. Add your phone, and one for each helper.
+                      </p>
+                    ) : (
+                      <ul data-testid="list-text-phones" className="divide-y rounded-lg border">
+                        {rows.map(({ phone: row, held, expiresAtMs, view }) => (
+                          <PhoneRow
+                            key={row.id}
+                            phone={row}
+                            view={view}
+                            held={view === 'waiting' ? held ?? null : null}
+                            countdown={
+                              view === 'waiting' ? formatCountdown(expiresAtMs - now) : null
+                            }
+                            justLinked={linked.has(row.id)}
+                            productNumber={status.productNumber}
+                            timeZone={status.timeZone}
+                            ui={rowUi[row.id] ?? IDLE_ROW}
+                            onNewCode={() => void handleNewCode(row)}
+                            onAskRemove={() => patchRow(row.id, { confirmingRemove: true })}
+                            onConfirmRemove={() => void handleRemove(row)}
+                            onCancelRemove={() =>
+                              patchRow(row.id, { confirmingRemove: false, removeError: null })
+                            }
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  {phones.length >= status.maxPhones ? (
+                    <p data-testid="notice-phone-limit" role="status" className={NOTICE_AMBER}>
+                      {`This login has ${status.maxPhones} phones, the most it can have. Remove one to add another.`}
+                    </p>
+                  ) : (
+                    <AddPhoneForm
+                      label={label}
+                      onLabelChange={setLabel}
+                      phone={phone}
+                      onPhoneChange={setPhone}
+                      busy={addBusy}
+                      error={addError}
+                      onSubmit={(event) => void handleAdd(event)}
+                    />
                   )}
-                  <PhoneFacts status={status} />
+
                   <TimeZoneField
                     value={pendingZone ?? status.timeZone}
                     onChange={(zone) => void handleZoneChange(zone)}
@@ -929,54 +1239,6 @@ export default function OwnerTextCommandsPage() {
                   <CommandList status={status} />
                   <RecentTexts items={history} failed={historyFailed} timeZone={status.timeZone} />
                 </>
-              )}
-
-              {view === 'paused' && (
-                <>
-                  <div data-testid="text-commands-paused" className={`${NOTICE_AMBER} space-y-1`}>
-                    <p>
-                      This phone texted STOP, so commands are paused and FieldView cannot reply.
-                    </p>
-                    <p>
-                      Text START to {formatPhoneForDisplay(status.productNumber)} to turn it back
-                      on.
-                    </p>
-                  </div>
-                  <PhoneFacts status={status} />
-                </>
-              )}
-
-              {view === 'expired' && (
-                <>
-                  <p data-testid="text-commands-expired" className="text-sm">
-                    This phone has not texted in a long time, so its link was turned off. Link it
-                    again to keep using it.
-                  </p>
-                  <PhoneFacts status={status} />
-                  <div>
-                    <Button
-                      type="button"
-                      onClick={showLinkForm}
-                      data-testid="btn-text-commands-link-again"
-                    >
-                      Link again
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {(view === 'linked' || view === 'paused' || view === 'expired') && (
-                <UnlinkControl
-                  confirming={confirmingUnlink}
-                  busy={unlinkBusy}
-                  error={unlinkError}
-                  onAsk={() => setConfirmingUnlink(true)}
-                  onConfirm={() => void handleUnlink()}
-                  onCancel={() => {
-                    setConfirmingUnlink(false);
-                    setUnlinkError(null);
-                  }}
-                />
               )}
             </CardContent>
           </Card>

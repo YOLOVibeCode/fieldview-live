@@ -24,8 +24,14 @@
 /owners/me/text-commands:
   $ref: './owners.yaml#/paths/~1owners~1me~1text-commands'
 
-/owners/me/text-commands/link:
-  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1link'
+/owners/me/text-commands/phones:
+  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1phones'
+
+/owners/me/text-commands/phones/{phoneId}/code:
+  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1phones~1{phoneId}~1code'
+
+/owners/me/text-commands/phones/{phoneId}:
+  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1phones~1{phoneId}'
 
 /owners/me/text-commands/history:
   $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1history'

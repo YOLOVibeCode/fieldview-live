@@ -12,13 +12,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SMS_INBOUND_WEBHOOK_URL, buildInboundHelpTwimlBody } from '@fieldview/data-model';
 
+import { AccountChooser } from '@/modules/coach-text/AccountChooser';
 import { CoachTextEngine } from '@/modules/coach-text/CoachTextEngine';
 import { PhoneLinkService } from '@/modules/coach-text/PhoneLinkService';
 import {
   FakeCommandLog,
   FakeConsent,
+  FakeConversationStore,
   FakeLinkStore,
   FakeNotifier,
+  FakeSettingsStore,
   makeOwner,
 } from '@/modules/coach-text/__tests__/fakes';
 import type { ICoachTextEngine } from '@/modules/coach-text/interfaces';
@@ -117,10 +120,10 @@ describe('Twilio inbound webhook with coach text commands', () => {
     return req.send(body);
   }
 
-  /** The coach asks for a code in the portal. */
-  async function startLink(phone: string): Promise<string> {
-    const started = await service.startLink({ ownerUserId: 'user-1', phone });
-    return started.code;
+  /** The coach adds a phone in the portal and gets its code. */
+  async function startLink(phone: string, ownerUserId = 'user-1'): Promise<string> {
+    const issued = await service.addPhone({ ownerUserId, label: 'Coach', phone });
+    return issued.code;
   }
 
   /** The coach's phone is already linked. */
@@ -148,16 +151,27 @@ describe('Twilio inbound webhook with coach text commands', () => {
     links = new FakeLinkStore();
     consent = new FakeConsent(clock);
     commands = new FakeCommandLog(clock);
+    const settings = new FakeSettingsStore();
+    const conversations = new FakeConversationStore();
     service = new PhoneLinkService({
       links,
       consent,
       commands,
       notifier: new FakeNotifier(),
+      settings,
       now: clock,
     });
     links.addOwner(makeOwner());
     twilioWebhookRoute.setCoachTextEngine(
-      new CoachTextEngine({ linking: service, links, commands, now: clock })
+      new CoachTextEngine({
+        linking: service,
+        links,
+        commands,
+        chooser: new AccountChooser({ links, conversations, now: clock }),
+        conversations,
+        settings,
+        now: clock,
+      })
     );
 
     mockSmsService = {
@@ -207,7 +221,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       const res = await text({ From: phone, Body: `LINK ${code}` });
 
       expect(res.text).toBe(GAME_NOT_FOUND);
-      expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+      expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
       expect(commands.rows).toEqual([]);
     });
 
@@ -233,7 +247,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
 
       await text({ From: phone, Body: 'STOP' });
 
-      expect((await service.getStatus('user-1')).state).toBe('linked');
+      expect((await service.getStatus('user-1')).phones[0]?.state).toBe('linked');
     });
   });
 
@@ -359,9 +373,9 @@ describe('Twilio inbound webhook with coach text commands', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/xml');
       expect(res.text).toBe(LINKED);
-      expect(links.rowFor('user-1')).toMatchObject({ phoneE164: phone, pendingPhoneE164: null });
+      expect(links.rowsFor('user-1')[0]).toMatchObject({ phoneE164: phone, codeHash: null, verifiedAt: now });
       expect(consent.get(phone, 'owner_commands')).toMatchObject({ revokedAt: null });
-      expect((await service.getStatus('user-1')).state).toBe('linked');
+      expect((await service.getStatus('user-1')).phones[0]?.state).toBe('linked');
       expect(mockSmsService.findByKeyword).not.toHaveBeenCalled();
       expect(mockSmsService.sendPaymentLink).not.toHaveBeenCalled();
     });
@@ -405,7 +419,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
 
         expect(res.status).toBe(200);
         expect(res.text).toBe(GAME_NOT_FOUND);
-        expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+        expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
         expect(commands.rows).toHaveLength(1);
         expect(commands.rows[0]).toMatchObject({
           body: '[not verified]',
@@ -413,7 +427,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
           reason: 'unverified',
           messageSid: null,
         });
-        expect((await service.getStatus('user-1')).unverifiedTextSeen).toBe(true);
+        expect((await service.getStatus('user-1')).phones[0]?.unverifiedTextSeen).toBe(true);
       }
     );
 
@@ -424,7 +438,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       const res = await text({ From: phone, Body: `LINK ${code}`, MessageSid: '' });
 
       expect(res.text).toBe(GAME_NOT_FOUND);
-      expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+      expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
       expect(commands.rows).toHaveLength(1);
       expect(commands.rows[0]).toMatchObject({ status: 'rejected', reason: 'no_message_sid' });
     });
@@ -437,7 +451,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
 
       expect(res.status).toBe(200);
       expect(res.text).toBe(NO_MATCH);
-      expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+      expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
       expect(mockSmsService.findByKeyword).not.toHaveBeenCalled();
     });
 
@@ -449,7 +463,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       const res = await text({ From: phone, Body: `LINK ${code}` });
 
       expect(res.text).toBe(NO_MATCH);
-      expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+      expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
     });
 
     it('answers the same way on the sixth try, even with the right code', async () => {
@@ -463,7 +477,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       const sixth = await text({ From: phone, Body: `LINK ${code}` });
 
       expect(sixth.text).toBe(NO_MATCH);
-      expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+      expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
     });
 
     it('answers the same way for a phone nobody is linking', async () => {
@@ -498,7 +512,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       expect(res.status).toBe(200);
       expect(res.text).toBe(GAME_NOT_FOUND);
       expect(mockSmsService.findByKeyword).toHaveBeenCalledWith(`LINK ${code}`);
-      expect(links.rowFor('user-1')?.phoneE164).toBeNull();
+      expect(links.rowsFor('user-1')[0]?.verifiedAt).toBeNull();
     });
 
     it('falls through to the viewer path when the coach engine throws', async () => {
@@ -517,6 +531,68 @@ describe('Twilio inbound webhook with coach text commands', () => {
         phone,
         expect.stringMatching(/\/checkout\/game-1$/)
       );
+    });
+  });
+
+  describe('ACCOUNT and a digit answer', () => {
+    /** The phone texts commands for Diablos FC (user-1) and Hawks FC (user-2). */
+    async function onTwoAccounts(phone: string): Promise<void> {
+      links.addOwner(
+        makeOwner({
+          ownerUserId: 'user-2',
+          ownerAccountId: 'account-2',
+          email: 'hawks@example.com',
+          accountName: 'Hawks FC',
+        })
+      );
+      await linkPhone(phone);
+      const code = await startLink(phone, 'user-2');
+      expect((await service.completeFromText({ from: phone, code })).matched).toBe(true);
+    }
+
+    /** What the viewer path answers this text with the feature switched off. */
+    async function viewerAnswer(body: string, headers: Record<string, string> = VERIFIED): Promise<string> {
+      vi.stubEnv('COACH_TEXT_ENABLED', 'false');
+      const res = await text({ From: freshPhone(), Body: body }, headers);
+      vi.stubEnv('COACH_TEXT_ENABLED', 'true');
+      return res.text;
+    }
+
+    it('asks which account, then takes the digit', async () => {
+      const phone = freshPhone();
+      await onTwoAccounts(phone);
+
+      const asked = await text({ From: phone, Body: 'ACCOUNT' });
+      expect(asked.text).toBe(
+        '<Response><Message>FieldView.Live: Which account? 1 Diablos FC, 2 Hawks FC. Reply with the number, 0 for none.</Message></Response>'
+      );
+
+      const chosen = await text({ From: phone, Body: '2' });
+      expect(chosen.text).toMatch(
+        /^<Response><Message>FieldView\.Live: Texting for Hawks FC until \d{1,2}:\d{2} [AP]M\. Text ACCOUNT to switch\.<\/Message><\/Response>$/
+      );
+      expect(mockSmsService.findByKeyword).not.toHaveBeenCalled();
+    });
+
+    it('gives a stranger who texts ACCOUNT or a digit exactly what the viewer path gives', async () => {
+      const phone = freshPhone();
+
+      const account = await text({ From: phone, Body: 'ACCOUNT' });
+      const digit = await text({ From: phone, Body: '2' });
+
+      expect(account.text).toBe(await viewerAnswer('ACCOUNT'));
+      expect(digit.text).toBe(await viewerAnswer('2'));
+      expect(commands.rows).toEqual([]);
+    });
+
+    it('never answers a digit the relay did not verify', async () => {
+      const phone = freshPhone();
+      await onTwoAccounts(phone);
+      await text({ From: phone, Body: 'ACCOUNT' });
+
+      const res = await text({ From: phone, Body: '2' }, {});
+
+      expect(res.text).toBe(await viewerAnswer('2', {}));
     });
   });
 
@@ -569,7 +645,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       expect(res.status).toBe(200);
       expect(res.text).toBe(EMPTY);
       expect(mockSmsService.handleStop).toHaveBeenCalledWith(phone);
-      expect((await service.getStatus('user-1')).state).toBe('paused');
+      expect((await service.getStatus('user-1')).phones[0]?.state).toBe('paused');
       expect(consent.get(phone, 'owner_commands')?.revokedAt).toEqual(now);
     });
 
@@ -580,7 +656,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       const res = await text({ From: phone, Body: 'please no more', OptOutType: 'STOP' });
 
       expect(res.text).toBe(EMPTY);
-      expect((await service.getStatus('user-1')).state).toBe('paused');
+      expect((await service.getStatus('user-1')).phones[0]?.state).toBe('paused');
     });
 
     it.each([
@@ -596,7 +672,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
 
         expect(res.text).toBe(EMPTY);
         expect(mockSmsService.handleStop).toHaveBeenCalledWith(phone);
-        expect((await service.getStatus('user-1')).state).toBe('linked');
+        expect((await service.getStatus('user-1')).phones[0]?.state).toBe('linked');
         expect(consent.get(phone, 'owner_commands')?.revokedAt).toBeNull();
       }
     );
@@ -610,7 +686,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
 
       expect(res.text).toBe(EMPTY);
       expect(mockSmsService.handleStart).toHaveBeenCalledWith(phone);
-      expect((await service.getStatus('user-1')).state).toBe('linked');
+      expect((await service.getStatus('user-1')).phones[0]?.state).toBe('linked');
       expect(consent.get(phone, 'owner_commands')?.revokedAt).toBeNull();
     });
 
