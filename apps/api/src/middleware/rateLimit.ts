@@ -155,7 +155,7 @@ export const gameEventRateLimit = createRateLimiter({
   max: 6,
   message: 'Too many event reports, please wait a moment.',
   keyGenerator: (req: Request) => {
-    const viewerId = (req as { viewerId?: string }).viewerId || req.ip || 'unknown';
+    const viewerId = (req as { viewerId?: string }).viewerId || ipKeyGenerator(req.ip || 'unknown');
     return `game-event:${viewerId}`;
   },
   standardHeaders: true,

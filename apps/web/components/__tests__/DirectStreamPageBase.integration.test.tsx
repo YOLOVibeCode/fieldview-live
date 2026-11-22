@@ -197,6 +197,10 @@ function setupFetch(bootstrap: ReturnType<typeof makeBootstrap>) {
     if (typeof url === 'string' && url.includes('bootstrap')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(bootstrap) });
     }
+    // The score change log is a list, as the API sends it.
+    if (typeof url === 'string' && url.includes('/scoreboard/changes')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({ bookmarks: [] }) });
   });
 }
