@@ -133,11 +133,14 @@ export const cameraSourceConnectRateLimit = createRateLimiter({
 /**
  * Asking for a phone link code: 5 per owner account per 15 minutes.
  * Each new code brings a fresh set of tries, so codes cannot be asked for without limit.
+ * The refusal has the shape of every other API error, so the page can show its message.
  */
 export const coachTextLinkRateLimit = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: 'Too many link attempts, please try again later.',
+  message: {
+    error: { code: 'RATE_LIMIT', message: 'Too many link attempts, please try again later.' },
+  },
   keyGenerator: (req: Request) =>
     `coach-text-link:${(req as { ownerAccountId?: string }).ownerAccountId ?? ipKeyGenerator(req.ip || 'unknown')}`,
   standardHeaders: true,

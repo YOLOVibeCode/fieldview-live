@@ -90,6 +90,24 @@ describe('POST /api/owners/me/text-commands/link, code limit', () => {
     expect(start).toHaveBeenCalledTimes(6);
   });
 
+  it('says why in the shape every other error has, so the page can show it', async () => {
+    const account = addLogin('reason-user', 'reason-account');
+    for (let i = 0; i < 5; i++) {
+      await askForCode(account);
+    }
+
+    const refused = await askForCode(account);
+
+    expect(refused.status).toBe(429);
+    expect(refused.body).toEqual({
+      error: {
+        code: 'RATE_LIMIT',
+        message: 'Too many link attempts, please try again later.',
+      },
+    });
+    expect(JSON.stringify(refused.body)).not.toMatch(/\d{6}/);
+  });
+
   it('counts the logins of one account together', async () => {
     const first = addLogin('shared-user-1', 'shared-account');
     const second = addLogin('shared-user-2', 'shared-account');
