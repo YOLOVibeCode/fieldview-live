@@ -59,6 +59,12 @@ paths:
     $ref: './paths/owners.yaml#/paths/~1owners~1me~1games'
   /owners/me/games/{gameId}/audience:
     $ref: './paths/owners.yaml#/paths/~1owners~1me~1games~1{gameId}~1audience'
+  /owners/me/text-commands:
+    $ref: './paths/owners.yaml#/paths/~1owners~1me~1text-commands'
+  /owners/me/text-commands/link:
+    $ref: './paths/owners.yaml#/paths/~1owners~1me~1text-commands~1link'
+  /owners/me/text-commands/history:
+    $ref: './paths/owners.yaml#/paths/~1owners~1me~1text-commands~1history'
   /admin/search:
     $ref: './paths/admin.yaml#/paths/~1admin~1search'
   /admin/login:

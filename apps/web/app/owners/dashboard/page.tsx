@@ -23,6 +23,8 @@ function DashboardInner() {
   const [earningsTotals, setEarningsTotals] = useState<OwnerEarningsTotals | null>(null);
   const [earningsLoading, setEarningsLoading] = useState(false);
   const [showConnectedToast, setShowConnectedToast] = useState(false);
+  // The text commands card shows only once the API says this account has the feature.
+  const [textCommandsEnabled, setTextCommandsEnabled] = useState(false);
 
   const fetchPaymentsStatus = useCallback(async () => {
     const token = localStorage.getItem('owner_token');
@@ -45,6 +47,17 @@ function DashboardInner() {
       setEarningsTotals(null);
     } finally {
       setEarningsLoading(false);
+    }
+  }, []);
+
+  const fetchTextCommands = useCallback(async () => {
+    const token = localStorage.getItem('owner_token');
+    if (!token) return;
+    try {
+      const status = await apiClient.ownerTextCommands(token);
+      setTextCommandsEnabled(status.enabled === true);
+    } catch {
+      setTextCommandsEnabled(false);
     }
   }, []);
 
@@ -75,8 +88,9 @@ function DashboardInner() {
     if (authenticated) {
       void fetchPaymentsStatus();
       void fetchEarnings();
+      void fetchTextCommands();
     }
-  }, [authenticated, fetchPaymentsStatus, fetchEarnings]);
+  }, [authenticated, fetchPaymentsStatus, fetchEarnings, fetchTextCommands]);
 
   useEffect(() => {
     if (authenticated && searchParams.get('payments_connected') === 'true') {
@@ -300,6 +314,36 @@ function DashboardInner() {
               </a>
             </CardContent>
           </Card>
+
+          {textCommandsEnabled && (
+            <Card className="card-interactive" data-testid="card-text-commands">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <CardTitle className="text-base sm:text-lg">Text commands</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Run game day from your phone</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <a
+                  href="/owners/text-commands"
+                  className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
+                  data-testid="link-text-commands"
+                >
+                  Manage text commands
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="card-interactive" data-testid="card-earnings">
             <CardHeader className="pb-3">

@@ -22,3 +22,4 @@ export * from './dvrSchemas';
 export * from './ownerDirectStream';
 export * from './gameEvent';
 export * from './sms';
+export * from './coachText';

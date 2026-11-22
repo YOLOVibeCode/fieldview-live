@@ -13,6 +13,8 @@ import { verifyToken } from '../lib/jwt';
 export interface AuthRequest extends Request {
   userId?: string;
   ownerAccountId?: string;
+  /** The email of the login the token was issued to. One account can have several logins. */
+  ownerEmail?: string;
   adminUserId?: string;
   role?: string;
 }
@@ -41,8 +43,9 @@ export function requireOwnerAuth(
     return next(new UnauthorizedError('Invalid or expired token'));
   }
 
-  // Attach owner account ID to request
+  // Attach owner account ID and the login's email to request
   req.ownerAccountId = payload.ownerAccountId;
+  req.ownerEmail = payload.email;
 
   next();
 }
