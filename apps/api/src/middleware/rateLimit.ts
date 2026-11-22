@@ -148,6 +148,35 @@ export const coachTextLinkRateLimit = createRateLimiter({
 });
 
 /**
+ * Asking for a password reset link: 5 per IP per 15 minutes. Each request can send an email.
+ * (The service also allows 3 links per email per hour, without saying so to the caller.)
+ */
+export const passwordResetRequestRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    error: { code: 'RATE_LIMIT', message: 'Too many password reset requests, please try again later.' },
+  },
+  keyGenerator: (req: Request) => `password-reset:${ipKeyGenerator(req.ip || 'unknown')}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Checking or using a password reset link: 20 per IP per 15 minutes.
+ */
+export const passwordResetTokenRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: {
+    error: { code: 'RATE_LIMIT', message: 'Too many attempts, please try again later.' },
+  },
+  keyGenerator: (req: Request) => `password-reset-token:${ipKeyGenerator(req.ip || 'unknown')}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Game event report: 6 per viewer per minute (~1 per 10s average)
  */
 export const gameEventRateLimit = createRateLimiter({
