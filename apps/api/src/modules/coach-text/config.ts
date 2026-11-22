@@ -11,6 +11,8 @@
  *   COACH_TEXT_NUMBER_E164         the number coaches text.
  *   COACH_TEXT_CODE_TTL_SECONDS    how long a link code lasts.
  *   COACH_TEXT_LINK_IDLE_DAYS      days without a text before a link expires.
+ *   COACH_TEXT_QUESTION_TTL_SECONDS how long a numbered question waits for its answer.
+ *   COACH_TEXT_ACCOUNT_CHOICE_HOURS how long a phone keeps the account it chose.
  */
 
 import { SMS_PRODUCT_NUMBER_E164, isIanaTimeZone } from '@fieldview/data-model';
@@ -24,6 +26,8 @@ export const MAX_UNVERIFIED_NOTES_PER_HOUR = 5;
 const FALLBACK_TIME_ZONE = 'America/Chicago';
 const DEFAULT_CODE_TTL_SECONDS = 600;
 const DEFAULT_LINK_IDLE_DAYS = 90;
+const DEFAULT_QUESTION_TTL_SECONDS = 600;
+const DEFAULT_ACCOUNT_CHOICE_HOURS = 12;
 
 function positiveInt(raw: string | undefined, fallback: number): number {
   const value = Number((raw ?? '').trim());
@@ -65,4 +69,12 @@ export function codeTtlSeconds(): number {
 
 export function linkIdleDays(): number {
   return positiveInt(process.env.COACH_TEXT_LINK_IDLE_DAYS, DEFAULT_LINK_IDLE_DAYS);
+}
+
+export function questionTtlSeconds(): number {
+  return positiveInt(process.env.COACH_TEXT_QUESTION_TTL_SECONDS, DEFAULT_QUESTION_TTL_SECONDS);
+}
+
+export function accountChoiceHours(): number {
+  return positiveInt(process.env.COACH_TEXT_ACCOUNT_CHOICE_HOURS, DEFAULT_ACCOUNT_CHOICE_HOURS);
 }

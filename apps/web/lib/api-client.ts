@@ -8,10 +8,10 @@
  */
 
 import type {
+  AddCoachTextPhone,
   CoachTextHistory,
-  CoachTextLinkStarted,
+  CoachTextPhoneCode,
   CoachTextStatus,
-  StartCoachTextLink,
 } from '@fieldview/data-model';
 
 function getApiUrl(): string {
@@ -959,8 +959,8 @@ export const apiClient = {
   },
 
   /**
-   * Owner text commands: one linked phone that runs game day by text.
-   * All of these require the owner token.
+   * Owner text commands: the phones on a login (its own and its helpers') that run game day
+   * by text. All of these require the owner token.
    */
   async ownerTextCommands(ownerToken: string): Promise<CoachTextStatus> {
     return apiRequest<CoachTextStatus>(`/api/owners/me/text-commands`, {
@@ -968,12 +968,15 @@ export const apiClient = {
     });
   },
 
-  /** Starts a link. The answer carries the code, which is shown once and kept nowhere. */
-  async ownerTextCommandsStartLink(
+  /**
+   * Adds a phone for the person named. The answer carries its code, which is shown once and
+   * kept nowhere. A number still waiting on this login gets a fresh code on the same row.
+   */
+  async ownerTextCommandsAddPhone(
     ownerToken: string,
-    input: StartCoachTextLink
-  ): Promise<CoachTextLinkStarted> {
-    return apiRequest<CoachTextLinkStarted>(`/api/owners/me/text-commands/link`, {
+    input: AddCoachTextPhone
+  ): Promise<CoachTextPhoneCode> {
+    return apiRequest<CoachTextPhoneCode>(`/api/owners/me/text-commands/phones`, {
       method: 'POST',
       headers: { ...withBearerToken(ownerToken) },
       body: JSON.stringify(input),
@@ -981,11 +984,29 @@ export const apiClient = {
     });
   },
 
-  async ownerTextCommandsUnlink(ownerToken: string): Promise<{ unlinked: boolean }> {
-    return apiRequest<{ unlinked: boolean }>(`/api/owners/me/text-commands/link`, {
-      method: 'DELETE',
-      headers: { ...withBearerToken(ownerToken) },
-    });
+  /** A new code for a phone that is waiting or expired. Shown once, like the first. */
+  async ownerTextCommandsNewCode(ownerToken: string, phoneId: string): Promise<CoachTextPhoneCode> {
+    return apiRequest<CoachTextPhoneCode>(
+      `/api/owners/me/text-commands/phones/${encodeURIComponent(phoneId)}/code`,
+      {
+        method: 'POST',
+        headers: { ...withBearerToken(ownerToken) },
+        cache: 'no-store',
+      }
+    );
+  },
+
+  async ownerTextCommandsRemovePhone(
+    ownerToken: string,
+    phoneId: string
+  ): Promise<{ removed: boolean }> {
+    return apiRequest<{ removed: boolean }>(
+      `/api/owners/me/text-commands/phones/${encodeURIComponent(phoneId)}`,
+      {
+        method: 'DELETE',
+        headers: { ...withBearerToken(ownerToken) },
+      }
+    );
   },
 
   async ownerTextCommandsSetTimeZone(

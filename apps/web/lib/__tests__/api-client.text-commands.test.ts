@@ -10,6 +10,15 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
 const BASE = `${process.env.NEXT_PUBLIC_API_URL}/api/owners/me/text-commands`;
+const PHONE_ID = '7d4f2b1e-8c3a-4e5f-9b6d-1a2c3e4f5a6b';
+
+const CODE = {
+  id: PHONE_ID,
+  code: '482913',
+  codeExpiresAt: '2026-11-21T18:10:00.000Z',
+  productNumber: '+18773435308',
+  smsHref: 'sms:+18773435308?&body=LINK%20482913',
+};
 
 function answer(body: unknown) {
   return { ok: true, json: () => Promise.resolve(body) };
@@ -28,12 +37,20 @@ describe('owner text commands client', () => {
     mockFetch.mockReset();
   });
 
-  it('reads the status with the owner token', async () => {
-    mockFetch.mockResolvedValue(answer({ enabled: true, state: 'none' }));
+  it('reads the status, with the list of phones, using the owner token', async () => {
+    const status = {
+      enabled: true,
+      productNumber: '+18773435308',
+      timeZone: 'America/Chicago',
+      maxPhones: 10,
+      phones: [],
+      commands: [],
+    };
+    mockFetch.mockResolvedValue(answer(status));
 
     const result = await apiClient.ownerTextCommands('owner-jwt');
 
-    expect(result).toEqual({ enabled: true, state: 'none' });
+    expect(result).toEqual(status);
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const { url, init } = lastCall();
     expect(url).toBe(BASE);
@@ -41,55 +58,78 @@ describe('owner text commands client', () => {
     expect(init.headers).toMatchObject({ Authorization: 'Bearer owner-jwt' });
   });
 
-  it('asks for a link code with the phone and the time zone', async () => {
-    const started = {
-      code: '482913',
-      codeExpiresAt: '2026-11-21T18:10:00.000Z',
-      productNumber: '+18773435308',
-      smsHref: 'sms:+18773435308?&body=LINK%20482913',
-    };
-    mockFetch.mockResolvedValue(answer(started));
+  it('adds a phone with the name and the number', async () => {
+    mockFetch.mockResolvedValue(answer(CODE));
 
-    const result = await apiClient.ownerTextCommandsStartLink('owner-jwt', {
-      phone: '(214) 555-0100',
-      timeZone: 'America/Denver',
+    const result = await apiClient.ownerTextCommandsAddPhone('owner-jwt', {
+      label: 'Jordan',
+      phone: '(214) 555-0142',
     });
 
-    expect(result).toEqual(started);
+    expect(result).toEqual(CODE);
     const { url, init } = lastCall();
-    expect(url).toBe(`${BASE}/link`);
+    expect(url).toBe(`${BASE}/phones`);
     expect(init.method).toBe('POST');
     expect(init.headers).toMatchObject({
       Authorization: 'Bearer owner-jwt',
       'Content-Type': 'application/json',
     });
-    expect(JSON.parse(String(init.body))).toEqual({
-      phone: '(214) 555-0100',
-      timeZone: 'America/Denver',
-    });
+    expect(JSON.parse(String(init.body))).toEqual({ label: 'Jordan', phone: '(214) 555-0142' });
   });
 
-  it('never lets the browser keep the answer that carries the code', async () => {
-    mockFetch.mockResolvedValue(answer({ code: '482913' }));
+  it('asks for a new code for one phone', async () => {
+    const renewed = { ...CODE, code: '771204', smsHref: 'sms:+18773435308?&body=LINK%20771204' };
+    mockFetch.mockResolvedValue(answer(renewed));
 
-    await apiClient.ownerTextCommandsStartLink('owner-jwt', { phone: '(214) 555-0100' });
+    const result = await apiClient.ownerTextCommandsNewCode('owner-jwt', PHONE_ID);
 
-    const { init } = lastCall();
-    expect(init.cache).toBe('no-store');
-    expect(JSON.parse(String(init.body))).toEqual({ phone: '(214) 555-0100' });
-  });
-
-  it('unlinks the phone', async () => {
-    mockFetch.mockResolvedValue(answer({ unlinked: true }));
-
-    const result = await apiClient.ownerTextCommandsUnlink('owner-jwt');
-
-    expect(result).toEqual({ unlinked: true });
+    expect(result).toEqual(renewed);
     const { url, init } = lastCall();
-    expect(url).toBe(`${BASE}/link`);
+    expect(url).toBe(`${BASE}/phones/${PHONE_ID}/code`);
+    expect(init.method).toBe('POST');
+    expect(init.headers).toMatchObject({ Authorization: 'Bearer owner-jwt' });
+    expect(init.body).toBeUndefined();
+  });
+
+  it('never lets the browser keep an answer that carries a code', async () => {
+    mockFetch.mockResolvedValue(answer(CODE));
+
+    await apiClient.ownerTextCommandsAddPhone('owner-jwt', {
+      label: 'Jordan',
+      phone: '(214) 555-0142',
+    });
+    expect(lastCall().init.cache).toBe('no-store');
+
+    await apiClient.ownerTextCommandsNewCode('owner-jwt', PHONE_ID);
+    expect(lastCall().init.cache).toBe('no-store');
+  });
+
+  it('removes one phone', async () => {
+    mockFetch.mockResolvedValue(answer({ removed: true }));
+
+    const result = await apiClient.ownerTextCommandsRemovePhone('owner-jwt', PHONE_ID);
+
+    expect(result).toEqual({ removed: true });
+    const { url, init } = lastCall();
+    expect(url).toBe(`${BASE}/phones/${PHONE_ID}`);
     expect(init.method).toBe('DELETE');
     expect(init.headers).toMatchObject({ Authorization: 'Bearer owner-jwt' });
     expect(init.body).toBeUndefined();
+  });
+
+  it('keeps a phone id inside its own part of the path', async () => {
+    mockFetch.mockResolvedValue(answer({ removed: true }));
+    await apiClient.ownerTextCommandsRemovePhone('owner-jwt', '../history?limit=1');
+    expect(lastCall().url).toBe(`${BASE}/phones/..%2Fhistory%3Flimit%3D1`);
+
+    mockFetch.mockResolvedValue(answer(CODE));
+    await apiClient.ownerTextCommandsNewCode('owner-jwt', 'a b/c');
+    expect(lastCall().url).toBe(`${BASE}/phones/a%20b%2Fc/code`);
+  });
+
+  it('no longer has the calls for one linked phone', () => {
+    expect('ownerTextCommandsStartLink' in apiClient).toBe(false);
+    expect('ownerTextCommandsUnlink' in apiClient).toBe(false);
   });
 
   it('changes the time zone', async () => {
@@ -119,20 +159,21 @@ describe('owner text commands client', () => {
   it('passes on why the API turned a request down', async () => {
     mockFetch.mockResolvedValue({
       ok: false,
-      status: 429,
+      status: 409,
       json: () =>
         Promise.resolve({
-          error: { code: 'RATE_LIMIT', message: 'Too many link codes. Try again later.' },
+          error: { code: 'PHONE_ALREADY_ADDED', message: 'That number is already linked here.' },
         }),
     });
 
     const failure = await apiClient
-      .ownerTextCommandsStartLink('owner-jwt', { phone: '(214) 555-0100' })
+      .ownerTextCommandsAddPhone('owner-jwt', { label: 'Jordan', phone: '(214) 555-0142' })
       .catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(ApiError);
-    expect((failure as ApiError).status).toBe(429);
-    expect((failure as ApiError).message).toBe('Too many link codes. Try again later.');
+    expect((failure as ApiError).status).toBe(409);
+    expect((failure as ApiError).code).toBe('PHONE_ALREADY_ADDED');
+    expect((failure as ApiError).message).toBe('That number is already linked here.');
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });

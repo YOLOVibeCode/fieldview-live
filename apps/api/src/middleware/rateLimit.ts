@@ -131,13 +131,14 @@ export const cameraSourceConnectRateLimit = createRateLimiter({
 });
 
 /**
- * Asking for a phone link code: 5 per owner account per 15 minutes.
+ * Asking for a phone link code (adding a phone, or a new code): 10 per owner account per
+ * 15 minutes, room for a coach adding a few helpers at once.
  * Each new code brings a fresh set of tries, so codes cannot be asked for without limit.
  * The refusal has the shape of every other API error, so the page can show its message.
  */
 export const coachTextLinkRateLimit = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   message: {
     error: { code: 'RATE_LIMIT', message: 'Too many link attempts, please try again later.' },
   },

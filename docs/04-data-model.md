@@ -41,15 +41,26 @@ Game 0—N SMSMessage (inbound/outbound)
   - Not the same as `streamProvider` (how a stream is played) or `StreamSource` (a Game's playback config)
 
 ### CoachTextLink
-- **Fields**: `id`, `ownerUserId` (unique), `phoneE164` (unique, verified phone, null until the code text arrives), `verifiedAt`, `lastCommandAt`, `pausedAt`, `pendingPhoneE164`, `codeHash`, `codeExpiresAt`, `codeAttempts`, `timeZone` (IANA, optional), `pendingId`, `pendingQuestion`, `pendingExpiresAt`, `busyUntil`, `createdAt`, `updatedAt`
+- **Fields**: `id`, `ownerUserId`, `phoneE164` (typed in the portal; proven once `verifiedAt` is set), `label` (the person's name), `verifiedAt`, `lastCommandAt`, `pausedAt`, `codeHash`, `codeExpiresAt`, `codeAttempts`, `createdAt`, `updatedAt`
 - **Notes**:
-  - The phone an owner login links for text commands. One phone per login, one login per phone
+  - One phone on an owner login's list for text commands: the owner's own or a helper's. Unique per (`ownerUserId`, `phoneE164`): a login lists up to ten phones, and one phone can be on several logins, each its own account (up to nine)
   - The link hangs off the login, not the account: the account is read through the login on every text
   - The link code is never stored. `codeHash` is SHA-256 of the link id and the six-digit code
-  - `pausedAt` is set by a verified STOP and cleared by a verified START
-  - `pendingId`, `pendingQuestion`, `pendingExpiresAt` and `busyUntil` are for commands and are unused until commands ship
-  - Deleted with its login. Unlinking deletes the row
+  - `pausedAt` is set by a verified STOP and cleared by a verified START, on every link of the phone
+  - Deleted with its login. Removing a phone deletes its row
   - Code: `apps/api/src/modules/coach-text/`. Runbook: `docs/coach-text.md`
+
+### CoachTextPhone
+- **Fields**: `phoneE164` (primary key), `chosenLinkId`, `chosenUntil`, `pendingId`, `pendingQuestion`, `pendingExpiresAt`, `busyUntil`, `updatedAt`
+- **Notes**:
+  - What one phone is in the middle of, shared by all its links: the account it chose (`chosenLinkId` until `chosenUntil`) and its one open numbered question
+  - The choice is checked against the live links on every text, so a removed or paused link never keeps it
+  - An answer clears the question in one conditional update on `pendingId`, so two answers cannot both win
+  - `busyUntil` is for commands and is unused until commands ship
+
+### CoachTextSettings
+- **Fields**: `ownerUserId` (primary key), `timeZone` (IANA, optional), `updatedAt`
+- **Notes**: Text command settings of one owner login. Deleted with its login
 
 ### CoachTextCommand
 - **Fields**: `id`, `messageSid` (unique, null for unverified senders), `ownerUserId`, `ownerAccountId` (snapshot only, never used for authority), `phoneE164`, `twilioVerified`, `body`, `interpreter` (link|answer|rules|model|none), `action`, `args`, `status` (received|done|asked|no_change|not_understood|rejected|failed|timeout), `reason`, `targetEventId`, `previousStreamUrl`, `previousPinnedAt`, `newStreamUrl`, `replyText`, `latencyMs`, `model`, `promptTokens`, `completionTokens`, `createdAt`
@@ -158,7 +169,7 @@ Game 0—N SMSMessage (inbound/outbound)
 - `PlaybackSession.entitlementId`
 - `LedgerEntry.ownerAccountId`, `LedgerEntry.referenceType`, `LedgerEntry.referenceId`
 - `SMSMessage.phoneE164`, `SMSMessage.keywordCode`
-- `CoachTextLink.ownerUserId` (unique), `CoachTextLink.phoneE164` (unique), `CoachTextLink.pendingPhoneE164`
+- `CoachTextLink.(ownerUserId, phoneE164)` (unique), `CoachTextLink.phoneE164`
 - `CoachTextCommand.messageSid` (unique), `CoachTextCommand.(ownerUserId, createdAt)`, `CoachTextCommand.(ownerAccountId, createdAt)`, `CoachTextCommand.(phoneE164, createdAt)`
 - `AdminAuditLog.adminUserId`, `AdminAuditLog.targetType`, `AdminAuditLog.targetId`
 - `ViewerIdentity.email` (indexed for search and monitoring queries)

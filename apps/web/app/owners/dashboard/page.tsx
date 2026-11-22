@@ -434,7 +434,7 @@ function DashboardInner() {
                   </div>
                   <div>
                     <CardTitle className="text-base sm:text-lg">Text commands</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Run game day from your phone</CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">Run game day from your phones.</CardDescription>
                   </div>
                 </div>
               </CardHeader>

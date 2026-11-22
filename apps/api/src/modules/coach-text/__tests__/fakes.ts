@@ -3,9 +3,12 @@
  */
 
 import type {
+  AnswerQuestionInput,
+  AskQuestionInput,
   BeginCommandInput,
   CoachTextCommandStatus,
   CoachTextConsentInput,
+  CoachTextConversation,
   CoachTextHistoryRow,
   CoachTextInterpreter,
   CoachTextLinkRecord,
@@ -15,10 +18,13 @@ import type {
   ICoachTextCommandReader,
   ICoachTextCommandWriter,
   ICoachTextConsent,
+  ICoachTextConversationStore,
   ICoachTextLinkReader,
   ICoachTextLinkWriter,
   ICoachTextNotifier,
-  SetPendingLinkInput,
+  ICoachTextSettingsStore,
+  NewPhoneLinkInput,
+  SetCodeInput,
   UnverifiedTextInput,
 } from '../interfaces';
 
@@ -37,21 +43,62 @@ export function makeOwner(overrides: Partial<CoachTextOwner> = {}): CoachTextOwn
 
 type StoredLink = Omit<CoachTextLinkRecord, 'owner'>;
 
+export interface SeedLinkInput {
+  id?: string;
+  ownerUserId: string;
+  phoneE164: string;
+  label?: string;
+  verifiedAt?: Date | null;
+  lastCommandAt?: Date | null;
+  pausedAt?: Date | null;
+}
+
 export class FakeLinkStore implements ICoachTextLinkReader, ICoachTextLinkWriter {
   readonly owners = new Map<string, CoachTextOwner>();
   readonly rows = new Map<string, StoredLink>();
   /** When set, the next read or write throws it once. */
   failNext: Error | null = null;
-  private nextId = 1;
+  /** The order rows were made in, so lists come back oldest first. */
+  private readonly order = new Map<string, number>();
+  private seq = 1;
+
+  private put(row: StoredLink): StoredLink {
+    this.rows.set(row.id, row);
+    this.order.set(row.id, this.seq++);
+    return row;
+  }
+
+  private byAge(a: StoredLink, b: StoredLink): number {
+    return (this.order.get(a.id) ?? 0) - (this.order.get(b.id) ?? 0);
+  }
 
   addOwner(owner: CoachTextOwner): CoachTextOwner {
     this.owners.set(owner.ownerUserId, owner);
     return owner;
   }
 
-  /** The stored row for a login, for assertions. */
-  rowFor(ownerUserId: string): StoredLink | undefined {
-    return [...this.rows.values()].find((row) => row.ownerUserId === ownerUserId);
+  /** Puts a phone on a login's list directly, proven unless `verifiedAt` is null. */
+  seed(input: SeedLinkInput): StoredLink {
+    const now = new Date('2026-11-21T12:00:00.000Z');
+    return this.put({
+      id: input.id ?? `link-${this.seq}`,
+      ownerUserId: input.ownerUserId,
+      phoneE164: input.phoneE164,
+      label: input.label ?? 'Phone',
+      verifiedAt: input.verifiedAt === undefined ? now : input.verifiedAt,
+      lastCommandAt: input.lastCommandAt === undefined ? now : input.lastCommandAt,
+      pausedAt: input.pausedAt ?? null,
+      codeHash: null,
+      codeExpiresAt: null,
+      codeAttempts: 0,
+    });
+  }
+
+  /** The stored rows of a login, oldest first, for assertions. */
+  rowsFor(ownerUserId: string): StoredLink[] {
+    return [...this.rows.values()]
+      .filter((row) => row.ownerUserId === ownerUserId)
+      .sort((a, b) => this.byAge(a, b));
   }
 
   private check(): void {
@@ -78,68 +125,76 @@ export class FakeLinkStore implements ICoachTextLinkReader, ICoachTextLinkWriter
     return row;
   }
 
-  findByOwnerUserId(ownerUserId: string): Promise<CoachTextLinkRecord | null> {
+  private sorted(filter: (row: StoredLink) => boolean): CoachTextLinkRecord[] {
+    return [...this.rows.values()]
+      .filter(filter)
+      .sort((a, b) => this.byAge(a, b))
+      .map((row) => this.toRecord(row));
+  }
+
+  findById(id: string): Promise<CoachTextLinkRecord | null> {
     this.check();
-    const row = this.rowFor(ownerUserId);
+    const row = this.rows.get(id);
     return Promise.resolve(row ? this.toRecord(row) : null);
   }
 
-  findByPhone(phoneE164: string): Promise<CoachTextLinkRecord | null> {
+  listByOwnerUserId(ownerUserId: string): Promise<CoachTextLinkRecord[]> {
     this.check();
-    const row = [...this.rows.values()].find((candidate) => candidate.phoneE164 === phoneE164);
-    return Promise.resolve(row ? this.toRecord(row) : null);
+    return Promise.resolve(this.sorted((row) => row.ownerUserId === ownerUserId));
+  }
+
+  findByOwnerAndPhone(ownerUserId: string, phoneE164: string): Promise<CoachTextLinkRecord | null> {
+    this.check();
+    const [row] = this.sorted((candidate) => candidate.ownerUserId === ownerUserId && candidate.phoneE164 === phoneE164);
+    return Promise.resolve(row ?? null);
+  }
+
+  findVerifiedByPhone(phoneE164: string): Promise<CoachTextLinkRecord[]> {
+    this.check();
+    return Promise.resolve(this.sorted((row) => row.phoneE164 === phoneE164 && row.verifiedAt !== null));
   }
 
   findPendingByPhone(phoneE164: string): Promise<CoachTextLinkRecord[]> {
     this.check();
-    return Promise.resolve(
-      [...this.rows.values()]
-        .filter((row) => row.pendingPhoneE164 === phoneE164)
-        .map((row) => this.toRecord(row))
-    );
+    return Promise.resolve(this.sorted((row) => row.phoneE164 === phoneE164 && row.codeHash !== null));
   }
 
   isKnownPhone(phoneE164: string): Promise<boolean> {
     this.check();
-    return Promise.resolve(
-      [...this.rows.values()].some(
-        (row) => row.phoneE164 === phoneE164 || row.pendingPhoneE164 === phoneE164
-      )
-    );
+    return Promise.resolve([...this.rows.values()].some((row) => row.phoneE164 === phoneE164));
   }
 
-  ensure(ownerUserId: string): Promise<CoachTextLinkRecord> {
+  create(input: NewPhoneLinkInput): Promise<void> {
     this.check();
-    const existing = this.rowFor(ownerUserId);
-    if (existing) {
-      return Promise.resolve(this.toRecord(existing));
+    const taken = [...this.rows.values()].some(
+      (row) => row.ownerUserId === input.ownerUserId && row.phoneE164 === input.phoneE164
+    );
+    if (taken) {
+      return Promise.reject(new Error('unique (ownerUserId, phoneE164)'));
     }
-    const row: StoredLink = {
-      id: `link-${this.nextId++}`,
-      ownerUserId,
-      phoneE164: null,
+    this.put({
+      id: input.id,
+      ownerUserId: input.ownerUserId,
+      phoneE164: input.phoneE164,
+      label: input.label,
       verifiedAt: null,
       lastCommandAt: null,
       pausedAt: null,
-      pendingPhoneE164: null,
-      codeHash: null,
-      codeExpiresAt: null,
+      codeHash: input.codeHash,
+      codeExpiresAt: input.codeExpiresAt,
       codeAttempts: 0,
-      timeZone: null,
-    };
-    this.rows.set(row.id, row);
-    return Promise.resolve(this.toRecord(row));
+    });
+    return Promise.resolve();
   }
 
-  setPending(id: string, input: SetPendingLinkInput): Promise<void> {
+  setCode(id: string, input: SetCodeInput): Promise<void> {
     this.check();
     const row = this.mustGet(id);
-    row.pendingPhoneE164 = input.pendingPhoneE164;
     row.codeHash = input.codeHash;
     row.codeExpiresAt = input.codeExpiresAt;
     row.codeAttempts = 0;
-    if (input.timeZone) {
-      row.timeZone = input.timeZone;
+    if (input.label !== undefined) {
+      row.label = input.label;
     }
     return Promise.resolve();
   }
@@ -154,29 +209,13 @@ export class FakeLinkStore implements ICoachTextLinkReader, ICoachTextLinkWriter
 
   complete(input: CompleteLinkInput): Promise<void> {
     this.check();
-    for (const other of this.rows.values()) {
-      if (other.id !== input.id && other.phoneE164 === input.phoneE164) {
-        other.phoneE164 = null;
-        other.verifiedAt = null;
-        other.lastCommandAt = null;
-        other.pausedAt = null;
-      }
-    }
     const row = this.mustGet(input.id);
-    row.phoneE164 = input.phoneE164;
     row.verifiedAt = input.now;
     row.lastCommandAt = input.now;
     row.pausedAt = input.paused ? input.now : null;
-    row.pendingPhoneE164 = null;
     row.codeHash = null;
     row.codeExpiresAt = null;
     row.codeAttempts = 0;
-    return Promise.resolve();
-  }
-
-  setTimeZone(id: string, timeZone: string): Promise<void> {
-    this.check();
-    this.mustGet(id).timeZone = timeZone;
     return Promise.resolve();
   }
 
@@ -188,11 +227,86 @@ export class FakeLinkStore implements ICoachTextLinkReader, ICoachTextLinkWriter
 
   setPausedByPhone(phoneE164: string, pausedAt: Date | null): Promise<boolean> {
     this.check();
-    const row = [...this.rows.values()].find((candidate) => candidate.phoneE164 === phoneE164);
-    if (!row) {
+    const held = [...this.rows.values()].filter(
+      (row) => row.phoneE164 === phoneE164 && row.verifiedAt !== null
+    );
+    for (const row of held) {
+      row.pausedAt = pausedAt;
+    }
+    return Promise.resolve(held.length > 0);
+  }
+}
+
+export class FakeSettingsStore implements ICoachTextSettingsStore {
+  readonly zones = new Map<string, string>();
+
+  getTimeZone(ownerUserId: string): Promise<string | null> {
+    return Promise.resolve(this.zones.get(ownerUserId) ?? null);
+  }
+
+  setTimeZone(ownerUserId: string, timeZone: string): Promise<void> {
+    this.zones.set(ownerUserId, timeZone);
+    return Promise.resolve();
+  }
+}
+
+export class FakeConversationStore implements ICoachTextConversationStore {
+  readonly rows = new Map<string, CoachTextConversation>();
+
+  private row(phoneE164: string): CoachTextConversation {
+    const existing = this.rows.get(phoneE164);
+    if (existing) {
+      return existing;
+    }
+    const created: CoachTextConversation = {
+      phoneE164,
+      chosenLinkId: null,
+      chosenUntil: null,
+      pendingId: null,
+      pendingQuestion: null,
+      pendingExpiresAt: null,
+    };
+    this.rows.set(phoneE164, created);
+    return created;
+  }
+
+  /** Sets the phone's account choice directly. */
+  choose(phoneE164: string, linkId: string, until: Date): void {
+    const row = this.row(phoneE164);
+    row.chosenLinkId = linkId;
+    row.chosenUntil = until;
+  }
+
+  get(phoneE164: string): Promise<CoachTextConversation | null> {
+    const row = this.rows.get(phoneE164);
+    return Promise.resolve(row ? { ...row } : null);
+  }
+
+  ask(phoneE164: string, input: AskQuestionInput): Promise<void> {
+    const row = this.row(phoneE164);
+    row.pendingId = input.pendingId;
+    row.pendingQuestion = JSON.parse(JSON.stringify(input.question)) as unknown;
+    row.pendingExpiresAt = input.expiresAt;
+    return Promise.resolve();
+  }
+
+  answer(phoneE164: string, input: AnswerQuestionInput): Promise<boolean> {
+    const row = this.rows.get(phoneE164);
+    if (
+      !row ||
+      row.pendingId !== input.pendingId ||
+      !row.pendingExpiresAt ||
+      row.pendingExpiresAt.getTime() <= input.now.getTime()
+    ) {
       return Promise.resolve(false);
     }
-    row.pausedAt = pausedAt;
+    row.pendingId = null;
+    row.pendingQuestion = null;
+    row.pendingExpiresAt = null;
+    if (input.choose) {
+      row.chosenLinkId = input.choose.linkId;
+      row.chosenUntil = input.choose.until;
+    }
     return Promise.resolve(true);
   }
 }
@@ -264,6 +378,7 @@ export interface StoredCommand {
   latencyMs: number | null;
   ownerUserId: string | null;
   ownerAccountId: string | null;
+  phoneLabel: string | null;
   createdAt: Date;
 }
 
@@ -299,6 +414,7 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
       latencyMs: null,
       ownerUserId: null,
       ownerAccountId: null,
+      phoneLabel: null,
       createdAt: this.now(),
     };
     this.rows.push(row);
@@ -319,6 +435,7 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
     row.latencyMs = input.latencyMs ?? null;
     row.ownerUserId = input.ownerUserId ?? null;
     row.ownerAccountId = input.ownerAccountId ?? null;
+    row.phoneLabel = input.phoneLabel ?? null;
     return Promise.resolve();
   }
 
@@ -336,6 +453,7 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
       latencyMs: null,
       ownerUserId: null,
       ownerAccountId: null,
+      phoneLabel: null,
       createdAt: this.now(),
     });
     return Promise.resolve();
@@ -364,15 +482,22 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
           body: row.body,
           status: row.status,
           replyText: row.replyText,
+          phoneLabel: row.phoneLabel,
         }))
     );
   }
 }
 
 export type SentNotice =
-  | { kind: 'linked'; email: string; accountName: string; phoneMasked: string; paused: boolean }
-  | { kind: 'movedAway'; email: string; phoneMasked: string }
-  | { kind: 'unlinked'; email: string; accountName: string; phoneMasked: string };
+  | {
+      kind: 'linked';
+      email: string;
+      accountName: string;
+      label: string;
+      phoneMasked: string;
+      paused: boolean;
+    }
+  | { kind: 'removed'; email: string; accountName: string; label: string; phoneMasked: string };
 
 export class FakeNotifier implements ICoachTextNotifier {
   readonly sent: SentNotice[] = [];
@@ -390,17 +515,14 @@ export class FakeNotifier implements ICoachTextNotifier {
   linked(input: {
     email: string;
     accountName: string;
+    label: string;
     phoneMasked: string;
     paused: boolean;
   }): Promise<void> {
     return this.push({ kind: 'linked', ...input });
   }
 
-  movedAway(input: { email: string; phoneMasked: string }): Promise<void> {
-    return this.push({ kind: 'movedAway', ...input });
-  }
-
-  unlinked(input: { email: string; accountName: string; phoneMasked: string }): Promise<void> {
-    return this.push({ kind: 'unlinked', ...input });
+  removed(input: { email: string; accountName: string; label: string; phoneMasked: string }): Promise<void> {
+    return this.push({ kind: 'removed', ...input });
   }
 }
