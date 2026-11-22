@@ -5,15 +5,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import { apiRequest } from '@/lib/api-client';
+import { getUserFriendlyMessage } from '@/lib/error-messages';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
 import { InlineError } from '@/components/v2/InlineError';
 
-// Validation schema
+// Coach (owner) logins only: admin accounts are not reset by email.
 const requestResetSchema = z.object({
   email: z.string().email('Please enter a valid email address').toLowerCase().trim(),
-  userType: z.enum(['owner_user', 'admin_account'], {
-    required_error: 'Please select account type',
-  }),
 });
 
 type RequestResetForm = z.infer<typeof requestResetSchema>;
@@ -29,9 +28,6 @@ export default function RequestPasswordResetPage() {
     reset,
   } = useForm<RequestResetForm>({
     resolver: zodResolver(requestResetSchema),
-    defaultValues: {
-      userType: 'owner_user',
-    },
   });
 
   const onSubmit = async (data: RequestResetForm) => {
@@ -39,33 +35,17 @@ export default function RequestPasswordResetPage() {
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/auth/password-reset/request', {
+      // The API answers the same way whether or not the email has an account.
+      await apiRequest<{ success: boolean; message: string }>('/api/auth/password-reset/request', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ email: data.email, userType: 'owner_user' }),
       });
 
-      const result = await response.json();
-
-      if (response.status === 429) {
-        // Rate limited
-        setSubmitState('error');
-        setErrorMessage(result.message || 'Too many requests. Please try again later.');
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send reset email');
-      }
-
-      // Always show success (email enumeration protection)
       setSubmitState('success');
       reset();
     } catch (error) {
       setSubmitState('error');
-      setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.');
+      setErrorMessage(getUserFriendlyMessage(error));
     }
   };
 
@@ -111,40 +91,6 @@ export default function RequestPasswordResetPage() {
           className="bg-slate-900 rounded-lg shadow-xl p-8 border border-slate-800"
           data-testid="form-password-reset-request"
         >
-          {/* Account Type */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-300 mb-3">
-              Account Type
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center p-3 bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors">
-                <input
-                  type="radio"
-                  value="owner_user"
-                  {...register('userType')}
-                  className="w-4 h-4 text-blue-500 focus:ring-blue-500 focus:ring-2"
-                  data-testid="radio-owner-user"
-                />
-                <span className="ml-3 text-slate-200">Team Owner / Staff</span>
-              </label>
-              <label className="flex items-center p-3 bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors">
-                <input
-                  type="radio"
-                  value="admin_account"
-                  {...register('userType')}
-                  className="w-4 h-4 text-blue-500 focus:ring-blue-500 focus:ring-2"
-                  data-testid="radio-admin-account"
-                />
-                <span className="ml-3 text-slate-200">🔒 Super Admin</span>
-              </label>
-            </div>
-            {errors.userType && (
-              <div className="mt-2">
-                <InlineError message={errors.userType.message!} data-testid="error-userType" />
-              </div>
-            )}
-          </div>
-
           {/* Email Input */}
           <div className="mb-6">
             <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
@@ -209,11 +155,11 @@ export default function RequestPasswordResetPage() {
           {/* Back to Login */}
           <div className="mt-6 text-center">
             <Link
-              href="/login"
+              href="/owners/login"
               className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
               data-testid="link-back-to-login"
             >
-              ← Back to Login
+              ← Back to sign in
             </Link>
           </div>
         </form>

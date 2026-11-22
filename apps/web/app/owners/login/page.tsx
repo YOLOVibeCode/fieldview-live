@@ -138,6 +138,11 @@ export default function OwnerLoginPage() {
         </CardContent>
         <CardFooter className="flex flex-col gap-2 text-sm sm:text-base text-muted-foreground text-center pt-2">
           <p>
+            <a href="/forgot-password" className="text-primary font-medium hover:underline" data-testid="link-forgot-password">
+              Forgot password?
+            </a>
+          </p>
+          <p>
             Don&apos;t have an account?{' '}
             <a href="/owners/register" className="text-primary font-medium hover:underline" data-testid="link-register">
               Register
