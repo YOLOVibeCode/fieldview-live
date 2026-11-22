@@ -7,6 +7,13 @@
  * Enhanced with retry logic and exponential backoff for transient failures.
  */
 
+import type {
+  CoachTextHistory,
+  CoachTextLinkStarted,
+  CoachTextStatus,
+  StartCoachTextLink,
+} from '@fieldview/data-model';
+
 function getApiUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4301';
 }
@@ -917,6 +924,54 @@ export const apiClient = {
   async ownerCameraSourceDisconnect(ownerToken: string, providerId: string): Promise<{ disconnected: boolean }> {
     return apiRequest<{ disconnected: boolean }>(`/api/owners/me/camera-sources/${encodeURIComponent(providerId)}`, {
       method: 'DELETE',
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  /**
+   * Owner text commands: one linked phone that runs game day by text.
+   * All of these require the owner token.
+   */
+  async ownerTextCommands(ownerToken: string): Promise<CoachTextStatus> {
+    return apiRequest<CoachTextStatus>(`/api/owners/me/text-commands`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  /** Starts a link. The answer carries the code, which is shown once and kept nowhere. */
+  async ownerTextCommandsStartLink(
+    ownerToken: string,
+    input: StartCoachTextLink
+  ): Promise<CoachTextLinkStarted> {
+    return apiRequest<CoachTextLinkStarted>(`/api/owners/me/text-commands/link`, {
+      method: 'POST',
+      headers: { ...withBearerToken(ownerToken) },
+      body: JSON.stringify(input),
+      cache: 'no-store',
+    });
+  },
+
+  async ownerTextCommandsUnlink(ownerToken: string): Promise<{ unlinked: boolean }> {
+    return apiRequest<{ unlinked: boolean }>(`/api/owners/me/text-commands/link`, {
+      method: 'DELETE',
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  async ownerTextCommandsSetTimeZone(
+    ownerToken: string,
+    timeZone: string
+  ): Promise<CoachTextStatus> {
+    return apiRequest<CoachTextStatus>(`/api/owners/me/text-commands`, {
+      method: 'PATCH',
+      headers: { ...withBearerToken(ownerToken) },
+      body: JSON.stringify({ timeZone }),
+    });
+  },
+
+  async ownerTextCommandsHistory(ownerToken: string, limit?: number): Promise<CoachTextHistory> {
+    const query = limit === undefined ? '' : `?limit=${encodeURIComponent(String(limit))}`;
+    return apiRequest<CoachTextHistory>(`/api/owners/me/text-commands/history${query}`, {
       headers: { ...withBearerToken(ownerToken) },
     });
   },
