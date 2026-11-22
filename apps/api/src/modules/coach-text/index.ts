@@ -26,7 +26,12 @@ import type {
 } from './interfaces';
 
 export * from './interfaces';
-export { coachTextNumber, isCoachTextEnabled, isCoachTextEnabledFor } from './config';
+export {
+  coachTextNumber,
+  defaultTimeZone,
+  isCoachTextEnabled,
+  isCoachTextEnabledFor,
+} from './config';
 export { emptyTwiml, twimlMessage } from './reply/twiml';
 
 const links = new PrismaLinkRepository(prisma);
