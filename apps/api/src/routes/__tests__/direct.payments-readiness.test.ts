@@ -7,7 +7,12 @@ import { prisma } from '../../lib/prisma';
 import { createDirectRouter } from '../direct';
 
 vi.mock('../../middleware/admin-jwt', () => ({
-  validateAdminToken: (_req: Request, _res: Response, next: NextFunction) => next(),
+  // The owner's own login: only owner access may change price or paywall, and
+  // this guard is about whether that owner can take payments.
+  validateAdminToken: (req: Request, _res: Response, next: NextFunction) => {
+    req.admin = { slug: 'paid-stream', role: 'admin', via: 'owner' };
+    next();
+  },
 }));
 
 vi.mock('../../lib/prisma', () => ({

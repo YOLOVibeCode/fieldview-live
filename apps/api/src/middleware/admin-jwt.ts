@@ -13,6 +13,12 @@ import { UnauthorizedError, ForbiddenError, AppError } from '../lib/errors';
 export interface AdminJwtPayload {
   slug: string;
   role: 'admin';
+  /**
+   * How the admin got in: the owner's own login, or the page's admin password.
+   * Only owner access may change what viewers pay. A token without it counts as
+   * password access.
+   */
+  via?: 'owner' | 'password';
   iat?: number;
   exp?: number;
 }

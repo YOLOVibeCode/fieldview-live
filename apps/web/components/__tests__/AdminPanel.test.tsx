@@ -162,4 +162,73 @@ describe('AdminPanel', () => {
       });
     });
   });
+
+  // Price and paywall decide what viewers pay the owner: only the owner's own
+  // login may change them. The page password still runs everything else.
+  describe('price and paywall', () => {
+    const paidSettings = { paywallEnabled: true, priceInCents: 500 };
+
+    it('locks price and paywall after a password unlock and points to the owner portal', async () => {
+      (fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ token: 'jwt', canEditPayments: false }),
+        })
+        .mockResolvedValue({ ok: true });
+      render(<AdminPanel {...defaultProps} initialSettings={paidSettings} />);
+      fireEvent.change(screen.getByTestId('admin-password-input'), { target: { value: 'correct' } });
+      fireEvent.submit(screen.getByTestId('admin-unlock-form'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('paywall-enabled-checkbox')).toBeDisabled();
+      });
+      expect(screen.getByTestId('paywall-price-input')).toBeDisabled();
+      expect(screen.getByTestId('note-payments-owner-only')).toBeInTheDocument();
+      expect(screen.getByTestId('link-owner-portal-payments')).toHaveAttribute('href', '/owners/direct-streams');
+    });
+
+    it("keeps price and paywall editable after the owner's own login unlocks the panel", async () => {
+      (localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('owner-login-token');
+      (fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ token: 'jwt', canEditPayments: true }),
+        })
+        .mockResolvedValue({ ok: true });
+      render(<AdminPanel {...defaultProps} initialSettings={paidSettings} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('paywall-enabled-checkbox')).not.toBeDisabled();
+      });
+      expect(screen.getByTestId('paywall-price-input')).not.toBeDisabled();
+      expect(screen.queryByTestId('note-payments-owner-only')).not.toBeInTheDocument();
+    });
+
+    it('leaves price and paywall out of the save after a password unlock', async () => {
+      const fetchMock = fetch as ReturnType<typeof vi.fn>;
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ token: 'jwt', canEditPayments: false }),
+        })
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve({ success: true }) });
+      render(<AdminPanel {...defaultProps} initialSettings={paidSettings} />);
+      fireEvent.change(screen.getByTestId('admin-password-input'), { target: { value: 'correct' } });
+      fireEvent.submit(screen.getByTestId('admin-unlock-form'));
+      await waitFor(() => {
+        expect(screen.getByTestId('save-settings-button')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('save-settings-button'));
+
+      await waitFor(() => {
+        const saveCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/settings'));
+        expect(saveCall).toBeDefined();
+        const body = JSON.parse(String((saveCall?.[1] as RequestInit | undefined)?.body)) as Record<string, unknown>;
+        expect(body).not.toHaveProperty('paywallEnabled');
+        expect(body).not.toHaveProperty('priceInCents');
+        expect(body).toHaveProperty('chatEnabled');
+      });
+    });
+  });
 });
