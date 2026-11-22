@@ -6,7 +6,8 @@
 import { getEmailProvider } from './email';
 import { logger } from './logger';
 
-const BASE_URL = process.env.APP_URL || 'http://localhost:4300';
+// Same fallback as receipts and watch links: a reset link must never point at localhost.
+const BASE_URL = (process.env.APP_URL || 'https://fieldview.live').replace(/\/$/, '');
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@fieldview.live';
 const COMPANY_NAME = 'FieldView.Live';
 

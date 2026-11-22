@@ -61,12 +61,13 @@ function ResetPasswordContent() {
     const verifyToken = async () => {
       setVerifyState('verifying');
       try {
-        const result = await apiRequest<{ success: boolean; message?: string }>(
-          `/api/auth/password-reset/verify/${token}`,
-          { retries: 1 }
+        // The token goes in the body, never in the URL, so request logs never hold it.
+        const result = await apiRequest<{ valid: boolean; message?: string }>(
+          '/api/auth/password-reset/verify',
+          { method: 'POST', body: JSON.stringify({ token }), retries: 1 }
         );
 
-        if (result.success) {
+        if (result.valid) {
           setVerifyState('valid');
         } else {
           setVerifyState('invalid');
@@ -101,9 +102,9 @@ function ResetPasswordContent() {
 
       setSubmitState('success');
       
-      // Redirect to login after 2 seconds
+      // Back to the coach sign-in after 2 seconds (only coach logins reset by email).
       setTimeout(() => {
-        router.push('/login?reset=success');
+        router.push('/owners/login?reset=success');
       }, 2000);
     } catch (error) {
       setSubmitState('error');
