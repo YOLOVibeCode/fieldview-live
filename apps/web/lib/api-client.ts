@@ -209,6 +209,26 @@ export interface OwnerPaymentsAgreementResult {
   sellerKey: string;
 }
 
+// A coach's game page as the owner list shows it (GET /api/owners/direct-streams).
+// Viewers watch it at /direct/<slug>.
+export interface OwnerDirectStreamSummary {
+  id: string;
+  slug: string;
+  title: string;
+  /** active | archived | deleted */
+  status: string;
+  streamUrl: string | null;
+  scheduledStartAt: string | null;
+  paywallEnabled: boolean;
+  priceInCents: number;
+  chatEnabled: boolean;
+  scoreboardEnabled: boolean;
+  listed: boolean;
+  eventsCount?: number;
+  registrationsCount?: number;
+  createdAt: string;
+}
+
 export interface OwnerPurchaseEarnings {
   purchaseId: string;
   grossCents: number;
@@ -896,6 +916,16 @@ export const apiClient = {
 
   async ownerLedger(ownerToken: string): Promise<OwnerLedgerResponse> {
     return apiRequest<OwnerLedgerResponse>(`/api/owners/me/ledger`, {
+      headers: { ...withBearerToken(ownerToken) },
+    });
+  },
+
+  /** The coach's game pages, newest first. */
+  async ownerDirectStreams(
+    ownerToken: string,
+    status: 'active' | 'archived' | 'all' = 'active'
+  ): Promise<{ streams: OwnerDirectStreamSummary[] }> {
+    return apiRequest<{ streams: OwnerDirectStreamSummary[] }>(`/api/owners/direct-streams?status=${status}`, {
       headers: { ...withBearerToken(ownerToken) },
     });
   },

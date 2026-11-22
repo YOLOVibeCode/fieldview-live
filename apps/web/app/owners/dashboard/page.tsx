@@ -1,15 +1,24 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 
+import { DirectStreamLink } from '@/components/DirectStreamLink';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { apiClient, type OwnerEarningsTotals, type OwnerPaymentsStatus } from '@/lib/api-client';
+import {
+  apiClient,
+  type OwnerDirectStreamSummary,
+  type OwnerEarningsTotals,
+  type OwnerPaymentsStatus,
+} from '@/lib/api-client';
 import {
   getPaymentsBadgeLabel,
   getPaymentsReadinessPhase,
 } from '@/lib/owner-payments-readiness';
+
+/** How many game pages the dashboard lists; the rest are on the Direct Streams page. */
+const DASHBOARD_PAGE_LIMIT = 5;
 
 function formatCurrency(cents: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
@@ -25,6 +34,22 @@ function DashboardInner() {
   const [showConnectedToast, setShowConnectedToast] = useState(false);
   // The text commands card shows only once the API says this account has the feature.
   const [textCommandsEnabled, setTextCommandsEnabled] = useState(false);
+  // The coach's game pages, newest first; null until the list arrives.
+  const [directStreams, setDirectStreams] = useState<OwnerDirectStreamSummary[] | null>(null);
+  const [directStreamsFailed, setDirectStreamsFailed] = useState(false);
+
+  const fetchDirectStreams = useCallback(async () => {
+    const token = localStorage.getItem('owner_token');
+    if (!token) return;
+    try {
+      const { streams } = await apiClient.ownerDirectStreams(token);
+      setDirectStreams(streams);
+      setDirectStreamsFailed(false);
+    } catch {
+      setDirectStreams(null);
+      setDirectStreamsFailed(true);
+    }
+  }, []);
 
   const fetchPaymentsStatus = useCallback(async () => {
     const token = localStorage.getItem('owner_token');
@@ -86,11 +111,12 @@ function DashboardInner() {
 
   useEffect(() => {
     if (authenticated) {
+      void fetchDirectStreams();
       void fetchPaymentsStatus();
       void fetchEarnings();
       void fetchTextCommands();
     }
-  }, [authenticated, fetchPaymentsStatus, fetchEarnings, fetchTextCommands]);
+  }, [authenticated, fetchDirectStreams, fetchPaymentsStatus, fetchEarnings, fetchTextCommands]);
 
   useEffect(() => {
     if (authenticated && searchParams.get('payments_connected') === 'true') {
@@ -118,6 +144,11 @@ function DashboardInner() {
   const badgeLabel = paymentsStatus
     ? getPaymentsBadgeLabel(getPaymentsReadinessPhase(paymentsStatus))
     : 'Not started';
+
+  const directStreamsLoading = directStreams === null && !directStreamsFailed;
+  const noDirectStreams = directStreams !== null && directStreams.length === 0;
+  const shownDirectStreams = directStreams?.slice(0, DASHBOARD_PAGE_LIMIT) ?? [];
+  const moreDirectStreams = directStreams ? directStreams.length - shownDirectStreams.length : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -167,6 +198,83 @@ function DashboardInner() {
         )}
 
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="card-interactive sm:col-span-2 lg:col-span-3" data-testid="card-direct-streams">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <CardTitle className="text-base sm:text-lg">Direct Streams</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Your game pages, and the link to share for each</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-3">
+              {directStreamsLoading && (
+                <p
+                  className="text-xs sm:text-sm text-muted-foreground"
+                  data-testid="loading-direct-streams"
+                  aria-live="polite"
+                >
+                  Loading your links…
+                </p>
+              )}
+              {directStreamsFailed && (
+                <p
+                  className="text-xs sm:text-sm text-muted-foreground"
+                  data-testid="error-direct-streams"
+                  role="status"
+                >
+                  Your links could not be loaded. Open Direct Streams to see them.
+                </p>
+              )}
+              {noDirectStreams && (
+                <p
+                  className="text-xs sm:text-sm text-muted-foreground"
+                  data-testid="empty-direct-streams"
+                  role="status"
+                >
+                  No game pages yet. Make one, then share its link with your viewers.
+                </p>
+              )}
+              {shownDirectStreams.length > 0 && (
+                <ul className="divide-y rounded-md border">
+                  {shownDirectStreams.map((stream) => (
+                    <li
+                      key={stream.id}
+                      className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                      data-testid={`row-direct-link-${stream.slug}`}
+                    >
+                      <span className="text-sm font-medium truncate">{stream.title}</span>
+                      <DirectStreamLink slug={stream.slug} className="sm:justify-end" />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {moreDirectStreams > 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="text-more-direct-streams">
+                  {moreDirectStreams} more on the Direct Streams page
+                </p>
+              )}
+              <div>
+                <a
+                  href="/owners/direct-streams"
+                  className="inline-flex items-center gap-1 text-sm sm:text-base text-primary font-medium hover:underline"
+                  data-testid="link-direct-streams"
+                >
+                  {noDirectStreams ? 'Create a game page' : 'Manage direct streams'}
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="card-interactive" data-testid="card-games">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
