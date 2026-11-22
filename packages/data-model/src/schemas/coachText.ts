@@ -7,9 +7,22 @@
 
 import { z } from 'zod';
 
-export const COACH_TEXT_LINK_STATES = ['none', 'pending', 'linked', 'paused', 'expired'] as const;
+/**
+ * A login lists several phones; each phone row is in one of these states.
+ * pending = added in the portal, its LINK text not yet arrived (the code may have run out).
+ */
+export const COACH_TEXT_PHONE_STATES = ['pending', 'linked', 'paused', 'expired'] as const;
 
-export type CoachTextLinkState = (typeof COACH_TEXT_LINK_STATES)[number];
+export type CoachTextPhoneState = (typeof COACH_TEXT_PHONE_STATES)[number];
+
+/** Phones one login can add (its own and its helpers'). */
+export const COACH_TEXT_MAX_PHONES_PER_LOGIN = 10;
+
+/** Accounts one phone can work with: a question offers them as the digits 1 to 9. */
+export const COACH_TEXT_MAX_ACCOUNTS_PER_PHONE = 9;
+
+/** A name with no control characters (no line breaks), as shown in the portal and in emails. */
+const NO_CONTROL_CHARACTERS = /^[^\p{Cc}]+$/u;
 
 const TIME_ZONE_NAME = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)*$/;
 
@@ -28,9 +41,16 @@ export function isIanaTimeZone(value: string): boolean {
 
 const zTimeZone = z.string().min(1).max(64).refine(isIanaTimeZone, 'Unknown time zone');
 
-/** POST /api/owners/me/text-commands/link */
-export const StartCoachTextLinkSchema = z.object({
+/** POST /api/owners/me/text-commands/phones: a phone for the person named, e.g. Jordan. */
+export const AddCoachTextPhoneSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Name is required')
+    .max(40, 'Name is too long')
+    .regex(NO_CONTROL_CHARACTERS, 'Name has characters that cannot be shown'),
   phone: z.string().min(1, 'Phone number is required').max(32, 'Phone number is too long'),
+  /** The browser's zone. Used only while the login has not picked one. */
   timeZone: zTimeZone.optional(),
 });
 
@@ -49,23 +69,35 @@ export const CoachTextCommandHelpSchema = z.object({
   description: z.string().min(1).max(200),
 });
 
+/** One phone on the login's list. */
+export const CoachTextPhoneStatusSchema = z.object({
+  id: z.string().uuid(),
+  label: z.string(),
+  phoneMasked: z.string(),
+  state: z.enum(COACH_TEXT_PHONE_STATES),
+  codeExpiresAt: z.string().datetime().nullable(),
+  verifiedAt: z.string().datetime().nullable(),
+  lastCommandAt: z.string().datetime().nullable(),
+  /** A text from this number arrived but could not be proven to come from it. */
+  unverifiedTextSeen: z.boolean(),
+});
+
 /** GET /api/owners/me/text-commands (also the answer to the PATCH). */
 export const CoachTextStatusSchema = z.object({
   enabled: z.boolean(),
-  state: z.enum(COACH_TEXT_LINK_STATES),
   productNumber: z.string(),
-  phoneMasked: z.string().nullable(),
-  pendingPhoneMasked: z.string().nullable(),
-  codeExpiresAt: z.string().datetime().nullable(),
-  unverifiedTextSeen: z.boolean(),
-  verifiedAt: z.string().datetime().nullable(),
-  lastCommandAt: z.string().datetime().nullable(),
   timeZone: z.string(),
+  maxPhones: z.number().int().positive(),
+  phones: z.array(CoachTextPhoneStatusSchema),
   commands: z.array(CoachTextCommandHelpSchema),
 });
 
-/** Answer to POST /api/owners/me/text-commands/link. The code is returned this once. */
-export const CoachTextLinkStartedSchema = z.object({
+/**
+ * Answer to POST /api/owners/me/text-commands/phones and to …/phones/:id/code.
+ * The code is returned this once.
+ */
+export const CoachTextPhoneCodeSchema = z.object({
+  id: z.string().uuid(),
   code: z.string().regex(/^\d{6}$/),
   codeExpiresAt: z.string().datetime(),
   productNumber: z.string(),
@@ -77,6 +109,8 @@ export const CoachTextHistoryItemSchema = z.object({
   body: z.string(),
   status: z.string(),
   replyText: z.string().nullable(),
+  /** The name of the phone that sent the text, as it was then. */
+  phoneLabel: z.string().nullable(),
 });
 
 export const CoachTextHistorySchema = z.object({
@@ -84,13 +118,15 @@ export const CoachTextHistorySchema = z.object({
 });
 
 /**
- * The one open question stored on a link (CoachTextLink.pendingQuestion).
+ * The one open question stored for a phone (CoachTextPhone.pendingQuestion).
  * It records exactly what the coach was offered, so a digit answer acts on what they saw.
  * Option 0 is never stored: it always means "none of these".
  */
 export const CoachTextQuestionOptionSchema = z.object({
   n: z.number().int().min(1).max(9),
   label: z.string().min(1).max(160),
+  /** For kind 'pick_account': the phone's link to that account. */
+  linkId: z.string().uuid().optional(),
   eventId: z.string().uuid().optional(),
   streamUrl: z.string().url().optional(),
   directStreamId: z.string().uuid().optional(),
@@ -104,12 +140,13 @@ export const CoachTextQuestionSchema = z.object({
   context: z.record(z.unknown()).optional(),
 });
 
-export type StartCoachTextLink = z.infer<typeof StartCoachTextLinkSchema>;
+export type AddCoachTextPhone = z.infer<typeof AddCoachTextPhoneSchema>;
 export type UpdateCoachTextSettings = z.infer<typeof UpdateCoachTextSettingsSchema>;
 export type CoachTextHistoryQuery = z.infer<typeof CoachTextHistoryQuerySchema>;
 export type CoachTextCommandHelp = z.infer<typeof CoachTextCommandHelpSchema>;
+export type CoachTextPhoneStatus = z.infer<typeof CoachTextPhoneStatusSchema>;
 export type CoachTextStatus = z.infer<typeof CoachTextStatusSchema>;
-export type CoachTextLinkStarted = z.infer<typeof CoachTextLinkStartedSchema>;
+export type CoachTextPhoneCode = z.infer<typeof CoachTextPhoneCodeSchema>;
 export type CoachTextHistoryItem = z.infer<typeof CoachTextHistoryItemSchema>;
 export type CoachTextHistory = z.infer<typeof CoachTextHistorySchema>;
 export type CoachTextQuestionOption = z.infer<typeof CoachTextQuestionOptionSchema>;

@@ -1,31 +1,34 @@
 /**
  * Owner Text Commands Routes.
  *
- *   GET    /me/text-commands          - is it on, and how this login's phone link stands
- *   POST   /me/text-commands/link     - make a link code for a phone (answered once)
- *   DELETE /me/text-commands/link     - unlink the phone, or drop a code that is waiting
- *   PATCH  /me/text-commands          - change the time zone
- *   GET    /me/text-commands/history  - this login's own recent texts
+ *   GET    /me/text-commands                  - is it on, and this login's phones
+ *   POST   /me/text-commands/phones           - add a named phone and make its code (answered once)
+ *   POST   /me/text-commands/phones/:id/code  - a new code for a phone still waiting
+ *   DELETE /me/text-commands/phones/:id       - take a phone off the list
+ *   PATCH  /me/text-commands                  - change the time zone
+ *   GET    /me/text-commands/history          - this login's own recent texts
  *
- * A link belongs to one login, not to the account. The login comes from the session
- * token and never from the request, so one login cannot read or change another's link.
- * The code is answered once and is never logged.
+ * The phones belong to the login, not to the account. The login comes from the
+ * session token and never from the request, so one login cannot read or change
+ * another's phones: their ids answer 404. Codes are answered once and never logged.
  */
 
 import {
+  AddCoachTextPhoneSchema,
+  COACH_TEXT_MAX_PHONES_PER_LOGIN,
   CoachTextHistoryQuerySchema,
-  StartCoachTextLinkSchema,
   UpdateCoachTextSettingsSchema,
+  type AddCoachTextPhone,
   type CoachTextHistory,
   type CoachTextHistoryQuery,
-  type CoachTextLinkStarted,
+  type CoachTextPhoneCode,
   type CoachTextStatus,
-  type StartCoachTextLink,
   type UpdateCoachTextSettings,
 } from '@fieldview/data-model';
 import express, { type NextFunction, type Response, type Router } from 'express';
+import { z } from 'zod';
 
-import { ForbiddenError, UnauthorizedError } from '../lib/errors';
+import { ForbiddenError, NotFoundError, UnauthorizedError } from '../lib/errors';
 import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { coachTextLinkRateLimit } from '../middleware/rateLimit';
 import { validateRequest } from '../middleware/validation';
@@ -36,10 +39,11 @@ import {
   isCoachTextEnabledFor,
   ownerLogins,
   phoneLinking,
-  type CoachTextLinkStatus,
+  type CoachTextPortalStatus,
   type ICoachTextCommandReader,
   type IOwnerLoginReader,
   type IPhoneLinkPortal,
+  type IssuedCode,
   type OwnerLogin,
 } from '../modules/coach-text';
 
@@ -48,6 +52,8 @@ export interface OwnersTextCommandsRouterDeps {
   history?: Pick<ICoachTextCommandReader, 'listForOwnerUser'>;
   logins?: IOwnerLoginReader;
 }
+
+const PhoneIdParamsSchema = z.object({ id: z.string().uuid('Unknown phone') });
 
 type Handler = (req: AuthRequest, res: Response) => Promise<void>;
 
@@ -79,35 +85,47 @@ function iso(date: Date | null): string | null {
 function notTurnedOn(): CoachTextStatus {
   return {
     enabled: false,
-    state: 'none',
     productNumber: coachTextNumber(),
-    phoneMasked: null,
-    pendingPhoneMasked: null,
-    codeExpiresAt: null,
-    unverifiedTextSeen: false,
-    verifiedAt: null,
-    lastCommandAt: null,
     timeZone: defaultTimeZone(),
+    maxPhones: COACH_TEXT_MAX_PHONES_PER_LOGIN,
+    phones: [],
     commands: [],
   };
 }
 
-/** What a login may see about its own link: masked numbers, and never a code. */
-function statusView(status: CoachTextLinkStatus): CoachTextStatus {
+/** What a login may see about its own phones: masked numbers, and never a code. */
+function statusView(status: CoachTextPortalStatus): CoachTextStatus {
   return {
     enabled: true,
-    state: status.state,
     productNumber: coachTextNumber(),
-    phoneMasked: status.phoneMasked,
-    pendingPhoneMasked: status.pendingPhoneMasked,
-    codeExpiresAt: iso(status.codeExpiresAt),
-    unverifiedTextSeen: status.unverifiedTextSeen,
-    verifiedAt: iso(status.verifiedAt),
-    lastCommandAt: iso(status.lastCommandAt),
     timeZone: status.timeZone,
+    maxPhones: COACH_TEXT_MAX_PHONES_PER_LOGIN,
+    phones: status.phones.map((phone) => ({
+      id: phone.id,
+      label: phone.label,
+      phoneMasked: phone.phoneMasked,
+      state: phone.state,
+      codeExpiresAt: iso(phone.codeExpiresAt),
+      verifiedAt: iso(phone.verifiedAt),
+      lastCommandAt: iso(phone.lastCommandAt),
+      unverifiedTextSeen: phone.unverifiedTextSeen,
+    })),
     // The commands a coach can text arrive with the next update.
     commands: [],
   };
+}
+
+/** Answers a code once. Nothing between here and the browser may keep it. */
+function sendCode(res: Response, status: number, issued: IssuedCode): void {
+  const productNumber = coachTextNumber();
+  const body: CoachTextPhoneCode = {
+    id: issued.id,
+    code: issued.code,
+    codeExpiresAt: issued.codeExpiresAt.toISOString(),
+    productNumber,
+    smsHref: `sms:${productNumber}?&body=${encodeURIComponent(`LINK ${issued.code}`)}`,
+  };
+  res.set('Cache-Control', 'no-store').status(status).json(body);
 }
 
 export function createOwnersTextCommandsRouter(deps: OwnersTextCommandsRouterDeps = {}): Router {
@@ -143,37 +161,44 @@ export function createOwnersTextCommandsRouter(deps: OwnersTextCommandsRouterDep
   );
 
   router.post(
-    '/me/text-commands/link',
+    '/me/text-commands/phones',
     requireOwnerAuth,
-    validateRequest({ body: StartCoachTextLinkSchema }),
+    validateRequest({ body: AddCoachTextPhoneSchema }),
     coachTextLinkRateLimit,
     route(async (req, res) => {
       requireTurnedOn(req);
       const login = await loginOf(req);
-      const { phone, timeZone } = req.body as StartCoachTextLink;
+      const { label, phone, timeZone } = req.body as AddCoachTextPhone;
 
-      const started = await linking.startLink({ ownerUserId: login.ownerUserId, phone, timeZone });
-      const productNumber = coachTextNumber();
-      const body: CoachTextLinkStarted = {
-        code: started.code,
-        codeExpiresAt: started.codeExpiresAt.toISOString(),
-        productNumber,
-        smsHref: `sms:${productNumber}?&body=${encodeURIComponent(`LINK ${started.code}`)}`,
-      };
+      sendCode(res, 201, await linking.addPhone({ ownerUserId: login.ownerUserId, label, phone, timeZone }));
+    })
+  );
 
-      // The code is answered once. Nothing between here and the browser may keep it.
-      res.set('Cache-Control', 'no-store').status(201).json(body);
+  router.post(
+    '/me/text-commands/phones/:id/code',
+    requireOwnerAuth,
+    validateRequest({ params: PhoneIdParamsSchema }),
+    coachTextLinkRateLimit,
+    route(async (req, res) => {
+      requireTurnedOn(req);
+      const login = await loginOf(req);
+
+      sendCode(res, 200, await linking.newCode(login.ownerUserId, String(req.params.id)));
     })
   );
 
   router.delete(
-    '/me/text-commands/link',
+    '/me/text-commands/phones/:id',
     requireOwnerAuth,
+    validateRequest({ params: PhoneIdParamsSchema }),
     route(async (req, res) => {
-      // Not held back when the feature is off: a phone that was linked can always be unlinked.
+      // Not held back when the feature is off: a phone on the list can always be removed.
       const login = await loginOf(req);
-      const { unlinked } = await linking.unlink(login.ownerUserId);
-      res.json({ unlinked });
+      const { removed } = await linking.removePhone(login.ownerUserId, String(req.params.id));
+      if (!removed) {
+        throw new NotFoundError('Phone not found');
+      }
+      res.json({ removed });
     })
   );
 
@@ -207,6 +232,7 @@ export function createOwnersTextCommandsRouter(deps: OwnersTextCommandsRouterDep
           body: row.body,
           status: row.status,
           replyText: row.replyText,
+          phoneLabel: row.phoneLabel,
         })),
       };
       res.json(body);

@@ -119,9 +119,9 @@ paths:
         - Owners
       summary: Get text commands status
       description: |
-        Says whether text commands are turned on for this account and how this login's phone link stands.
-        A link belongs to one login, not to the account. Phone numbers are masked and a link code is never returned.
-        When the feature is off for the account, the answer has `enabled: false` and empty values.
+        Says whether text commands are turned on for this account and lists this login's phones: its own and its helpers'.
+        The phones belong to the login, not to the account. Phone numbers are masked and a code is never returned.
+        When the feature is off for the account, the answer has `enabled: false` and no phones.
       operationId: getOwnerTextCommands
       security:
         - BearerAuth: []
@@ -142,7 +142,7 @@ paths:
       tags:
         - Owners
       summary: Change the time zone for text commands
-      description: Sets the time zone used to read and show times for this login's phone link.
+      description: Sets the time zone used to read and show times for this login's text commands.
       operationId: updateOwnerTextCommands
       security:
         - BearerAuth: []
@@ -178,17 +178,18 @@ paths:
               schema:
                 $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
 
-  /owners/me/text-commands/link:
+  /owners/me/text-commands/phones:
     post:
       tags:
         - Owners
-      summary: Make a link code for a phone
+      summary: Add a phone and make its code
       description: |
-        Makes a six-digit code for a US or Canadian mobile number. The owner texts `LINK <code>` from that phone
-        to the product number to link it. The code is returned this once, is stored only as a hash and lasts ten minutes
-        unless configured otherwise. Nothing changes for a phone that is already linked until the code is texted.
-        Limited to five codes per account in 15 minutes.
-      operationId: startOwnerTextCommandsLink
+        Adds a named US or Canadian mobile number to this login's list (up to ten) and makes its six-digit code.
+        The person texts `LINK <code>` from that phone to the product number to link it; that text is their opt-in.
+        The code is returned this once, is stored only as a hash and lasts ten minutes unless configured otherwise.
+        A number still waiting gets a fresh code on the same row. Whether another account uses the number is never
+        shown, and nothing changes for that account. Codes are limited to ten per account in 15 minutes.
+      operationId: addOwnerTextCommandsPhone
       security:
         - BearerAuth: []
       requestBody:
@@ -196,10 +197,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas.yaml#/components/schemas/StartCoachTextLinkRequest'
+              $ref: '../components/schemas.yaml#/components/schemas/AddCoachTextPhoneRequest'
       responses:
         '201':
-          description: The link code
+          description: The phone's id and its code
           headers:
             Cache-Control:
               description: Always `no-store`, so nothing between the API and the browser keeps the code
@@ -208,9 +209,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '../components/schemas.yaml#/components/schemas/CoachTextLinkStarted'
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextPhoneCode'
         '400':
-          description: Missing or invalid phone number, a number outside the US and Canada, the product number itself, or an unknown time zone
+          description: Missing name or number, a number outside the US and Canada, or the product number itself
           content:
             application/json:
               schema:
@@ -227,31 +228,123 @@ paths:
             application/json:
               schema:
                 $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
-        '429':
-          description: More than five link codes for this account in 15 minutes
+        '409':
+          description: '`PHONE_ALREADY_ADDED` (the number is already linked on this login) or `PHONE_LIMIT_REACHED` (ten phones)'
           content:
             application/json:
               schema:
                 $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Owners
-      summary: Unlink the phone
-      description: |
-        Removes this login's linked phone, or drops a link code that is waiting. It works even when
-        text commands are turned off for the account, so a linked phone can always be removed.
-      operationId: unlinkOwnerTextCommands
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Whether there was anything to remove
+        '429':
+          description: More than ten codes for this account in 15 minutes
           content:
             application/json:
               schema:
-                $ref: '../components/schemas.yaml#/components/schemas/CoachTextUnlinked'
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+
+  /owners/me/text-commands/phones/{phoneId}/code:
+    post:
+      tags:
+        - Owners
+      summary: Make a new code for a phone
+      description: A new code for a phone still waiting for its `LINK` text, or one that went unused too long. Counts toward the same limit as adding a phone.
+      operationId: newOwnerTextCommandsPhoneCode
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: phoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The phone's id and its new code
+          headers:
+            Cache-Control:
+              description: Always `no-store`
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextPhoneCode'
+        '400':
+          description: The id is not a phone id
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
         '401':
           description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '403':
+          description: Text commands are not turned on for this account
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '404':
+          description: Not a phone on this login's list
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '409':
+          description: '`PHONE_ALREADY_LINKED`: the phone is linked or paused'
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '429':
+          description: More than ten codes for this account in 15 minutes
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+
+  /owners/me/text-commands/phones/{phoneId}:
+    delete:
+      tags:
+        - Owners
+      summary: Remove a phone
+      description: |
+        Takes one phone off this login's list, waiting or linked. The phone's opt-in is revoked only when no other
+        account still has it. It works even when text commands are turned off, so a phone can always be removed.
+      operationId: removeOwnerTextCommandsPhone
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: phoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The phone was removed
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextPhoneRemoved'
+        '400':
+          description: The id is not a phone id
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '404':
+          description: Not a phone on this login's list
           content:
             application/json:
               schema:
