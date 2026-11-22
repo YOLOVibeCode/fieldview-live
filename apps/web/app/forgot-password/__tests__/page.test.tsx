@@ -8,7 +8,11 @@ import RequestPasswordResetPage from '../page';
 
 // Mock Next.js navigation
 vi.mock('next/link', () => ({
-  default: ({ children, href }: any) => <a href={href}>{children}</a>,
+  default: ({ children, href, ...rest }: any) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 // Mock fetch
@@ -23,17 +27,16 @@ describe('RequestPasswordResetPage', () => {
     render(<RequestPasswordResetPage />);
 
     expect(screen.getByText('Reset Password')).toBeInTheDocument();
-    expect(screen.getByTestId('radio-owner-user')).toBeInTheDocument();
-    expect(screen.getByTestId('radio-admin-account')).toBeInTheDocument();
     expect(screen.getByTestId('input-email')).toBeInTheDocument();
     expect(screen.getByTestId('btn-submit')).toBeInTheDocument();
   });
 
-  it('should have owner_user selected by default', () => {
+  // Admin accounts are not reset by email: only coach (owner) logins are.
+  it('offers coach logins only and links back to the coach sign-in', () => {
     render(<RequestPasswordResetPage />);
 
-    const ownerRadio = screen.getByTestId('radio-owner-user') as HTMLInputElement;
-    expect(ownerRadio.checked).toBe(true);
+    expect(screen.queryByTestId('radio-admin-account')).not.toBeInTheDocument();
+    expect(screen.getByTestId('link-back-to-login')).toHaveAttribute('href', '/owners/login');
   });
 
   // Note: Email validation happens on submit, so we test successful validation flow
@@ -66,9 +69,10 @@ describe('RequestPasswordResetPage', () => {
     await user.type(emailInput, 'test@example.com');
     await user.click(submitButton);
 
+    // Sent to the API's own address, not to the web site's (which has no such route).
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/auth/password-reset/request',
+        expect.stringMatching(/^https?:\/\/[^/]+\/api\/auth\/password-reset\/request$/),
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -90,7 +94,9 @@ describe('RequestPasswordResetPage', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
-      json: async () => ({ message: 'Too many requests' }),
+      json: async () => ({
+        error: { code: 'RATE_LIMIT', message: 'Too many password reset requests, please try again later.' },
+      }),
     } as Response);
 
     render(<RequestPasswordResetPage />);
@@ -104,22 +110,6 @@ describe('RequestPasswordResetPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('error-message')).toHaveTextContent('Too many requests');
     });
-  });
-
-  it('should allow switching between user types', async () => {
-    const user = userEvent.setup();
-    render(<RequestPasswordResetPage />);
-
-    const ownerRadio = screen.getByTestId('radio-owner-user') as HTMLInputElement;
-    const adminRadio = screen.getByTestId('radio-admin-account') as HTMLInputElement;
-
-    expect(ownerRadio.checked).toBe(true);
-    expect(adminRadio.checked).toBe(false);
-
-    await user.click(adminRadio);
-
-    expect(ownerRadio.checked).toBe(false);
-    expect(adminRadio.checked).toBe(true);
   });
 
   it('should clear form after successful submission', async () => {

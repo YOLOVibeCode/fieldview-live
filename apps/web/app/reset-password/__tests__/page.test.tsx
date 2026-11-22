@@ -11,9 +11,11 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
 }));
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push,
   }),
   useSearchParams: () => ({
     get: vi.fn((key: string) => (key === 'token' ? 'test-token-123' : null)),
@@ -30,23 +32,39 @@ describe('ResetPasswordPage', () => {
     // Default mock for token verification
     (fetch as any).mockResolvedValue({
       ok: true,
-      json: async () => ({ success: true }),
+      json: async () => ({ valid: true }),
     });
   });
 
+  // The token goes in the request body, never in the URL, so request logs never hold it.
   it('should verify token on mount', async () => {
     const mockFetch = vi.mocked(fetch);
     render(<ResetPasswordPage />);
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/auth/password-reset/verify/test-token-123'),
-        expect.any(Object)
+        expect.stringMatching(/\/api\/auth\/password-reset\/verify$/),
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ token: 'test-token-123' }) })
       );
     });
 
     await waitFor(() => {
       expect(screen.getByTestId('form-reset-password')).toBeInTheDocument();
+    });
+  });
+
+  it('shows why a link that the API calls not valid cannot be used', async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ valid: false, message: 'This reset link has expired. Please request a new one.' }),
+    } as Response);
+
+    render(<ResetPasswordPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Invalid Reset Link')).toBeInTheDocument();
+      expect(screen.getByText('This reset link has expired. Please request a new one.')).toBeInTheDocument();
     });
   });
 
@@ -138,7 +156,7 @@ describe('ResetPasswordPage', () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true }),
+        json: async () => ({ valid: true }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -176,6 +194,9 @@ describe('ResetPasswordPage', () => {
       expect(screen.getByTestId('success-state')).toBeInTheDocument();
       expect(screen.getByText('Password Reset Successful!')).toBeInTheDocument();
     });
+
+    // Back to the coach sign-in, not the admin one.
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/owners/login?reset=success'), { timeout: 3500 });
   });
 
   it('should toggle password visibility', async () => {
@@ -221,7 +242,7 @@ describe('ResetPasswordPage', () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true }),
+        json: async () => ({ valid: true }),
       } as Response)
       .mockResolvedValueOnce({
         ok: false,
