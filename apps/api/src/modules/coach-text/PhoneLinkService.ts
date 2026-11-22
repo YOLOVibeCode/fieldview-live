@@ -1,63 +1,63 @@
 /**
- * Coach text commands: linking a phone to a login.
+ * Coach text commands: the phones on a login's list.
  *
- * The portal makes a six-digit code for a phone number. The link is made only
- * when that phone texts the code back, so the text is both the proof that the
- * coach holds the phone and the coach's opt-in.
+ * The portal adds a phone with the person's name and gets a six-digit code. The
+ * phone is linked only when it texts the code back, so the text is both the
+ * proof that the person holds the phone and their opt-in. A login keeps up to
+ * ten phones (its own and its helpers'), and one phone can work with up to nine
+ * accounts. Linking a phone to another account never takes it from the first.
  */
 
+import { randomUUID } from 'crypto';
+
 import {
+  COACH_TEXT_MAX_ACCOUNTS_PER_PHONE,
+  COACH_TEXT_MAX_PHONES_PER_LOGIN,
   SMS_OWNER_CONSENT_TEXT_VERSION,
   SMS_PRODUCT_NUMBER_E164,
   SMS_PURPOSE_OWNER_COMMANDS,
   SMS_PURPOSE_VIEWER_NOTIFICATIONS,
-  type CoachTextLinkState,
+  type CoachTextPhoneState,
 } from '@fieldview/data-model';
 
-import { BadRequestError } from '../../lib/errors';
+import { AppError, BadRequestError, NotFoundError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { maskPhoneE164, parseUsCanadaPhoneToE164 } from '../../lib/phone';
 
 import { generateLinkCode, hashLinkCode, linkCodeMatches } from './codes';
-import {
-  MAX_CODE_ATTEMPTS,
-  coachTextNumber,
-  codeTtlSeconds,
-  defaultTimeZone,
-  isOwnerAllowed,
-  linkIdleDays,
-} from './config';
+import { MAX_CODE_ATTEMPTS, coachTextNumber, codeTtlSeconds, defaultTimeZone } from './config';
 import type {
+  AddPhoneInput,
   CoachTextLinkRecord,
-  CoachTextLinkStatus,
-  CoachTextOwner,
+  CoachTextPhoneView,
+  CoachTextPortalStatus,
   ICoachTextCommandReader,
   ICoachTextConsent,
   ICoachTextLinkReader,
   ICoachTextLinkWriter,
   ICoachTextNotifier,
+  ICoachTextSettingsStore,
   IPhoneLinkInbound,
   IPhoneLinkPortal,
+  IssuedCode,
   LinkCompletion,
   LinkRefusal,
-  StartLinkInput,
-  StartedLink,
 } from './interfaces';
+import { isIdle, isLive, mayUse } from './rules';
 
 const CONSENT_SOURCE = 'inbound-link';
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface PhoneLinkServiceDeps {
   links: ICoachTextLinkReader & ICoachTextLinkWriter;
   consent: ICoachTextConsent;
   commands: Pick<ICoachTextCommandReader, 'countUnverifiedSince'>;
   notifier: ICoachTextNotifier;
+  settings: ICoachTextSettingsStore;
   now?: () => Date;
 }
 
 function hasUnexpiredCode(link: CoachTextLinkRecord, now: Date): boolean {
   return (
-    link.pendingPhoneE164 !== null &&
     link.codeHash !== null &&
     link.codeExpiresAt !== null &&
     link.codeExpiresAt.getTime() > now.getTime()
@@ -69,19 +69,25 @@ function isCodeLive(link: CoachTextLinkRecord, now: Date): boolean {
   return hasUnexpiredCode(link, now) && link.codeAttempts < MAX_CODE_ATTEMPTS;
 }
 
-function isIdle(link: CoachTextLinkRecord, now: Date): boolean {
-  const last = link.lastCommandAt ?? link.verifiedAt;
-  return last !== null && now.getTime() - last.getTime() > linkIdleDays() * DAY_MS;
+/** Linked and used within the idle limit: nothing to prove again. */
+function isInUse(link: CoachTextLinkRecord, now: Date): boolean {
+  return link.verifiedAt !== null && !isIdle(link, now);
 }
 
-/** Owner accounts stay `pending_verification` for a long time, so only a suspension blocks. */
-function mayLink(owner: CoachTextOwner): boolean {
-  return (
-    owner.loginStatus === 'active' &&
-    owner.accountStatus !== 'suspended' &&
-    !owner.accountSuspended &&
-    isOwnerAllowed(owner.ownerAccountId)
-  );
+function stateOf(link: CoachTextLinkRecord, now: Date): CoachTextPhoneState {
+  if (link.verifiedAt === null) {
+    return 'pending';
+  }
+  if (isIdle(link, now)) {
+    // A phone proving itself again shows as waiting while its new code lasts.
+    return hasUnexpiredCode(link, now) ? 'pending' : 'expired';
+  }
+  return link.pausedAt ? 'paused' : 'linked';
+}
+
+/** The accounts a phone can act for now. */
+function liveAccountCount(links: CoachTextLinkRecord[], now: Date): number {
+  return new Set(links.filter((link) => isLive(link, now)).map((link) => link.owner.ownerAccountId)).size;
 }
 
 function refused(reason: LinkRefusal): LinkCompletion {
@@ -93,6 +99,7 @@ export class PhoneLinkService implements IPhoneLinkPortal, IPhoneLinkInbound {
   private readonly consent: ICoachTextConsent;
   private readonly commands: Pick<ICoachTextCommandReader, 'countUnverifiedSince'>;
   private readonly notifier: ICoachTextNotifier;
+  private readonly settings: ICoachTextSettingsStore;
   private readonly now: () => Date;
 
   constructor(deps: PhoneLinkServiceDeps) {
@@ -100,119 +107,120 @@ export class PhoneLinkService implements IPhoneLinkPortal, IPhoneLinkInbound {
     this.consent = deps.consent;
     this.commands = deps.commands;
     this.notifier = deps.notifier;
+    this.settings = deps.settings;
     this.now = deps.now ?? ((): Date => new Date());
   }
 
   // ── Portal ────────────────────────────────────────────────────────────────
 
   /**
-   * Makes a code for a phone. Nothing changes for a phone that is already
-   * linked, to this login or another, until the code is texted from it.
+   * Adds a phone to the login's list and makes its code. A number still waiting
+   * gets a fresh code on its row. Whether another login uses the number is
+   * never said: nothing changes for them until this phone texts the code.
    */
-  async startLink(input: StartLinkInput): Promise<StartedLink> {
-    const phone = parseUsCanadaPhoneToE164(input.phone);
-    if (phone === coachTextNumber() || phone === SMS_PRODUCT_NUMBER_E164) {
-      throw new BadRequestError('Enter your own mobile number, not the FieldView number');
+  async addPhone(input: AddPhoneInput): Promise<IssuedCode> {
+    const now = this.now();
+    const phone = this.parsePhone(input.phone);
+    await this.keepFirstTimeZone(input.ownerUserId, input.timeZone);
+
+    const existing = await this.links.findByOwnerAndPhone(input.ownerUserId, phone);
+    if (existing) {
+      if (isInUse(existing, now)) {
+        throw new AppError('PHONE_ALREADY_ADDED', 'This number is already on your list.', 409);
+      }
+      return this.issueCode(existing.id, now, input.label);
     }
 
-    const link = await this.links.ensure(input.ownerUserId);
+    const listed = await this.links.listByOwnerUserId(input.ownerUserId);
+    if (listed.length >= COACH_TEXT_MAX_PHONES_PER_LOGIN) {
+      throw new AppError(
+        'PHONE_LIMIT_REACHED',
+        `You can add up to ${COACH_TEXT_MAX_PHONES_PER_LOGIN} phones. Remove one first.`,
+        409
+      );
+    }
+
+    const id = randomUUID();
     const code = generateLinkCode();
-    const codeExpiresAt = new Date(this.now().getTime() + codeTtlSeconds() * 1000);
-    await this.links.setPending(link.id, {
-      pendingPhoneE164: phone,
-      codeHash: hashLinkCode(code, link.id),
+    const codeExpiresAt = this.codeExpiry(now);
+    await this.links.create({
+      id,
+      ownerUserId: input.ownerUserId,
+      phoneE164: phone,
+      label: input.label,
+      codeHash: hashLinkCode(code, id),
       codeExpiresAt,
-      timeZone: input.timeZone,
     });
 
     logger.info(
       { ownerUserId: input.ownerUserId, phone: maskPhoneE164(phone) },
-      'Coach text link code made'
+      'Coach text phone added'
     );
-    return { code, codeExpiresAt };
+    return { id, code, codeExpiresAt };
   }
 
-  async getStatus(ownerUserId: string): Promise<CoachTextLinkStatus> {
+  /** A new code for a phone still waiting, or one that went idle. */
+  async newCode(ownerUserId: string, linkId: string): Promise<IssuedCode> {
     const now = this.now();
-    const link = await this.links.findByOwnerUserId(ownerUserId);
+    const link = await this.ownLink(ownerUserId, linkId);
     if (!link) {
-      return {
-        state: 'none',
-        phoneMasked: null,
-        pendingPhoneMasked: null,
-        codeExpiresAt: null,
-        unverifiedTextSeen: false,
-        verifiedAt: null,
-        lastCommandAt: null,
-        timeZone: defaultTimeZone(),
-      };
+      throw new NotFoundError('Phone not found');
     }
-
-    const waiting = isCodeLive(link, now);
-    const hasPhone = link.phoneE164 !== null && link.verifiedAt !== null;
-
-    let state: CoachTextLinkState;
-    if (waiting) {
-      state = 'pending';
-    } else if (!hasPhone) {
-      state = 'none';
-    } else if (isIdle(link, now)) {
-      state = 'expired';
-    } else if (link.pausedAt) {
-      state = 'paused';
-    } else {
-      state = 'linked';
+    if (isInUse(link, now)) {
+      throw new AppError('PHONE_ALREADY_LINKED', 'This phone is already linked.', 409);
     }
+    return this.issueCode(link.id, now);
+  }
 
-    let unverifiedTextSeen = false;
-    if (waiting && link.pendingPhoneE164 && link.codeExpiresAt) {
-      const codeMadeAt = new Date(link.codeExpiresAt.getTime() - codeTtlSeconds() * 1000);
-      const seen = await this.commands.countUnverifiedSince(link.pendingPhoneE164, codeMadeAt);
-      unverifiedTextSeen = seen > 0;
-    }
-
-    return {
-      state,
-      phoneMasked: hasPhone && link.phoneE164 ? maskPhoneE164(link.phoneE164) : null,
-      pendingPhoneMasked:
-        waiting && link.pendingPhoneE164 ? maskPhoneE164(link.pendingPhoneE164) : null,
-      codeExpiresAt: waiting ? link.codeExpiresAt : null,
-      unverifiedTextSeen,
-      verifiedAt: hasPhone ? link.verifiedAt : null,
-      lastCommandAt: hasPhone ? link.lastCommandAt : null,
-      timeZone: link.timeZone ?? defaultTimeZone(),
-    };
+  async getStatus(ownerUserId: string): Promise<CoachTextPortalStatus> {
+    const now = this.now();
+    const [timeZone, listed] = await Promise.all([
+      this.settings.getTimeZone(ownerUserId),
+      this.links.listByOwnerUserId(ownerUserId),
+    ]);
+    const phones = await Promise.all(listed.map((link) => this.viewOf(link, now)));
+    return { timeZone: timeZone ?? defaultTimeZone(), phones };
   }
 
   async setTimeZone(ownerUserId: string, timeZone: string): Promise<void> {
-    const link = await this.links.ensure(ownerUserId);
-    await this.links.setTimeZone(link.id, timeZone);
+    await this.settings.setTimeZone(ownerUserId, timeZone);
   }
 
-  async unlink(ownerUserId: string): Promise<{ unlinked: boolean }> {
-    const link = await this.links.findByOwnerUserId(ownerUserId);
-    if (!link || (link.phoneE164 === null && link.pendingPhoneE164 === null)) {
-      return { unlinked: false };
+  /**
+   * Takes one phone off the login's list. Its opt-in is revoked only when no
+   * other account still has the phone.
+   */
+  async removePhone(ownerUserId: string, linkId: string): Promise<{ removed: boolean }> {
+    const link = await this.ownLink(ownerUserId, linkId);
+    if (!link) {
+      return { removed: false };
     }
 
     await this.links.delete(link.id);
 
-    const phone = link.phoneE164;
-    if (phone !== null) {
-      await this.quietly('revoke consent after unlink', () =>
-        this.consent.revokeConsent(phone, SMS_PURPOSE_OWNER_COMMANDS)
-      );
-      this.notify('unlinked', () =>
-        this.notifier.unlinked({
+    if (link.verifiedAt !== null) {
+      const phone = link.phoneE164;
+      const stillLinked = await this.links.findVerifiedByPhone(phone);
+      if (stillLinked.length === 0) {
+        await this.quietly('revoke consent after removal', () =>
+          this.consent.revokeConsent(phone, SMS_PURPOSE_OWNER_COMMANDS)
+        );
+      }
+      this.notify('removed', () =>
+        this.notifier.removed({
           email: link.owner.email,
           accountName: link.owner.accountName,
+          label: link.label,
           phoneMasked: maskPhoneE164(phone),
         })
       );
     }
 
-    logger.info({ ownerUserId, hadPhone: phone !== null }, 'Coach text link removed');
-    return { unlinked: true };
+    logger.info(
+      { ownerUserId, phone: maskPhoneE164(link.phoneE164), wasLinked: link.verifiedAt !== null },
+      'Coach text phone removed'
+    );
+    return { removed: true };
   }
 
   // ── Inbound texts ─────────────────────────────────────────────────────────
@@ -241,11 +249,20 @@ export class PhoneLinkService implements IPhoneLinkPortal, IPhoneLinkInbound {
     }
 
     const owner = match.owner;
-    if (!mayLink(owner)) {
+    if (!mayUse(owner)) {
       return refused('not_allowed');
     }
 
-    const previousHolder = await this.links.findByPhone(input.from);
+    const proven = await this.links.findVerifiedByPhone(input.from);
+    const otherAccounts = new Set(
+      proven
+        .filter((link) => link.owner.ownerAccountId !== owner.ownerAccountId)
+        .map((link) => link.owner.ownerAccountId)
+    );
+    if (otherAccounts.size >= COACH_TEXT_MAX_ACCOUNTS_PER_PHONE) {
+      return refused('too_many_accounts');
+    }
+
     const viewerConsent = await this.consent.getByPhoneAndPurpose(
       input.from,
       SMS_PURPOSE_VIEWER_NOTIFICATIONS
@@ -264,31 +281,23 @@ export class PhoneLinkService implements IPhoneLinkPortal, IPhoneLinkInbound {
       await this.consent.revokeConsent(input.from, SMS_PURPOSE_OWNER_COMMANDS);
     }
 
-    await this.links.complete({ id: match.id, phoneE164: input.from, now, paused });
+    await this.links.complete({ id: match.id, now, paused });
 
     // The link is made. Nothing below may undo it or fail the text.
-    const replacedPhone = match.phoneE164;
-    if (replacedPhone !== null && replacedPhone !== input.from) {
-      await this.quietly('revoke consent for the replaced phone', () =>
-        this.consent.revokeConsent(replacedPhone, SMS_PURPOSE_OWNER_COMMANDS)
-      );
-    }
-
+    const accountCount = liveAccountCount(
+      await this.links.findVerifiedByPhone(input.from).catch(() => [] as CoachTextLinkRecord[]),
+      now
+    );
     const phoneMasked = maskPhoneE164(input.from);
     this.notify('linked', () =>
       this.notifier.linked({
         email: owner.email,
         accountName: owner.accountName,
+        label: match.label,
         phoneMasked,
         paused,
       })
     );
-    if (previousHolder && previousHolder.ownerUserId !== owner.ownerUserId) {
-      const earlierEmail = previousHolder.owner.email;
-      this.notify('movedAway', () =>
-        this.notifier.movedAway({ email: earlierEmail, phoneMasked })
-      );
-    }
 
     logger.info(
       {
@@ -296,41 +305,110 @@ export class PhoneLinkService implements IPhoneLinkPortal, IPhoneLinkInbound {
         ownerAccountId: owner.ownerAccountId,
         phone: phoneMasked,
         paused,
-        moved: Boolean(previousHolder && previousHolder.ownerUserId !== owner.ownerUserId),
+        accountCount,
       },
       'Coach text phone linked'
     );
 
     return {
       matched: true,
+      linkId: match.id,
       ownerUserId: owner.ownerUserId,
       ownerAccountId: owner.ownerAccountId,
       accountName: owner.accountName,
+      label: match.label,
       paused,
+      accountCount,
     };
   }
 
-  /** A verified STOP. Does nothing for a phone no login holds. */
+  /** A verified STOP pauses every account the phone works with. */
   async pause(phoneE164: string): Promise<void> {
     const held = await this.links.setPausedByPhone(phoneE164, this.now());
     if (!held) {
       return;
     }
     await this.consent.revokeConsent(phoneE164, SMS_PURPOSE_OWNER_COMMANDS);
-    logger.info({ phone: maskPhoneE164(phoneE164) }, 'Coach text link paused by STOP');
+    logger.info({ phone: maskPhoneE164(phoneE164) }, 'Coach text phone paused by STOP');
   }
 
-  /** A verified START. Does nothing for a phone no login holds. */
+  /** A verified START resumes every account the phone works with. */
   async resume(phoneE164: string): Promise<void> {
     const held = await this.links.setPausedByPhone(phoneE164, null);
     if (!held) {
       return;
     }
     await this.consent.clearRevocation(phoneE164, SMS_PURPOSE_OWNER_COMMANDS);
-    logger.info({ phone: maskPhoneE164(phoneE164) }, 'Coach text link resumed by START');
+    logger.info({ phone: maskPhoneE164(phoneE164) }, 'Coach text phone resumed by START');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private parsePhone(typed: string): string {
+    const phone = parseUsCanadaPhoneToE164(typed);
+    if (phone === coachTextNumber() || phone === SMS_PRODUCT_NUMBER_E164) {
+      throw new BadRequestError('Enter a mobile number, not the FieldView number');
+    }
+    return phone;
+  }
+
+  /** The browser's zone becomes the login's only until the login picks one. */
+  private async keepFirstTimeZone(ownerUserId: string, timeZone: string | undefined): Promise<void> {
+    if (!timeZone || (await this.settings.getTimeZone(ownerUserId)) !== null) {
+      return;
+    }
+    await this.settings.setTimeZone(ownerUserId, timeZone);
+  }
+
+  private codeExpiry(now: Date): Date {
+    return new Date(now.getTime() + codeTtlSeconds() * 1000);
+  }
+
+  private async issueCode(linkId: string, now: Date, label?: string): Promise<IssuedCode> {
+    const code = generateLinkCode();
+    const codeExpiresAt = this.codeExpiry(now);
+    await this.links.setCode(linkId, {
+      codeHash: hashLinkCode(code, linkId),
+      codeExpiresAt,
+      ...(label === undefined ? {} : { label }),
+    });
+    return { id: linkId, code, codeExpiresAt };
+  }
+
+  /** The link, only when it is on this login's list. */
+  private async ownLink(ownerUserId: string, linkId: string): Promise<CoachTextLinkRecord | null> {
+    const link = await this.links.findById(linkId);
+    return link && link.ownerUserId === ownerUserId ? link : null;
+  }
+
+  private async viewOf(link: CoachTextLinkRecord, now: Date): Promise<CoachTextPhoneView> {
+    const state = stateOf(link, now);
+    const waiting = state === 'pending';
+
+    let unverifiedTextSeen = false;
+    if (waiting && link.codeExpiresAt && hasUnexpiredCode(link, now)) {
+      const codeMadeAt = new Date(link.codeExpiresAt.getTime() - codeTtlSeconds() * 1000);
+      const seen = await this.commands.countUnverifiedSince(link.phoneE164, codeMadeAt);
+      unverifiedTextSeen = seen > 0;
+    }
+
+    // A code with no tries left is as good as run out, so the page offers a new one.
+    let codeExpiresAt = waiting ? link.codeExpiresAt : null;
+    if (codeExpiresAt && link.codeAttempts >= MAX_CODE_ATTEMPTS && codeExpiresAt.getTime() > now.getTime()) {
+      codeExpiresAt = now;
+    }
+
+    return {
+      id: link.id,
+      label: link.label,
+      phoneMasked: maskPhoneE164(link.phoneE164),
+      state,
+      codeExpiresAt,
+      verifiedAt: link.verifiedAt,
+      lastCommandAt: link.lastCommandAt,
+      unverifiedTextSeen,
+    };
+  }
 
   /** Runs a follow-up step whose failure must not fail the caller. */
   private async quietly(what: string, step: () => Promise<void>): Promise<void> {

@@ -61,6 +61,7 @@ export class PrismaCommandLog implements ICoachTextCommandWriter, ICoachTextComm
         latencyMs: input.latencyMs ?? null,
         ownerUserId: input.ownerUserId ?? null,
         ownerAccountId: input.ownerAccountId ?? null,
+        phoneLabel: input.phoneLabel ?? null,
       },
     });
   }
@@ -95,7 +96,7 @@ export class PrismaCommandLog implements ICoachTextCommandWriter, ICoachTextComm
       where: { ownerUserId },
       orderBy: { createdAt: 'desc' },
       take: limit,
-      select: { createdAt: true, body: true, status: true, replyText: true },
+      select: { createdAt: true, body: true, status: true, replyText: true, phoneLabel: true },
     });
   }
 }

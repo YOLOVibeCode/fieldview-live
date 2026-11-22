@@ -77,7 +77,8 @@ model OwnerUser {
 
   ownerAccount            OwnerAccount         @relation(fields: [ownerAccountId], references: [id])
   organizationMemberships OrganizationMember[]
-  coachTextLink           CoachTextLink? // The phone this login texts commands from
+  coachTextLinks          CoachTextLink[] // Phones that text commands for this login's account
+  coachTextSettings       CoachTextSettings?
 
   @@unique([email])
   @@index([ownerAccountId])
@@ -1102,32 +1103,52 @@ model GameEventConfirmation {
   @@index([viewerId])
 }
 
-// A phone linked to one owner login for text commands (apps/api/src/modules/coach-text).
-// The link hangs off the login, not the account: the account is read through the login on
-// every text, so a stored copy can never go stale. `codeHash` is SHA-256 of the link id and
-// the six-digit code. The code itself is never stored.
+// A phone that texts commands for an owner login's account (apps/api/src/modules/coach-text).
+// One row per (login, phone): a login lists several phones (its own and its helpers'), and one
+// phone can be on several logins, each its own account. The link hangs off the login, not the
+// account: the account is read through the login on every text, so a stored copy can never go
+// stale. `codeHash` is SHA-256 of the link id and the six-digit code. The code is never stored.
 model CoachTextLink {
-  id               String    @id @default(uuid()) @db.Uuid
-  ownerUserId      String    @unique @db.Uuid
-  phoneE164        String?   @unique // Verified phone, null until the code text arrives
-  verifiedAt       DateTime?
-  lastCommandAt    DateTime?
-  pausedAt         DateTime? // Set by a verified STOP, cleared by a verified START
-  pendingPhoneE164 String? // Typed in the portal, not yet proven
-  codeHash         String?
-  codeExpiresAt    DateTime?
-  codeAttempts     Int       @default(0)
-  timeZone         String? // IANA zone, null = COACH_TEXT_DEFAULT_TIME_ZONE
-  pendingId        String?   @db.Uuid // One open question at a time
-  pendingQuestion  Json?
-  pendingExpiresAt DateTime?
-  busyUntil        DateTime? // Per-link lease, one text at a time
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id            String    @id @default(uuid()) @db.Uuid
+  ownerUserId   String    @db.Uuid
+  phoneE164     String // Typed in the portal; proven once verifiedAt is set
+  label         String // The person's name, e.g. Jordan
+  verifiedAt    DateTime?
+  lastCommandAt DateTime?
+  pausedAt      DateTime? // Set by a verified STOP, cleared by a verified START
+  codeHash      String?
+  codeExpiresAt DateTime?
+  codeAttempts  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   ownerUser OwnerUser @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
 
-  @@index([pendingPhoneE164])
+  @@unique([ownerUserId, phoneE164])
+  @@index([phoneE164])
+}
+
+// One row per phone that has texted as a coach: its conversation state, shared by all its
+// links. The account choice is checked again on every text, so a removed or paused link never
+// keeps the choice alive.
+model CoachTextPhone {
+  phoneE164        String    @id
+  chosenLinkId     String?   @db.Uuid // The account this phone texts for, while chosenUntil lasts
+  chosenUntil      DateTime?
+  pendingId        String?   @db.Uuid // One open question at a time
+  pendingQuestion  Json?
+  pendingExpiresAt DateTime?
+  busyUntil        DateTime? // Lease: one text at a time per phone
+  updatedAt        DateTime  @updatedAt
+}
+
+// Text command settings of one owner login.
+model CoachTextSettings {
+  ownerUserId String    @id @db.Uuid
+  timeZone    String? // IANA zone, null = COACH_TEXT_DEFAULT_TIME_ZONE
+  updatedAt   DateTime  @updatedAt
+
+  ownerUser OwnerUser @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
 }
 
 // Audit of every text the coach bot looked at. No foreign keys on purpose: a deleted login
@@ -1138,6 +1159,7 @@ model CoachTextCommand {
   ownerUserId       String?   @db.Uuid
   ownerAccountId    String?   @db.Uuid // Snapshot only, never used for authority
   phoneE164         String
+  phoneLabel        String? // Snapshot of the sending phone's name on its link
   twilioVerified    Boolean
   body              String
   interpreter       String // 'link' | 'answer' | 'rules' | 'model' | 'none'

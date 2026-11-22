@@ -3,6 +3,7 @@
  * card shows only to an account that has the feature.
  */
 
+import type { CoachTextPhoneStatus, CoachTextStatus } from '@fieldview/data-model';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -46,21 +47,27 @@ Object.defineProperty(globalThis, 'localStorage', {
   },
 });
 
-function textCommands(enabled: boolean) {
+function textCommands(enabled: boolean, phones: CoachTextPhoneStatus[] = []): CoachTextStatus {
   return {
     enabled,
-    state: 'none',
     productNumber: '+18773435308',
-    phoneMasked: null,
-    pendingPhoneMasked: null,
-    codeExpiresAt: null,
-    unverifiedTextSeen: false,
-    verifiedAt: null,
-    lastCommandAt: null,
     timeZone: 'America/Chicago',
+    maxPhones: 10,
+    phones,
     commands: [],
-  } as Awaited<ReturnType<typeof apiClient.ownerTextCommands>>;
+  };
 }
+
+const LINKED_PHONE: CoachTextPhoneStatus = {
+  id: '7d4f2b1e-8c3a-4e5f-9b6d-1a2c3e4f5a6b',
+  label: 'Jordan',
+  phoneMasked: '(***) ***-0142',
+  state: 'linked',
+  codeExpiresAt: null,
+  verifiedAt: '2026-11-20T15:30:00.000Z',
+  lastCommandAt: null,
+  unverifiedTextSeen: false,
+};
 
 function gamePage(slug: string, title: string): OwnerDirectStreamSummary {
   return {
@@ -114,7 +121,7 @@ describe('OwnerDashboardPage text commands card', () => {
     expect(getTextCommands).toHaveBeenCalledWith('owner-jwt');
     const card = screen.getByTestId('card-text-commands');
     expect(card).toHaveTextContent('Text commands');
-    expect(card).toHaveTextContent('Run game day from your phone');
+    expect(card).toHaveTextContent('Run game day from your phones.');
     const link = screen.getByTestId('link-text-commands');
     expect(card).toContainElement(link);
     expect(link).toHaveAttribute('href', '/owners/text-commands');
@@ -132,8 +139,8 @@ describe('OwnerDashboardPage text commands card', () => {
     expect(cards.indexOf('card-text-commands')).toBe(cards.indexOf('card-camera-sources') + 1);
   });
 
-  it('shows the card whatever the state of the link', async () => {
-    getTextCommands.mockResolvedValue({ ...textCommands(true), state: 'linked' });
+  it('shows the card whatever phones the account has', async () => {
+    getTextCommands.mockResolvedValue(textCommands(true, [LINKED_PHONE]));
 
     await renderDashboard();
 

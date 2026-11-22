@@ -697,7 +697,7 @@ components:
         fatalErrors:
           type: integer
 
-    # Owner text commands (one linked phone per owner login)
+    # Owner text commands (each owner login keeps a list of phones; one phone may work with several accounts)
     CoachTextCommandHelp:
       type: object
       required:
@@ -713,64 +713,47 @@ components:
           maxLength: 200
           description: What the command does
 
-    CoachTextStatus:
+    CoachTextPhoneStatus:
       type: object
       required:
-        - enabled
-        - state
-        - productNumber
+        - id
+        - label
         - phoneMasked
-        - pendingPhoneMasked
+        - state
         - codeExpiresAt
-        - unverifiedTextSeen
         - verifiedAt
         - lastCommandAt
-        - timeZone
-        - commands
+        - unverifiedTextSeen
       properties:
-        enabled:
-          type: boolean
-          description: False when text commands are not turned on for this account. Every other field then holds its empty value.
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: The person's name, e.g. Jordan
+        phoneMasked:
+          type: string
+          description: The number, masked. The full number is never returned.
+          example: '(***) ***-0142'
         state:
           type: string
           enum:
-            - none
             - pending
             - linked
             - paused
             - expired
           description: |
-            How this login's phone link stands.
-            - `none`: no phone is linked
-            - `pending`: a link code is waiting to be texted (also while an older phone is still linked)
+            How this phone stands.
+            - `pending`: added, waiting for its `LINK` text (`codeExpiresAt` says until when; a past time means ask for a new code)
             - `linked`: the phone can text commands
             - `paused`: the phone texted STOP; texting START turns it back on
-            - `expired`: the phone has not texted for too long and must be linked again
-        productNumber:
-          type: string
-          description: The number to text (E.164)
-          example: '+18773435308'
-        phoneMasked:
-          type:
-            - string
-            - 'null'
-          description: The linked phone, masked. The full number is never returned.
-          example: '(***) ***-0100'
-        pendingPhoneMasked:
-          type:
-            - string
-            - 'null'
-          description: The phone a link code is waiting for, masked
-          example: '(***) ***-0100'
+            - `expired`: the phone has not texted for too long; a new code proves it again
         codeExpiresAt:
           type:
             - string
             - 'null'
           format: date-time
-          description: When the waiting link code stops working. The code itself is never returned here.
-        unverifiedTextSeen:
-          type: boolean
-          description: A text arrived from the waiting phone but could not be verified
+          description: When the waiting code stops working. The code itself is never returned here.
         verifiedAt:
           type:
             - string
@@ -783,41 +766,78 @@ components:
             - 'null'
           format: date-time
           description: When the phone last texted
+        unverifiedTextSeen:
+          type: boolean
+          description: A text arrived from this number while its code waited but could not be verified
+
+    CoachTextStatus:
+      type: object
+      required:
+        - enabled
+        - productNumber
+        - timeZone
+        - maxPhones
+        - phones
+        - commands
+      properties:
+        enabled:
+          type: boolean
+          description: False when text commands are not turned on for this account. `phones` is then empty.
+        productNumber:
+          type: string
+          description: The number to text (E.164)
+          example: '+18773435308'
         timeZone:
           type: string
           description: IANA time zone used to read and show times
           example: America/Chicago
+        maxPhones:
+          type: integer
+          description: How many phones a login can list
+          example: 10
+        phones:
+          type: array
+          description: This login's phones, oldest first. Whether another account uses a number is never shown.
+          items:
+            $ref: '#/components/schemas/CoachTextPhoneStatus'
         commands:
           type: array
-          description: The commands the phone can text. Empty until commands ship.
+          description: The commands the phones can text. Empty until commands ship.
           items:
             $ref: '#/components/schemas/CoachTextCommandHelp'
 
-    StartCoachTextLinkRequest:
+    AddCoachTextPhoneRequest:
       type: object
       required:
+        - label
         - phone
       properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: The person's name, shown in the portal, the history and the emails
+          example: Jordan
         phone:
           type: string
           minLength: 1
           maxLength: 32
           description: A US or Canadian mobile number, in any common form
-          example: '214-555-0100'
-        timeZone:
-          type: string
-          maxLength: 64
-          description: IANA time zone. When left out, the time zone already on the link is kept.
-          example: America/Chicago
+          example: '214-555-0142'
 
-    CoachTextLinkStarted:
+    CoachTextPhoneCode:
       type: object
       required:
+        - id
         - code
         - codeExpiresAt
         - productNumber
         - smsHref
       properties:
+        id:
+          type: string
+          format: uuid
+          description: The phone's row on the login's list
         code:
           type: string
           pattern: '^\d{6}$'
@@ -846,14 +866,14 @@ components:
           description: IANA time zone
           example: America/Denver
 
-    CoachTextUnlinked:
+    CoachTextPhoneRemoved:
       type: object
       required:
-        - unlinked
+        - removed
       properties:
-        unlinked:
+        removed:
           type: boolean
-          description: False when there was no phone and no waiting code to remove
+          const: true
 
     CoachTextHistoryItem:
       type: object
@@ -862,7 +882,13 @@ components:
         - body
         - status
         - replyText
+        - phoneLabel
       properties:
+        phoneLabel:
+          type:
+            - string
+            - 'null'
+          description: The name of the phone that sent the text, as it was then
         createdAt:
           type: string
           format: date-time
