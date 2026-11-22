@@ -142,73 +142,10 @@ router.get(
           }
         }
 
-        // If not found, create a placeholder (simple slugs only — never parent/event)
+        // A page exists only when its owner (or a super admin) created it. Opening an
+        // unknown address must not create one under somebody else's account.
         if (!directStream) {
-          if (eventSlug || key.includes('/')) {
-            throw new NotFoundError('Stream not found');
-          }
-          // Get default owner account for new streams
-          const defaultOwner = await prisma.ownerAccount.findFirst({
-            select: { id: true },
-          });
-
-          if (!defaultOwner) {
-            throw new AppError('INTERNAL_ERROR', 'No owner account found. Please create an owner account first.', 500);
-          }
-
-          // Find or create a game for chat
-          let gameId: string | null = null;
-          
-          const existingGame = await prisma.game.findFirst({
-            where: { title: `Direct Stream: ${slug}` },
-            select: { id: true },
-          });
-
-          if (existingGame) {
-            gameId = existingGame.id;
-          } else {
-              const newGame = await prisma.game.create({
-                data: {
-                  ownerAccountId: defaultOwner.id,
-                  title: `Direct Stream: ${slug}`,
-                  homeTeam: slug,
-                  awayTeam: 'TBD',
-                  startsAt: new Date(),
-                  priceCents: 0,
-                  currency: 'USD',
-                  keywordCode: `DIRECT-${slug.toUpperCase()}-${Date.now()}`,
-                  qrUrl: '',
-                  state: 'live',
-                },
-              });
-            gameId = newGame.id;
-          }
-
-          // Hash a default admin password (admin2026)
-          const defaultHashedPassword = await bcrypt.hash('admin2026', 10);
-
-          // Special configuration for e2e-test demo stream
-          const isE2ETest = key === 'e2e-test';
-
-          // Create DirectStream record
-          directStream = await prisma.directStream.create({
-            data: {
-              slug: key,
-              title: isE2ETest ? 'E2E Test Demo Stream' : `Direct Stream: ${slug}`,
-              ownerAccountId: defaultOwner.id,  // 🆕 Required field
-              adminPassword: defaultHashedPassword,
-              gameId,
-              chatEnabled: true,
-              paywallEnabled: false,
-              priceInCents: 0,
-              scoreboardEnabled: isE2ETest ? true : false, // Enable scoreboard for e2e-test
-              scoreboardHomeTeam: isE2ETest ? 'Demo Home' : null,
-              scoreboardAwayTeam: isE2ETest ? 'Demo Away' : null,
-              scoreboardHomeColor: isE2ETest ? '#3B82F6' : null,
-              scoreboardAwayColor: isE2ETest ? '#EF4444' : null,
-            },
-            include: { game: { include: { streamSource: true } } },
-          });
+          throw new NotFoundError('Stream not found');
         }
 
         // Use event-specific stream URL if available, otherwise parent's
@@ -377,7 +314,7 @@ router.post(
               throw new AppError('INTERNAL_ERROR', 'Server configuration error', 500);
             }
             const token = jwt.sign(
-              { slug: authSlug, role: 'admin' }, // 🆕 Use parent slug in JWT
+              { slug: authSlug, role: 'admin', via: 'owner' }, // 🆕 Use parent slug in JWT
               jwtSecret,
               { expiresIn: '1h' }
             );
@@ -409,6 +346,7 @@ router.post(
               viewerId: adminViewer.id,
               displayName: adminDisplayName,
               gameId,
+              canEditPayments: true,
             });
           }
         }
@@ -435,7 +373,7 @@ router.post(
         }
 
         const token = jwt.sign(
-          { slug: authSlug, role: 'admin' }, // 🆕 Use parent slug in JWT
+          { slug: authSlug, role: 'admin', via: 'password' }, // 🆕 Use parent slug in JWT
           jwtSecret,
           { expiresIn: '1h' }
         );
@@ -473,6 +411,7 @@ router.post(
           viewerId: adminViewer.id,
           displayName: adminDisplayName,
           gameId,
+          canEditPayments: false,
         });
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to unlock admin');
@@ -543,6 +482,19 @@ router.post(
 
         if (!existingStream) {
           throw new NotFoundError('Stream not found');
+        }
+
+        // Price and paywall decide what viewers pay the owner, so only the owner's own
+        // login may change them. The page's admin password runs the page itself.
+        const changesPayments =
+          (body.paywallEnabled !== undefined && body.paywallEnabled !== existingStream.paywallEnabled) ||
+          (body.priceInCents !== undefined && body.priceInCents !== existingStream.priceInCents);
+        if (changesPayments && req.admin?.via !== 'owner') {
+          throw new AppError(
+            'OWNER_LOGIN_REQUIRED',
+            'Sign in to the owner portal to change the price or the paywall.',
+            403
+          );
         }
 
         // 🆕 If this is an event, check if DirectStreamEvent exists
@@ -881,31 +833,9 @@ router.post(
           return res.json({ success: true, streamUrl: updated.streamUrl });
         }
         
-        // Create new stream (requires ownerAccount)
-        const defaultOwner = await prisma.ownerAccount.findFirst({
-          select: { id: true },
-        });
-
-        if (!defaultOwner) {
-          throw new AppError('INTERNAL_ERROR', 'No owner account found', 500);
-        }
-
-        const defaultHashedPassword = await bcrypt.hash(password || 'admin2026', 10);
-        
-        const updated = await prisma.directStream.create({
-          data: {
-            slug: key,
-            title: `Direct Stream: ${slug}`,
-            streamUrl,
-            chatEnabled: true,
-            ownerAccountId: defaultOwner.id,
-            adminPassword: defaultHashedPassword,
-          },
-        });
-
-        logger.info({ slug, streamUrl }, 'Direct stream URL updated (legacy endpoint)');
-
-        res.json({ success: true, streamUrl: updated.streamUrl });
+        // An address nobody created stays unknown: creating it here would hand the caller
+        // a page under somebody else's account, with a password the caller chose.
+        throw new NotFoundError('Stream not found');
       } catch (error) {
         logger.error({ error, slug: req.params.slug }, 'Failed to update stream URL (legacy)');
         next(error);
