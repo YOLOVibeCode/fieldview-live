@@ -29,6 +29,7 @@ export interface TeamData {
   name: string;
   score: number;
   color: string;
+  highlight?: string;
 }
 
 export interface ApiScoreboardResponse {
@@ -39,6 +40,8 @@ export interface ApiScoreboardResponse {
   awayScore: number;
   homeJerseyColor: string;
   awayJerseyColor: string;
+  homeHighlightColor?: string | null;
+  awayHighlightColor?: string | null;
   clockMode?: string;
   clockSeconds?: number;
   clockStartedAt?: string | null;
@@ -88,6 +91,7 @@ export interface IScoreboardClockWriter {
   startClock(slug: string, auth?: { adminToken?: string }): Promise<ScoreboardData>;
   pauseClock(slug: string, auth?: { adminToken?: string }): Promise<ScoreboardData>;
   resetClock(slug: string, auth?: { adminToken?: string }): Promise<ScoreboardData>;
+  setClock(slug: string, clockSeconds: number): Promise<ScoreboardData>;
 }
 
 // ISP: Error handling (4 methods)

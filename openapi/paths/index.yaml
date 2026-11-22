@@ -21,6 +21,15 @@
 /owners/me/games/{gameId}/audience:
   $ref: './owners.yaml#/paths/~1owners~1me~1games~1{gameId}~1audience'
 
+/owners/me/text-commands:
+  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands'
+
+/owners/me/text-commands/link:
+  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1link'
+
+/owners/me/text-commands/history:
+  $ref: './owners.yaml#/paths/~1owners~1me~1text-commands~1history'
+
 # Admin endpoints
 /admin/search:
   $ref: './admin.yaml#/paths/~1admin~1search'

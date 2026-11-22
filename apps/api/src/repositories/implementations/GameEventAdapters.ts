@@ -31,8 +31,8 @@ export class PrismaScoreboardMutator implements IScoreboardMutator {
     periodDetail?: string | null;
     lastEditedBy: string;
   }): Promise<ScoreboardSnapshot> {
-    const existing = await this.prisma.gameScoreboard.findUnique({
-      where: { directStreamId: input.streamId },
+    const existing = await this.prisma.gameScoreboard.findFirst({
+      where: { directStreamId: input.streamId, directStreamEventId: null },
     });
     if (!existing) {
       throw new Error('Scoreboard not found');
@@ -120,6 +120,8 @@ export class ScoreboardBroadcasterAdapter implements IScoreboardBroadcaster {
       awayTeamName: snapshot.awayTeamName,
       homeJerseyColor: snapshot.homeJerseyColor,
       awayJerseyColor: snapshot.awayJerseyColor,
+      homeHighlightColor: null,
+      awayHighlightColor: null,
       homeScore: snapshot.homeScore,
       awayScore: snapshot.awayScore,
       clockMode: snapshot.clockMode,

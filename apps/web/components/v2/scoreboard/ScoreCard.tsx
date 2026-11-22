@@ -26,6 +26,7 @@ export interface ScoreCardProps {
   teamName: string;
   score: number;
   color: string;
+  highlight?: string;
   abbreviation?: string;
   editable?: boolean;
   winning?: boolean;
@@ -49,6 +50,7 @@ export function ScoreCard({
   teamName,
   score,
   color,
+  highlight,
   abbreviation,
   editable = false,
   winning = false,
@@ -86,8 +88,8 @@ export function ScoreCard({
         className
       )}
       style={{
-        borderColor: color,
-        backgroundColor: `${color}10`, // 10% opacity
+        borderColor: 'rgba(255,255,255,0.35)',
+        backgroundColor: 'rgba(0,0,0,0.45)',
       }}
       aria-label={`${teamName}: ${score} points${editable ? ', tap to edit' : ''}`}
     >
@@ -119,19 +121,28 @@ export function ScoreCard({
       {/* Score Display */}
       <div className="flex flex-col items-center justify-center min-w-[80px]">
         {/* Team Name / Abbreviation */}
-        <div className="text-xs font-semibold text-[var(--fv-color-text-secondary)] uppercase tracking-wide mb-1">
-          {abbreviation || teamName}
+        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white uppercase tracking-wide mb-1">
+          <span>{abbreviation || teamName}</span>
+          <span
+            data-testid="jersey-patch"
+            aria-hidden
+            className="inline-flex w-3 h-3 rounded-[2px] border border-white/80 overflow-hidden flex-col"
+            style={{ backgroundColor: color }}
+          >
+            {highlight ? (
+              <span data-testid="jersey-highlight" className="block h-1 w-full" style={{ backgroundColor: highlight }} />
+            ) : null}
+          </span>
         </div>
         
-        {/* Score */}
+        {/* Score stays white so a black jersey does not hide it */}
         <div
           className={cn(
-            'font-bold text-[var(--fv-color-text-primary)]',
+            'font-bold text-white',
             variant === 'compact' && 'text-3xl',
             variant === 'default' && 'text-4xl',
             variant === 'large' && 'text-5xl',
           )}
-          style={{ color }}
         >
           {score}
         </div>

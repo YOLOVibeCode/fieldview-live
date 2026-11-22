@@ -77,7 +77,7 @@ export class GameEventRepository
     const key = slug.toLowerCase().split('/')[0];
     const stream = await this.prisma.directStream.findUnique({
       where: { slug: key },
-      include: { scoreboard: true },
+      include: { scoreboards: { where: { directStreamEventId: null }, take: 1 } },
     });
     if (!stream) return null;
     return {
@@ -87,13 +87,13 @@ export class GameEventRepository
       sport: stream.sport,
       allowViewerReporting: stream.allowViewerReporting,
       eventConfirmThreshold: stream.eventConfirmThreshold,
-      homeTeamName: stream.scoreboard?.homeTeamName ?? stream.scoreboardHomeTeam ?? 'Home',
-      awayTeamName: stream.scoreboard?.awayTeamName ?? stream.scoreboardAwayTeam ?? 'Away',
-      homeScore: stream.scoreboard?.homeScore ?? 0,
-      awayScore: stream.scoreboard?.awayScore ?? 0,
-      period: stream.scoreboard?.period ?? 1,
-      periodDetail: stream.scoreboard?.periodDetail ?? null,
-      clockSeconds: stream.scoreboard?.clockSeconds ?? 0,
+      homeTeamName: stream.scoreboards[0]?.homeTeamName ?? stream.scoreboardHomeTeam ?? 'Home',
+      awayTeamName: stream.scoreboards[0]?.awayTeamName ?? stream.scoreboardAwayTeam ?? 'Away',
+      homeScore: stream.scoreboards[0]?.homeScore ?? 0,
+      awayScore: stream.scoreboards[0]?.awayScore ?? 0,
+      period: stream.scoreboards[0]?.period ?? 1,
+      periodDetail: stream.scoreboards[0]?.periodDetail ?? null,
+      clockSeconds: stream.scoreboards[0]?.clockSeconds ?? 0,
     };
   }
 

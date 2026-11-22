@@ -13,19 +13,47 @@ import {
   sportRegistry,
   seedClockSeconds,
   resolveClockSeconds,
+  formatClock,
   UpdateGameScoreboardSchema,
   ValidateProducerPasswordSchema,
+  SetClockSchema,
 } from '@fieldview/data-model';
 import { getScoreboardPubSub, type ScoreboardEvent } from '../lib/scoreboard-pubsub';
 import { NotFoundError, BadRequestError, UnauthorizedError, ForbiddenError, ConflictError } from '../lib/errors';
+import { getOrCreateScopedScoreboard } from '../lib/scoreboard-scope';
+import { scoreboardChanges } from '../services/scoreboard-change.service';
+import type { AppendScoreboardChange } from '../services/scoreboard-change.interfaces';
 
 const router: Router = Router();
 const periodLabeler = new PeriodLabeler(sportRegistry);
 
-function resolveParentSlug(slug: string): string {
-  const key = slug.toLowerCase();
-  const parts = key.split('/');
-  return parts.length >= 2 ? parts[0] : key;
+function clockDirectionFor(sport: string): 'up' | 'down' | 'none' {
+  try {
+    return sportRegistry.getSport(sport).clock.mode;
+  } catch {
+    return 'up';
+  }
+}
+
+function displayedClock(sport: string, sb: {
+  clockMode: string;
+  clockSeconds: number;
+  clockStartedAt: Date | string | null;
+}): string {
+  return formatClock(resolveClockSeconds({
+    mode: (sb.clockMode as 'stopped' | 'running' | 'paused') ?? 'stopped',
+    clockDirection: clockDirectionFor(sport),
+    clockSeconds: sb.clockSeconds,
+    clockStartedAt: sb.clockStartedAt,
+  }));
+}
+
+async function noteChange(change: AppendScoreboardChange): Promise<void> {
+  try {
+    await scoreboardChanges.append(change);
+  } catch (error) {
+    logger.error({ error }, 'Failed to record scoreboard change');
+  }
 }
 
 function defaultScoreboardTeamNames(stream: {
@@ -47,48 +75,11 @@ function defaultScoreboardTeamNames(stream: {
  * Public - Get current scoreboard state
  */
 router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
-    let stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
-
-    if (!stream) {
-      throw new NotFoundError('Stream not found');
-    }
-
-    // Auto-create scoreboard with sport-aware seed clock if it doesn't exist
-    if (!stream.scoreboard) {
-      logger.info({ slug }, 'Auto-creating scoreboard with default 0-0 score');
-
-      let seedSeconds = 0;
-      try {
-        seedSeconds = seedClockSeconds(sportRegistry.getSport(stream.sport));
-      } catch { /* use 0 */ }
-
-      await prisma.gameScoreboard.create({
-        data: {
-          directStreamId: stream.id,
-          ...defaultScoreboardTeamNames(stream),
-          homeScore: 0,
-          awayScore: 0,
-          clockMode: 'stopped',
-          clockSeconds: seedSeconds,
-          isVisible: true,
-          position: 'top',
-        },
-      });
-
-      // Reload stream with scoreboard
-      stream = await prisma.directStream.findUnique({
-        where: { slug },
-        include: { scoreboard: true },
-      });
-    }
-
-    const { scoreboard } = stream!;
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
+    const { scoreboard } = stream;
 
     // Public response (don't expose password hash)
     const response = toScoreboardEvent(scoreboard!, stream!.sport);
@@ -99,7 +90,7 @@ router.get('/:slug/scoreboard', async (req: Request, res: Response, next: NextFu
       requiresPassword: !!scoreboard!.producerPassword,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to fetch scoreboard');
+    logger.error({ error, slug: req.params.slug }, 'Failed to fetch scoreboard');
     next(error);
   }
 });
@@ -110,6 +101,8 @@ function toScoreboardEvent(sb: {
   awayTeamName: string;
   homeJerseyColor: string;
   awayJerseyColor: string;
+  homeHighlightColor?: string | null;
+  awayHighlightColor?: string | null;
   homeScore: number;
   awayScore: number;
   clockMode: string;
@@ -139,6 +132,8 @@ function toScoreboardEvent(sb: {
     awayTeamName: sb.awayTeamName,
     homeJerseyColor: sb.homeJerseyColor,
     awayJerseyColor: sb.awayJerseyColor,
+    homeHighlightColor: sb.homeHighlightColor ?? null,
+    awayHighlightColor: sb.awayHighlightColor ?? null,
     homeScore: sb.homeScore,
     awayScore: sb.awayScore,
     clockMode: sb.clockMode,
@@ -166,53 +161,40 @@ function toScoreboardEvent(sb: {
  * SSE endpoint for real-time scoreboard updates.
  */
 router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
-  const slug = resolveParentSlug(req.params.slug);
-
-  // SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  logger.info({ slug }, 'Scoreboard SSE connection established');
-
-  // Send initial snapshot
-  (async () => {
-    try {
-      const stream = await prisma.directStream.findUnique({
-        where: { slug },
-        include: { scoreboard: true },
-      });
-
-      if (stream?.scoreboard) {
-        const snapshot = toScoreboardEvent(stream.scoreboard, stream.sport);
-        res.write(`event: scoreboard_snapshot\n`);
-        res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
-      }
-    } catch (error) {
-      logger.error({ error, slug }, 'Failed to send scoreboard snapshot');
-    }
-  })();
-
-  // Subscribe to live updates
-  const pubsub = getScoreboardPubSub();
-  const unsubscribe = pubsub.subscribe(slug, (data) => {
-    res.write(`event: scoreboard_update\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  });
-
-  // Keep-alive ping every 30s
+  let unsubscribe = (): void => undefined;
   const pingInterval = setInterval(() => {
     res.write(`: ping\n\n`);
   }, 30000);
 
-  // Cleanup on disconnect
   req.on('close', () => {
     clearInterval(pingInterval);
     unsubscribe();
-    logger.info({ slug }, 'Scoreboard SSE connection closed');
   });
+
+  void (async () => {
+    try {
+      const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+      const slug = scoped.scopeKey;
+      const stream = scoped.stream;
+      if (stream.scoreboard) {
+        const snapshot = toScoreboardEvent(stream.scoreboard, stream.sport);
+        res.write(`event: scoreboard_snapshot\n`);
+        res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
+      }
+      unsubscribe = getScoreboardPubSub().subscribe(slug, (data) => {
+        res.write(`event: scoreboard_update\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      });
+    } catch (error) {
+      logger.error({ error, slug: req.params.slug }, 'Failed to open scoreboard stream');
+    }
+  })();
 });
 
 /**
@@ -220,21 +202,13 @@ router.get('/:slug/scoreboard/stream', (req: Request, res: Response) => {
  * Validate producer password
  */
 router.post('/:slug/scoreboard/validate', async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
     const validation = ValidateProducerPasswordSchema.safeParse(req.body);
     if (!validation.success) {
       throw new BadRequestError('Producer password is required');
-    }
-
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
-
-    if (!stream || !stream.scoreboard) {
-      throw new NotFoundError('Scoreboard not found');
     }
 
     const { producerPassword } = validation.data;
@@ -248,7 +222,7 @@ router.post('/:slug/scoreboard/validate', async (req: Request, res: Response, ne
     const isValid = await comparePassword(producerPassword, scoreboard.producerPassword);
     res.json({ valid: isValid });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to validate producer password');
+    logger.error({ error, slug: req.params.slug }, 'Failed to validate producer password');
     next(error);
   }
 });
@@ -258,15 +232,12 @@ router.post('/:slug/scoreboard/validate', async (req: Request, res: Response, ne
  * Allows if: (1) Admin JWT, (2) Correct producer password, (3) No password set
  */
 async function validateProducerAccess(req: Request, res: Response, next: NextFunction) {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
 
-    if (!stream || !stream.scoreboard) {
+    if (!stream.scoreboard) {
       throw new NotFoundError('Scoreboard not found');
     }
 
@@ -308,7 +279,7 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
 
     next();
   } catch (error) {
-    logger.error({ error, slug }, 'Producer access validation failed');
+    logger.error({ error, slug: req.params.slug }, 'Producer access validation failed');
     next(error);
   }
 }
@@ -319,23 +290,15 @@ async function validateProducerAccess(req: Request, res: Response, next: NextFun
  * Access: Admin JWT OR correct producer password OR open (if no password)
  */
 router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
     const validation = UpdateGameScoreboardSchema.safeParse(req.body);
     if (!validation.success) {
       const firstError = validation.error.errors[0];
       const errorMessage = firstError ? `${firstError.path.join('.')}: ${firstError.message}` : 'Invalid request';
       throw new BadRequestError(errorMessage, validation.error.errors);
-    }
-
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
-
-    if (!stream || !stream.scoreboard) {
-      throw new NotFoundError('Scoreboard not found');
     }
 
     // Remove producerPassword from update data (it's only for validation)
@@ -370,7 +333,7 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
       lastEditedAt: updatedScoreboard.lastEditedAt?.toISOString() ?? null,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to update scoreboard');
+    logger.error({ error, slug: req.params.slug }, 'Failed to update scoreboard');
     next(error);
   }
 });
@@ -380,15 +343,12 @@ router.post('/:slug/scoreboard', validateProducerAccess, async (req: Request, re
  * Start or resume game clock
  */
 router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
 
-    if (!stream || !stream.scoreboard) {
+    if (!stream.scoreboard) {
       throw new NotFoundError('Scoreboard not found');
     }
 
@@ -424,7 +384,7 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
       clockSeconds: updatedScoreboard.clockSeconds,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to start clock');
+    logger.error({ error, slug: req.params.slug }, 'Failed to start clock');
     next(error);
   }
 });
@@ -434,15 +394,12 @@ router.post('/:slug/scoreboard/clock/start', validateProducerAccess, async (req:
  * Pause game clock
  */
 router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
 
-    if (!stream || !stream.scoreboard) {
+    if (!stream.scoreboard) {
       throw new NotFoundError('Scoreboard not found');
     }
 
@@ -481,7 +438,7 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
       clockStartedAt: null,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to pause clock');
+    logger.error({ error, slug: req.params.slug }, 'Failed to pause clock');
     next(error);
   }
 });
@@ -491,15 +448,12 @@ router.post('/:slug/scoreboard/clock/pause', validateProducerAccess, async (req:
  * Reset clock to 00:00
  */
 router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
-
   try {
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    const slug = scoped.scopeKey;
+    const stream = scoped.stream;
 
-    if (!stream || !stream.scoreboard) {
+    if (!stream.scoreboard) {
       throw new NotFoundError('Scoreboard not found');
     }
 
@@ -525,7 +479,82 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
       clockStartedAt: null,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to reset clock');
+    logger.error({ error, slug: req.params.slug }, 'Failed to reset clock');
+    next(error);
+  }
+});
+
+/**
+ * GET /api/direct/:slug/scoreboard/changes
+ * Newest score and clock commits for this board.
+ */
+router.get('/:slug/scoreboard/changes', async (req: Request, res: Response, next: NextFunction) => {
+  let slug = req.params.slug;
+  try {
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    slug = scoped.scopeKey;
+    const stream = scoped.stream;
+    if (!stream.scoreboard) {
+      throw new NotFoundError('Scoreboard not found');
+    }
+    const changes = await scoreboardChanges.listRecent(stream.scoreboard.id);
+    res.json(changes);
+  } catch (error) {
+    logger.error({ error, slug: req.params.slug }, 'Failed to list scoreboard changes');
+    next(error);
+  }
+});
+
+/**
+ * POST /api/direct/:slug/scoreboard/clock/set
+ * Set the match clock to a linesman time and run from that instant.
+ */
+router.post('/:slug/scoreboard/clock/set', validateProducerAccess, async (req: Request, res: Response, next: NextFunction) => {
+  let slug = req.params.slug;
+
+  try {
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    slug = scoped.scopeKey;
+    const stream = scoped.stream;
+    const validation = SetClockSchema.safeParse(req.body);
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      const errorMessage = firstError ? `${firstError.path.join('.')}: ${firstError.message}` : 'Invalid request';
+      throw new BadRequestError(errorMessage, validation.error.errors);
+    }
+
+    const now = new Date();
+    const updatedScoreboard = await prisma.gameScoreboard.update({
+      where: { id: stream.scoreboard.id },
+      data: {
+        clockMode: 'running',
+        clockSeconds: validation.data.clockSeconds,
+        clockStartedAt: now,
+        lastEditedBy: 'Sideline',
+        lastEditedAt: now,
+      },
+    });
+
+    await noteChange({
+      scoreboardId: stream.scoreboard.id,
+      field: 'clock',
+      fromValue: displayedClock(stream.sport, stream.scoreboard),
+      toValue: formatClock(validation.data.clockSeconds),
+      matchClockLabel: formatClock(validation.data.clockSeconds),
+      periodLabel: periodLabeler.formatPeriod(stream.sport, stream.scoreboard.period ?? 1, stream.scoreboard.periodDetail),
+      editedBy: 'Sideline',
+    });
+
+    const event = toScoreboardEvent(updatedScoreboard, stream.sport);
+    getScoreboardPubSub().publish(slug, event);
+
+    res.json({
+      ...event,
+      id: updatedScoreboard.id,
+      requiresPassword: !!updatedScoreboard.producerPassword,
+    });
+  } catch (error) {
+    logger.error({ error, slug: req.params.slug }, 'Failed to set clock');
     next(error);
   }
 });
@@ -535,19 +564,21 @@ router.post('/:slug/scoreboard/clock/reset', validateProducerAccess, async (req:
  * Admin-only: Create scoreboard with optional producer password
  */
 router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
+  const slug = req.params.slug.split('/')[0]?.toLowerCase() || req.params.slug;
 
   try {
     const stream = await prisma.directStream.findUnique({
       where: { slug },
-      include: { scoreboard: true },
     });
 
     if (!stream) {
       throw new NotFoundError('Stream not found');
     }
 
-    if (stream.scoreboard) {
+    const existing = await prisma.gameScoreboard.findFirst({
+      where: { directStreamId: stream.id, directStreamEventId: null },
+    });
+    if (existing) {
       throw new ConflictError('Scoreboard already exists');
     }
 
@@ -574,7 +605,7 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
       requiresPassword: !!scoreboard.producerPassword,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to create scoreboard');
+    logger.error({ error, slug: req.params.slug }, 'Failed to create scoreboard');
     next(error);
   }
 });
@@ -585,7 +616,7 @@ router.post('/:slug/scoreboard/setup', adminJwtAuth, async (req: Request, res: R
  * Access: Registered viewer with valid token
  */
 router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Response, next: NextFunction) => {
-  const slug = resolveParentSlug(req.params.slug);
+  let slug = req.params.slug;
   const { viewerToken, field, value } = req.body;
 
   try {
@@ -599,13 +630,11 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       throw new BadRequestError('Invalid field');
     }
 
-    // Find stream and scoreboard
-    const stream = await prisma.directStream.findUnique({
-      where: { slug },
-      include: { scoreboard: true },
-    });
+    const scoped = await getOrCreateScopedScoreboard(req.params.slug);
+    slug = scoped.scopeKey;
+    const stream = scoped.stream;
 
-    if (!stream || !stream.scoreboard) {
+    if (!stream.scoreboard) {
       throw new NotFoundError('Scoreboard not found');
     }
 
@@ -679,6 +708,18 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       data: updateData,
     });
 
+    if (isScoreField) {
+      await noteChange({
+        scoreboardId: stream.scoreboard.id,
+        field: field as 'homeScore' | 'awayScore',
+        fromValue: String(stream.scoreboard[field as 'homeScore' | 'awayScore']),
+        toValue: String(sanitizedValue),
+        matchClockLabel: displayedClock(stream.sport, stream.scoreboard),
+        periodLabel: periodLabeler.formatPeriod(stream.sport, stream.scoreboard.period ?? 1, stream.scoreboard.periodDetail),
+        editedBy: viewerName,
+      });
+    }
+
     // Broadcast to SSE subscribers
     getScoreboardPubSub().publish(slug, toScoreboardEvent(updatedScoreboard, stream.sport));
 
@@ -706,7 +747,7 @@ router.post('/:slug/scoreboard/viewer-update', async (req: Request, res: Respons
       lastEditedAt: updatedScoreboard.lastEditedAt?.toISOString() ?? null,
     });
   } catch (error) {
-    logger.error({ error, slug }, 'Failed to update scoreboard (viewer)');
+    logger.error({ error, slug: req.params.slug }, 'Failed to update scoreboard (viewer)');
     next(error);
   }
 });

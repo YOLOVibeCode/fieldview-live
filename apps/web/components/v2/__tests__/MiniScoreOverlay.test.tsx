@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect } from 'vitest';
 import { MiniScoreOverlay } from '../scoreboard/MiniScoreOverlay';
 import type { OverlayCrowdsourceProps } from '../scoreboard/overlayCrowdsource';
@@ -55,6 +55,70 @@ describe('MiniScoreOverlay', () => {
   });
 
   describe('display-only (crowdsource off)', () => {
+    it('tapping the clock opens the linesman time sheet', () => {
+      const onEditClock = vi.fn();
+      render(
+        <MiniScoreOverlay
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period="1st Half"
+          time="18:40"
+          onEditClock={onEditClock}
+        />
+      );
+      fireEvent.click(screen.getByTestId('btn-overlay-clock'));
+      expect(onEditClock).toHaveBeenCalledTimes(1);
+    });
+
+    it('tapping a score number commits that score when editing is allowed', async () => {
+      const onCommitScore = vi.fn();
+      render(
+        <MiniScoreOverlay
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period="2nd Half"
+          time="00:00"
+          onCommitScore={onCommitScore}
+        />
+      );
+      const [homeNumber] = screen.getAllByTestId('btn-inline-score');
+      fireEvent.click(homeNumber);
+      const input = screen.getByTestId('input-inline-score');
+      fireEvent.change(input, { target: { value: '3' } });
+      fireEvent.blur(input);
+      await waitFor(() => expect(onCommitScore).toHaveBeenCalledWith('home', 3));
+    });
+
+    it('draws a highlight stripe on the jersey patch', () => {
+      render(
+        <MiniScoreOverlay
+          homeTeam={{ ...homeTeam, highlight: '#1D4ED8' }}
+          awayTeam={{ ...awayTeam, highlight: '#16A34A' }}
+          period="1st Half"
+          time="00:00"
+        />
+      );
+      const stripes = screen.getAllByTestId('jersey-highlight');
+      expect(stripes).toHaveLength(2);
+      expect(stripes[0]).toHaveStyle({ backgroundColor: '#1D4ED8' });
+      expect(stripes[1]).toHaveStyle({ backgroundColor: '#16A34A' });
+    });
+
+    it('puts a jersey patch to the right of each team name', () => {
+      render(
+        <MiniScoreOverlay
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          period="1st Half"
+          time="00:00"
+        />
+      );
+      const patches = screen.getAllByTestId('jersey-patch');
+      expect(patches).toHaveLength(2);
+      expect(patches[0]).toHaveStyle({ backgroundColor: homeTeam.color });
+      expect(patches[1]).toHaveStyle({ backgroundColor: awayTeam.color });
+    });
+
     it('does not render overlay tap targets', () => {
       render(
         <MiniScoreOverlay

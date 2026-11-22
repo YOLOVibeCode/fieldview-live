@@ -22,6 +22,10 @@ export interface MiniScoreOverlayProps {
   time?: string;
   sportId?: string;
   crowdsource?: OverlayCrowdsourceProps;
+  /** Tap the clock to set the linesman time. */
+  onEditClock?: () => void;
+  /** Commit a score when viewer editing is allowed. */
+  onCommitScore?: (team: 'home' | 'away', score: number) => void | Promise<void>;
   className?: string;
   'data-testid'?: string;
 }
@@ -38,6 +42,8 @@ export function MiniScoreOverlay({
   time,
   sportId,
   crowdsource,
+  onEditClock,
+  onCommitScore,
   className,
   'data-testid': dataTestId = 'mini-score-overlay',
 }: MiniScoreOverlayProps) {
@@ -98,6 +104,8 @@ export function MiniScoreOverlay({
           period={period}
           time={time}
           crowdsource={reporting ? crowdsource : undefined}
+          onEditClock={onEditClock}
+          onCommitScore={onCommitScore}
           variant="overlay"
           className="flex-1"
         />

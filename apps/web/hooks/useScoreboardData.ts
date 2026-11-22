@@ -51,6 +51,7 @@ interface ScoreboardData {
 
 interface UseScoreboardDataReturn extends ScoreboardData {
   updateScore: (team: 'home' | 'away', newScore: number) => Promise<void>;
+  setClock: (clockSeconds: number) => Promise<void>;
   refresh: () => Promise<void>;
   saveError: string | null;
 }
@@ -201,6 +202,37 @@ export function useScoreboardData({
     }
   }, [slug, viewerToken, adminToken, allowAnonymousEdit]);
 
+  const setClock = useCallback(async (clockSeconds: number) => {
+    if (!slug) {
+      throw new Error('No slug available');
+    }
+    try {
+      const data = await scoreboardApi.setClock(slug, clockSeconds);
+      setSaveError(null);
+      applyScoreboardData(
+        data,
+        setHomeTeam,
+        setAwayTeam,
+        setPeriod,
+        setTime,
+        setSportId,
+        setClockMode,
+        setBaseClockSeconds,
+        setClockStartedAt,
+        setClockDirection,
+        setHideClock,
+      );
+    } catch (err) {
+      const errorMessage = err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Clock update failed';
+      setSaveError(errorMessage);
+      throw err;
+    }
+  }, [slug]);
+
   /**
    * SSE subscription for real-time scoreboard push
    * Now uses scoreboardApi.streamUpdates() with disconnect/reconnect callbacks
@@ -292,6 +324,7 @@ export function useScoreboardData({
     error,
     saveError,
     updateScore,
+    setClock,
     refresh: fetchScoreboard,
   };
 }

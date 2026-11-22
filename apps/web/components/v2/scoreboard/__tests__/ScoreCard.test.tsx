@@ -26,10 +26,10 @@ describe('ScoreCard', () => {
       expect(screen.getByText('42')).toBeInTheDocument();
     });
     
-    it('should apply team color', () => {
-      render(<ScoreCard {...defaultProps} data-testid="score-card" />);
-      const card = screen.getByTestId('score-card');
-      expect(card.style.borderColor).toBe('rgb(59, 130, 246)'); // #3B82F6
+    it('should apply team color to the jersey patch', () => {
+      render(<ScoreCard {...defaultProps} />);
+      const patch = screen.getByTestId('jersey-patch');
+      expect(patch.style.backgroundColor).toBe('rgb(59, 130, 246)'); // #3B82F6
     });
     
     it('should show abbreviation if provided', () => {

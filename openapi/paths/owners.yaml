@@ -112,3 +112,191 @@ paths:
           $ref: '../../components/responses.yaml#/components/responses/Forbidden'
         '404':
           $ref: '../../components/responses.yaml#/components/responses/NotFound'
+
+  /owners/me/text-commands:
+    get:
+      tags:
+        - Owners
+      summary: Get text commands status
+      description: |
+        Says whether text commands are turned on for this account and how this login's phone link stands.
+        A link belongs to one login, not to the account. Phone numbers are masked and a link code is never returned.
+        When the feature is off for the account, the answer has `enabled: false` and empty values.
+      operationId: getOwnerTextCommands
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Text commands status
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextStatus'
+        '401':
+          description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Owners
+      summary: Change the time zone for text commands
+      description: Sets the time zone used to read and show times for this login's phone link.
+      operationId: updateOwnerTextCommands
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/components/schemas/UpdateCoachTextSettingsRequest'
+      responses:
+        '200':
+          description: Text commands status after the change
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextStatus'
+        '400':
+          description: Missing or unknown time zone
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '403':
+          description: Text commands are not turned on for this account
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+
+  /owners/me/text-commands/link:
+    post:
+      tags:
+        - Owners
+      summary: Make a link code for a phone
+      description: |
+        Makes a six-digit code for a US or Canadian mobile number. The owner texts `LINK <code>` from that phone
+        to the product number to link it. The code is returned this once, is stored only as a hash and lasts ten minutes
+        unless configured otherwise. Nothing changes for a phone that is already linked until the code is texted.
+        Limited to five codes per account in 15 minutes.
+      operationId: startOwnerTextCommandsLink
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/components/schemas/StartCoachTextLinkRequest'
+      responses:
+        '201':
+          description: The link code
+          headers:
+            Cache-Control:
+              description: Always `no-store`, so nothing between the API and the browser keeps the code
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextLinkStarted'
+        '400':
+          description: Missing or invalid phone number, a number outside the US and Canada, the product number itself, or an unknown time zone
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '403':
+          description: Text commands are not turned on for this account
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '429':
+          description: More than five link codes for this account in 15 minutes
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Owners
+      summary: Unlink the phone
+      description: |
+        Removes this login's linked phone, or drops a link code that is waiting. It works even when
+        text commands are turned off for the account, so a linked phone can always be removed.
+      operationId: unlinkOwnerTextCommands
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Whether there was anything to remove
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextUnlinked'
+        '401':
+          description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+
+  /owners/me/text-commands/history:
+    get:
+      tags:
+        - Owners
+      summary: List recent texts
+      description: Returns this login's most recent texts, newest first, with what came of each.
+      operationId: listOwnerTextCommandsHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: How many texts to return
+      responses:
+        '200':
+          description: Recent texts
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/CoachTextHistory'
+        '400':
+          description: Limit out of range
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: Not signed in, or the login behind the token was removed or turned off
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
+        '403':
+          description: Text commands are not turned on for this account
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas.yaml#/components/schemas/ErrorResponse'
