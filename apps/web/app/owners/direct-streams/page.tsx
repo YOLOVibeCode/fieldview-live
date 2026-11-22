@@ -1,14 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { sportRegistry } from '@fieldview/data-model';
 import { useRouter } from 'next/navigation';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 
+import { DirectStreamLink } from '@/components/DirectStreamLink';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ErrorBanner } from '@/components/v2/ErrorBanner';
-import { sportRegistry } from '@fieldview/data-model';
 import { apiClient, type OwnerPaymentsStatus } from '@/lib/api-client';
 import { isPaymentsReady, isPaywallToggleDisabled } from '@/lib/owner-payments-readiness';
 
@@ -264,7 +265,7 @@ export default function OwnerDirectStreamsPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-semibold truncate">Direct Streams</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Manage your direct stream pages</p>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Your game pages, and the link to share for each</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => router.push('/owners/dashboard')}>Dashboard</Button>
@@ -364,10 +365,10 @@ export default function OwnerDirectStreamsPage() {
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" data-testid="table-direct-streams">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-2 px-3 font-medium">Slug</th>
+                      <th className="text-left py-2 px-3 font-medium">Link</th>
                       <th className="text-left py-2 px-3 font-medium">Title</th>
                       <th className="text-left py-2 px-3 font-medium hidden md:table-cell">Scheduled</th>
                       <th className="text-left py-2 px-3 font-medium">Status</th>
@@ -377,16 +378,14 @@ export default function OwnerDirectStreamsPage() {
                   </thead>
                   <tbody>
                     {streams.map((s, idx) => (
-                      <>
+                      <Fragment key={s.id}>
                         <tr
-                          key={s.id}
                           className={`${idx % 2 === 0 ? 'bg-muted/30' : ''} cursor-pointer hover:bg-muted/50 transition-colors`}
                           onClick={() => startEdit(s)}
+                          data-testid={`row-direct-stream-${s.slug}`}
                         >
                           <td className="py-2 px-3">
-                            <a href={`/direct/${s.slug}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-mono text-xs" onClick={(e) => e.stopPropagation()}>
-                              {s.slug}
-                            </a>
+                            <DirectStreamLink slug={s.slug} copyable={s.status === 'active'} />
                           </td>
                           <td className="py-2 px-3 font-medium">{s.title}</td>
                           <td className="py-2 px-3 hidden md:table-cell text-muted-foreground">{s.scheduledStartAt ? formatDate(s.scheduledStartAt) : '—'}</td>
@@ -403,7 +402,7 @@ export default function OwnerDirectStreamsPage() {
                                 size="sm"
                                 className="text-yellow-600"
                                 disabled={archivingId === s.id}
-                                onClick={(e) => { e.stopPropagation(); handleArchive(s.id); }}
+                                onClick={(e) => { e.stopPropagation(); void handleArchive(s.id); }}
                               >
                                 {archivingId === s.id ? '…' : 'Archive'}
                               </Button>
@@ -411,7 +410,7 @@ export default function OwnerDirectStreamsPage() {
                           </td>
                         </tr>
                         {editingId === s.id && (
-                          <tr key={`edit-${s.id}`}>
+                          <tr>
                             <td colSpan={6} className="px-3 py-4 border-t bg-muted/10">
                               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 max-w-4xl">
                                 <div className="space-y-1">
@@ -478,7 +477,7 @@ export default function OwnerDirectStreamsPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
