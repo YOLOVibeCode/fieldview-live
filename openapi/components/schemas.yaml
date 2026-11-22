@@ -697,6 +697,197 @@ components:
         fatalErrors:
           type: integer
 
+    # Owner text commands (one linked phone per owner login)
+    CoachTextCommandHelp:
+      type: object
+      required:
+        - word
+        - description
+      properties:
+        word:
+          type: string
+          maxLength: 20
+          description: The word to text
+        description:
+          type: string
+          maxLength: 200
+          description: What the command does
+
+    CoachTextStatus:
+      type: object
+      required:
+        - enabled
+        - state
+        - productNumber
+        - phoneMasked
+        - pendingPhoneMasked
+        - codeExpiresAt
+        - unverifiedTextSeen
+        - verifiedAt
+        - lastCommandAt
+        - timeZone
+        - commands
+      properties:
+        enabled:
+          type: boolean
+          description: False when text commands are not turned on for this account. Every other field then holds its empty value.
+        state:
+          type: string
+          enum:
+            - none
+            - pending
+            - linked
+            - paused
+            - expired
+          description: |
+            How this login's phone link stands.
+            - `none`: no phone is linked
+            - `pending`: a link code is waiting to be texted (also while an older phone is still linked)
+            - `linked`: the phone can text commands
+            - `paused`: the phone texted STOP; texting START turns it back on
+            - `expired`: the phone has not texted for too long and must be linked again
+        productNumber:
+          type: string
+          description: The number to text (E.164)
+          example: '+18773435308'
+        phoneMasked:
+          type:
+            - string
+            - 'null'
+          description: The linked phone, masked. The full number is never returned.
+          example: '(***) ***-0100'
+        pendingPhoneMasked:
+          type:
+            - string
+            - 'null'
+          description: The phone a link code is waiting for, masked
+          example: '(***) ***-0100'
+        codeExpiresAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the waiting link code stops working. The code itself is never returned here.
+        unverifiedTextSeen:
+          type: boolean
+          description: A text arrived from the waiting phone but could not be verified
+        verifiedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the phone was linked
+        lastCommandAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the phone last texted
+        timeZone:
+          type: string
+          description: IANA time zone used to read and show times
+          example: America/Chicago
+        commands:
+          type: array
+          description: The commands the phone can text. Empty until commands ship.
+          items:
+            $ref: '#/components/schemas/CoachTextCommandHelp'
+
+    StartCoachTextLinkRequest:
+      type: object
+      required:
+        - phone
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: A US or Canadian mobile number, in any common form
+          example: '214-555-0100'
+        timeZone:
+          type: string
+          maxLength: 64
+          description: IANA time zone. When left out, the time zone already on the link is kept.
+          example: America/Chicago
+
+    CoachTextLinkStarted:
+      type: object
+      required:
+        - code
+        - codeExpiresAt
+        - productNumber
+        - smsHref
+      properties:
+        code:
+          type: string
+          pattern: '^\d{6}$'
+          description: The link code. Returned this once and never again.
+          example: '482913'
+        codeExpiresAt:
+          type: string
+          format: date-time
+        productNumber:
+          type: string
+          description: The number to text the code to (E.164)
+          example: '+18773435308'
+        smsHref:
+          type: string
+          description: A link that opens the phone's messages app with the text filled in
+          example: 'sms:+18773435308?&body=LINK%20482913'
+
+    UpdateCoachTextSettingsRequest:
+      type: object
+      required:
+        - timeZone
+      properties:
+        timeZone:
+          type: string
+          maxLength: 64
+          description: IANA time zone
+          example: America/Denver
+
+    CoachTextUnlinked:
+      type: object
+      required:
+        - unlinked
+      properties:
+        unlinked:
+          type: boolean
+          description: False when there was no phone and no waiting code to remove
+
+    CoachTextHistoryItem:
+      type: object
+      required:
+        - createdAt
+        - body
+        - status
+        - replyText
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        body:
+          type: string
+          description: What the phone texted. A link code is stored as `LINK ******`.
+        status:
+          type: string
+          description: What came of the text, for example `received`, `done`, `rejected` or `failed`
+        replyText:
+          type:
+            - string
+            - 'null'
+          description: The reply that was sent, when there was one
+
+    CoachTextHistory:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoachTextHistoryItem'
+
     # Error Response
     ErrorResponse:
       type: object

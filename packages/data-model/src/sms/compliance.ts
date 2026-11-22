@@ -37,6 +37,22 @@ export const SMS_HELP_KEYWORDS = ['HELP', 'INFO'] as const;
 
 export const SMS_YES_KEYWORD = 'YES';
 
+/** FieldView's own toll-free text number. Shown in the owner portal for text commands. */
+export const SMS_PRODUCT_NUMBER_E164 = '+18773435308';
+
+/** Consent purpose for an owner login that texts commands to FieldView (coach text commands). */
+export const SMS_PURPOSE_OWNER_COMMANDS = 'owner_commands';
+
+export const SMS_OWNER_CONSENT_TEXT_VERSION = '2026-11-21';
+
+/**
+ * Shown beside "Get my code" in the owner portal. The coach's own verified LINK text is the
+ * opt-in, so consent is recorded when that text arrives, not when the form is submitted.
+ */
+export function buildOwnerCommandsConsentPlain(): string {
+  return `By linking, you agree to get text replies from ${SMS_BRAND} at this number when you text commands. Message frequency varies. Message and data rates may apply. Reply STOP to pause, HELP for help.`;
+}
+
 export function buildSmsOptInLabelHtml(): string {
   return `Text me ${SMS_PURPOSE_PHRASE} from ${SMS_BRAND}. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase. See our SMS Terms and Privacy Policy.`;
 }

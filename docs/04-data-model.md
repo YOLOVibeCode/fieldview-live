@@ -7,6 +7,7 @@ This is a conceptual model intended to guide implementation and API contracts. I
 OwnerAccount 1—N Game
 OwnerAccount 1—N CameraSource
 OwnerAccount 1—N OwnerUser
+OwnerUser 1—0..1 CoachTextLink
 Game 1—N Purchase
 Purchase 1—1 Entitlement
 Entitlement 1—N PlaybackSession
@@ -38,6 +39,26 @@ Game 0—N SMSMessage (inbound/outbound)
   - Code: `apps/api/src/modules/camera-sources/`. To add a platform, implement `ILiveStreamLister` + `ICameraConnector` and list its `connectFields` under `providers/<name>/`, then register it in `registry.ts`
   - Owners connect and disconnect on the portal's Streaming providers page (`/owners/camera-sources`), which renders each provider's form from `connectFields`
   - Not the same as `streamProvider` (how a stream is played) or `StreamSource` (a Game's playback config)
+
+### CoachTextLink
+- **Fields**: `id`, `ownerUserId` (unique), `phoneE164` (unique, verified phone, null until the code text arrives), `verifiedAt`, `lastCommandAt`, `pausedAt`, `pendingPhoneE164`, `codeHash`, `codeExpiresAt`, `codeAttempts`, `timeZone` (IANA, optional), `pendingId`, `pendingQuestion`, `pendingExpiresAt`, `busyUntil`, `createdAt`, `updatedAt`
+- **Notes**:
+  - The phone an owner login links for text commands. One phone per login, one login per phone
+  - The link hangs off the login, not the account: the account is read through the login on every text
+  - The link code is never stored. `codeHash` is SHA-256 of the link id and the six-digit code
+  - `pausedAt` is set by a verified STOP and cleared by a verified START
+  - `pendingId`, `pendingQuestion`, `pendingExpiresAt` and `busyUntil` are for commands and are unused until commands ship
+  - Deleted with its login. Unlinking deletes the row
+  - Code: `apps/api/src/modules/coach-text/`. Runbook: `docs/coach-text.md`
+
+### CoachTextCommand
+- **Fields**: `id`, `messageSid` (unique, null for unverified senders), `ownerUserId`, `ownerAccountId` (snapshot only, never used for authority), `phoneE164`, `twilioVerified`, `body`, `interpreter` (link|answer|rules|model|none), `action`, `args`, `status` (received|done|asked|no_change|not_understood|rejected|failed|timeout), `reason`, `targetEventId`, `previousStreamUrl`, `previousPinnedAt`, `newStreamUrl`, `replyText`, `latencyMs`, `model`, `promptTokens`, `completionTokens`, `createdAt`
+- **Notes**:
+  - Audit of the texts the text command feature acted on. Append-only and never pruned
+  - No foreign keys on purpose: a deleted login or page must not erase the record of what a text did
+  - `messageSid` makes a text that is delivered twice count once
+  - A link code is never stored: the body of a LINK text is kept as `LINK ******`
+  - A text that could not be verified is noted without its body and without a login
 
 ### Game
 - **Fields**: `id`, `ownerAccountId`, `title`, `homeTeam`, `awayTeam`, `startsAt`, `endsAt` (optional), `state` (draft|active|live|ended|cancelled), `priceCents`, `currency` (default: USD)
@@ -137,6 +158,8 @@ Game 0—N SMSMessage (inbound/outbound)
 - `PlaybackSession.entitlementId`
 - `LedgerEntry.ownerAccountId`, `LedgerEntry.referenceType`, `LedgerEntry.referenceId`
 - `SMSMessage.phoneE164`, `SMSMessage.keywordCode`
+- `CoachTextLink.ownerUserId` (unique), `CoachTextLink.phoneE164` (unique), `CoachTextLink.pendingPhoneE164`
+- `CoachTextCommand.messageSid` (unique), `CoachTextCommand.(ownerUserId, createdAt)`, `CoachTextCommand.(ownerAccountId, createdAt)`, `CoachTextCommand.(phoneE164, createdAt)`
 - `AdminAuditLog.adminUserId`, `AdminAuditLog.targetType`, `AdminAuditLog.targetId`
 - `ViewerIdentity.email` (indexed for search and monitoring queries)
 - `ViewerIdentity.phoneE164` (indexed if phone provided)

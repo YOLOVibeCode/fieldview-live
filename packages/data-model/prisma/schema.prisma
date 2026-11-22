@@ -77,6 +77,7 @@ model OwnerUser {
 
   ownerAccount            OwnerAccount         @relation(fields: [ownerAccountId], references: [id])
   organizationMemberships OrganizationMember[]
+  coachTextLink           CoachTextLink? // The phone this login texts commands from
 
   @@unique([email])
   @@index([ownerAccountId])
@@ -1099,4 +1100,63 @@ model GameEventConfirmation {
   @@unique([eventId, viewerId])
   @@index([eventId])
   @@index([viewerId])
+}
+
+// A phone linked to one owner login for text commands (apps/api/src/modules/coach-text).
+// The link hangs off the login, not the account: the account is read through the login on
+// every text, so a stored copy can never go stale. `codeHash` is SHA-256 of the link id and
+// the six-digit code. The code itself is never stored.
+model CoachTextLink {
+  id               String    @id @default(uuid()) @db.Uuid
+  ownerUserId      String    @unique @db.Uuid
+  phoneE164        String?   @unique // Verified phone, null until the code text arrives
+  verifiedAt       DateTime?
+  lastCommandAt    DateTime?
+  pausedAt         DateTime? // Set by a verified STOP, cleared by a verified START
+  pendingPhoneE164 String? // Typed in the portal, not yet proven
+  codeHash         String?
+  codeExpiresAt    DateTime?
+  codeAttempts     Int       @default(0)
+  timeZone         String? // IANA zone, null = COACH_TEXT_DEFAULT_TIME_ZONE
+  pendingId        String?   @db.Uuid // One open question at a time
+  pendingQuestion  Json?
+  pendingExpiresAt DateTime?
+  busyUntil        DateTime? // Per-link lease, one text at a time
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  ownerUser OwnerUser @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([pendingPhoneE164])
+}
+
+// Audit of every text the coach bot looked at. No foreign keys on purpose: a deleted login
+// or page must not erase the record of what a text did. Never pruned.
+model CoachTextCommand {
+  id                String    @id @default(uuid()) @db.Uuid
+  messageSid        String?   @unique // Twilio message id, null for unverified senders
+  ownerUserId       String?   @db.Uuid
+  ownerAccountId    String?   @db.Uuid // Snapshot only, never used for authority
+  phoneE164         String
+  twilioVerified    Boolean
+  body              String
+  interpreter       String // 'link' | 'answer' | 'rules' | 'model' | 'none'
+  action            String?
+  args              Json?
+  status            String // 'received' | 'done' | 'asked' | 'no_change' | 'not_understood' | 'rejected' | 'failed' | 'timeout'
+  reason            String?
+  targetEventId     String?   @db.Uuid
+  previousStreamUrl String?
+  previousPinnedAt  DateTime?
+  newStreamUrl      String?
+  replyText         String?
+  latencyMs         Int?
+  model             String?
+  promptTokens      Int?
+  completionTokens  Int?
+  createdAt         DateTime  @default(now())
+
+  @@index([ownerUserId, createdAt])
+  @@index([ownerAccountId, createdAt])
+  @@index([phoneE164, createdAt])
 }
