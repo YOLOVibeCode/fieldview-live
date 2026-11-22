@@ -14,7 +14,8 @@ import {
 import express, { type Router, type Request, type Response, type NextFunction } from 'express';
 
 import { BadRequestError, UnauthorizedError } from '../lib/errors';
-import { normalizeInboundPhone } from '../lib/phone';
+import { logger } from '../lib/logger';
+import { maskPhoneE164, normalizeInboundPhone } from '../lib/phone';
 import { prisma } from '../lib/prisma';
 import {
   assertRelayInboundConfigured,
@@ -22,6 +23,14 @@ import {
   verifyRelayInboundSignature,
 } from '../lib/sms/verifyRelayInboundSignature';
 import { smsRateLimit } from '../middleware/rateLimit';
+import {
+  coachTextEngine,
+  isCoachTextEnabled,
+  twimlMessage,
+  type CoachTextResult,
+  type ICoachTextEngine,
+  type InboundText,
+} from '../modules/coach-text';
 import { GameRepository } from '../repositories/implementations/GameRepository';
 import { SmsConsentRepository } from '../repositories/implementations/SmsConsentRepository';
 import { ViewerIdentityRepository } from '../repositories/implementations/ViewerIdentityRepository';
@@ -44,26 +53,22 @@ export function setSmsService(service: SmsService): void {
   smsServiceInstance = service;
 }
 
+let coachTextEngineOverride: ICoachTextEngine | null = null;
+
+function getCoachTextEngine(): ICoachTextEngine {
+  return coachTextEngineOverride ?? coachTextEngine;
+}
+
+/** Test seam: swaps the coach text engine. Pass null to go back to the real one. */
+export function setCoachTextEngine(engine: ICoachTextEngine | null): void {
+  coachTextEngineOverride = engine;
+}
+
 const APP_URL = process.env.APP_URL || 'https://fieldview.live';
 
 function getRawBody(req: Request): Buffer {
   const raw = (req as Request & { rawBody?: Buffer }).rawBody;
   return raw ?? Buffer.from('');
-}
-
-function verifyRelay(req: Request, publicUrl: string): void {
-  try {
-    assertRelayInboundConfigured();
-  } catch (error) {
-    if (error instanceof ServiceUnavailableRelay) {
-      throw error;
-    }
-    throw error;
-  }
-  const signature = req.headers['x-relay-signature'] as string | undefined;
-  if (!verifyRelayInboundSignature(publicUrl, getRawBody(req), signature)) {
-    throw new UnauthorizedError('Invalid relay signature');
-  }
 }
 
 const urlencodedWithRaw = express.urlencoded({
@@ -72,6 +77,65 @@ const urlencodedWithRaw = express.urlencoded({
     (req as Request & { rawBody?: Buffer }).rawBody = buf;
   },
 });
+
+/**
+ * Checks the relay's signature. It runs before the rate limit, so a post that
+ * nobody signed is refused without using up a real sender's texts.
+ */
+function requireRelaySignature(publicUrl: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    try {
+      assertRelayInboundConfigured();
+    } catch (error) {
+      if (error instanceof ServiceUnavailableRelay) {
+        res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: error.message } });
+        return;
+      }
+      next(error);
+      return;
+    }
+    const signature = req.headers['x-relay-signature'] as string | undefined;
+    if (!verifyRelayInboundSignature(publicUrl, getRawBody(req), signature)) {
+      next(new UnauthorizedError('Invalid relay signature'));
+      return;
+    }
+    next();
+  };
+}
+
+/**
+ * Asks the coach text engine about a text. Anything that goes wrong sends the
+ * text down the viewer path, as if the engine were not there.
+ */
+async function askCoachText(text: InboundText): Promise<CoachTextResult> {
+  try {
+    return await getCoachTextEngine().handleInbound(text);
+  } catch (error) {
+    logger.warn(
+      { error, phone: maskPhoneE164(text.from) },
+      'Coach text engine failed; the text goes to the viewer path'
+    );
+    return { handled: false };
+  }
+}
+
+/** STOP also pauses a coach's linked phone. A failure never changes the STOP answer. */
+async function tellCoachTextOfStop(from: string, twilioVerified: boolean): Promise<void> {
+  try {
+    await getCoachTextEngine().handleOptOut({ from, twilioVerified });
+  } catch (error) {
+    logger.warn({ error, phone: maskPhoneE164(from) }, 'Coach text pause on STOP failed');
+  }
+}
+
+/** START turns a paused phone back on. A failure never changes the START answer. */
+async function tellCoachTextOfStart(from: string, twilioVerified: boolean): Promise<void> {
+  try {
+    await getCoachTextEngine().handleOptIn({ from, twilioVerified });
+  } catch (error) {
+    logger.warn({ error, phone: maskPhoneE164(from) }, 'Coach text resume on START failed');
+  }
+}
 
 function matchesKeyword(body: string, keywords: readonly string[]): boolean {
   return keywords.includes(body.trim().toUpperCase());
@@ -110,17 +174,14 @@ async function handleStatusCallback(body: Record<string, string>): Promise<void>
 router.post(
   '/twilio/status',
   urlencodedWithRaw,
+  requireRelaySignature(SMS_STATUS_WEBHOOK_URL),
   smsRateLimit,
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
-        verifyRelay(req, SMS_STATUS_WEBHOOK_URL);
         await handleStatusCallback(req.body as Record<string, string>);
         res.status(200).send('OK');
       } catch (error) {
-        if (error instanceof ServiceUnavailableRelay) {
-          return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: error.message } });
-        }
         next(error);
       }
     })();
@@ -133,16 +194,18 @@ router.post(
 router.post(
   '/twilio',
   urlencodedWithRaw,
+  requireRelaySignature(SMS_INBOUND_WEBHOOK_URL),
   smsRateLimit,
   (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       try {
-        verifyRelay(req, SMS_INBOUND_WEBHOOK_URL);
+        const receivedAtMs = Date.now();
 
         const body = req.body as {
           From?: string;
           Body?: string;
           OptOutType?: string;
+          MessageSid?: unknown;
         };
 
         const { From: fromRaw, Body: messageBody, OptOutType } = body;
@@ -156,24 +219,38 @@ router.post(
         const trimmedBody = (messageBody ?? '').trim();
         const keyword = trimmedBody.toUpperCase();
 
+        // Coach text commands act only on a text the relay says Twilio signed.
+        const coachTextOn = isCoachTextEnabled();
+        const twilioVerified = req.headers['x-relay-twilio-verified'] === '1';
+        const messageSid =
+          typeof body.MessageSid === 'string' && body.MessageSid.trim()
+            ? body.MessageSid.trim()
+            : null;
+
         const optStop = OptOutType === 'STOP' || matchesKeyword(keyword, SMS_STOP_KEYWORDS);
         const optStart = OptOutType === 'START' || matchesKeyword(keyword, SMS_START_KEYWORDS);
         const optHelp = OptOutType === 'HELP' || matchesKeyword(keyword, SMS_HELP_KEYWORDS);
 
         if (optStop) {
           await smsService.handleStop(phoneE164);
+          if (coachTextOn) {
+            await tellCoachTextOfStop(phoneE164, twilioVerified);
+          }
           return res.type('text/xml').send('<Response></Response>');
         }
 
         if (optStart) {
           await smsService.handleStart(phoneE164);
+          if (coachTextOn) {
+            await tellCoachTextOfStart(phoneE164, twilioVerified);
+          }
           return res.type('text/xml').send('<Response></Response>');
         }
 
         if (optHelp) {
           await smsService.handleHelp(phoneE164);
-          const helpText = smsService.getHelpTwimlBody();
-          return res.type('text/xml').send(`<Response><Message>${helpText}</Message></Response>`);
+          // The help text has an ampersand in it, so it goes through the escaping builder.
+          return res.type('text/xml').send(twimlMessage(smsService.getHelpTwimlBody()));
         }
 
         if (keyword === SMS_YES_KEYWORD) {
@@ -183,6 +260,19 @@ router.post(
 
         if (!trimmedBody) {
           return res.type('text/xml').send('<Response></Response>');
+        }
+
+        if (coachTextOn) {
+          const coach = await askCoachText({
+            from: phoneE164,
+            body: trimmedBody,
+            messageSid,
+            twilioVerified,
+            receivedAtMs,
+          });
+          if (coach.handled) {
+            return res.type('text/xml').send(coach.twiml);
+          }
         }
 
         const game = await smsService.findByKeyword(keyword);
@@ -215,9 +305,6 @@ router.post(
 
         return res.type('text/xml').send('<Response></Response>');
       } catch (error) {
-        if (error instanceof ServiceUnavailableRelay) {
-          return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: error.message } });
-        }
         next(error);
       }
     })();

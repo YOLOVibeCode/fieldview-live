@@ -31,7 +31,7 @@ function escapeHtml(text: string): string {
 }
 
 export class EmailLinkNotifier implements ICoachTextNotifier {
-  constructor(private readonly send: SendEmail = sendEmail) {}
+  constructor(private readonly send: SendEmail = (options) => sendEmail(options)) {}
 
   async linked(input: {
     email: string;
