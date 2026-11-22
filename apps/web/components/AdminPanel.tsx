@@ -74,6 +74,9 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
   const [showPassword, setShowPassword] = useState(false);
   const [unlockError, setUnlockError] = useState('');
   const [isUnlocking, setIsUnlocking] = useState(false);
+  // Price and paywall decide what viewers pay the owner: the server lets only the
+  // owner's own login change them, and says so in the unlock answer.
+  const [canEditPayments, setCanEditPayments] = useState(false);
 
   // Settings state
   const [streamUrl, setStreamUrl] = useState(initialSettings?.streamUrl || '');
@@ -136,6 +139,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
       viewerId?: string;
       displayName?: string;
       gameId?: string;
+      canEditPayments?: boolean;
     }>(`/api/direct/${encodeURIComponent(authSlug)}/unlock-admin`, {
       method: 'POST',
       headers: {
@@ -146,6 +150,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
       .then((data) => {
         if (data.token) {
           setAdminToken(data.token);
+          setCanEditPayments(data.canEditPayments === true);
           setIsUnlocked(true);
           const viewerInfo = data.viewerToken
             ? {
@@ -184,6 +189,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
         viewerId?: string;
         displayName?: string;
         gameId?: string;
+        canEditPayments?: boolean;
         error?: string;
       }>(`/api/direct/${encodeURIComponent(authSlug)}/unlock-admin`, {
         method: 'POST',
@@ -198,6 +204,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
 
       // Store the JWT token and unlock the panel
       setAdminToken(data.token);
+      setCanEditPayments(data.canEditPayments === true);
       setIsUnlocked(true);
       setPassword(''); // Clear password from state for security
 
@@ -266,8 +273,8 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
       const payload = {
         streamUrl: streamUrl || null,
         chatEnabled,
-        paywallEnabled,
-        priceInCents,
+        // Sent only with the owner's own login; the server refuses them otherwise.
+        ...(canEditPayments ? { paywallEnabled, priceInCents } : {}),
         paywallMessage: paywallMessage || null,
         allowSavePayment,
         allowViewerScoreEdit,
@@ -979,11 +986,22 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
               type="checkbox"
               checked={paywallEnabled}
               onChange={(e) => setPaywallEnabled(e.target.checked)}
+              disabled={!canEditPayments}
               className="w-5 h-5"
               data-testid="paywall-enabled-checkbox"
               aria-label="Enable paywall"
             />
           </div>
+
+          {!canEditPayments && (
+            <p className="text-xs text-muted-foreground" data-testid="note-payments-owner-only">
+              The account owner sets the price and the paywall.{' '}
+              <a href="/owners/direct-streams" className="text-primary underline" data-testid="link-owner-portal-payments">
+                Sign in to the owner portal
+              </a>{' '}
+              to change them.
+            </p>
+          )}
 
           {paywallEnabled && (
             <>
@@ -1000,6 +1018,7 @@ export function AdminPanel({ slug, parentSlug, initialSettings, onAuthSuccess }:
                   max="999.99"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  disabled={!canEditPayments}
                   placeholder="0.00"
                   data-testid="paywall-price-input"
                   aria-label="Paywall price in USD"
