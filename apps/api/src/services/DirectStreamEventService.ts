@@ -14,6 +14,20 @@ import type {
 } from '../repositories/IDirectStreamEventRepository';
 import type { DirectStreamEvent } from '@prisma/client';
 
+/**
+ * The pin that goes with a stream URL a person sends: a new URL pins, a cleared
+ * one unpins, and the URL the page already has (or none sent) leaves it alone.
+ */
+function pinFor(
+  sent: string | null | undefined,
+  current: string | null
+): Pick<IUpdateDirectStreamEventInput, 'streamUrlPinnedAt'> {
+  if (sent === undefined || (sent && sent === current)) {
+    return {};
+  }
+  return { streamUrlPinnedAt: sent ? new Date() : null };
+}
+
 export class DirectStreamEventService {
   constructor(
     private reader: IDirectStreamEventReader,
@@ -34,7 +48,8 @@ export class DirectStreamEventService {
     // Check for duplicate eventSlug under same parent
     // Note: This is a simplified check; the DB unique constraint will also catch duplicates
     
-    return this.writer.create(input);
+    // A URL a person sets is pinned, so the camera poller leaves it alone.
+    return this.writer.create(input.streamUrl ? { ...input, streamUrlPinnedAt: new Date() } : input);
   }
   
   /**
@@ -53,7 +68,7 @@ export class DirectStreamEventService {
       throw new Error('Invalid eventSlug format: must be lowercase alphanumeric with hyphens');
     }
     
-    return this.writer.update(id, input);
+    return this.writer.update(id, { ...input, ...pinFor(input.streamUrl, existing.streamUrl) });
   }
   
   /**

@@ -16,6 +16,8 @@ export interface ICreateDirectStreamEventInput {
   eventSlug: string;
   title: string;
   streamUrl?: string | null;
+  /** Set when a person chose the URL; the camera poller skips pinned pages. */
+  streamUrlPinnedAt?: Date | null;
   scheduledStartAt?: Date | null;
   
   // Feature flag overrides (null = inherit from parent)
@@ -42,6 +44,8 @@ export interface IUpdateDirectStreamEventInput {
   eventSlug?: string;
   title?: string;
   streamUrl?: string | null;
+  /** Set when a person chose the URL; the camera poller skips pinned pages. */
+  streamUrlPinnedAt?: Date | null;
   scheduledStartAt?: Date | null;
   status?: 'active' | 'archived' | 'deleted';
   
