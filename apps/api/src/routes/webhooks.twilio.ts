@@ -119,6 +119,19 @@ async function askCoachText(text: InboundText): Promise<CoachTextResult> {
   }
 }
 
+/**
+ * YES while a coach has a numbered question open: the hint to answer with a
+ * number. Null keeps the YES answer as it always was.
+ */
+async function coachTextYesHint(from: string, twilioVerified: boolean): Promise<string | null> {
+  try {
+    return await getCoachTextEngine().hintForYes({ from, twilioVerified });
+  } catch (error) {
+    logger.warn({ error, phone: maskPhoneE164(from) }, 'Coach text YES hint failed');
+    return null;
+  }
+}
+
 /** STOP also pauses a coach's linked phone. A failure never changes the STOP answer. */
 async function tellCoachTextOfStop(from: string, twilioVerified: boolean): Promise<void> {
   try {
@@ -255,6 +268,10 @@ router.post(
 
         if (keyword === SMS_YES_KEYWORD) {
           await smsService.handleYes(phoneE164);
+          const hint = coachTextOn ? await coachTextYesHint(phoneE164, twilioVerified) : null;
+          if (hint) {
+            return res.type('text/xml').send(twimlMessage(hint));
+          }
           return res.type('text/xml').send('<Response></Response>');
         }
 

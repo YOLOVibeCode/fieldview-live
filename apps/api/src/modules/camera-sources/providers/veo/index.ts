@@ -32,6 +32,34 @@ const VEO_CONNECT_FIELDS: readonly ConnectField[] = [
   },
 ];
 
+const DEFAULT_HTTP_TIMEOUT_MS = 8000;
+
+/** How long one call to a camera platform may take: CAMERA_SOURCE_HTTP_TIMEOUT_MS, 8000 by default. */
+export function cameraSourceHttpTimeoutMs(): number {
+  const value = Number((process.env.CAMERA_SOURCE_HTTP_TIMEOUT_MS ?? '').trim());
+  return Number.isInteger(value) && value > 0 ? value : DEFAULT_HTTP_TIMEOUT_MS;
+}
+
+/**
+ * Wraps a fetch so every call ends at the timeout. The call gets an abort signal,
+ * and the wrapper also stops waiting itself, in case the call ignores the signal.
+ */
+export function withHttpTimeout(base: FetchLike, timeoutMs: () => number = cameraSourceHttpTimeoutMs): FetchLike {
+  return (url, init) => {
+    const ms = timeoutMs();
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error(`Camera source call timed out after ${ms} ms`));
+      }, ms);
+    });
+    const call = base(url, { ...init, signal: controller.signal });
+    return Promise.race([call, expired]).finally(() => clearTimeout(timer));
+  };
+}
+
 export interface VeoProviderDeps {
   fetch?: FetchLike;
   /** Password → session (injectable for tests). Defaults to the plain-HTTP login. */
@@ -39,7 +67,7 @@ export interface VeoProviderDeps {
 }
 
 export function createVeoProvider(deps: VeoProviderDeps = {}): ICameraProvider {
-  const fetch = deps.fetch ?? (globalThis.fetch as unknown as FetchLike);
+  const fetch = deps.fetch ?? withHttpTimeout(globalThis.fetch as unknown as FetchLike);
   const minter = new HttpVeoTokenMinter({ fetch });
 
   return {

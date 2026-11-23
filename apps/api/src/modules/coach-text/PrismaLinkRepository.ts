@@ -160,6 +160,10 @@ export class PrismaLinkRepository implements ICoachTextLinkReader, ICoachTextLin
     await this.prisma.coachTextLink.deleteMany({ where: { id } });
   }
 
+  async touchLastCommand(id: string, at: Date): Promise<void> {
+    await this.prisma.coachTextLink.updateMany({ where: { id }, data: { lastCommandAt: at } });
+  }
+
   async setPausedByPhone(phoneE164: string, pausedAt: Date | null): Promise<boolean> {
     const result = await this.prisma.coachTextLink.updateMany({
       where: { phoneE164, verifiedAt: { not: null } },

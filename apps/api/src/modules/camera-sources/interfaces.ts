@@ -198,5 +198,7 @@ export type FetchLike = (
     headers?: Record<string, string>;
     body?: string;
     redirect?: 'follow' | 'manual';
+    /** Ends the call early. The default fetch sets one from CAMERA_SOURCE_HTTP_TIMEOUT_MS. */
+    signal?: AbortSignal;
   }
 ) => Promise<HttpResponse>;

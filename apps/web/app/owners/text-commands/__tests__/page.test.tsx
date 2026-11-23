@@ -1237,38 +1237,51 @@ describe('OwnerTextCommandsPage', () => {
   });
 
   describe('commands', () => {
-    it('says the commands are coming, and which number to text', async () => {
+    const COMMANDS = [
+      { word: 'LIVE', description: 'What is streaming on your camera now, and what your game on now shows.' },
+      { word: 'ATTACH', description: 'Puts the live stream on your game, or asks which one.' },
+      { word: 'UNDO', description: 'Puts back the last change made by text on your account, within 30 minutes.' },
+      { word: '1 to 9, 0', description: 'Answers a numbered question. 0 means none of these.' },
+    ];
+
+    it('says when there are no commands, and which number to text', async () => {
       getStatus.mockResolvedValue(withPhones(LINKED));
 
       await renderPage();
 
       expect(screen.getByTestId('text-commands-number')).toHaveTextContent('Text (877) 343-5308:');
       expect(screen.getByTestId('text-commands-commands-soon')).toHaveTextContent(
-        'Commands arrive with the next update.'
+        'No commands are available right now.'
       );
+      expect(screen.queryByTestId('text-commands-note')).not.toBeInTheDocument();
     });
 
-    it('lists the commands once there are some', async () => {
-      getStatus.mockResolvedValue(
-        aStatus({
-          phones: [LINKED],
-          commands: [
-            { word: 'LIVE', description: 'See which camera streams are live.' },
-            { word: 'MENU', description: 'See every command.' },
-          ],
-        })
-      );
+    it('lists the commands the API sends, in its order, each with its own test id', async () => {
+      getStatus.mockResolvedValue(aStatus({ phones: [LINKED], commands: COMMANDS }));
 
       await renderPage();
 
       const rows = within(screen.getByTestId('list-text-commands-commands')).getAllByRole(
         'listitem'
       );
-      expect(rows).toHaveLength(2);
+      expect(rows).toHaveLength(4);
       expect(rows[0]).toHaveTextContent('LIVE');
-      expect(rows[0]).toHaveTextContent('See which camera streams are live.');
-      expect(rows[1]).toHaveTextContent('MENU');
+      expect(rows[0]).toHaveTextContent('What is streaming on your camera now');
+      expect(rows[1]).toHaveTextContent('ATTACH');
+      expect(screen.getByTestId('text-command-undo')).toHaveTextContent('within 30 minutes');
+      expect(screen.getByTestId('text-command-1-to-9-0')).toHaveTextContent('0 means none of these.');
       expect(screen.queryByTestId('text-commands-commands-soon')).not.toBeInTheDocument();
+    });
+
+    it('says a stream set by text stays until someone changes it, and that UNDO puts it back', async () => {
+      getStatus.mockResolvedValue(aStatus({ phones: [LINKED], commands: COMMANDS }));
+
+      await renderPage();
+
+      const note = screen.getByTestId('text-commands-note');
+      expect(note).toHaveTextContent(
+        'A stream put on a game by text stays there until someone changes it, by text or on the game page. Text UNDO within 30 minutes to put the earlier stream back. Viewers who are already watching may need to refresh.'
+      );
     });
   });
 

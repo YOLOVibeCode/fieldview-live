@@ -167,6 +167,7 @@ export class DirectStreamEventRepository implements IDirectStreamEventReader, ID
         eventSlug: input.eventSlug,
         title: input.title,
         streamUrl: input.streamUrl,
+        streamUrlPinnedAt: input.streamUrlPinnedAt,
         scheduledStartAt: input.scheduledStartAt,
         chatEnabled: input.chatEnabled,
         scoreboardEnabled: input.scoreboardEnabled,

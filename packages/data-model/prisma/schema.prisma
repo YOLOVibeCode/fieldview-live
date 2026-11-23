@@ -741,9 +741,10 @@ model DirectStreamEvent {
   title          String // Event-specific title (e.g., "Varsity Soccer vs. Rival HS")
 
   // Event-specific stream & scheduling
-  streamUrl        String? // Override parent stream URL
-  scheduledStartAt DateTime? // Event start time
-  reminderSentAt   DateTime? // Track when reminder was sent
+  streamUrl         String? // Override parent stream URL
+  streamUrlPinnedAt DateTime? // Set when a person chose the URL (admin save, text command); the camera poller leaves pinned pages alone
+  scheduledStartAt  DateTime? // Event start time
+  reminderSentAt    DateTime? // Track when reminder was sent
 
   // Lifecycle
   status String @default("active") // active | archived | deleted

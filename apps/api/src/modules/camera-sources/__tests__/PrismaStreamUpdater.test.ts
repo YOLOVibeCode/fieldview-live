@@ -1,6 +1,7 @@
 /**
- * PrismaStreamUpdater tests (TDD — RED phase).
- * Mocked Prisma; verifies update and skip-if-same-URL logic.
+ * PrismaStreamUpdater tests.
+ * Mocked Prisma; verifies the guarded write, skip-if-same-URL, and that a page a
+ * person pinned, or whose URL changed since it was read, is never overwritten.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -14,7 +15,7 @@ describe('PrismaStreamUpdater', () => {
   function createMockPrisma(): PrismaClient {
     return {
       directStreamEvent: {
-        update: mockUpdate,
+        updateMany: mockUpdate,
       },
     } as unknown as PrismaClient;
   }
@@ -24,11 +25,7 @@ describe('PrismaStreamUpdater', () => {
   });
 
   it('should update event streamUrl and return updated count', async () => {
-    mockUpdate.mockResolvedValue({
-      id: 'ev-1',
-      eventSlug: 'soccer-varsity',
-      streamUrl: 'https://stream.mux.com/new',
-    });
+    mockUpdate.mockResolvedValue({ count: 1 });
 
     const updater = new PrismaStreamUpdater(createMockPrisma());
     const matches: StreamMatch[] = [
@@ -53,7 +50,7 @@ describe('PrismaStreamUpdater', () => {
     const result = await updater.updateStreamUrls(matches);
 
     expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'ev-1' },
+      where: { id: 'ev-1', streamUrl: null, streamUrlPinnedAt: null },
       data: { streamUrl: 'https://stream.mux.com/new' },
     });
     expect(result.updated).toBe(1);
@@ -108,9 +105,7 @@ describe('PrismaStreamUpdater', () => {
   });
 
   it('should update multiple events and report correct counts', async () => {
-    mockUpdate
-      .mockResolvedValueOnce({ id: 'ev-1', eventSlug: 'a', streamUrl: 'https://stream.mux.com/1' })
-      .mockResolvedValueOnce({ id: 'ev-2', eventSlug: 'b', streamUrl: 'https://stream.mux.com/2' });
+    mockUpdate.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 1 });
 
     const updater = new PrismaStreamUpdater(createMockPrisma());
     const matches: StreamMatch[] = [
@@ -154,5 +149,33 @@ describe('PrismaStreamUpdater', () => {
     expect(result.updated).toBe(2);
     expect(result.skipped).toBe(0);
     expect(result.details).toHaveLength(2);
+  });
+
+  it('counts a page as skipped when a person pinned it or its URL changed after it was read', async () => {
+    mockUpdate.mockResolvedValue({ count: 0 });
+
+    const updater = new PrismaStreamUpdater(createMockPrisma());
+    const result = await updater.updateStreamUrls([
+      {
+        stream: { provider: 'veo', title: 'A', streamUrl: 'https://stream.mux.com/new', startedAt: null },
+        event: {
+          eventId: 'ev-1',
+          eventSlug: 'a',
+          title: 'A',
+          directStreamSlug: 'tchs',
+          currentStreamUrl: 'https://stream.mux.com/old',
+        },
+        confidence: 0.9,
+      },
+    ]);
+
+    // The write is guarded on the URL it read and on no pin, so the coach's choice stays.
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'ev-1', streamUrl: 'https://stream.mux.com/old', streamUrlPinnedAt: null },
+      data: { streamUrl: 'https://stream.mux.com/new' },
+    });
+    expect(result.updated).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.details).toEqual([]);
   });
 });

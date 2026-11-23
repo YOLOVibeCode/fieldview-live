@@ -6,9 +6,14 @@ import type { InboundText, LinkCompletion } from '../interfaces';
 
 import {
   FakeCommandLog,
+  FakeConsent,
   FakeConversationStore,
+  FakeKeywords,
   FakeLinkStore,
+  FakeLiveLookup,
+  FakePages,
   FakeSettingsStore,
+  commandFakes,
   makeOwner,
 } from './fakes';
 
@@ -48,10 +53,15 @@ describe('CoachTextEngine', () => {
   let commands: FakeCommandLog;
   let conversations: FakeConversationStore;
   let settings: FakeSettingsStore;
+  let consent: FakeConsent;
+  let pages: FakePages;
+  let lookup: FakeLiveLookup;
+  let keywords: FakeKeywords;
   let linking: {
     completeFromText: Mock<[{ from: string; code: string }], Promise<LinkCompletion>>;
     pause: Mock<[string], Promise<void>>;
     resume: Mock<[string], Promise<void>>;
+    removePhone: Mock<[string, string], Promise<{ removed: boolean }>>;
   };
   let engine: CoachTextEngine;
   let questionIds: number;
@@ -93,6 +103,8 @@ describe('CoachTextEngine', () => {
     commands = new FakeCommandLog(clock);
     conversations = new FakeConversationStore();
     settings = new FakeSettingsStore();
+    consent = new FakeConsent(clock);
+    ({ pages, lookup, keywords } = commandFakes(conversations, clock));
     questionIds = 0;
     linking = {
       completeFromText: vi
@@ -100,6 +112,10 @@ describe('CoachTextEngine', () => {
         .mockResolvedValue(MATCHED),
       pause: vi.fn<[string], Promise<void>>().mockResolvedValue(undefined),
       resume: vi.fn<[string], Promise<void>>().mockResolvedValue(undefined),
+      removePhone: vi.fn<[string, string], Promise<{ removed: boolean }>>((_user, id) => {
+        links.rows.delete(id);
+        return Promise.resolve({ removed: true });
+      }),
     };
     engine = new CoachTextEngine({
       linking,
@@ -108,6 +124,11 @@ describe('CoachTextEngine', () => {
       chooser: new AccountChooser({ links, conversations, now: clock }),
       conversations,
       settings,
+      consent,
+      keywords,
+      games: pages,
+      lookup,
+      writer: pages,
       now: clock,
       newId: () => `00000000-0000-4000-8000-${String((questionIds += 1)).padStart(12, '0')}`,
     });
@@ -140,18 +161,27 @@ describe('CoachTextEngine', () => {
       expect(commands.rows).toEqual([]);
     });
 
-    it.each(['GAME1', 'YES', 'link', 'LINK 12345', 'LINK 482913 please', 'UNLINK 482913'])(
-      'leaves the verified text %s to the viewer path without touching a store',
+    it.each(['GAME1', 'YES', 'link', 'LINK 12345', 'LINK 482913 please', 'UNLINK 482913', 'MENU', 'ATTACH', '1'])(
+      'leaves the verified text %s from a phone no login has proven to the viewer path',
       async (body) => {
-        links.failNext = new Error('the store must not be read');
+        waitOn(PHONE);
 
         expect(await engine.handleInbound(text({ body }))).toEqual({ handled: false });
 
-        expect(links.failNext).not.toBeNull();
         expect(linking.completeFromText).not.toHaveBeenCalled();
         expect(commands.rows).toEqual([]);
+        expect(conversations.leases.size).toBe(0);
       }
     );
+
+    it('falls through to the viewer path when the link lookup fails', async () => {
+      links.addOwner(makeOwner());
+      links.seed({ ownerUserId: 'user-1', phoneE164: PHONE });
+      links.failNext = new Error('database is down');
+
+      expect(await engine.handleInbound(text({ body: 'MENU' }))).toEqual({ handled: false });
+      expect(commands.rows).toEqual([]);
+    });
   });
 
   describe('LINK from a verified text', () => {
@@ -275,7 +305,7 @@ describe('CoachTextEngine', () => {
 
       expect(result).toEqual({ handled: true, twiml: reply('This phone works with Tigers FC only.') });
       expect(commands.rows[0]).toMatchObject({
-        body: 'ACCOUNT',
+        body: 'account',
         interpreter: 'rules',
         status: 'no_change',
         reason: 'one_account',
@@ -409,33 +439,60 @@ describe('CoachTextEngine', () => {
       expect(conversations.rows.get(PHONE)).toMatchObject({ pendingId: null, chosenLinkId: null });
     });
 
-    it('lets only one of two racing answers win', async () => {
+    it('turns away a second text while the first holds the phone', async () => {
       const [first, second] = await Promise.all([
         engine.handleInbound(text({ body: '1', messageSid: nextSid() })),
         engine.handleInbound(text({ body: '2', messageSid: nextSid() })),
       ]);
 
       expect(first).toEqual({ handled: true, twiml: reply('Texting for Tigers FC until 6:00 PM. Text ACCOUNT to switch.') });
-      expect(second).toEqual({
-        handled: true,
-        twiml: reply('That question has closed. Text ACCOUNT to choose again.'),
-      });
+      expect(second).toEqual({ handled: true, twiml: reply('Still working on your last text. Try again in a few seconds.') });
+      expect(commands.rows[2]).toMatchObject({ status: 'rejected', reason: 'busy' });
+      expect(conversations.leases.size).toBe(0);
+    });
+
+    it('lets only one of two racing answers win, even past the lease', async () => {
+      conversations.ignoreLeases = true;
+      const [first, second] = await Promise.all([
+        engine.handleInbound(text({ body: '1', messageSid: nextSid() })),
+        engine.handleInbound(text({ body: '2', messageSid: nextSid() })),
+      ]);
+
+      expect(first).toEqual({ handled: true, twiml: reply('Texting for Tigers FC until 6:00 PM. Text ACCOUNT to switch.') });
+      // The first text is still running, so the second also hears it has not finished.
+      expect(second.handled && second.twiml).toContain('That question has closed. Text ACCOUNT to choose again.');
       expect(conversations.rows.get(PHONE)?.chosenLinkId).toBe(TIGERS_LINK);
     });
 
-    it('leaves a digit to the viewer path once the question has run out', async () => {
+    it('says the question has expired once it has run out', async () => {
       now = new Date(now.getTime() + 11 * MINUTE);
 
-      expect(await engine.handleInbound(text({ body: '2', messageSid: nextSid() }))).toEqual({ handled: false });
-      expect(commands.rows).toHaveLength(1);
+      expect(await engine.handleInbound(text({ body: '2', messageSid: nextSid() }))).toEqual({
+        handled: true,
+        twiml: reply('That question has expired. Send the command again.'),
+      });
+      expect(commands.rows[1]).toMatchObject({ status: 'rejected', reason: 'question_expired' });
+    });
+
+    it.each(['NO', 'n', 'None'])('takes %s as 0', async (body) => {
+      const result = await engine.handleInbound(text({ body, messageSid: nextSid() }));
+
+      expect(result).toEqual({ handled: true, twiml: reply('Nothing changed. Text ACCOUNT to choose an account.') });
     });
   });
 
   describe('a digit with no question open', () => {
-    it('goes to the viewer path untouched, from a linked phone or a stranger', async () => {
+    it('tells a linked phone there is no question', async () => {
       linkTwoAccounts();
 
-      expect(await engine.handleInbound(text({ body: '2' }))).toEqual({ handled: false });
+      expect(await engine.handleInbound(text({ body: '2' }))).toEqual({
+        handled: true,
+        twiml: reply('There is no open question. Text MENU for what I can do.'),
+      });
+      expect(commands.rows[0]).toMatchObject({ body: '2', interpreter: 'answer', status: 'rejected', reason: 'no_question' });
+    });
+
+    it('leaves a digit from a stranger to the viewer path, untouched', async () => {
       expect(await engine.handleInbound(text({ from: '+12145550999', body: '1', messageSid: nextSid() }))).toEqual({
         handled: false,
       });

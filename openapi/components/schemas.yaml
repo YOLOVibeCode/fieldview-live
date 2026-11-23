@@ -802,7 +802,7 @@ components:
             $ref: '#/components/schemas/CoachTextPhoneStatus'
         commands:
           type: array
-          description: The commands the phones can text. Empty until commands ship.
+          description: The commands the phones can text, in the order the portal shows them. Empty while text commands are not turned on for the account.
           items:
             $ref: '#/components/schemas/CoachTextCommandHelp'
 

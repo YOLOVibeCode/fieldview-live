@@ -518,11 +518,19 @@ router.post(
         // Build update data (ISP: only update provided fields)
         const parentUpdateData: any = {};
         const eventUpdateData: any = {};
+        let eventStreamUrlPin: { streamUrlPinnedAt: Date | null } | null = null;
         
         // 🆕 Event-specific fields (save to DirectStreamEvent if applicable)
         if (directStreamEvent) {
           if (body.streamUrl !== undefined) {
             eventUpdateData.streamUrl = body.streamUrl;
+            // A URL a person sets is pinned, so the camera poller leaves it alone;
+            // clearing it unpins. Re-sending the URL the page has changes nothing.
+            if (!body.streamUrl) {
+              eventStreamUrlPin = { streamUrlPinnedAt: null };
+            } else if (body.streamUrl !== directStreamEvent.streamUrl) {
+              eventStreamUrlPin = { streamUrlPinnedAt: new Date() };
+            }
           }
           if (body.scheduledStartAt !== undefined) {
             eventUpdateData.scheduledStartAt = body.scheduledStartAt ? new Date(body.scheduledStartAt) : null;
@@ -666,7 +674,7 @@ router.post(
                 eventSlug: parts[1],
               },
             },
-            data: eventUpdateData,
+            data: { ...eventUpdateData, ...eventStreamUrlPin },
           });
         }
 
