@@ -753,6 +753,14 @@ function PhoneRow({
   );
 }
 
+/** `1 to 9, 0` becomes `1-to-9-0`, for a test id. */
+function commandTestId(word: string): string {
+  return word
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function CommandList({ status }: { status: CoachTextStatus }) {
   return (
     <section aria-labelledby="text-commands-commands-heading" className="space-y-2">
@@ -764,17 +772,28 @@ function CommandList({ status }: { status: CoachTextStatus }) {
       </p>
       {status.commands.length === 0 ? (
         <p data-testid="text-commands-commands-soon" className="text-sm text-muted-foreground">
-          Commands arrive with the next update.
+          No commands are available right now.
         </p>
       ) : (
-        <ul data-testid="list-text-commands-commands" className="space-y-1 text-sm">
-          {status.commands.map((command) => (
-            <li key={command.word} className="flex gap-3">
-              <span className="font-mono font-semibold">{command.word}</span>
-              <span className="text-muted-foreground">{command.description}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul data-testid="list-text-commands-commands" className="space-y-1 text-sm">
+            {status.commands.map((command) => (
+              <li
+                key={command.word}
+                data-testid={`text-command-${commandTestId(command.word)}`}
+                className="flex gap-3"
+              >
+                <span className="shrink-0 font-mono font-semibold">{command.word}</span>
+                <span className="text-muted-foreground">{command.description}</span>
+              </li>
+            ))}
+          </ul>
+          <p data-testid="text-commands-note" className="text-xs text-muted-foreground">
+            A stream put on a game by text stays there until someone changes it, by text or on the
+            game page. Text UNDO within 30 minutes to put the earlier stream back. Viewers who are
+            already watching may need to refresh.
+          </p>
+        </>
       )}
     </section>
   );
