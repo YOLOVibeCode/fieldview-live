@@ -7,8 +7,12 @@ paths:
       description: |
         Receives inbound SMS from Twilio through the Noctusoft relay. Handles keyword routing and STOP/START/HELP compliance.
         When owner text commands are turned on, a `LINK <code>` text links the sending phone to an owner login,
-        STOP pauses a linked phone and START turns it back on. A text is acted on as an owner text only when the relay
-        reports that Twilio signed it. Every other text goes to keyword routing as before.
+        STOP pauses a linked phone and START turns it back on. A linked phone can also text MENU, LIVE, GAMES,
+        ATTACH, UNDO, UNLINK and ACCOUNT, and answer a numbered question with a digit; YES during an open question
+        gets a hint to reply with the number. A text is acted on as an owner text only when the relay reports that
+        Twilio signed it and it comes from a phone an owner login has proven. A single word that is a real game
+        keyword still goes to keyword routing. Every other text goes to keyword routing as before. Every answer is
+        the TwiML in this response; nothing is sent separately.
       operationId: handleTwilioWebhook
       requestBody:
         required: true
@@ -22,7 +26,7 @@ paths:
                   description: Phone number (E.164)
                 Body:
                   type: string
-                  description: Message body (a game keyword, a compliance word, or `LINK <code>`)
+                  description: Message body (a game keyword, a compliance word, `LINK <code>`, or an owner text command)
                 MessageSid:
                   type: string
                   description: Twilio's id for the text. A text delivered twice is acted on once.
