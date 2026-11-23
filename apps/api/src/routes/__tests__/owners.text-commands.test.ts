@@ -28,8 +28,10 @@ import {
   FakeLinkStore,
   FakeNotifier,
   FakeSettingsStore,
+  commandFakes,
   makeOwner,
 } from '../../modules/coach-text/__tests__/fakes';
+import { COACH_TEXT_COMMANDS } from '../../modules/coach-text/commandList';
 import type {
   CoachTextOwner,
   CoachTextResult,
@@ -172,14 +174,16 @@ describe('owner text commands routes', () => {
     logins = new FakeLogins();
     const settings = new FakeSettingsStore();
     const conversations = new FakeConversationStore();
+    const consent = new FakeConsent(clock);
     service = new PhoneLinkService({
       links,
-      consent: new FakeConsent(clock),
+      consent,
       commands,
       notifier: new FakeNotifier(),
       settings,
       now: clock,
     });
+    const { lookup, keywords, games, writer } = commandFakes(conversations, clock);
     engine = new CoachTextEngine({
       linking: service,
       links,
@@ -187,6 +191,11 @@ describe('owner text commands routes', () => {
       chooser: new AccountChooser({ links, conversations, now: clock }),
       conversations,
       settings,
+      consent,
+      lookup,
+      keywords,
+      games,
+      writer,
       now: clock,
     });
     addLogin();
@@ -259,7 +268,7 @@ describe('owner text commands routes', () => {
 
   describe('the phone list', () => {
     it('starts empty', async () => {
-      expect(await statusOf()).toEqual({ ...NOT_TURNED_ON, enabled: true });
+      expect(await statusOf()).toEqual({ ...NOT_TURNED_ON, enabled: true, commands: [...COACH_TEXT_COMMANDS] });
     });
 
     it('adds a named phone and answers its code once, never cached', async () => {

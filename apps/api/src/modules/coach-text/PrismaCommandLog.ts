@@ -13,6 +13,7 @@ import type {
   FinishCommandInput,
   ICoachTextCommandReader,
   ICoachTextCommandWriter,
+  PreviousCommand,
   UnverifiedTextInput,
 } from './interfaces';
 
@@ -56,6 +57,7 @@ export class PrismaCommandLog implements ICoachTextCommandWriter, ICoachTextComm
       where: { id },
       data: {
         status: input.status,
+        ...(input.action !== undefined ? { action: input.action } : {}),
         reason: input.reason ?? null,
         replyText: input.replyText ?? null,
         latencyMs: input.latencyMs ?? null,
@@ -88,6 +90,28 @@ export class PrismaCommandLog implements ICoachTextCommandWriter, ICoachTextComm
         reason: { in: UNVERIFIED_REASONS },
         createdAt: { gte: since },
       },
+    });
+  }
+
+  async previousFor(phoneE164: string, beforeId: string): Promise<PreviousCommand | null> {
+    const current = await this.prisma.coachTextCommand.findUnique({
+      where: { id: beforeId },
+      select: { createdAt: true },
+    });
+    if (!current) {
+      return null;
+    }
+    // Only texts that came before: one arriving meanwhile is not "the last text".
+    return this.prisma.coachTextCommand.findFirst({
+      where: {
+        phoneE164,
+        messageSid: { not: null },
+        id: { not: beforeId },
+        createdAt: { lt: current.createdAt },
+        NOT: { status: 'rejected', reason: 'busy' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true, reason: true },
     });
   }
 

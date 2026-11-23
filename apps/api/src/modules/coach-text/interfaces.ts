@@ -10,6 +10,8 @@
 
 import type { CoachTextPhoneState, CoachTextQuestion } from '@fieldview/data-model';
 
+import type { LiveStream, OwnerLiveStreams } from '../camera-sources/interfaces';
+
 // ── Inbound text ────────────────────────────────────────────────────────────
 
 export interface InboundText {
@@ -35,6 +37,32 @@ export interface ICoachTextEngine {
   handleOptOut(text: Pick<InboundText, 'from' | 'twilioVerified'>): Promise<void>;
   /** A START word arrived. Resumes the link for a verified text. Never throws. */
   handleOptIn(text: Pick<InboundText, 'from' | 'twilioVerified'>): Promise<void>;
+  /**
+   * YES arrived while the phone has a numbered question open: the reply that
+   * says to answer with a number. Null otherwise. Never throws.
+   */
+  hintForYes(text: Pick<InboundText, 'from' | 'twilioVerified'>): Promise<string | null>;
+}
+
+// ── Reading a text ──────────────────────────────────────────────────────────
+
+/** What a coach's text asks for. Creating a page by text comes in a later update. */
+export type Intent =
+  | { action: 'menu' }
+  | { action: 'live' }
+  | { action: 'games' }
+  | { action: 'attach'; offerNewPage: boolean }
+  | { action: 'undo' }
+  | { action: 'unlink' };
+
+export interface ICommandInterpreter {
+  /** Null when the text is not understood. */
+  interpret(body: string): Promise<Intent | null>;
+}
+
+/** Whether a word is a game keyword a viewer could text. */
+export interface IKeywordLookup {
+  isKeyword(word: string): Promise<boolean>;
 }
 
 // ── Link records ────────────────────────────────────────────────────────────
@@ -121,6 +149,8 @@ export interface ICoachTextLinkWriter {
   delete(id: string): Promise<void>;
   /** Pauses or resumes every proven link of the phone. Answers whether there was one. */
   setPausedByPhone(phoneE164: string, pausedAt: Date | null): Promise<boolean>;
+  /** The link acted on a text: it is not idle. */
+  touchLastCommand(id: string, at: Date): Promise<void>;
 }
 
 // ── Settings per login ──────────────────────────────────────────────────────
@@ -168,6 +198,13 @@ export interface ICoachTextConversationStore {
    * records the choice with it. False when another answer won or it ran out.
    */
   answer(phoneE164: string, input: AnswerQuestionInput): Promise<boolean>;
+  /**
+   * Takes the phone's lease until `until` when no other text holds it (its lease
+   * is unset or ended before `now`). False when another text holds it.
+   */
+  acquireLease(phoneE164: string, now: Date, until: Date): Promise<boolean>;
+  /** Gives the lease back, only if it is still the one taken with `until`. */
+  releaseLease(phoneE164: string, until: Date): Promise<void>;
 }
 
 // ── Choosing the account a phone texts for ──────────────────────────────────
@@ -219,6 +256,8 @@ export interface BeginCommandInput {
 
 export interface FinishCommandInput {
   status: CoachTextCommandStatus;
+  /** What the text did: menu, live, games, attach, undo, unlink, account, answer. */
+  action?: string;
   reason?: string;
   replyText?: string | null;
   latencyMs?: number;
@@ -250,8 +289,19 @@ export interface CoachTextHistoryRow {
   phoneLabel: string | null;
 }
 
+/** The text a phone sent before this one, as far as the log knows it. */
+export interface PreviousCommand {
+  status: string;
+  reason: string | null;
+}
+
 export interface ICoachTextCommandReader {
   countUnverifiedSince(phoneE164: string, since: Date): Promise<number>;
+  /**
+   * The phone's latest verified text from before the text `beforeId`. A text
+   * turned away because another was running does not count.
+   */
+  previousFor(phoneE164: string, beforeId: string): Promise<PreviousCommand | null>;
   /** Newest first, this login's own rows only. */
   listForOwnerUser(ownerUserId: string, limit: number): Promise<CoachTextHistoryRow[]>;
 }
@@ -377,4 +427,94 @@ export interface OwnerLogin {
 
 export interface IOwnerLoginReader {
   findByEmail(email: string): Promise<OwnerLogin | null>;
+}
+
+// ── Games and streams ───────────────────────────────────────────────────────
+
+/** One game page (a DirectStreamEvent) of the coach's account. */
+export interface CoachGame {
+  eventId: string;
+  directStreamId: string;
+  title: string;
+  parentSlug: string;
+  eventSlug: string;
+  scheduledStartAt: Date | null;
+  streamUrl: string | null;
+}
+
+/** The account's pages. Every read is scoped to the account, and to active pages and parents. */
+export interface IGameReader {
+  /** Starting between 3 hours ago and 60 minutes from now, soonest first. */
+  listOnNow(ownerAccountId: string, now: Date): Promise<CoachGame[]>;
+  /** On now or starting within the next `hours`, soonest first, at most `limit`. */
+  listUpcoming(ownerAccountId: string, now: Date, hours: number, limit: number): Promise<CoachGame[]>;
+  /** The pages whose start is nearest to now, before or after, at most `limit`. */
+  listNearest(ownerAccountId: string, now: Date, limit: number): Promise<CoachGame[]>;
+}
+
+/** "What is live on this account's cameras?", with a short reuse so a second text is instant. */
+export interface ILiveLookup {
+  find(ownerAccountId: string): Promise<OwnerLiveStreams>;
+}
+
+export type { LiveStream, OwnerLiveStreams };
+
+// ── Changing a stream ───────────────────────────────────────────────────────
+
+/** Where a page lives, for the reply. */
+export interface AttachedPage {
+  title: string;
+  parentSlug: string;
+  eventSlug: string;
+}
+
+export interface AttachWrite {
+  /** The log row of this text. It records what changed, for UNDO. */
+  commandId: string;
+  ownerUserId: string;
+  /** Read from the login on this text. The write is scoped to it. */
+  ownerAccountId: string;
+  eventId: string;
+  streamUrl: string;
+  phoneE164: string;
+  /** The open question this answers. Consumed in the same transaction. */
+  pendingId: string | null;
+  now: Date;
+  /** No write starts after this moment, in milliseconds. */
+  deadlineAtMs: number;
+}
+
+export type AttachResult =
+  | { kind: 'attached'; page: AttachedPage }
+  | { kind: 'same'; page: AttachedPage }
+  /** Not one of the account's active pages any more. */
+  | { kind: 'not_found' }
+  /** Another answer, or a new question, closed it first. */
+  | { kind: 'question_closed' }
+  /** The page changed between the read and the write. Nothing was written. */
+  | { kind: 'changed' }
+  /** The reply window ran out. Nothing was written. */
+  | { kind: 'late' };
+
+export interface UndoWrite {
+  commandId: string;
+  ownerUserId: string;
+  ownerAccountId: string;
+  now: Date;
+  deadlineAtMs: number;
+}
+
+export type UndoResult =
+  | { kind: 'undone'; page: AttachedPage }
+  /** No change by text on this account in the window, or it was undone already. */
+  | { kind: 'nothing' }
+  /** Someone changed the page after the text, so it was left alone. */
+  | { kind: 'changed'; page: AttachedPage }
+  | { kind: 'late' };
+
+export interface IAttachWriter {
+  /** Puts the stream on the page and pins it. */
+  attach(input: AttachWrite): Promise<AttachResult>;
+  /** Puts back the URL and the pin the account's last change by text replaced, within 30 minutes. */
+  undo(input: UndoWrite): Promise<UndoResult>;
 }

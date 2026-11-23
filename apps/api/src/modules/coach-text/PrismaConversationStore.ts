@@ -1,9 +1,9 @@
 /**
  * Coach text commands: what each phone is in the middle of, on Prisma.
  *
- * One row per phone, shared by all its links: the account it texts for and its
- * one open question. Answering is a single conditional update, so two answers
- * racing for the same question cannot both win.
+ * One row per phone, shared by all its links: the account it texts for, its
+ * one open question and its lease. Answering and taking the lease are single
+ * conditional updates, so two texts racing for either cannot both win.
  */
 
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -64,5 +64,22 @@ export class PrismaConversationStore implements ICoachTextConversationStore {
       },
     });
     return result.count === 1;
+  }
+
+  async acquireLease(phoneE164: string, now: Date, until: Date): Promise<boolean> {
+    // The row may not exist yet; making it is harmless when it does.
+    await this.prisma.coachTextPhone.createMany({ data: [{ phoneE164 }], skipDuplicates: true });
+    const result = await this.prisma.coachTextPhone.updateMany({
+      where: { phoneE164, OR: [{ busyUntil: null }, { busyUntil: { lte: now } }] },
+      data: { busyUntil: until },
+    });
+    return result.count === 1;
+  }
+
+  async releaseLease(phoneE164: string, until: Date): Promise<void> {
+    await this.prisma.coachTextPhone.updateMany({
+      where: { phoneE164, busyUntil: until },
+      data: { busyUntil: null },
+    });
   }
 }

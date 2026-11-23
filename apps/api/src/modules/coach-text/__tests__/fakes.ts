@@ -2,9 +2,14 @@
  * In-memory stand-ins for the coach text stores. Test use only.
  */
 
+import type { OwnerLiveStreams } from '../../camera-sources/interfaces';
 import type {
   AnswerQuestionInput,
   AskQuestionInput,
+  AttachResult,
+  AttachWrite,
+  AttachedPage,
+  CoachGame,
   BeginCommandInput,
   CoachTextCommandStatus,
   CoachTextConsentInput,
@@ -23,8 +28,15 @@ import type {
   ICoachTextLinkWriter,
   ICoachTextNotifier,
   ICoachTextSettingsStore,
+  IAttachWriter,
+  IGameReader,
+  IKeywordLookup,
+  ILiveLookup,
   NewPhoneLinkInput,
+  PreviousCommand,
   SetCodeInput,
+  UndoResult,
+  UndoWrite,
   UnverifiedTextInput,
 } from '../interfaces';
 
@@ -225,6 +237,15 @@ export class FakeLinkStore implements ICoachTextLinkReader, ICoachTextLinkWriter
     return Promise.resolve();
   }
 
+  touchLastCommand(id: string, at: Date): Promise<void> {
+    this.check();
+    const row = this.rows.get(id);
+    if (row) {
+      row.lastCommandAt = at;
+    }
+    return Promise.resolve();
+  }
+
   setPausedByPhone(phoneE164: string, pausedAt: Date | null): Promise<boolean> {
     this.check();
     const held = [...this.rows.values()].filter(
@@ -252,6 +273,10 @@ export class FakeSettingsStore implements ICoachTextSettingsStore {
 
 export class FakeConversationStore implements ICoachTextConversationStore {
   readonly rows = new Map<string, CoachTextConversation>();
+  /** Each phone's lease end. */
+  readonly leases = new Map<string, Date>();
+  /** When set, a lease is always granted, so a test can race two answers past it. */
+  ignoreLeases = false;
 
   private row(phoneE164: string): CoachTextConversation {
     const existing = this.rows.get(phoneE164);
@@ -308,6 +333,22 @@ export class FakeConversationStore implements ICoachTextConversationStore {
       row.chosenUntil = input.choose.until;
     }
     return Promise.resolve(true);
+  }
+
+  acquireLease(phoneE164: string, now: Date, until: Date): Promise<boolean> {
+    const held = this.leases.get(phoneE164);
+    if (!this.ignoreLeases && held && held.getTime() > now.getTime()) {
+      return Promise.resolve(false);
+    }
+    this.leases.set(phoneE164, until);
+    return Promise.resolve(true);
+  }
+
+  releaseLease(phoneE164: string, until: Date): Promise<void> {
+    if (this.leases.get(phoneE164)?.getTime() === until.getTime()) {
+      this.leases.delete(phoneE164);
+    }
+    return Promise.resolve();
   }
 }
 
@@ -373,6 +414,7 @@ export interface StoredCommand {
   body: string;
   interpreter: CoachTextInterpreter;
   status: CoachTextCommandStatus;
+  action: string | null;
   reason: string | null;
   replyText: string | null;
   latencyMs: number | null;
@@ -409,6 +451,7 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
       body: input.body,
       interpreter: input.interpreter,
       status: 'received',
+      action: null,
       reason: null,
       replyText: null,
       latencyMs: null,
@@ -430,6 +473,9 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
       return Promise.reject(new Error(`no command ${id}`));
     }
     row.status = input.status;
+    if (input.action !== undefined) {
+      row.action = input.action;
+    }
     row.reason = input.reason ?? null;
     row.replyText = input.replyText ?? null;
     row.latencyMs = input.latencyMs ?? null;
@@ -448,6 +494,7 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
       body: '[not verified]',
       interpreter: 'none',
       status: 'rejected',
+      action: null,
       reason: input.reason,
       replyText: null,
       latencyMs: null,
@@ -469,6 +516,18 @@ export class FakeCommandLog implements ICoachTextCommandWriter, ICoachTextComman
           row.createdAt.getTime() >= since.getTime()
       ).length
     );
+  }
+
+  previousFor(phoneE164: string, beforeId: string): Promise<PreviousCommand | null> {
+    const at = this.rows.findIndex((row) => row.id === beforeId);
+    const earlier = this.rows.slice(0, Math.max(0, at)).filter(
+      (row) =>
+        row.phoneE164 === phoneE164 &&
+        row.messageSid !== null &&
+        !(row.status === 'rejected' && row.reason === 'busy')
+    );
+    const last = earlier.at(-1);
+    return Promise.resolve(last ? { status: last.status, reason: last.reason } : null);
   }
 
   listForOwnerUser(ownerUserId: string, limit: number): Promise<CoachTextHistoryRow[]> {
@@ -525,4 +584,190 @@ export class FakeNotifier implements ICoachTextNotifier {
   removed(input: { email: string; accountName: string; label: string; phoneMasked: string }): Promise<void> {
     return this.push({ kind: 'removed', ...input });
   }
+}
+
+// ── Games, streams and the write ────────────────────────────────────────────
+
+export interface StoredPage {
+  game: CoachGame;
+  ownerAccountId: string;
+  active: boolean;
+  pinnedAt: Date | null;
+}
+
+export interface StoredChange {
+  commandId: string;
+  ownerAccountId: string;
+  eventId: string;
+  previousUrl: string | null;
+  previousPinnedAt: Date | null;
+  newUrl: string;
+  at: Date;
+  undone: boolean;
+}
+
+const HOUR = 60 * 60 * 1000;
+
+/** The account's pages, and the guarded write on them, in memory. */
+export class FakePages implements IGameReader, IAttachWriter {
+  readonly pages = new Map<string, StoredPage>();
+  readonly changes: StoredChange[] = [];
+  /** Runs inside the write, before the page changes, e.g. to move the clock. */
+  duringWrite: (() => void) | null = null;
+
+  constructor(
+    private readonly conversations: FakeConversationStore,
+    private readonly nowMs: () => number
+  ) {}
+
+  add(ownerAccountId: string, game: Partial<CoachGame> & { eventId: string; title: string }): StoredPage {
+    const page: StoredPage = {
+      game: {
+        directStreamId: '99999999-9999-4999-8999-999999999999',
+        parentSlug: 'diablos',
+        eventSlug: game.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        scheduledStartAt: new Date(this.nowMs()),
+        streamUrl: null,
+        ...game,
+      },
+      ownerAccountId,
+      active: true,
+      pinnedAt: null,
+    };
+    this.pages.set(game.eventId, page);
+    return page;
+  }
+
+  private ofAccount(ownerAccountId: string): CoachGame[] {
+    return [...this.pages.values()]
+      .filter((page) => page.ownerAccountId === ownerAccountId && page.active && page.game.scheduledStartAt)
+      .map((page) => ({ ...page.game }))
+      .sort((a, b) => (a.scheduledStartAt?.getTime() ?? 0) - (b.scheduledStartAt?.getTime() ?? 0));
+  }
+
+  listOnNow(ownerAccountId: string, now: Date): Promise<CoachGame[]> {
+    const from = now.getTime() - 3 * HOUR;
+    const to = now.getTime() + HOUR;
+    return Promise.resolve(
+      this.ofAccount(ownerAccountId).filter((g) => {
+        const at = g.scheduledStartAt?.getTime() ?? 0;
+        return at >= from && at <= to;
+      })
+    );
+  }
+
+  listUpcoming(ownerAccountId: string, now: Date, hours: number, limit: number): Promise<CoachGame[]> {
+    const from = now.getTime() - 3 * HOUR;
+    const to = now.getTime() + hours * HOUR;
+    return Promise.resolve(
+      this.ofAccount(ownerAccountId)
+        .filter((g) => {
+          const at = g.scheduledStartAt?.getTime() ?? 0;
+          return at >= from && at <= to;
+        })
+        .slice(0, limit)
+    );
+  }
+
+  listNearest(ownerAccountId: string, now: Date, limit: number): Promise<CoachGame[]> {
+    const distance = (g: CoachGame): number => Math.abs((g.scheduledStartAt?.getTime() ?? 0) - now.getTime());
+    return Promise.resolve(this.ofAccount(ownerAccountId).sort((a, b) => distance(a) - distance(b)).slice(0, limit));
+  }
+
+  private pageOf(page: StoredPage): AttachedPage {
+    return { title: page.game.title, parentSlug: page.game.parentSlug, eventSlug: page.game.eventSlug };
+  }
+
+  async attach(input: AttachWrite): Promise<AttachResult> {
+    if (this.nowMs() >= input.deadlineAtMs) {
+      return { kind: 'late' };
+    }
+    if (input.pendingId) {
+      const won = await this.conversations.answer(input.phoneE164, { pendingId: input.pendingId, now: input.now });
+      if (!won) {
+        return { kind: 'question_closed' };
+      }
+    }
+    const page = this.pages.get(input.eventId);
+    if (!page || !page.active || page.ownerAccountId !== input.ownerAccountId) {
+      return { kind: 'not_found' };
+    }
+    if (page.game.streamUrl === input.streamUrl) {
+      return { kind: 'same', page: this.pageOf(page) };
+    }
+    this.duringWrite?.();
+    if (this.nowMs() >= input.deadlineAtMs) {
+      return { kind: 'late' };
+    }
+    this.changes.push({
+      commandId: input.commandId,
+      ownerAccountId: input.ownerAccountId,
+      eventId: input.eventId,
+      previousUrl: page.game.streamUrl,
+      previousPinnedAt: page.pinnedAt,
+      newUrl: input.streamUrl,
+      at: input.now,
+      undone: false,
+    });
+    page.game.streamUrl = input.streamUrl;
+    page.pinnedAt = input.now;
+    return { kind: 'attached', page: this.pageOf(page) };
+  }
+
+  undo(input: UndoWrite): Promise<UndoResult> {
+    if (this.nowMs() >= input.deadlineAtMs) {
+      return Promise.resolve({ kind: 'late' });
+    }
+    const last = this.changes
+      .filter((c) => c.ownerAccountId === input.ownerAccountId && input.now.getTime() - c.at.getTime() <= 30 * 60 * 1000)
+      .at(-1);
+    const page = last ? this.pages.get(last.eventId) : undefined;
+    if (!last || last.undone || !page) {
+      return Promise.resolve({ kind: 'nothing' });
+    }
+    if (page.game.streamUrl !== last.newUrl) {
+      return Promise.resolve({ kind: 'changed', page: this.pageOf(page) });
+    }
+    last.undone = true;
+    page.game.streamUrl = last.previousUrl;
+    page.pinnedAt = last.previousPinnedAt;
+    return Promise.resolve({ kind: 'undone', page: this.pageOf(page) });
+  }
+}
+
+/** What the cameras report, per account, with a switch to make a lookup hang. */
+export class FakeLiveLookup implements ILiveLookup {
+  readonly byAccount = new Map<string, OwnerLiveStreams>();
+  hang = false;
+  calls = 0;
+  /** Runs when a lookup is made, e.g. to move the clock. */
+  onFind: (() => void) | null = null;
+
+  find(ownerAccountId: string): Promise<OwnerLiveStreams> {
+    this.calls += 1;
+    this.onFind?.();
+    if (this.hang) {
+      return new Promise<OwnerLiveStreams>(() => undefined);
+    }
+    return Promise.resolve(
+      this.byAccount.get(ownerAccountId) ?? { streams: [], sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }] }
+    );
+  }
+}
+
+export class FakeKeywords implements IKeywordLookup {
+  readonly words = new Set<string>();
+
+  isKeyword(word: string): Promise<boolean> {
+    return Promise.resolve(this.words.has(word));
+  }
+}
+
+/** The stores a command needs beyond the link stores, in memory. */
+export function commandFakes(
+  conversations: FakeConversationStore,
+  clock: () => Date
+): { pages: FakePages; lookup: FakeLiveLookup; keywords: FakeKeywords; games: FakePages; writer: FakePages } {
+  const pages = new FakePages(conversations, () => clock().getTime());
+  return { pages, lookup: new FakeLiveLookup(), keywords: new FakeKeywords(), games: pages, writer: pages };
 }

@@ -33,6 +33,7 @@ import { requireOwnerAuth, type AuthRequest } from '../middleware/auth';
 import { coachTextLinkRateLimit } from '../middleware/rateLimit';
 import { validateRequest } from '../middleware/validation';
 import {
+  COACH_TEXT_COMMANDS,
   coachTextHistory,
   coachTextNumber,
   defaultTimeZone,
@@ -110,8 +111,7 @@ function statusView(status: CoachTextPortalStatus): CoachTextStatus {
       lastCommandAt: iso(phone.lastCommandAt),
       unverifiedTextSeen: phone.unverifiedTextSeen,
     })),
-    // The commands a coach can text arrive with the next update.
-    commands: [],
+    commands: [...COACH_TEXT_COMMANDS],
   };
 }
 

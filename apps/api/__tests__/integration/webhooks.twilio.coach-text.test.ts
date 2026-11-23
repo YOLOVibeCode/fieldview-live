@@ -20,8 +20,12 @@ import {
   FakeConsent,
   FakeConversationStore,
   FakeLinkStore,
+  FakeKeywords,
+  FakeLiveLookup,
   FakeNotifier,
+  FakePages,
   FakeSettingsStore,
+  commandFakes,
   makeOwner,
 } from '@/modules/coach-text/__tests__/fakes';
 import type { ICoachTextEngine } from '@/modules/coach-text/interfaces';
@@ -87,6 +91,9 @@ describe('Twilio inbound webhook with coach text commands', () => {
   let consent: FakeConsent;
   let commands: FakeCommandLog;
   let service: PhoneLinkService;
+  let pages: FakePages;
+  let lookup: FakeLiveLookup;
+  let keywords: FakeKeywords;
   let app: express.Express;
   let mockSmsService: {
     findByKeyword: ReturnType<typeof vi.fn>;
@@ -139,6 +146,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
     handleInbound: vi.fn().mockResolvedValue({ handled: false }),
     handleOptOut: vi.fn().mockResolvedValue(undefined),
     handleOptIn: vi.fn().mockResolvedValue(undefined),
+    hintForYes: vi.fn().mockResolvedValue(null),
   });
 
   beforeEach(() => {
@@ -162,6 +170,7 @@ describe('Twilio inbound webhook with coach text commands', () => {
       now: clock,
     });
     links.addOwner(makeOwner());
+    ({ pages, lookup, keywords } = commandFakes(conversations, clock));
     twilioWebhookRoute.setCoachTextEngine(
       new CoachTextEngine({
         linking: service,
@@ -170,6 +179,11 @@ describe('Twilio inbound webhook with coach text commands', () => {
         chooser: new AccountChooser({ links, conversations, now: clock }),
         conversations,
         settings,
+        consent,
+        keywords,
+        games: pages,
+        lookup,
+        writer: pages,
         now: clock,
       })
     );
@@ -708,6 +722,167 @@ describe('Twilio inbound webhook with coach text commands', () => {
       expect(engine.handleOptIn).toHaveBeenCalledWith({ from: phone, twilioVerified: true });
       expect(mockSmsService.handleStop).toHaveBeenCalledWith(phone);
       expect(mockSmsService.handleStart).toHaveBeenCalledWith(phone);
+    });
+  });
+
+  describe('stream commands', () => {
+    const GAME = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const URL_1 = 'https://stream.example.com/one.m3u8';
+    const URL_2 = 'https://stream.example.com/two.m3u8';
+    const COMMAND_TEXTS = [
+      'MENU',
+      'LIVE',
+      'GAMES',
+      'ATTACH',
+      'UNDO',
+      'UNLINK',
+      'add the stream to the game',
+      "what's live",
+      '1',
+      '0',
+      'NO',
+      'YES',
+      'KX7P2Q',
+    ];
+
+    /** What the viewer path answers this text with the feature switched off. */
+    async function switchOffAnswer(body: string, headers: Record<string, string> = VERIFIED): Promise<string> {
+      vi.stubEnv('COACH_TEXT_ENABLED', 'false');
+      const res = await text({ From: freshPhone(), Body: body }, headers);
+      vi.stubEnv('COACH_TEXT_ENABLED', 'true');
+      return res.text;
+    }
+
+    /** A game on now with streams live on its account's camera. */
+    function gameWithStreams(urls: string[]): void {
+      pages.add('account-1', { eventId: GAME, title: 'Diablos vs Sporting' });
+      lookup.byAccount.set('account-1', {
+        streams: urls.map((url, index) => ({
+          provider: 'veo',
+          title: `Match ${index + 1}`,
+          streamUrl: url,
+          startedAt: new Date(now.getTime() - 10 * MINUTE),
+        })),
+        sources: [{ provider: 'veo', displayName: 'Veo', status: 'ok' }],
+      });
+    }
+
+    it.each(COMMAND_TEXTS)('gives a stranger who texts %s exactly the switch-off answer', async (body) => {
+      const res = await text({ From: freshPhone(), Body: body });
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe(await switchOffAnswer(body));
+      expect(commands.rows).toEqual([]);
+    });
+
+    it.each(COMMAND_TEXTS)('gives a linked phone the switch-off answer to %s when the relay did not verify it', async (body) => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+      gameWithStreams([URL_1]);
+
+      const res = await text({ From: phone, Body: body }, { 'x-relay-twilio-verified': '0' });
+
+      expect(res.text).toBe(await switchOffAnswer(body, { 'x-relay-twilio-verified': '0' }));
+      expect(pages.pages.get(GAME)?.game.streamUrl).toBeNull();
+    });
+
+    it.each(COMMAND_TEXTS)('gives a linked phone the switch-off answer to %s while the switch is off', async (body) => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+      gameWithStreams([URL_1]);
+      vi.stubEnv('COACH_TEXT_ENABLED', 'false');
+
+      const res = await text({ From: phone, Body: body });
+      const expected = await switchOffAnswer(body);
+
+      expect(res.text).toBe(expected);
+      expect(pages.pages.get(GAME)?.game.streamUrl).toBeNull();
+    });
+
+    it('answers MENU for a linked phone', async () => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+
+      const res = await text({ From: phone, Body: 'menu' });
+
+      expect(res.headers['content-type']).toContain('text/xml');
+      expect(res.text).toBe(
+        '<Response><Message>FieldView.Live: Text LIVE for what is streaming, GAMES for your pages, ATTACH to put the live stream on your game, UNDO to put it back, UNLINK to remove this phone. Reply STOP to pause, HELP for help.</Message></Response>'
+      );
+      expect(mockSmsService.findByKeyword).not.toHaveBeenCalled();
+    });
+
+    it('attaches and undoes by text, and never sends a stream URL back', async () => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+      gameWithStreams([URL_1]);
+
+      const attached = await text({ From: phone, Body: 'add the stream to the game' });
+      expect(attached.text).toMatch(/^<Response><Message>FieldView\.Live: Done\. Diablos vs Sporting now shows Match 1 from Veo/);
+      expect(attached.text).not.toContain('stream.example.com');
+      expect(pages.pages.get(GAME)?.game.streamUrl).toBe(URL_1);
+
+      const undone = await text({ From: phone, Body: 'UNDO' });
+      expect(undone.text).toBe(
+        '<Response><Message>FieldView.Live: Put back. Diablos vs Sporting shows its earlier stream again.</Message></Response>'
+      );
+      expect(pages.pages.get(GAME)?.game.streamUrl).toBeNull();
+    });
+
+    it('hints at a number for YES while a question is open, and confirms the viewer YES as before', async () => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+      gameWithStreams([URL_1, URL_2]);
+
+      const noQuestion = await text({ From: phone, Body: 'YES' });
+      expect(noQuestion.text).toBe(EMPTY);
+
+      await text({ From: phone, Body: 'ATTACH' });
+      const hinted = await text({ From: phone, Body: 'yes' });
+
+      expect(hinted.text).toBe('<Response><Message>FieldView.Live: Reply with the number, for example 1.</Message></Response>');
+      expect(mockSmsService.handleYes).toHaveBeenCalledTimes(2);
+
+      const picked = await text({ From: phone, Body: '2' });
+      expect(picked.text).toContain('Done. Diablos vs Sporting now shows Match 2');
+    });
+
+    it('keeps the YES answer when the hint fails', async () => {
+      const engine = spyEngine();
+      engine.hintForYes.mockRejectedValue(new Error('boom'));
+      twilioWebhookRoute.setCoachTextEngine(engine);
+
+      const res = await text({ From: freshPhone(), Body: 'YES' });
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe(EMPTY);
+    });
+
+    it('sends a real game keyword from a linked coach down the viewer path', async () => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+      keywords.words.add('KX7P2Q');
+      mockSmsService.findByKeyword.mockResolvedValue({ id: 'game-7', state: 'active' });
+
+      const res = await text({ From: phone, Body: 'kx7p2q' });
+
+      expect(res.text).toBe(EMPTY);
+      expect(mockSmsService.sendPaymentLink).toHaveBeenCalledWith('game-7', phone, expect.stringMatching(/\/checkout\/game-7$/));
+    });
+
+    it('sends nothing back to a coach who texted STOP while the switch was off', async () => {
+      const phone = freshPhone();
+      await linkPhone(phone);
+      mockSmsService.handleStop.mockImplementation((from: string) => consent.revokeConsent(from, 'viewer_notifications'));
+      vi.stubEnv('COACH_TEXT_ENABLED', 'false');
+      await text({ From: phone, Body: 'STOP' });
+      vi.stubEnv('COACH_TEXT_ENABLED', 'true');
+      gameWithStreams([URL_1]);
+
+      const res = await text({ From: phone, Body: 'ATTACH' });
+
+      expect(res.text).toBe(EMPTY);
+      expect(pages.pages.get(GAME)?.game.streamUrl).toBeNull();
     });
   });
 });
